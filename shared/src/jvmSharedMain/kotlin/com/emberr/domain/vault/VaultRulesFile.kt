@@ -53,6 +53,9 @@ object VaultRulesFile {
         `Daily/` and `Subnotes/` belong to Emberr. Do not create folders with those names, and do
         not put new notes in them.
 
+        `Inbox.md` is where the app drops anything captured quickly, so Emberr always keeps it.
+        Deleting that file empties the note instead of trashing it, and the empty file comes back.
+
         ## Conflict files
 
         If you and someone using the app change the same block at the same time, your version is

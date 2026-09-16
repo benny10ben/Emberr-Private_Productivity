@@ -20,6 +20,7 @@ import java.io.IOException
 import java.util.UUID
 
 private val reservedDirectoryNames = setOf(VaultPaths.DAILY_FOLDER_NAME, VaultPaths.SUB_NOTE_FOLDER_NAME)
+private const val INBOX_NOTE_TITLE = "Inbox"
 
 enum class VaultImportOutcome { IGNORED_OUR_OWN_WRITE, UNCHANGED, IMPORTED, IMPORTED_WITH_CONFLICT, CREATED, FAILED }
 
@@ -223,6 +224,8 @@ class VaultImporter(
             )
         }
 
+        if (isTheInboxNote(note)) return emptyInboxForDeletedFile(note, fileName)
+
         fileLedger.forgetNote(noteId)
         noteRepository.saveNote(
             metadata = note.copy(trashedAt = System.currentTimeMillis()),
@@ -230,6 +233,29 @@ class VaultImporter(
         )
         VaultLog.d("\"${note.title}\" moved to Trash because $fileName was deleted")
         return VaultImportReport(VaultImportOutcome.IMPORTED, note.title, "moved to Trash")
+    }
+
+    private fun isTheInboxNote(note: NoteMetadataEntity): Boolean =
+        !note.isDaily && !note.isSubNote && note.title.equals(INBOX_NOTE_TITLE, ignoreCase = true)
+
+    private suspend fun emptyInboxForDeletedFile(
+        note: NoteMetadataEntity,
+        fileName: String
+    ): VaultImportReport {
+        fileLedger.forgetNote(note.noteId)
+
+        val blocksStillHeld = noteRepository.getNoteContent(note.noteId)?.blocks.orEmpty()
+            .filterNot { it.isDeleted }
+
+        if (blocksStillHeld.isEmpty()) {
+            VaultMirrorTrigger.requestNoteRefresh(note.noteId)
+            VaultLog.d("$fileName was deleted, the Inbox was already empty - writing the file back")
+            return VaultImportReport(VaultImportOutcome.UNCHANGED, note.title, "written back empty")
+        }
+
+        noteRepository.saveNote(metadata = note, content = NoteContent(blocks = emptyList()))
+        VaultLog.d("Inbox emptied because $fileName was deleted - the note itself stays")
+        return VaultImportReport(VaultImportOutcome.IMPORTED, note.title, "emptied instead of trashed")
     }
 
     // Vault-relative, so a move between directories is visible in the log.
