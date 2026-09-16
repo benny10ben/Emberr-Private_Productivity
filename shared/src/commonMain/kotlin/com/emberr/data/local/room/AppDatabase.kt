@@ -20,7 +20,8 @@ import androidx.room.RoomDatabaseConstructor
         SelfHostDeletedNoteEntity::class,
         ChatSessionEntity::class,
         SelfHostDeletedApiConfigEntity::class,
-        CalendarEventExceptionEntity::class
+        CalendarEventExceptionEntity::class,
+        MediaReferenceEntity::class
     ],
     version = 1,
     exportSchema = true,
@@ -41,6 +42,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun selfHostDeletedNoteDao(): SelfHostDeletedNoteDao
     abstract fun chatSessionDao(): ChatSessionDao
     abstract fun selfHostDeletedApiConfigDao(): SelfHostDeletedApiConfigDao
+    abstract fun mediaReferenceDao(): MediaReferenceDao
 }
 
 @Suppress("NO_ACTUAL_FOR_EXPECT")

@@ -132,6 +132,9 @@ interface SettingsManager {
     fun isSampleDailyNoteSeeded(): Boolean
     fun saveSampleDailyNoteSeeded(seeded: Boolean)
 
+    fun isMediaReferenceListBuilt(): Boolean
+    fun saveMediaReferenceListBuilt(built: Boolean)
+
     fun isSampleNotesSeeded(): Boolean
     fun saveSampleNotesSeeded(seeded: Boolean)
 }

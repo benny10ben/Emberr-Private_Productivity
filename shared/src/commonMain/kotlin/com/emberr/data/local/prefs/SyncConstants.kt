@@ -49,6 +49,8 @@ object SyncConstants {
     const val DEFAULT_SAMPLE_DAILY_NOTE_SEEDED = false
     const val KEY_SAMPLE_NOTES_SEEDED = "sample_notes_seeded"
     const val DEFAULT_SAMPLE_NOTES_SEEDED = false
+    const val KEY_MEDIA_REFERENCE_LIST_BUILT = "media_reference_list_built"
+    const val DEFAULT_MEDIA_REFERENCE_LIST_BUILT = false
     // Sync Keys
     const val KEY_SYNC_TIMESTAMP = "last_sync_timestamp"
     const val KEY_SELF_HOST_SYNC_TIMESTAMP = "self_host_last_sync_timestamp"

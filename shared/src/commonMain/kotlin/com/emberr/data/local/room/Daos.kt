@@ -22,6 +22,9 @@ interface NoteDao {
     @Upsert
     suspend fun insertOrUpdateMetadata(metadata: NoteMetadataEntity)
 
+    @Query("SELECT coverImagePath FROM notes_metadata WHERE coverImagePath IS NOT NULL")
+    suspend fun getAllCoverImagePaths(): List<String?>
+
     @Query("SELECT * FROM notes_metadata WHERE isDaily = 0 AND trashedAt IS NULL AND isSubNote = 0 AND isTemplate = 0 ORDER BY updatedAt DESC")
     fun getAllNotes(): Flow<List<NoteMetadataEntity>>
 
@@ -360,4 +363,20 @@ interface SelfHostDeletedNoteDao {
 
     @Query("SELECT * FROM self_host_deleted_notes WHERE dateString = :dateString LIMIT 1")
     suspend fun getTombstoneByDateString(dateString: String): SelfHostDeletedNoteEntity?
+}
+
+@Dao
+interface MediaReferenceDao {
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertReferences(references: List<MediaReferenceEntity>)
+
+    @Query("DELETE FROM media_references WHERE noteId = :noteId")
+    suspend fun deleteByNoteId(noteId: String)
+
+    @Query("DELETE FROM media_references")
+    suspend fun deleteAllReferences()
+
+    @Query("SELECT DISTINCT fileName FROM media_references")
+    suspend fun getAllReferencedFileNames(): List<String>
 }

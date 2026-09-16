@@ -387,6 +387,18 @@ class DesktopSettingsManager(private val secretStore: DesktopSecretStore) : Sett
         hasSeededSampleDailyNote = seeded
     }
 
+    private var hasBuiltMediaReferenceList = prefs.getBoolean(
+        SyncConstants.KEY_MEDIA_REFERENCE_LIST_BUILT,
+        SyncConstants.DEFAULT_MEDIA_REFERENCE_LIST_BUILT
+    )
+
+    override fun isMediaReferenceListBuilt(): Boolean = hasBuiltMediaReferenceList
+
+    override fun saveMediaReferenceListBuilt(built: Boolean) {
+        prefs.putBoolean(SyncConstants.KEY_MEDIA_REFERENCE_LIST_BUILT, built)
+        hasBuiltMediaReferenceList = built
+    }
+
     private var hasSeededSampleNotes = prefs.getBoolean(
         SyncConstants.KEY_SAMPLE_NOTES_SEEDED,
         SyncConstants.DEFAULT_SAMPLE_NOTES_SEEDED

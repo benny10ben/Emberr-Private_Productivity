@@ -440,6 +440,18 @@ class AndroidSettingsManager(
         hasSeededSampleDailyNote = seeded
     }
 
+    private var hasBuiltMediaReferenceList = sharedPreferences.getBoolean(
+        SyncConstants.KEY_MEDIA_REFERENCE_LIST_BUILT,
+        SyncConstants.DEFAULT_MEDIA_REFERENCE_LIST_BUILT
+    )
+
+    override fun isMediaReferenceListBuilt(): Boolean = hasBuiltMediaReferenceList
+
+    override fun saveMediaReferenceListBuilt(built: Boolean) {
+        sharedPreferences.edit(commit = true) { putBoolean(SyncConstants.KEY_MEDIA_REFERENCE_LIST_BUILT, built) }
+        hasBuiltMediaReferenceList = built
+    }
+
     private var hasSeededSampleNotes = sharedPreferences.getBoolean(
         SyncConstants.KEY_SAMPLE_NOTES_SEEDED,
         SyncConstants.DEFAULT_SAMPLE_NOTES_SEEDED
