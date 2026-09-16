@@ -51,12 +51,11 @@ import com.emberr.data.local.room.NoteMetadataEntity
 import com.emberr.domain.model.NoteSearchResult
 import com.emberr.domain.util.system.isDesktopPlatform
 import com.emberr.presentation.shared.components.EmberrBlur
-import com.emberr.presentation.shared.components.LocalEmberrBlurSource
 import com.emberr.presentation.shared.components.TopBarIconButton
 import com.emberr.presentation.shared.components.emberrBlur
 import com.emberr.presentation.shared.components.fullScreenDialogProperties
+import com.emberr.ui.theme.LocalAppIsDark
 import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.HazeTint
 import dev.chrisbanes.haze.hazeSource
 import emberr.shared.generated.resources.Res
 import emberr.shared.generated.resources.calendar_day
@@ -86,7 +85,11 @@ fun SearchDialog(
         properties = fullScreenDialogProperties()
     ) {
         val hazeState = remember { HazeState() }
-        val ambientHazeState = LocalEmberrBlurSource.current
+        val dialogBackgroundColor = if (LocalAppIsDark.current) {
+            MaterialTheme.colorScheme.surface
+        } else {
+            MaterialTheme.colorScheme.background
+        }
 
         Box(
             modifier = Modifier
@@ -105,10 +108,7 @@ fun SearchDialog(
                     .fillMaxHeight(0.92f)
                     .safeDrawingPadding()
                     .clip(DialogShape)
-                    .emberrBlur(
-                        ambientHazeState,
-                        EmberrBlur.Thick
-                    )
+                    .background(dialogBackgroundColor)
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,

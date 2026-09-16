@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -21,9 +20,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.emberr.domain.ai.KnowledgeMode
 import com.emberr.presentation.rag.RagViewModel
-import com.emberr.presentation.rag.components.OptionRowOuterPadding
 import com.emberr.presentation.rag.components.OptionRowPadding
-import com.emberr.presentation.rag.components.SheetContentHorizontalPadding
+import com.emberr.presentation.rag.components.OptionRowShape
+import com.emberr.presentation.rag.components.OptionRowVerticalSpacing
+import com.emberr.presentation.rag.components.SelectedOptionDot
 import com.emberr.presentation.rag.components.clickableWithoutMobileRipple
 import com.emberr.presentation.shared.components.EmberrBottomSheet
 import com.emberr.presentation.shared.components.EmberrButtonPrimary
@@ -42,15 +42,13 @@ internal fun FineTuningSheet(
         expanded = expanded,
         onDismiss = onDismiss,
         title = "Fine-tuning",
-        contentHorizontalPadding = 0.dp,
     ) { closeAnd ->
 
-        Column(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)) {
+        Column(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
             Text(
                 text = "Knowledge Source",
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                modifier = Modifier.padding(horizontal = SheetContentHorizontalPadding)
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
             )
             Spacer(Modifier.height(8.dp))
             KnowledgeModeOption(
@@ -76,8 +74,7 @@ internal fun FineTuningSheet(
             Text(
                 text = "Response Length",
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                modifier = Modifier.padding(horizontal = SheetContentHorizontalPadding)
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
             )
             Spacer(Modifier.height(8.dp))
             responseLengthOptions.forEach { option ->
@@ -92,8 +89,7 @@ internal fun FineTuningSheet(
             EmberrButtonPrimary(
                 text = "Close",
                 onClick = { closeAnd { } },
-                modifier = Modifier.fillMaxWidth()
-                    .padding(vertical = 12.dp, horizontal = SheetContentHorizontalPadding)
+                modifier = Modifier.fillMaxWidth().padding(top = 12.dp)
             )
         }
     }
@@ -107,20 +103,20 @@ private fun KnowledgeModeOption(
     onClick: () -> Unit
 ) {
     Surface(
-        shape = RoundedCornerShape(12.dp),
+        shape = OptionRowShape,
         color = if (selected) SelectedOptionBackground else Color.Transparent,
         tonalElevation = 0.dp,
         shadowElevation = 0.dp,
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = OptionRowOuterPadding)
-            .clip(RoundedCornerShape(12.dp))
+            .padding(vertical = OptionRowVerticalSpacing)
+            .clip(OptionRowShape)
             .clickableWithoutMobileRipple(onClick)
     ) {
         Row(
             modifier = Modifier.padding(OptionRowPadding),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
@@ -136,6 +132,10 @@ private fun KnowledgeModeOption(
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                 )
+            }
+
+            if (selected) {
+                SelectedOptionDot()
             }
         }
     }

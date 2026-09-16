@@ -413,7 +413,7 @@ fun CalendarScreen(
         LocalIndication provides NoRippleIndicationNodeFactory,
         LocalRippleConfiguration provides null
       ) {
-        Column(modifier = Modifier.fillMaxWidth().padding(bottom = 26.dp)) {
+        Column(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
             ViewModeSection(
                 viewMode = viewMode,
                 onViewModeChange = { mode ->
@@ -435,13 +435,14 @@ fun CalendarScreen(
     EmberrBottomSheet(
         expanded = showCategoriesSheet,
         onDismiss = { showCategoriesSheet = false },
-        title = "Categories"
+        title = "Categories",
+        contentHorizontalPadding = 0.dp
     ) {
       CompositionLocalProvider(
         LocalIndication provides NoRippleIndicationNodeFactory,
         LocalRippleConfiguration provides null
       ) {
-        Column(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)) {
+        Column(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
             CategorySection(
                 categories = categories,
                 onAddCategory = viewModel::addCategory,
@@ -453,7 +454,7 @@ fun CalendarScreen(
                 text = "Close",
                 onClick = { showCategoriesSheet = false },
                 modifier = Modifier.fillMaxWidth()
-                    .padding(vertical = 12.dp)
+                    .padding(top = 12.dp, start = 20.dp, end = 20.dp)
             )
         }
       }
@@ -1462,13 +1463,16 @@ private fun ViewModeRow(
         modifier = Modifier
             .fillMaxWidth()
             .padding(
-                horizontal = if (isDesktopPlatform) 0.dp else 8.dp,
+                horizontal = if (isDesktopPlatform) 0.dp else 12.dp,
                 vertical = 2.dp
             )
-            .clip(RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(14.dp))
             .background(if (isSelected) SelectedOptionBackground else Color.Transparent)
             .clickable(onClick = onClick)
-            .padding(vertical = 10.dp, horizontal = 12.dp),
+            .padding(
+                horizontal = if (isDesktopPlatform) 12.dp else 14.dp,
+                vertical = if (isDesktopPlatform) 10.dp else 14.dp
+            ),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
@@ -1478,6 +1482,14 @@ private fun ViewModeRow(
             color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.weight(1f)
         )
+
+        if (isSelected) {
+            Box(
+                modifier = Modifier
+                    .size(8.dp)
+                    .background(MaterialTheme.colorScheme.primary, CircleShape)
+            )
+        }
     }
 }
 

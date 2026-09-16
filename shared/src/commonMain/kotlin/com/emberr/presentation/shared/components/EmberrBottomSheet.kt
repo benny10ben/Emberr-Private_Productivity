@@ -62,16 +62,24 @@ private object SheetBringIntoViewSpec : BringIntoViewSpec {
 
 @Composable
 private fun Modifier.sheetCardBackground(edgeShape: Shape? = null): Modifier {
-    val blurSource = LocalEmberrBlurSource.current
-    val solidColor = if (LocalAppIsDark.current) MaterialTheme.colorScheme.surface
-    else MaterialTheme.colorScheme.background
-    val edgeColor = MaterialTheme.colorScheme.outline.copy(alpha = SheetEdgeAlpha)
+    val backgroundColor = if (LocalAppIsDark.current) {
+        MaterialTheme.colorScheme.surface
+    } else {
+        MaterialTheme.colorScheme.background
+    }
 
-    if (blurSource == null) return this.background(solidColor)
+    var modifierWithBackground = this.background(backgroundColor)
 
-    val blurredCard = this.emberrBlur(blurSource, EmberrBlur.Thick)
-    return if (edgeShape == null) blurredCard
-    else blurredCard.border(width = SheetEdgeWidth, color = edgeColor, shape = edgeShape)
+    if (edgeShape != null) {
+        val edgeColor = MaterialTheme.colorScheme.outline.copy(alpha = SheetEdgeAlpha)
+        modifierWithBackground = modifierWithBackground.border(
+            width = SheetEdgeWidth,
+            color = edgeColor,
+            shape = edgeShape
+        )
+    }
+
+    return modifierWithBackground
 }
 
 class EmberrBottomSheetAction(

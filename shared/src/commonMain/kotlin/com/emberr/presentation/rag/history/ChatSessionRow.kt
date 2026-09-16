@@ -34,9 +34,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.emberr.domain.ai.chat.ChatSession
 import com.emberr.domain.util.system.isDesktopPlatform
+import com.emberr.presentation.rag.components.DesktopMenuRowHorizontalPadding
 import com.emberr.presentation.rag.components.ModelOptionCard
-import com.emberr.presentation.rag.components.OptionRowOuterPadding
-import com.emberr.presentation.rag.components.SheetContentHorizontalPadding
+import com.emberr.presentation.rag.components.OptionRowPadding
+import com.emberr.presentation.rag.components.OptionRowShape
+import com.emberr.presentation.rag.components.OptionRowVerticalSpacing
+import com.emberr.presentation.rag.components.SelectedOptionDot
 import com.emberr.presentation.rag.components.clickableWithoutMobileRipple
 import com.emberr.presentation.shared.components.EmberrAlertDialog
 import com.emberr.presentation.shared.components.EmberrBottomSheet
@@ -59,31 +62,27 @@ internal fun ChatSessionRow(
     var showDeleteConfirm by remember { mutableStateOf(false) }
 
     Surface(
-        shape = RoundedCornerShape(12.dp),
+        shape = OptionRowShape,
         color = if (isActive) SelectedOptionBackground else Color.Transparent,
         tonalElevation = 0.dp,
         shadowElevation = 0.dp,
         modifier = Modifier
             .fillMaxWidth()
-            .then(
-                if (isDesktopPlatform)
-                    Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
-                else
-                    Modifier.padding(horizontal = OptionRowOuterPadding)
+            .padding(
+                horizontal = if (isDesktopPlatform) 8.dp else 0.dp,
+                vertical = OptionRowVerticalSpacing
             )
-            .clip(RoundedCornerShape(12.dp))
+            .clip(OptionRowShape)
             .clickableWithoutMobileRipple(onClick)
     ) {
         Row(
-            modifier = Modifier.padding(
-                horizontal = if (isDesktopPlatform)
-                    12.dp
-                else
-                    SheetContentHorizontalPadding - OptionRowOuterPadding,
-                vertical = if (isDesktopPlatform) 10.dp else 12.dp
-            ),
+            modifier = if (isDesktopPlatform) {
+                Modifier.padding(horizontal = DesktopMenuRowHorizontalPadding, vertical = 10.dp)
+            } else {
+                Modifier.padding(OptionRowPadding)
+            },
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(14.dp)
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
@@ -104,6 +103,11 @@ internal fun ChatSessionRow(
                     overflow = TextOverflow.Ellipsis
                 )
             }
+
+            if (isActive) {
+                SelectedOptionDot()
+            }
+
             Box {
                 Icon(
                     Icons.Default.MoreVert,

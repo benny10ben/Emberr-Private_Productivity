@@ -15,6 +15,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 
@@ -29,16 +30,17 @@ internal fun ModelOptionCard(
     titleMaxLines: Int = Int.MAX_VALUE,
     containerColor: Color = Color.Transparent,
     titleColor: Color = MaterialTheme.colorScheme.onSurface,
+    shape: Shape = RoundedCornerShape(12.dp),
     modifier: Modifier = Modifier
 ) {
     Surface(
-        shape = RoundedCornerShape(12.dp),
+        shape = shape,
         color = containerColor,
         tonalElevation = 0.dp,
         shadowElevation = 0.dp,
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
+            .clip(shape)
             .clickableWithoutMobileRipple(onClick)
     ) {
         Row(

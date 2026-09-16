@@ -168,32 +168,50 @@ private fun CategoryRow(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding( vertical = 2.dp)
-                .clip(RoundedCornerShape(12.dp))
+                .padding(
+                    horizontal = if (isDesktopPlatform) 0.dp else 12.dp,
+                    vertical = 2.dp
+                )
+                .clip(RoundedCornerShape(14.dp))
                 .clickable(onClick = onClick)
-                .padding(vertical = 10.dp,  horizontal = if (isDesktopPlatform) 12.dp else 0.dp)
-                .padding(end = 12.dp),
+                .padding(
+                    horizontal = if (isDesktopPlatform) 12.dp else 14.dp,
+                    vertical = if (isDesktopPlatform) 10.dp else 14.dp
+                )
+                .padding(end = if (isDesktopPlatform) 12.dp else 0.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(
-                modifier = Modifier
-                    .size(14.dp)
-                    .background(category.colorHex.toCategoryColor(), CircleShape)
-            )
+            if (isDesktopPlatform) {
+                Box(
+                    modifier = Modifier
+                        .size(14.dp)
+                        .background(category.colorHex.toCategoryColor(), CircleShape)
+                )
+            }
+
             Text(
                 text = category.name,
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier
                     .weight(1f)
-                    .padding(start = 12.dp)
+                    .padding(start = if (isDesktopPlatform) 12.dp else 0.dp)
             )
-            Icon(
-                painter = painterResource(Res.drawable.pen),
-                contentDescription = "Edit ${category.name}",
-                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                modifier = Modifier.size(18.dp)
-            )
+
+            if (isDesktopPlatform) {
+                Icon(
+                    painter = painterResource(Res.drawable.pen),
+                    contentDescription = "Edit ${category.name}",
+                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                    modifier = Modifier.size(18.dp)
+                )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .size(10.dp)
+                        .background(category.colorHex.toCategoryColor(), CircleShape)
+                )
+            }
         }
 
         EmberrDesktopMenu(
@@ -238,10 +256,16 @@ private fun AddCategoryRow(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 2.dp)
-                .clip(RoundedCornerShape(12.dp))
+                .padding(
+                    horizontal = if (isDesktopPlatform) 0.dp else 12.dp,
+                    vertical = 2.dp
+                )
+                .clip(RoundedCornerShape(14.dp))
                 .clickable(onClick = onClick)
-                .padding(vertical = 10.dp, horizontal = if (isDesktopPlatform) 10.dp else 0.dp),
+                .padding(
+                    horizontal = if (isDesktopPlatform) 10.dp else 14.dp,
+                    vertical = if (isDesktopPlatform) 10.dp else 14.dp
+                ),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(

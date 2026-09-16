@@ -86,7 +86,6 @@ import com.emberr.domain.model.inlineSpansOrEmpty
 import com.emberr.domain.util.system.isDesktopPlatform
 import com.emberr.presentation.LocalImageOverlay
 import com.emberr.presentation.shared.components.EmberrBlur
-import com.emberr.presentation.shared.components.LocalEmberrBlurSource
 import com.emberr.presentation.shared.components.TopBarIconButton
 import com.emberr.presentation.shared.components.emberrBlur
 import com.emberr.presentation.shared.components.fullScreenDialogProperties
@@ -99,8 +98,8 @@ import com.emberr.presentation.shared.editor.blockViews.LinkedNoteBlockView
 import com.emberr.presentation.shared.editor.blockViews.TableBlockView
 import com.emberr.presentation.shared.editor.blockViews.databaseBlockView.DatabaseBlockView
 import com.emberr.presentation.shared.editor.blockViews.databaseBlockView.buildNoteLinkAnnotatedString
+import com.emberr.ui.theme.LocalAppIsDark
 import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.HazeTint
 import dev.chrisbanes.haze.hazeSource
 import emberr.shared.generated.resources.Res
 import emberr.shared.generated.resources.arrow_down
@@ -174,7 +173,11 @@ fun DailyTimelineDialog(
             LocalImageOverlay provides { content -> fullScreenOverlayContent = content }
         ) {
             val hazeState = remember { HazeState() }
-            val ambientHazeState = LocalEmberrBlurSource.current
+            val dialogBackgroundColor = if (LocalAppIsDark.current) {
+                MaterialTheme.colorScheme.surface
+            } else {
+                MaterialTheme.colorScheme.background
+            }
             var searchQuery by remember { mutableStateOf("") }
 
             val rows = remember(days) { buildTimelineRows(days) }
@@ -210,10 +213,7 @@ fun DailyTimelineDialog(
                         .fillMaxHeight(0.92f)
                         .safeDrawingPadding()
                         .clip(DialogShape)
-                        .emberrBlur(
-                            ambientHazeState,
-                            EmberrBlur.Thick
-                        )
+                        .background(dialogBackgroundColor)
                         .clickable(
                             interactionSource = remember { MutableInteractionSource() },
                             indication = null,

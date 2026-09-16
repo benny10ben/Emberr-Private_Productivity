@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.HorizontalDivider
@@ -29,8 +28,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.emberr.domain.util.system.isDesktopPlatform
 import com.emberr.presentation.rag.RagViewModel
+import com.emberr.presentation.rag.components.DesktopMenuRowHorizontalPadding
+import com.emberr.presentation.rag.components.OptionRowPadding
+import com.emberr.presentation.rag.components.OptionRowShape
+import com.emberr.presentation.rag.components.OptionRowVerticalSpacing
 import com.emberr.presentation.rag.components.RagDesktopMenuItem
-import com.emberr.presentation.rag.components.SheetContentHorizontalPadding
 import com.emberr.presentation.rag.components.clickableWithoutMobileRipple
 import com.emberr.presentation.shared.components.EmberrBottomSheet
 import com.emberr.presentation.shared.components.EmberrButtonPrimary
@@ -46,7 +48,6 @@ internal fun ChatHistorySheet(
         expanded = expanded,
         onDismiss = onDismiss,
         title = "Chat History",
-        contentHorizontalPadding = 0.dp,
     ) { closeAnd ->
         ChatHistoryMenuContent(viewModel = viewModel, closeAnd = closeAnd)
     }
@@ -60,9 +61,9 @@ internal fun ChatHistoryMenuContent(
     val sessions by viewModel.sessions.collectAsState()
     val currentSessionId by viewModel.currentSessionId.collectAsState()
     var searchQuery by remember { mutableStateOf("") }
-    val rowHorizontalPadding = if (isDesktopPlatform) 12.dp else SheetContentHorizontalPadding
+    val rowHorizontalPadding = if (isDesktopPlatform) DesktopMenuRowHorizontalPadding else 0.dp
 
-    Column(modifier = Modifier.fillMaxWidth().padding(bottom = 26.dp)) {
+    Column(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
         Spacer(Modifier.height(10.dp))
         EmberrTextField(
             value = searchQuery,
@@ -88,20 +89,18 @@ internal fun ChatHistoryMenuContent(
             )
         } else {
             Surface(
-                shape = RoundedCornerShape(12.dp),
+                shape = OptionRowShape,
                 color = Color.Transparent,
                 tonalElevation = 0.dp,
                 shadowElevation = 0.dp,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
+                    .padding(vertical = OptionRowVerticalSpacing)
+                    .clip(OptionRowShape)
                     .clickableWithoutMobileRipple { closeAnd { viewModel.clearChat() } }
             ) {
                 Row(
-                    modifier = Modifier.padding(
-                        horizontal = SheetContentHorizontalPadding,
-                        vertical = 8.dp
-                    ),
+                    modifier = Modifier.padding(OptionRowPadding),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
@@ -122,7 +121,7 @@ internal fun ChatHistoryMenuContent(
         HorizontalDivider(
             modifier = Modifier.padding(
                 vertical = 10.dp,
-                horizontal = if (isDesktopPlatform) 16.dp else SheetContentHorizontalPadding
+                horizontal = if (isDesktopPlatform) 16.dp else 0.dp
             ),
             color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)
         )
@@ -136,8 +135,7 @@ internal fun ChatHistoryMenuContent(
         Text(
             text = "Recent Chats",
             style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-            modifier = Modifier.padding(horizontal = SheetContentHorizontalPadding)
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
         )
         Spacer(Modifier.height(8.dp))
 
@@ -149,7 +147,7 @@ internal fun ChatHistoryMenuContent(
                 modifier = Modifier.padding(vertical = 12.dp, horizontal = rowHorizontalPadding)
             )
         } else {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Column {
                 filteredSessions.forEach { session ->
                     ChatSessionRow(
                         session = session,
@@ -168,7 +166,6 @@ internal fun ChatHistoryMenuContent(
                 text = "Close",
                 onClick = { closeAnd { } },
                 modifier = Modifier.fillMaxWidth()
-                    .padding(horizontal = SheetContentHorizontalPadding)
             )
         }
     }

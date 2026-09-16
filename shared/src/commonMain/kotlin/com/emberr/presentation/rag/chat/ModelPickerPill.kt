@@ -5,9 +5,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -39,9 +37,11 @@ import com.emberr.domain.ai.external.ExternalAiProviderConfig
 import com.emberr.domain.util.system.isDesktopPlatform
 import com.emberr.presentation.rag.RagViewModel
 import com.emberr.presentation.rag.components.ModelOptionCard
-import com.emberr.presentation.rag.components.OptionRowOuterPadding
 import com.emberr.presentation.rag.components.OptionRowPadding
+import com.emberr.presentation.rag.components.OptionRowShape
+import com.emberr.presentation.rag.components.OptionRowVerticalSpacing
 import com.emberr.presentation.rag.components.RagDesktopMenuItem
+import com.emberr.presentation.rag.components.SelectedOptionDot
 import com.emberr.presentation.shared.components.EmberrBottomSheet
 import com.emberr.presentation.shared.components.EmberrButtonPrimary
 import com.emberr.presentation.shared.components.EmberrDesktopMenu
@@ -155,9 +155,8 @@ internal fun ModelPickerPill(viewModel: RagViewModel) {
             expanded = showPicker,
             onDismiss = { showPicker = false },
             title = "Choose AI Model",
-            contentHorizontalPadding = 0.dp,
         ) { closeAnd ->
-            Column(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)) {
+            Column(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
                 selectableLocalModels.forEach { model ->
                     val isSelectedModel = aiGenerationMode == AiGenerationMode.LOCAL &&
                             selectedLocalModelFileName == model.fileName
@@ -175,10 +174,13 @@ internal fun ModelPickerPill(viewModel: RagViewModel) {
                             MaterialTheme.colorScheme.primary
                         else
                             MaterialTheme.colorScheme.onSurface,
+                        trailing = if (isSelectedModel) {
+                            { SelectedOptionDot() }
+                        } else null,
+                        shape = OptionRowShape,
                         onClick = { closeAnd { viewModel.selectLocalModel(model.fileName) } },
-                        modifier = Modifier.padding(horizontal = OptionRowOuterPadding)
+                        modifier = Modifier.padding(vertical = OptionRowVerticalSpacing)
                     )
-                    Spacer(Modifier.height(10.dp))
                 }
 
                 if (configsLoaded) {
@@ -202,10 +204,13 @@ internal fun ModelPickerPill(viewModel: RagViewModel) {
                                     MaterialTheme.colorScheme.primary
                                 else
                                     MaterialTheme.colorScheme.onSurface,
+                                trailing = if (isSelectedProvider) {
+                                    { SelectedOptionDot() }
+                                } else null,
+                                shape = OptionRowShape,
                                 onClick = { closeAnd { viewModel.selectExternalProvider(provider) } },
-                                modifier = Modifier.padding(horizontal = OptionRowOuterPadding)
+                                modifier = Modifier.padding(vertical = OptionRowVerticalSpacing)
                             )
-                            Spacer(Modifier.height(10.dp))
                         }
                     }
                 }
@@ -213,8 +218,7 @@ internal fun ModelPickerPill(viewModel: RagViewModel) {
                 EmberrButtonPrimary(
                     text = "Close",
                     onClick = { showPicker = false },
-                    modifier = Modifier.fillMaxWidth()
-                        .padding(vertical = 12.dp, horizontal = 20.dp)
+                    modifier = Modifier.fillMaxWidth().padding(top = 12.dp)
                 )
             }
         }

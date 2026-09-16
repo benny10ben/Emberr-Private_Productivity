@@ -1257,14 +1257,11 @@ fun DesktopMainScreen(
                     ) {
                         Box(
                             modifier = Modifier
-                                .padding(end = PANEL_PADDING, top = PANEL_TOP_MARGIN, bottom = PANEL_TOP_MARGIN)
                                 .width(ragPanelWidth)
                                 .fillMaxHeight()
-                                .clip(DesktopPanelShape)
                                 .border(
                                     width = 0.5.dp,
-                                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
-                                    shape = DesktopPanelShape
+                                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
                                 )
                         ) {
                             if (ragViewModel != null) {
