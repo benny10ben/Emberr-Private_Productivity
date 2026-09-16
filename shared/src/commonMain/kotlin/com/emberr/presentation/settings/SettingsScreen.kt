@@ -40,7 +40,6 @@ import com.emberr.domain.util.system.AppPermission
 import com.emberr.domain.util.system.isDesktopPlatform
 import com.emberr.domain.util.system.rememberAppPermissionCoordinator
 import com.emberr.presentation.shared.stableStatusBarsPadding
-import com.emberr.presentation.topEdgeFadeBackground
 import com.emberr.presentation.shared.components.EmberrBottomSheet
 import com.emberr.presentation.shared.components.EmberrButtonPrimary
 import com.emberr.presentation.shared.components.EmberrButtonSecondary
@@ -1175,7 +1174,6 @@ private fun SettingsTopBar(onNavigateBack: () -> Unit, hazeState: HazeState, sho
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .then(if (isDesktopPlatform) Modifier else Modifier.topEdgeFadeBackground())
             .then(if (isDesktopPlatform) Modifier else Modifier.stableStatusBarsPadding())
             .padding(
                 top = if (isDesktopPlatform) 16.dp else 10.dp,

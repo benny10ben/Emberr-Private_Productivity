@@ -34,9 +34,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import com.emberr.presentation.shared.rememberStableStatusBarsPadding
 import com.emberr.presentation.shared.stableStatusBarsPadding
-import com.emberr.presentation.edgeFadeBrush
-import com.emberr.presentation.topEdgeFadeBackground
-import com.emberr.ui.theme.LocalAppIsDark
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.layout.ContentScale
@@ -963,22 +960,6 @@ fun HomeScreen(
 
             homeGridContent()
 
-            val isDarkTheme = LocalAppIsDark.current
-            if (isDarkTheme) {
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .fillMaxWidth()
-                        .height(WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 96.dp)
-                        .background(
-                            brush = edgeFadeBrush(
-                                baseColor = MaterialTheme.colorScheme.background,
-                                opaqueAtTop = false
-                            )
-                        )
-                )
-            }
-
             NotesSelectionPill(
                 isVisible = isSelectionMode,
                 selectedCount = selectedNoteIds.size + selectedFolderIds.size,
@@ -1125,7 +1106,6 @@ private fun HomeTopBar(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .topEdgeFadeBackground()
             .pointerInput(Unit) { detectTapGestures {} }
     ) {
         Row(

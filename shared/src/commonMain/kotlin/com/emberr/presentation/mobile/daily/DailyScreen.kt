@@ -75,9 +75,6 @@ import com.emberr.presentation.shared.rememberStableStatusBarsPadding
 import com.emberr.presentation.shared.stableStatusBarsPadding
 import com.emberr.presentation.sync.SyncViewModel
 import com.emberr.domain.util.system.showNativeToast
-import com.emberr.presentation.edgeFadeBrush
-import com.emberr.presentation.topEdgeFadeBackground
-import com.emberr.ui.theme.LocalAppIsDark
 import dev.chrisbanes.haze.hazeSource
 import emberr.shared.generated.resources.Res
 import emberr.shared.generated.resources.calendar
@@ -620,22 +617,6 @@ fun DailyScreen(
                     rightPanelContent()
                 }
 
-                val isDarkTheme = LocalAppIsDark.current
-                if (isDarkTheme) {
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.BottomCenter)
-                            .fillMaxWidth()
-                            .height(WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 96.dp)
-                            .background(
-                                brush = edgeFadeBrush(
-                                    baseColor = MaterialTheme.colorScheme.background,
-                                    opaqueAtTop = false
-                                )
-                            )
-                    )
-                }
-
                 AnimatedVisibility(
                     visible = !isSelectionMode && !isKeyboardOpen && isBottomBarOnScreen,
                     enter = slideInVertically(
@@ -745,7 +726,6 @@ private fun DailyTopBar(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .topEdgeFadeBackground()
             .pointerInput(Unit) { detectTapGestures {} }
             .stableStatusBarsPadding()
             .padding(top = 10.dp, bottom = 10.dp)

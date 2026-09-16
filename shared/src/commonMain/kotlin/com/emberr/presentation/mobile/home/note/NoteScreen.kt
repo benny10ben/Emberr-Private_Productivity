@@ -58,9 +58,6 @@ import com.emberr.domain.model.ViewType
 import com.emberr.domain.util.system.isDesktopPlatform
 import com.emberr.presentation.shared.components.EmberrBottomSheet
 import com.emberr.presentation.shared.editor.EditorToolbar
-import com.emberr.presentation.edgeFadeBrush
-import com.emberr.presentation.topEdgeFadeBackground
-import com.emberr.ui.theme.LocalAppIsDark
 import dev.chrisbanes.haze.HazeState
 import coil3.compose.AsyncImage
 import com.emberr.presentation.shared.components.KmpBackHandler
@@ -599,21 +596,6 @@ fun NoteScreen(
                     onRedo = { viewModel.redo() }
                 )
 
-                val isDarkTheme = LocalAppIsDark.current
-                if (!isDesktopPlatform && isDarkTheme) {
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.BottomCenter)
-                            .fillMaxWidth()
-                            .height(WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 96.dp)
-                            .background(
-                                brush = edgeFadeBrush(
-                                    baseColor = MaterialTheme.colorScheme.background,
-                                    opaqueAtTop = false
-                                )
-                            )
-                    )
-                }
 
                 AnimatedVisibility(
                     visible = showToolbar,
@@ -1280,7 +1262,6 @@ private fun NoteTopBar(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .then(if (isDesktopPlatform) Modifier else Modifier.topEdgeFadeBackground(scrollGated = true))
             .then(if (isDesktopPlatform) Modifier else Modifier.stableStatusBarsPadding())
             .padding(top = topMargin + if (isDesktopPlatform) 16.dp else 10.dp).padding(horizontal = if (isDesktopPlatform) 22.dp else 16.dp)
             .onGloballyPositioned(onPositioned),

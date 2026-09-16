@@ -2,7 +2,6 @@ package com.emberr.presentation
 
 import androidx.compose.animation.*
 import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -12,8 +11,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -50,7 +47,6 @@ import com.emberr.presentation.mobile.home.HomeScreen
 import com.emberr.presentation.search.SearchDialog
 import com.emberr.presentation.share.ShareReceiverSheet
 import com.emberr.presentation.share.ShareViewModel
-import com.emberr.ui.theme.LocalAppIsDark
 import dev.chrisbanes.haze.hazeSource
 import emberr.shared.generated.resources.Res.readBytes
 import kotlinx.coroutines.withContext
@@ -58,35 +54,7 @@ import kotlin.time.Duration.Companion.milliseconds
 
 private val DESKTOP_SIDEBAR_WIDTH = 340.dp
 
-fun edgeFadeBrush(baseColor: Color, opaqueAtTop: Boolean, peakAlpha: Float = 0.60f): Brush {
-    val sampleCount = 24
-    val stops = Array(sampleCount + 1) { index ->
-        val position = index / sampleCount.toFloat()
-        val distanceFromOpaqueEdge = if (opaqueAtTop) position else 1f - position
-        val smoothedAlpha = peakAlpha * (1f - distanceFromOpaqueEdge * distanceFromOpaqueEdge * (3f - 2f * distanceFromOpaqueEdge))
-        position to baseColor.copy(alpha = smoothedAlpha)
-    }
-    return Brush.verticalGradient(colorStops = stops)
-}
-
 val LocalImageOverlay = staticCompositionLocalOf<( (@Composable () -> Unit)? ) -> Unit> { {} }
-val LocalIsScrolledAwayFromTop = staticCompositionLocalOf { false }
-
-@Composable
-fun Modifier.topEdgeFadeBackground(scrollGated: Boolean = false): Modifier {
-    val isDarkTheme = LocalAppIsDark.current
-    val isScrolledAwayFromTop = LocalIsScrolledAwayFromTop.current
-    val targetAlpha = if (isDarkTheme && (!scrollGated || isScrolledAwayFromTop)) 0.85f else 0f
-    val animatedAlpha by animateFloatAsState(targetValue = targetAlpha, animationSpec = tween(220))
-    val backgroundColor = MaterialTheme.colorScheme.background
-    return this.background(
-        brush = edgeFadeBrush(
-            baseColor = backgroundColor,
-            opaqueAtTop = true,
-            peakAlpha = animatedAlpha
-        )
-    )
-}
 
 @OptIn(ExperimentalLayoutApi::class, ExperimentalSharedTransitionApi::class)
 @Composable
@@ -184,16 +152,11 @@ fun EmberrApp(
     var isBottomBarCompact by remember { mutableStateOf(false) }
     var showSearchDialog by remember { mutableStateOf(false) }
 
-    var isScrolledAwayFromTop by remember { mutableStateOf(false) }
-    val topFadeScrollDistance = remember { FloatArray(1) }
-
     LaunchedEffect(currentRoute) {
         if (currentRoute == Screen.Daily.route || currentRoute == Screen.Home.route) {
             activeTab = currentRoute
         }
         isBottomBarCompact = false
-        topFadeScrollDistance[0] = 0f
-        isScrolledAwayFromTop = false
     }
 
     // AI chat ViewModel
@@ -245,9 +208,6 @@ fun EmberrApp(
                     isBottomBarCompact = false
                     bottomBarScrollAccumulator[0] = 0f
                 }
-
-                topFadeScrollDistance[0] = (topFadeScrollDistance[0] - delta).coerceAtLeast(0f)
-                isScrolledAwayFromTop = topFadeScrollDistance[0] > 0f
 
                 return Offset.Zero
             }
@@ -316,8 +276,7 @@ fun EmberrApp(
 
     CompositionLocalProvider(
         LocalImageOverlay provides { content -> fullScreenContent = content },
-        LocalEmberrBlurSource provides if (isDesktopPlatform) null else hazeState,
-        LocalIsScrolledAwayFromTop provides isScrolledAwayFromTop
+        LocalEmberrBlurSource provides if (isDesktopPlatform) null else hazeState
     ) {
         if (isDesktopPlatform) {
             var isOnboardingCompleted by remember { mutableStateOf(settingsManager.isOnboardingCompleted()) }
@@ -359,8 +318,6 @@ fun EmberrApp(
             )
             return@CompositionLocalProvider
         }
-
-        val isDarkTheme = LocalAppIsDark.current
 
         val shareViewModel: ShareViewModel = koinViewModel()
         val currentShare by shareViewModel.currentShare.collectAsState()
@@ -861,45 +818,7 @@ fun EmberrApp(
                             )
                         }
                     }
-                    if (isDarkTheme && currentRoute != Screen.Onboarding.route) {
-                        Box(
-                            modifier = Modifier
-                                .align(Alignment.BottomCenter)
-                                .fillMaxWidth()
-                                .height(navigationBarBottomInset + 76.dp)
-                                .background(
-                                    brush = edgeFadeBrush(
-                                        baseColor = MaterialTheme.colorScheme.background,
-                                        opaqueAtTop = false
-                                    )
-                                )
-                        )
-                    }
-
                     if (!isDesktopPlatform) {
-                        AnimatedVisibility(
-                            visible = isBottomBarVisible,
-                            enter = fadeIn(tween(300)),
-                            exit = fadeOut(tween(300)),
-                            modifier = Modifier.align(Alignment.BottomCenter)
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(72.dp)
-                                    .align(Alignment.BottomCenter)
-                                    .background(
-                                        brush = Brush.verticalGradient(
-                                            colors = listOf(
-                                                Color.Transparent,
-                                                Color.Transparent,
-                                                Color.Transparent
-                                            )
-                                        )
-                                    )
-                            )
-                        }
-
                         AnimatedVisibility(
                             visible = isBottomBarVisible,
                             enter = if (suppressBottomBarEnterAnimation) {

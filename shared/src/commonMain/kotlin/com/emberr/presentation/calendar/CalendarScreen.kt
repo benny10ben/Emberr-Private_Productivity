@@ -88,7 +88,6 @@ import androidx.compose.ui.zIndex
 import com.emberr.domain.model.RecurrenceEditScope
 import com.emberr.domain.util.system.isDesktopPlatform
 import com.emberr.presentation.customEmberrShadow
-import com.emberr.presentation.topEdgeFadeBackground
 import com.emberr.presentation.shared.components.EmberrBlur
 import com.emberr.presentation.shared.components.EmberrBottomSheet
 import com.emberr.presentation.shared.components.EmberrButtonPrimary
@@ -349,12 +348,12 @@ fun CalendarScreen(
                 }
             }
 
+
             Box(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
                     .fillMaxWidth()
                     .zIndex(10f)
-                    .then(if (isDesktopPlatform) Modifier else Modifier.topEdgeFadeBackground())
                     .onGloballyPositioned { coordinates -> topBarHeightPx = coordinates.size.height.toFloat() }
                     .pointerInput(Unit) { detectTapGestures {} }
                     .then(if (isDesktopPlatform) Modifier else Modifier.stableStatusBarsPadding())

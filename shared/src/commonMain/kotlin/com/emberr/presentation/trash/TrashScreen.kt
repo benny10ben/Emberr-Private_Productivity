@@ -29,7 +29,6 @@ import com.emberr.presentation.shared.components.EmberrBottomSheet
 import com.emberr.presentation.shared.components.EmberrButtonPrimary
 import com.emberr.presentation.shared.components.TopBarIconButton
 import com.emberr.presentation.shared.stableStatusBarsPadding
-import com.emberr.presentation.topEdgeFadeBackground
 import com.emberr.presentation.mobile.home.NoteCard
 import com.emberr.presentation.shared.components.EmberrBlur
 import com.emberr.presentation.shared.components.EmberrVerticalScrollbar
@@ -170,7 +169,6 @@ private fun TrashTopBar(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .then(if (isDesktopPlatform) Modifier else Modifier.topEdgeFadeBackground())
             .then(if (isDesktopPlatform) Modifier else Modifier.stableStatusBarsPadding())
             .padding(
                 top = if (isDesktopPlatform) 16.dp else 10.dp,
