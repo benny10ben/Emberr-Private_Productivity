@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "40a68c41ca276424931aad3b47b0d8e3",
+    "identityHash": "5ed5341f0602986f70c2cfc5380bf8e3",
     "entities": [
       {
         "tableName": "notes_metadata",
@@ -908,11 +908,47 @@
             "occurrenceDate"
           ]
         }
+      },
+      {
+        "tableName": "media_references",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`noteId` TEXT NOT NULL, `fileName` TEXT NOT NULL, PRIMARY KEY(`noteId`, `fileName`))",
+        "fields": [
+          {
+            "fieldPath": "noteId",
+            "columnName": "noteId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "fileName",
+            "columnName": "fileName",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "noteId",
+            "fileName"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_media_references_fileName",
+            "unique": false,
+            "columnNames": [
+              "fileName"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_media_references_fileName` ON `${TABLE_NAME}` (`fileName`)"
+          }
+        ]
       }
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '40a68c41ca276424931aad3b47b0d8e3')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '5ed5341f0602986f70c2cfc5380bf8e3')"
     ]
   }
 }
