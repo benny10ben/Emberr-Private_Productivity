@@ -134,6 +134,20 @@ class NoteEditorViewModel(
         return if (externallyAdded.isEmpty()) reconciledSnapshot else reconciledSnapshot + externallyAdded
     }
 
+    private suspend fun theNoteAlreadyHoldsThis(
+        noteId: String,
+        metadataToSave: NoteMetadataEntity,
+        blocksToSave: List<NoteBlock>
+    ): Boolean {
+        val storedMetadata = repository.getNoteById(noteId) ?: return false
+        if (blocksToSave != repository.getNoteContent(noteId)?.blocks.orEmpty()) return false
+
+        return metadataToSave.copy(
+            updatedAt = storedMetadata.updatedAt,
+            selfHostSyncedAt = storedMetadata.selfHostSyncedAt
+        ) == storedMetadata
+    }
+
     override suspend fun performSave(): Boolean {
         if (_isLoading.value) return false
         val meta = currentMetadata ?: return false
@@ -160,6 +174,9 @@ class NoteEditorViewModel(
                         updatedAt = System.currentTimeMillis(),
                         showWordCount = _showWordCount.value
                     )
+
+                    if (theNoteAlreadyHoldsThis(meta.noteId, updatedMeta, reconciled)) return@withLock true
+
                     currentMetadata = updatedMeta
                     _noteUpdatedAt.value = updatedMeta.updatedAt
 
@@ -233,9 +250,11 @@ class NoteEditorViewModel(
                 if (flushedMeta != null) {
                     SyncCoordinator.mutex.withLock {
                         val reconciled = reconcileWithDisk(previousMeta.noteId, snapshot)
-                        val contentToSave = NoteContent(blocks = reconciled)
-                        repository.saveNote(flushedMeta, contentToSave)
-                        repository.indexNote(flushedMeta, contentToSave)
+                        if (!theNoteAlreadyHoldsThis(previousMeta.noteId, flushedMeta, reconciled)) {
+                            val contentToSave = NoteContent(blocks = reconciled)
+                            repository.saveNote(flushedMeta, contentToSave)
+                            repository.indexNote(flushedMeta, contentToSave)
+                        }
                     }
                 }
 

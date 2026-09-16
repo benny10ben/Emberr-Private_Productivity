@@ -449,6 +449,21 @@ class DailyEditorViewModel(
         return if (externallyAdded.isEmpty()) reconciledSnapshot else reconciledSnapshot + externallyAdded
     }
 
+    private suspend fun theDayAlreadyHoldsThis(dateString: String, blocksToSave: List<NoteBlock>): Boolean {
+        val storedBlocks = repository.getDailyNote(dateString)?.blocks.orEmpty()
+        return blocksToSave.filter { !it.isDeleted } == storedBlocks.filter { !it.isDeleted }
+    }
+
+    private suspend fun saveDayUnlessNothingChanged(dateString: String, reconciled: List<NoteBlock>) {
+        val pinnedBlocks = reconciled.filter { it.isPinned }
+        val dayBlocks = reconciled.filter { !it.isPinned }
+
+        if (theDayAlreadyHoldsThis("global_pinned", pinnedBlocks) && theDayAlreadyHoldsThis(dateString, dayBlocks)) return
+
+        repository.saveDailyNote("global_pinned", NoteContent(blocks = pinnedBlocks))
+        repository.saveDailyNote(dateString, NoteContent(blocks = dayBlocks))
+    }
+
     override suspend fun performSave(): Boolean {
         if (_loadedDateString.value == null || _loadedDateString.value != currentDateString) return false
 
@@ -467,8 +482,7 @@ class DailyEditorViewModel(
                     val reconciled = reconcileWithDisk(dateToSave, _blocks.value)
                     if (reconciled !== _blocks.value) _blocks.value = reconciled
 
-                    repository.saveDailyNote("global_pinned", NoteContent(blocks = reconciled.filter { it.isPinned }))
-                    repository.saveDailyNote(dateToSave, NoteContent(blocks = reconciled.filter { !it.isPinned }))
+                    saveDayUnlessNothingChanged(dateToSave, reconciled)
                     true
                 }
             }
@@ -629,8 +643,7 @@ class DailyEditorViewModel(
                     withContext(Dispatchers.IO + NonCancellable) {
                         SyncCoordinator.mutex.withLock {
                             val reconciled = reconcileWithDisk(dateToSave, blocksToSave)
-                            repository.saveDailyNote("global_pinned", NoteContent(blocks = reconciled.filter { it.isPinned }))
-                            repository.saveDailyNote(dateToSave, NoteContent(blocks = reconciled.filter { !it.isPinned }))
+                            saveDayUnlessNothingChanged(dateToSave, reconciled)
                         }
                     }
                 } catch (e: Exception) {
