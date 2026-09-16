@@ -861,7 +861,7 @@ fun EmberrApp(
                             )
                         }
                     }
-                    if (isDarkTheme) {
+                    if (isDarkTheme && currentRoute != Screen.Onboarding.route) {
                         Box(
                             modifier = Modifier
                                 .align(Alignment.BottomCenter)
