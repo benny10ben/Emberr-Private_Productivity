@@ -128,4 +128,10 @@ interface SettingsManager {
     val hasCompletedOnboardingFlow: Flow<Boolean>
     fun isOnboardingCompleted(): Boolean
     fun saveOnboardingCompleted(completed: Boolean)
+
+    fun isSampleDailyNoteSeeded(): Boolean
+    fun saveSampleDailyNoteSeeded(seeded: Boolean)
+
+    fun isSampleNotesSeeded(): Boolean
+    fun saveSampleNotesSeeded(seeded: Boolean)
 }

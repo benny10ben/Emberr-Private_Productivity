@@ -45,6 +45,10 @@ object SyncConstants {
     const val DEFAULT_SHOW_SCROLLBAR = false
     const val KEY_ONBOARDING_COMPLETED = "onboarding_completed"
     const val DEFAULT_ONBOARDING_COMPLETED = false
+    const val KEY_SAMPLE_DAILY_NOTE_SEEDED = "sample_daily_note_seeded"
+    const val DEFAULT_SAMPLE_DAILY_NOTE_SEEDED = false
+    const val KEY_SAMPLE_NOTES_SEEDED = "sample_notes_seeded"
+    const val DEFAULT_SAMPLE_NOTES_SEEDED = false
     // Sync Keys
     const val KEY_SYNC_TIMESTAMP = "last_sync_timestamp"
     const val KEY_SELF_HOST_SYNC_TIMESTAMP = "self_host_last_sync_timestamp"

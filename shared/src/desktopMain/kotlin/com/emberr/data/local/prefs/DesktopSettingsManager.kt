@@ -374,4 +374,28 @@ class DesktopSettingsManager(private val secretStore: DesktopSecretStore) : Sett
         prefs.putBoolean(SyncConstants.KEY_ONBOARDING_COMPLETED, completed)
         _hasCompletedOnboarding.value = completed
     }
+
+    private var hasSeededSampleDailyNote = prefs.getBoolean(
+        SyncConstants.KEY_SAMPLE_DAILY_NOTE_SEEDED,
+        SyncConstants.DEFAULT_SAMPLE_DAILY_NOTE_SEEDED
+    )
+
+    override fun isSampleDailyNoteSeeded(): Boolean = hasSeededSampleDailyNote
+
+    override fun saveSampleDailyNoteSeeded(seeded: Boolean) {
+        prefs.putBoolean(SyncConstants.KEY_SAMPLE_DAILY_NOTE_SEEDED, seeded)
+        hasSeededSampleDailyNote = seeded
+    }
+
+    private var hasSeededSampleNotes = prefs.getBoolean(
+        SyncConstants.KEY_SAMPLE_NOTES_SEEDED,
+        SyncConstants.DEFAULT_SAMPLE_NOTES_SEEDED
+    )
+
+    override fun isSampleNotesSeeded(): Boolean = hasSeededSampleNotes
+
+    override fun saveSampleNotesSeeded(seeded: Boolean) {
+        prefs.putBoolean(SyncConstants.KEY_SAMPLE_NOTES_SEEDED, seeded)
+        hasSeededSampleNotes = seeded
+    }
 }
