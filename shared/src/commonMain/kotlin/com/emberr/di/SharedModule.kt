@@ -67,7 +67,8 @@ val sharedModule = module {
             bookmarkBlockDao = get(),
             databaseTemplateDao = get(),
             categoryDao = get(),
-            selfHostDeletedNoteDao = get()
+            selfHostDeletedNoteDao = get(),
+            mediaReferenceDao = get()
         )
     }
 
@@ -99,8 +100,17 @@ val sharedModule = module {
     }
 
     single {
-        com.emberr.domain.media.LocalMediaGarbageCollector(
+        com.emberr.domain.media.MediaReferenceIndex(
             noteRepository = get(),
+            noteDao = get(),
+            mediaReferenceDao = get(),
+            settingsManager = get()
+        )
+    }
+
+    single {
+        com.emberr.domain.media.LocalMediaGarbageCollector(
+            mediaReferenceIndex = get(),
             mediaStorageHelper = get()
         )
     }
@@ -138,7 +148,9 @@ val sharedModule = module {
             calendarTaskDao = get(),
             imageBlockDao = get(),
             documentBlockDao = get(),
-            bookmarkBlockDao = get()
+            bookmarkBlockDao = get(),
+            mediaReferenceDao = get(),
+            settingsManager = get()
         )
     }
 
@@ -259,7 +271,8 @@ val sharedModule = module {
             aiSettingsRepository = get(),
             database = get(),
             bookmarkCategoryOrderStore = get(),
-            favoriteNoteOrderStore = get()
+            favoriteNoteOrderStore = get(),
+            mediaReferenceIndex = get()
         )
     }
     single {

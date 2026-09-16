@@ -1,25 +1,18 @@
 package com.emberr.domain.media
 
-import com.emberr.domain.model.CellData
-import com.emberr.domain.model.ColumnType
-import com.emberr.domain.model.DatabaseBlock
-import com.emberr.domain.model.DocumentBlock
-import com.emberr.domain.model.ImageBlock
-import com.emberr.domain.model.NoteBlock
-import com.emberr.domain.model.VoiceBlock
-import com.emberr.domain.repository.NoteRepository
 import com.emberr.domain.util.media.MediaStorageHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
 
 class LocalMediaGarbageCollector(
-    private val noteRepository: NoteRepository,
+    private val mediaReferenceIndex: MediaReferenceIndex,
     private val mediaStorageHelper: MediaStorageHelper
 ) {
+
     suspend fun collectAndDeleteOrphanedMedia() = withContext(Dispatchers.IO) {
         try {
-            val referencedFileNames = collectReferencedMediaFileNames()
+            val referencedFileNames = mediaReferenceIndex.loadReferencedFileNames()
             val nowMs = System.currentTimeMillis()
             var deletedCount = 0
 
@@ -28,9 +21,7 @@ class LocalMediaGarbageCollector(
                 .forEach { fileName ->
                     try {
                         val file = File(mediaStorageHelper.getAbsoluteMediaPath(fileName))
-                        val isStaleEnoughIfTempFile = !fileName.endsWith(".tmp") ||
-                                (nowMs - file.lastModified()) > STALE_TEMP_FILE_THRESHOLD_MS
-                        if (file.exists() && isStaleEnoughIfTempFile && file.delete()) {
+                        if (file.exists() && isOldEnoughToDelete(file, nowMs) && file.delete()) {
                             deletedCount++
                         }
                     } catch (e: Exception) {
@@ -50,11 +41,11 @@ class LocalMediaGarbageCollector(
             var deletedCount = 0
 
             mediaStorageHelper.listAllMediaFileNames()
-                .filter { it.endsWith(".tmp") }
+                .filter { it.endsWith(TEMP_FILE_SUFFIX) }
                 .forEach { fileName ->
                     try {
                         val file = File(mediaStorageHelper.getAbsoluteMediaPath(fileName))
-                        if (file.exists() && (nowMs - file.lastModified()) > STALE_TEMP_FILE_THRESHOLD_MS && file.delete()) {
+                        if (file.exists() && isOldEnoughToDelete(file, nowMs) && file.delete()) {
                             deletedCount++
                         }
                     } catch (e: Exception) {
@@ -68,47 +59,18 @@ class LocalMediaGarbageCollector(
         }
     }
 
+    private fun isOldEnoughToDelete(file: File, nowMs: Long): Boolean {
+        val fileAgeMs = nowMs - file.lastModified()
+        return if (file.name.endsWith(TEMP_FILE_SUFFIX)) {
+            fileAgeMs > STALE_TEMP_FILE_THRESHOLD_MS
+        } else {
+            fileAgeMs > NEWLY_WRITTEN_FILE_GRACE_PERIOD_MS
+        }
+    }
+
     private companion object {
+        const val TEMP_FILE_SUFFIX = ".tmp"
         const val STALE_TEMP_FILE_THRESHOLD_MS = 48L * 60 * 60 * 1000
-    }
-
-    private suspend fun collectReferencedMediaFileNames(): Set<String> {
-        val fileNames = mutableSetOf<String>()
-        noteRepository.getNotesModifiedSince(0L).forEach { meta ->
-            meta.coverImagePath?.substringAfterLast("/")?.let { fileNames.add(it) }
-            val content = if (meta.isDaily && meta.dateString != null) {
-                noteRepository.getDailyNote(meta.dateString)
-            } else {
-                noteRepository.getNoteContent(meta.noteId)
-            }
-            content?.blocks?.forEach { block -> fileNames += extractMediaFileNames(block) }
-        }
-        return fileNames
-    }
-
-    private fun extractMediaFileNames(block: NoteBlock): List<String> {
-        if (block.isDeleted) return emptyList()
-        val fileNames = mutableListOf<String>()
-        when (block) {
-            is ImageBlock -> block.localFilePath?.substringAfterLast("/")?.let { fileNames.add(it) }
-            is DocumentBlock -> block.localFilePath?.substringAfterLast("/")?.let { fileNames.add(it) }
-            is VoiceBlock -> block.localFilePath?.substringAfterLast("/")?.let { fileNames.add(it) }
-            is DatabaseBlock -> {
-                val mediaColIds = block.columns
-                    .filter { it.type == ColumnType.FILES || it.type == ColumnType.AUDIO }
-                    .map { it.id }.toSet()
-                block.rows.forEach { row ->
-                    mediaColIds.forEach { colId ->
-                        val files = (row.cells[colId] as? CellData.MediaList)?.files ?: emptyList()
-                        files.forEach { media ->
-                            val cleanLocalPath = media.fileName.substringAfterLast("/")
-                            if (cleanLocalPath.isNotBlank()) fileNames.add(cleanLocalPath)
-                        }
-                    }
-                }
-            }
-            else -> {}
-        }
-        return fileNames
+        const val NEWLY_WRITTEN_FILE_GRACE_PERIOD_MS = 10L * 60 * 1000
     }
 }

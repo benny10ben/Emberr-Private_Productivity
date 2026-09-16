@@ -1,11 +1,13 @@
 package com.emberr.domain.backup.manual
 
+import com.emberr.data.local.prefs.SettingsManager
 import com.emberr.data.local.room.BlockDao
 import com.emberr.data.local.room.BookmarkBlockDao
 import com.emberr.data.local.room.CalendarTaskDao
 import com.emberr.data.local.room.DocumentBlockDao
 import com.emberr.data.local.room.FolderDao
 import com.emberr.data.local.room.ImageBlockDao
+import com.emberr.data.local.room.MediaReferenceDao
 import com.emberr.data.local.room.NoteDao
 import com.emberr.data.local.room.TagDao
 import kotlinx.coroutines.flow.first
@@ -18,7 +20,9 @@ class BackupRepositoryImpl(
     private val calendarTaskDao: CalendarTaskDao,
     private val imageBlockDao: ImageBlockDao,
     private val documentBlockDao: DocumentBlockDao,
-    private val bookmarkBlockDao: BookmarkBlockDao
+    private val bookmarkBlockDao: BookmarkBlockDao,
+    private val mediaReferenceDao: MediaReferenceDao,
+    private val settingsManager: SettingsManager
 ) : BackupRepository {
 
     override suspend fun createBackupData(): EmberrBackupData {
@@ -138,5 +142,8 @@ class BackupRepositoryImpl(
             }
             bookmarkBlockDao.upsertBookmarks(mappedBookmarks)
         }
+
+        settingsManager.saveMediaReferenceListBuilt(false)
+        mediaReferenceDao.deleteAllReferences()
     }
 }

@@ -18,17 +18,14 @@ import com.emberr.data.local.room.TagEntity
 import com.emberr.domain.ai.external.AiSettingsRepository
 import com.emberr.domain.ai.external.ExternalAiProvider
 import com.emberr.domain.ai.external.ExternalAiProviderConfig
-import com.emberr.domain.model.DocumentBlock
-import com.emberr.domain.model.ImageBlock
 import com.emberr.domain.model.BookmarkCategoryOrder
 import com.emberr.domain.model.FavoriteNoteOrder
 import com.emberr.domain.repository.BookmarkCategoryOrderStore
 import com.emberr.domain.repository.FavoriteNoteOrderStore
 import com.emberr.domain.model.NoteBlock
 import com.emberr.domain.model.NoteContent
-import com.emberr.domain.model.VoiceBlock
+import com.emberr.domain.media.MediaReferenceIndex
 import com.emberr.domain.repository.NoteRepository
-import com.emberr.domain.selfhost.media.MediaReferenceScanner
 import com.emberr.domain.selfhost.merge.NoteMergeHelper
 import com.emberr.domain.selfhost.translation.EmbeddedBlockPayload
 import com.emberr.domain.selfhost.translation.NoteJsonCompiler
@@ -76,7 +73,8 @@ class SelfHostSyncEngine(
     private val aiSettingsRepository: AiSettingsRepository,
     private val database: EmberrDatabase,
     private val bookmarkCategoryOrderStore: BookmarkCategoryOrderStore,
-    private val favoriteNoteOrderStore: FavoriteNoteOrderStore
+    private val favoriteNoteOrderStore: FavoriteNoteOrderStore,
+    private val mediaReferenceIndex: MediaReferenceIndex
 ) {
 
     private enum class ReconcileOutcome { SYNCED, CONFLICT_SKIPPED, LOCK_BUSY, UNCHANGED }
@@ -321,31 +319,8 @@ class SelfHostSyncEngine(
     }
 
     private suspend fun collectReferencedMediaFileNames(): Set<String> {
-        val fileNames = mutableSetOf<String>()
-        var mediaBlockCount = 0
-
-        for (note in noteDao.getAllNotesForBackup()) {
-            note.coverImagePath?.substringAfterLast("/")?.let { fileNames.add(it) }
-
-            val blocks: List<NoteBlock> = blockDao.getAllBlocksForNoteIncludingDeleted(note.noteId)
-                .filter { !it.isDeleted }
-                .mapNotNull { entity ->
-                    try {
-                        blockJson.decodeFromString(NoteBlock.serializer(), entity.blockDataJson)
-                    } catch (cause: Exception) {
-                        SelfHostSyncLog.e("MediaSync: could not decode block ${entity.blockId} for note ${note.noteId}", cause)
-                        null
-                    }
-                }
-
-            mediaBlockCount += blocks.count { it is ImageBlock || it is DocumentBlock || it is VoiceBlock }
-            fileNames += MediaReferenceScanner.extractMediaFileNames(blocks)
-        }
-
-        SelfHostSyncLog.d(
-            "MediaSync: Found $mediaBlockCount local media block(s) to process, " +
-                    "${fileNames.size} distinct media file(s) referenced"
-        )
+        val fileNames = mediaReferenceIndex.loadReferencedFileNames()
+        SelfHostSyncLog.d("MediaSync: ${fileNames.size} distinct media file(s) referenced")
         return fileNames
     }
 

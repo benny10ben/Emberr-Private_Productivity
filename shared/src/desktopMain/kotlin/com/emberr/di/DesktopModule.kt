@@ -84,6 +84,7 @@ val desktopModule = module {
     single<SelfHostDeletedNoteDao> { get<AppDatabase>().selfHostDeletedNoteDao() }
     single<com.emberr.data.local.room.ChatSessionDao> { get<AppDatabase>().chatSessionDao() }
     single<com.emberr.data.local.room.SelfHostDeletedApiConfigDao> { get<AppDatabase>().selfHostDeletedApiConfigDao() }
+    single<com.emberr.data.local.room.MediaReferenceDao> { get<AppDatabase>().mediaReferenceDao() }
     single<VoiceRecognizer> { DesktopVoiceRecognizer() }
 
     // SQLDelight
@@ -124,7 +125,7 @@ val desktopModule = module {
     single<SyncDiscoveryManager> { DesktopDiscoveryManager() }
     single { com.emberr.domain.sync.SyncServerAvailability() }
     single<com.emberr.domain.sync.SyncClient> { com.emberr.domain.sync.SyncClient(get(), get(), get()) }
-    single<SyncRepository> { SyncRepositoryImpl(get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get()) }
+    single<SyncRepository> { SyncRepositoryImpl(get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get()) }
     factory { SyncViewModel(get(), get(), get(), get(), get(), get<com.emberr.domain.sync.SyncServerAvailability>().status) }
 
     // Automatic Backup

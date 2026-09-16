@@ -68,7 +68,9 @@ class AndroidManualBackupImporter(
                 calendarTaskDao = tempDatabase.calendarTaskDao(),
                 imageBlockDao = tempDatabase.imageBlockDao(),
                 documentBlockDao = tempDatabase.documentBlockDao(),
-                bookmarkBlockDao = tempDatabase.bookmarkBlockDao()
+                bookmarkBlockDao = tempDatabase.bookmarkBlockDao(),
+                mediaReferenceDao = tempDatabase.mediaReferenceDao(),
+                settingsManager = settingsManager
             )
             val backupData = importedRepository.createBackupData()
             backupRepository.restoreBackup(backupData)

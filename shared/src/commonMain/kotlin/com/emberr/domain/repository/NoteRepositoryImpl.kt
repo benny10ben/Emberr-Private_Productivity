@@ -24,6 +24,8 @@ import com.emberr.data.local.room.DocumentBlockDao
 import com.emberr.data.local.room.DocumentBlockEntity
 import com.emberr.data.local.room.ImageBlockDao
 import com.emberr.data.local.room.ImageBlockEntity
+import com.emberr.data.local.room.MediaReferenceDao
+import com.emberr.data.local.room.MediaReferenceEntity
 import com.emberr.data.local.room.SelfHostDeletedNoteDao
 import com.emberr.data.local.room.SelfHostDeletedNoteEntity
 import com.emberr.data.local.room.TaskSource
@@ -45,6 +47,7 @@ import com.emberr.domain.model.RecurrenceRule
 import com.emberr.domain.model.TextBlock
 import com.emberr.domain.model.ToggleBlock
 import com.emberr.domain.model.markDeleted
+import com.emberr.domain.selfhost.media.MediaReferenceScanner
 import com.emberr.domain.util.sync.SyncCoordinator
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.sync.withLock
@@ -120,7 +123,8 @@ class NoteRepositoryImpl(
     private val bookmarkBlockDao: BookmarkBlockDao,
     private val databaseTemplateDao: DatabaseTemplateDao,
     private val categoryDao: CategoryDao,
-    private val selfHostDeletedNoteDao: SelfHostDeletedNoteDao
+    private val selfHostDeletedNoteDao: SelfHostDeletedNoteDao,
+    private val mediaReferenceDao: MediaReferenceDao
 ) : NoteRepository {
 
     private val jsonFormat = Json {
@@ -228,11 +232,13 @@ class NoteRepositoryImpl(
         syncImageBlocks(winner.noteId, decodedBlocks, TaskSource.DAILY, winner.createdAt)
         syncDocumentBlocks(winner.noteId, decodedBlocks, TaskSource.DAILY, winner.createdAt)
         syncBookmarkBlocks(winner.noteId, decodedBlocks, TaskSource.DAILY, winner.updatedAt)
+        syncMediaReferences(winner.noteId, decodedBlocks)
 
         losers.forEach { loser ->
             imageBlockDao.deleteByNoteId(loser.noteId)
             documentBlockDao.deleteByNoteId(loser.noteId)
             bookmarkBlockDao.deleteByNoteId(loser.noteId)
+            mediaReferenceDao.deleteByNoteId(loser.noteId)
             noteDao.deleteNoteMetadata(loser.noteId)
         }
 
@@ -354,6 +360,8 @@ class NoteRepositoryImpl(
 
             AutoSyncTrigger.requestSync()
             VaultMirrorTrigger.requestNoteRefresh(noteId)
+
+            syncMediaReferences(noteId, content.blocks)
 
             // Sync projection tables — these are flat Room tables that allow
             // TasksScreen, ImagesScreen, DocumentsScreen, and BookmarksScreen
@@ -485,6 +493,8 @@ class NoteRepositoryImpl(
 
     override suspend fun refreshProjectionsForNote(metadata: NoteMetadataEntity, blocks: List<NoteBlock>) =
         withContext(Dispatchers.IO) {
+            syncMediaReferences(metadata.noteId, blocks)
+
             if (metadata.isDaily) {
                 val dateString = metadata.dateString
                 if (dateString != null && dateString != "global_pinned") {
@@ -551,6 +561,7 @@ class NoteRepositoryImpl(
             noteContentCache.update { it - noteId }
             noteDao.deleteNoteMetadata(noteId)
             blockDao.deleteAllBlocksForNote(noteId)
+            mediaReferenceDao.deleteByNoteId(noteId)
             noteIndexer.deleteNoteFromIndex(noteId)
             VaultMirrorTrigger.requestNoteRefresh(noteId)
         }
@@ -1151,6 +1162,17 @@ class NoteRepositoryImpl(
     }
 
     override fun getIncompleteTasksCount(): Flow<Int> = noteDao.getIncompleteTasksCount()
+
+    private suspend fun syncMediaReferences(noteId: String, blocks: List<NoteBlock>) {
+        mediaReferenceDao.deleteByNoteId(noteId)
+
+        val references = MediaReferenceScanner.extractMediaFileNames(blocks)
+            .map { fileName -> MediaReferenceEntity(noteId = noteId, fileName = fileName) }
+
+        if (references.isNotEmpty()) {
+            mediaReferenceDao.upsertReferences(references)
+        }
+    }
 
     // Rebuilds the ImageBlockEntity projection table for a given note on every save.
     // ImagesScreen reads from this table via getAllImagesFlow() — a Room Flow that

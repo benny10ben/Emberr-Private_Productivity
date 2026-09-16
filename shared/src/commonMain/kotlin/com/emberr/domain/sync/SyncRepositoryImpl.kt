@@ -20,6 +20,7 @@ import com.emberr.domain.model.ImageBlock
 import com.emberr.domain.model.NoteBlock
 import com.emberr.domain.model.NoteContent
 import com.emberr.domain.model.VoiceBlock
+import com.emberr.domain.media.MediaReferenceIndex
 import com.emberr.domain.repository.NoteRepository
 import com.emberr.domain.model.BOOKMARK_CATEGORY_ORDER_ENTITY_ID
 import com.emberr.domain.model.BookmarkCategoryOrder
@@ -56,7 +57,8 @@ class SyncRepositoryImpl(
     private val aiSettingsRepository: AiSettingsRepository,
     private val database: EmberrDatabase,
     private val bookmarkCategoryOrderStore: BookmarkCategoryOrderStore,
-    private val favoriteNoteOrderStore: FavoriteNoteOrderStore
+    private val favoriteNoteOrderStore: FavoriteNoteOrderStore,
+    private val mediaReferenceIndex: MediaReferenceIndex
 ) : SyncRepository {
 
     private val json = Json { ignoreUnknownKeys = true }
@@ -159,19 +161,8 @@ class SyncRepositoryImpl(
         }
     }
 
-    private suspend fun collectAllReferencedMediaFileNames(): Set<String> {
-        val fileNames = mutableSetOf<String>()
-        repository.getNotesModifiedSince(0L).forEach { meta ->
-            val content = if (meta.isDaily && meta.dateString != null) {
-                repository.getDailyNote(meta.dateString)
-            } else {
-                repository.getNoteContent(meta.noteId)
-            }
-            if (content != null) fileNames += extractMediaFileNames(content)
-            meta.coverImagePath?.substringAfterLast("/")?.let { fileNames.add(it) }
-        }
-        return fileNames
-    }
+    private suspend fun collectAllReferencedMediaFileNames(): Set<String> =
+        mediaReferenceIndex.loadReferencedFileNames()
 
     override suspend fun cleanupOrphanedMedia() = withContext(Dispatchers.IO) {
         try {

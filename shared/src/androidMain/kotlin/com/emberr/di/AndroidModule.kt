@@ -232,6 +232,7 @@ val androidModule = module {
     single<SelfHostDeletedNoteDao> { get<AppDatabase>().selfHostDeletedNoteDao() }
     single<com.emberr.data.local.room.ChatSessionDao> { get<AppDatabase>().chatSessionDao() }
     single<com.emberr.data.local.room.SelfHostDeletedApiConfigDao> { get<AppDatabase>().selfHostDeletedApiConfigDao() }
+    single<com.emberr.data.local.room.MediaReferenceDao> { get<AppDatabase>().mediaReferenceDao() }
 
     // SQLDelight
     single<SqlDriver> { DatabaseDriverFactory(androidContext(), get<ByteArray>()).createDriver() }
@@ -290,7 +291,7 @@ val androidModule = module {
     single<com.emberr.core.security.SyncHmacSigner> { com.emberr.core.security.HmacSha256Signer() }
     single<SyncDiscoveryManager> { AndroidDiscoveryManager(androidContext()) }
     single<com.emberr.domain.sync.SyncClient> { com.emberr.domain.sync.SyncClient(get(), get(), get()) }
-    single<SyncRepository> { SyncRepositoryImpl(get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get()) }
+    single<SyncRepository> { SyncRepositoryImpl(get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get()) }
     viewModel { SyncViewModel(get(), get(), get(), get(), get()) }
 
     // Manual export/import (unrelated to automatic backups below)
