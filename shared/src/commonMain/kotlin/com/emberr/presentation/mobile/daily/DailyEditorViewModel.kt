@@ -6,6 +6,7 @@ import com.emberr.data.local.room.TaskSource
 import com.emberr.data.local.room.toRecurrenceRule
 import com.emberr.domain.model.*
 import com.emberr.domain.repository.NoteRepository
+import com.emberr.domain.sample.SampleDailyNoteSeeder
 import com.emberr.domain.util.eventbus.AiEventBus
 import com.emberr.domain.util.voice.AudioRecorder
 import com.emberr.domain.util.media.MediaStorageHelper
@@ -47,7 +48,8 @@ class DailyEditorViewModel(
     mediaStorageHelper: MediaStorageHelper,
     reminderScheduler: ReminderScheduler,
     audioRecorder: AudioRecorder,
-    appScope: CoroutineScope
+    appScope: CoroutineScope,
+    private val sampleDailyNoteSeeder: SampleDailyNoteSeeder
 ) : BaseEditorViewModel(repository, mediaStorageHelper, reminderScheduler, audioRecorder, appScope) {
 
     // Date state
@@ -307,7 +309,17 @@ class DailyEditorViewModel(
 
     // Init
     init {
-        loadDailyNote(Clock.System.todayIn(TimeZone.currentSystemDefault()).toString())
+        val todayDateString = Clock.System.todayIn(TimeZone.currentSystemDefault()).toString()
+        if (sampleDailyNoteSeeder.isSampleDayPending()) {
+            viewModelScope.launch {
+                withContext(Dispatchers.IO) {
+                    sampleDailyNoteSeeder.seedSampleDayIfNeeded(todayDateString)
+                }
+                loadDailyNote(_selectedDate.value.toString())
+            }
+        } else {
+            loadDailyNote(todayDateString)
+        }
         viewModelScope.launch {
             _loadedDateString.filterNotNull().first()
             FirstContentRenderSignal.reportContentRendered()

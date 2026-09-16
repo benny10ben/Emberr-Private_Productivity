@@ -10,6 +10,7 @@ import com.emberr.domain.media.LocalMediaGarbageCollector
 import com.emberr.domain.model.*
 import com.emberr.domain.repository.FavoriteNoteOrderStore
 import com.emberr.domain.repository.NoteRepository
+import com.emberr.domain.sample.SampleNotesSeeder
 import com.emberr.domain.template.DefaultTemplateSeeder
 import com.emberr.domain.util.eventbus.VoiceTaskEventBus
 import com.emberr.domain.util.voice.VoiceRecognizer
@@ -47,6 +48,7 @@ class HomeViewModel(
     private val taskExtractor: TaskExtractor,
     private val voiceRecognizer: VoiceRecognizer,
     private val templateSeeder: DefaultTemplateSeeder,
+    private val sampleNotesSeeder: SampleNotesSeeder,
     private val localMediaGarbageCollector: LocalMediaGarbageCollector,
     private val favoriteNoteOrderStore: FavoriteNoteOrderStore
 ) : ViewModel() {
@@ -439,6 +441,9 @@ class HomeViewModel(
         viewModelScope.launch(Dispatchers.IO) {
             repository.cleanupOldTrashedNotes()
             templateSeeder.seedIfMissing()
+            sampleNotesSeeder.seedIfNeededAndReturnFolderToOpen()?.let { folderId ->
+                updateExpandedFolderIds { it + folderId }
+            }
         }
         viewModelScope.launch(Dispatchers.IO) {
             delay(2_000.milliseconds)

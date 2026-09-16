@@ -76,6 +76,20 @@ val sharedModule = module {
     }
 
     single {
+        com.emberr.domain.sample.SampleDailyNoteSeeder(
+            repository = get(),
+            settingsManager = get()
+        )
+    }
+
+    single {
+        com.emberr.domain.sample.SampleNotesSeeder(
+            repository = get(),
+            settingsManager = get()
+        )
+    }
+
+    single {
         com.emberr.presentation.reminders.ReminderRescheduler(
             calendarTaskDao = get(),
             calendarEventExceptionDao = get(),
@@ -153,6 +167,7 @@ val sharedModule = module {
             taskExtractor = get(),
             voiceRecognizer = get(),
             templateSeeder = get(),
+            sampleNotesSeeder = get(),
             localMediaGarbageCollector = get(),
             favoriteNoteOrderStore = get()
         )
@@ -203,7 +218,8 @@ val sharedModule = module {
             mediaStorageHelper = get(),
             reminderScheduler = get(),
             audioRecorder = get(),
-            appScope = get(named("AppScope"))
+            appScope = get(named("AppScope")),
+            sampleDailyNoteSeeder = get()
         )
     }
     viewModel { TrashViewModel(repository = get()) }
