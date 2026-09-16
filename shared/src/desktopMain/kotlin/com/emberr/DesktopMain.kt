@@ -34,6 +34,7 @@ import com.emberr.domain.selfhost.crypto.SecureSyncKeyStorage
 import com.emberr.domain.selfhost.sync.SelfHostSyncLog
 import com.emberr.domain.selfhost.sync.SelfHostSyncScheduler
 import com.emberr.domain.sync.SyncRepository
+import com.emberr.domain.vault.VaultLog
 import com.emberr.domain.vault.VaultMirrorService
 import com.emberr.presentation.EmberrApp
 import com.emberr.presentation.settings.PlainTextSecretWarningDialog
@@ -140,6 +141,7 @@ fun main() = application {
 
     LaunchedEffect(Unit) {
         val vaultMirrorService = withContext(Dispatchers.IO) {
+            VaultLog.keepErrorsIn(java.io.File(System.getProperty("user.home"), ".emberr/vault-errors.txt"))
             GlobalContext.get().get<VaultMirrorService>()
         }
         vaultMirrorService.startWatching(this)
