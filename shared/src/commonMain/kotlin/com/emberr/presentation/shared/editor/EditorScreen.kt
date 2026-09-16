@@ -28,6 +28,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.focusTarget
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -41,11 +43,13 @@ import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInParent
+import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.PopupProperties
 import com.emberr.data.local.room.TagEntity
@@ -326,6 +330,8 @@ fun EditorScreen(
     focusRequest: FocusRequest?,
     selectionRequest: SelectionRequest? = null,
     selectedBlockIds: Set<String>,
+    selectionMenuContent: (@Composable (onCloseMenu: () -> Unit) -> Unit)? = null,
+    onClearSelection: () -> Unit = {},
     bottomContentPadding: Dp = 0.dp,
     topContentPadding: Dp = 0.dp,
     toolbarOffset: Dp = 0.dp,
@@ -348,6 +354,19 @@ fun EditorScreen(
 ) {
     val isSelectionMode = selectedBlockIds.isNotEmpty()
     val focusManager = LocalFocusManager.current
+    val showsSelectionMenuOnRightClick = isDesktopPlatform && selectionMenuContent != null
+    var editorTopLeftInWindow by remember { mutableStateOf(Offset.Zero) }
+    var selectionAnchorBlockId by remember { mutableStateOf<String?>(null) }
+    var selectionMenuPositionInEditor by remember { mutableStateOf<Offset?>(null) }
+    val closeSelectionMenu: () -> Unit = remember { { selectionMenuPositionInEditor = null } }
+    LaunchedEffect(isSelectionMode) { if (!isSelectionMode) selectionMenuPositionInEditor = null }
+    val selectionShortcutFocusRequester = remember { FocusRequester() }
+    LaunchedEffect(isSelectionMode, selectionMenuPositionInEditor) {
+        val needsKeyFocus = isDesktopPlatform && isSelectionMode && selectionMenuPositionInEditor == null
+        if (needsKeyFocus) {
+            runCatching { selectionShortcutFocusRequester.requestFocus() }
+        }
+    }
     val keyboardController = LocalSoftwareKeyboardController.current
     var activeBlockId by remember { mutableStateOf<String?>(null) }
     val currentBlocks by rememberUpdatedState(blocks)
@@ -420,6 +439,12 @@ fun EditorScreen(
     val latestOnMentionQueryChange by rememberUpdatedState(onMentionQueryChange)
     val latestOnUndo by rememberUpdatedState(onUndo)
     val latestOnRedo by rememberUpdatedState(onRedo)
+    val latestOnClearSelection by rememberUpdatedState(onClearSelection)
+    val latestSelectedBlockIds by rememberUpdatedState(selectedBlockIds)
+
+    val clearSelectionOnTap: () -> Unit = remember {
+        { if (isDesktopPlatform) latestOnClearSelection() }
+    }
 
     val clearSlashAndExecute: (() -> Unit) -> Unit = { executionBlock ->
         actions.onClearSlashQuery()
@@ -431,6 +456,10 @@ fun EditorScreen(
 
     val wrappedActions = remember(actions) {
         object : EditorActions by actions {
+            override fun onToggleSelection(id: String) {
+                selectionAnchorBlockId = id
+                actions.onToggleSelection(id)
+            }
             override fun onClearFocusRequest() {
                 localFocusRequest = null
                 actions.onClearFocusRequest()
@@ -664,26 +693,67 @@ fun EditorScreen(
     }
     val onDismissSlash: () -> Unit = remember { { showSlashMenu = false } }
 
+    val selectBlockRangeTo: (String) -> Unit = remember(actions) {
+        { targetBlockId ->
+            val visibleBlockIds = latestBlocks.map { it.id }
+            val anchorIndex = visibleBlockIds.indexOf(selectionAnchorBlockId)
+            val targetIndex = visibleBlockIds.indexOf(targetBlockId)
+
+            if (anchorIndex < 0 || targetIndex < 0) {
+                wrappedActions.onToggleSelection(targetBlockId)
+            } else {
+                val alreadySelectedIds = latestSelectedBlockIds
+                for (index in minOf(anchorIndex, targetIndex)..maxOf(anchorIndex, targetIndex)) {
+                    val blockIdInRange = visibleBlockIds[index]
+                    if (blockIdInRange !in alreadySelectedIds) actions.onToggleSelection(blockIdInRange)
+                }
+            }
+        }
+    }
+
+    val openSelectionMenuAt: (Offset) -> Unit = remember {
+        { pressPositionInWindow ->
+            focusManager.clearFocus()
+            keyboardController?.hide()
+            activeBlockId = null
+            GlobalEditorState.currentlyFocusedBlockId = null
+            localFocusRequest = null
+            showSlashMenu = false
+            selectionMenuPositionInEditor = pressPositionInWindow - editorTopLeftInWindow
+        }
+    }
+
     Box(
         modifier = modifier
             .fillMaxSize()
             .imePadding()
+            .onGloballyPositioned { editorTopLeftInWindow = it.positionInWindow() }
             .then(
                 if (isDesktopPlatform) {
-                    Modifier.onPreviewKeyEvent { keyEvent ->
-                        if (keyEvent.type != KeyEventType.KeyDown || !keyEvent.isCtrlPressed) return@onPreviewKeyEvent false
-                        when (keyEvent.key) {
-                            Key.Z -> {
-                                if (keyEvent.isShiftPressed) latestOnRedo() else latestOnUndo()
-                                true
+                    Modifier
+                        .focusRequester(selectionShortcutFocusRequester)
+                        .focusTarget()
+                        .onPreviewKeyEvent { keyEvent ->
+                            if (keyEvent.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                            if (keyEvent.key == Key.Escape) {
+                                if (!isSelectionMode) return@onPreviewKeyEvent false
+                                closeSelectionMenu()
+                                latestOnClearSelection()
+                                return@onPreviewKeyEvent true
                             }
-                            Key.Y -> {
-                                latestOnRedo()
-                                true
+                            if (!keyEvent.isCtrlPressed) return@onPreviewKeyEvent false
+                            when (keyEvent.key) {
+                                Key.Z -> {
+                                    if (keyEvent.isShiftPressed) latestOnRedo() else latestOnUndo()
+                                    true
+                                }
+                                Key.Y -> {
+                                    latestOnRedo()
+                                    true
+                                }
+                                else -> false
                             }
-                            else -> false
                         }
-                    }
                 } else {
                     Modifier
                 }
@@ -706,6 +776,7 @@ fun EditorScreen(
                                 localFocusRequest = null
                                 showSlashMenu = false
                                 onMobileMenuStateChange(MobileMenuState.MAIN)
+                                clearSelectionOnTap()
                                 wrappedActions.onOutsideTap()
                             },
                             onDoubleTap = {
@@ -806,7 +877,9 @@ fun EditorScreen(
                             onDismissNoteLinkMenu = onDismissNoteLinkMenu,
                             isFirstToggleChild = isFirstToggleChild,
                             selectionRequest = selectionRequest,
-                            validNoteIds = validNoteIds
+                            validNoteIds = validNoteIds,
+                            onRightClick = if (showsSelectionMenuOnRightClick) openSelectionMenuAt else null,
+                            onShiftClick = selectBlockRangeTo
                         )
                     }
                 }
@@ -844,6 +917,7 @@ fun EditorScreen(
                                             localFocusRequest = null
                                             showSlashMenu = false
                                             onMobileMenuStateChange(MobileMenuState.MAIN)
+                                            clearSelectionOnTap()
                                             wrappedActions.onOutsideTap()
                                         }
                                     )
@@ -861,6 +935,28 @@ fun EditorScreen(
                 .fillMaxHeight()
                 .padding(top = topContentPadding, bottom = bottomContentPadding)
         )
+
+        val selectionMenuPosition = selectionMenuPositionInEditor
+        if (selectionMenuContent != null && selectionMenuPosition != null) {
+            Box(
+                modifier = Modifier
+                    .offset {
+                        IntOffset(
+                            selectionMenuPosition.x.roundToInt(),
+                            selectionMenuPosition.y.roundToInt()
+                        )
+                    }
+                    .size(1.dp)
+            ) {
+                EmberrDesktopMenu(
+                    expanded = true,
+                    onDismissRequest = closeSelectionMenu,
+                    modifier = Modifier.width(260.dp)
+                ) {
+                    selectionMenuContent(closeSelectionMenu)
+                }
+            }
+        }
     }
 }
 

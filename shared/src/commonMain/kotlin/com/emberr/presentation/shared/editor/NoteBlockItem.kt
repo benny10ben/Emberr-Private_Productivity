@@ -37,8 +37,13 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.key.*
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.isPrimaryPressed
+import androidx.compose.ui.input.pointer.isSecondaryPressed
+import androidx.compose.ui.input.pointer.isShiftPressed
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -154,6 +159,8 @@ fun NoteBlockItem(
     isFirstToggleChild: Boolean = false,
     selectionRequest: SelectionRequest? = null,
     validNoteIds: Set<String> = emptySet(),
+    onRightClick: ((Offset) -> Unit)? = null,
+    onShiftClick: ((String) -> Unit)? = null,
 ) {
     // STANDARD BLOCK LOGIC
     val density = LocalDensity.current
@@ -352,10 +359,51 @@ fun NoteBlockItem(
     val slashMenuFilteredItems = remember(slashMenuSections) { slashMenuSections.flatMap { it.items } }
     var slashMenuSelectedIndex by remember(slashQuery) { mutableIntStateOf(0) }
 
+    var blockTopLeftInWindow by remember { mutableStateOf(Offset.Zero) }
+    val handleRightClick: (Offset) -> Unit = { pressPositionInBlock ->
+        if (!isSelected) actions.onToggleSelection(block.id)
+        onRightClick?.invoke(blockTopLeftInWindow + pressPositionInBlock)
+    }
+    val latestRightClickHandler by rememberUpdatedState(handleRightClick)
+    val latestShiftClickHandler by rememberUpdatedState(onShiftClick)
+    val latestInSelectionMode by rememberUpdatedState(inSelectionMode)
+
+    val blockMouseModifier = if (isDesktopPlatform && (onRightClick != null || onShiftClick != null)) {
+        Modifier
+            .onGloballyPositioned { blockTopLeftInWindow = it.positionInWindow() }
+            .pointerInput(block.id) {
+                awaitPointerEventScope {
+                    while (true) {
+                        val event = awaitPointerEvent(PointerEventPass.Initial)
+                        if (event.type != PointerEventType.Press) continue
+                        val press = event.changes.firstOrNull() ?: continue
+                        if (press.isConsumed || isFocused) continue
+
+                        val opensContextMenu = event.buttons.isSecondaryPressed &&
+                            linkHoverState.hoveredLink == null
+                        val extendsSelection = event.buttons.isPrimaryPressed &&
+                            event.keyboardModifiers.isShiftPressed &&
+                            latestInSelectionMode
+
+                        if (opensContextMenu) {
+                            press.consume()
+                            latestRightClickHandler(press.position)
+                        } else if (extendsSelection) {
+                            press.consume()
+                            latestShiftClickHandler?.invoke(block.id)
+                        }
+                    }
+                }
+            }
+    } else {
+        Modifier
+    }
+
     // RENDER BLOCK CONTENT
     Box(
         modifier = modifier
             .fillMaxWidth()
+            .then(blockMouseModifier)
             .background(selectionBg)
             .combinedClickable(
                 interactionSource = remember { MutableInteractionSource() },

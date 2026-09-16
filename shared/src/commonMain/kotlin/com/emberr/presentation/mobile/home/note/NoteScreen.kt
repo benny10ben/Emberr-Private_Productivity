@@ -42,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.koin.compose.viewmodel.koinViewModel
 import com.emberr.presentation.shared.stableStatusBarsPadding
+import com.emberr.presentation.shared.editor.BlockSelectionMenuContent
 import com.emberr.presentation.shared.editor.BlockSelectionPill
 import com.emberr.presentation.shared.editor.EditorScreen
 import com.emberr.presentation.shared.editor.EditorActions
@@ -533,6 +534,33 @@ fun NoteScreen(
                     selectionRequest = selectionRequest,
                     topBarClearancePx = topBarBottomPx,
                     selectedBlockIds = selectedBlockIds,
+                    onClearSelection = { viewModel.clearSelection() },
+                    selectionMenuContent = { closeMenu ->
+                        BlockSelectionMenuContent(
+                            selectedCount = selectedBlockIds.size,
+                            onCloseMenu = closeMenu,
+                            onCopy = {
+                                clipboardManager.setText(AnnotatedString(viewModel.getSelectedText()))
+                                viewModel.clearSelection()
+                            },
+                            onCut = { clipboardManager.setText(AnnotatedString(viewModel.cutSelectedBlocks())) },
+                            onDelete = { viewModel.deleteSelectedBlocks() },
+                            onSelectAll = { viewModel.selectAllBlocks() },
+                            onClearSelection = { viewModel.clearSelection() },
+                            selectedBlocks = selectedBlocksList,
+                            isSelectionPinned = isSelectionPinned,
+                            onTogglePin = { viewModel.togglePinSelectedBlocks() },
+                            onAddBlockAbove = { viewModel.addBlockAboveSelection() },
+                            onAddBlockBelow = { viewModel.addBlockBelowSelection() },
+                            onChangeBlockType = { viewModel.changeBlockTypeForSelectedBlocks(it) },
+                            onToggleFormat = { viewModel.toggleFormatForSelectedBlocks(it) },
+                            onSetAlignment = { viewModel.setSelectedBlocksAlignment(it) },
+                            onAdjustIndentation = { viewModel.adjustIndentationForSelectedBlocks(it) },
+                            onUpdateLinkedNoteOptions = { id, showIcon, showCoverImage ->
+                                viewModel.updateLinkedNoteOptions(id, showIcon, showCoverImage)
+                            }
+                        )
+                    },
                     mobileMenuState = mobileMenuState,
                     onMobileMenuStateChange = onMobileMenuStateChange,
                     slashQuery = slashQuery,
@@ -754,7 +782,7 @@ fun NoteScreen(
                         hazeState = hazeState
                     )
                     BlockSelectionPill(
-                        isVisible = isSelectionMode,
+                        isVisible = isSelectionMode && !isDesktopPlatform,
                         selectedCount = selectedBlockIds.size,
                         onClearSelection = { viewModel.clearSelection() },
                         onSelectAll = { viewModel.selectAllBlocks() },

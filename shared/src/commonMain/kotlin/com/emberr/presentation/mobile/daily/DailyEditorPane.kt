@@ -29,6 +29,7 @@ import com.emberr.domain.model.NoteBlock
 import com.emberr.domain.model.TextAlignment
 import com.emberr.domain.model.ViewType
 import com.emberr.domain.util.system.isDesktopPlatform
+import com.emberr.presentation.shared.editor.BlockSelectionMenuContent
 import com.emberr.presentation.shared.editor.BlockSelectionPill
 import com.emberr.presentation.shared.editor.EditorActions
 import com.emberr.presentation.shared.editor.EditorScreen
@@ -304,6 +305,33 @@ fun DailyEditorPane(
             focusRequest = if (isSelectedDayLive) focusRequest else null,
             selectionRequest = if (isSelectedDayLive) selectionRequest else null,
             selectedBlockIds = selectedBlockIds,
+            onClearSelection = { viewModel.clearSelection() },
+            selectionMenuContent = { closeMenu ->
+                BlockSelectionMenuContent(
+                    selectedCount = selectedBlockIds.size,
+                    onCloseMenu = closeMenu,
+                    onCopy = {
+                        clipboardManager.setText(AnnotatedString(viewModel.getSelectedText()))
+                        viewModel.clearSelection()
+                    },
+                    onCut = { clipboardManager.setText(AnnotatedString(viewModel.cutSelectedBlocks())) },
+                    onDelete = { viewModel.deleteSelectedBlocks() },
+                    onSelectAll = { viewModel.selectAllBlocks() },
+                    onClearSelection = { viewModel.clearSelection() },
+                    selectedBlocks = selectedBlocksList,
+                    isSelectionPinned = isSelectionPinned,
+                    onTogglePin = { actions.onTogglePin() },
+                    onAddBlockAbove = { viewModel.addBlockAboveSelection() },
+                    onAddBlockBelow = { viewModel.addBlockBelowSelection() },
+                    onChangeBlockType = { viewModel.changeBlockTypeForSelectedBlocks(it) },
+                    onToggleFormat = { viewModel.toggleFormatForSelectedBlocks(it) },
+                    onSetAlignment = { viewModel.setSelectedBlocksAlignment(it) },
+                    onAdjustIndentation = { viewModel.adjustIndentationForSelectedBlocks(it) },
+                    onUpdateLinkedNoteOptions = { id, showIcon, showCoverImage ->
+                        viewModel.updateLinkedNoteOptions(id, showIcon, showCoverImage)
+                    }
+                )
+            },
             mobileMenuState = mobileMenuState,
             onMobileMenuStateChange = onMobileMenuStateChange,
             slashQuery = slashQuery,
@@ -412,7 +440,7 @@ fun DailyEditorPane(
                 hazeState = hazeState
             )
             BlockSelectionPill(
-                isVisible = isSelectionMode,
+                isVisible = isSelectionMode && !isDesktopPlatform,
                 selectedCount = selectedBlockIds.size,
                 onClearSelection = { viewModel.clearSelection() },
                 onSelectAll = { viewModel.selectAllBlocks() },

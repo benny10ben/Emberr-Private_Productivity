@@ -45,6 +45,7 @@ import com.emberr.domain.util.eventbus.WidgetComposeRequestBus
 import com.emberr.domain.util.system.isDesktopPlatform
 import com.emberr.presentation.shared.components.EmberrBlur
 import com.emberr.presentation.shared.components.KmpBackHandler
+import com.emberr.presentation.shared.editor.BlockSelectionMenuContent
 import com.emberr.presentation.shared.editor.BlockSelectionPill
 import com.emberr.presentation.shared.editor.EditorScreen
 import com.emberr.presentation.shared.editor.EditorActions
@@ -301,6 +302,21 @@ fun TasksScreen(
                     actions = editorActions,
                     focusRequest = focusRequest,
                     selectedBlockIds = selectedBlockIds,
+                    onClearSelection = { viewModel.clearSelection() },
+                    selectionMenuContent = { closeMenu ->
+                        BlockSelectionMenuContent(
+                            selectedCount = selectedBlockIds.size,
+                            onCloseMenu = closeMenu,
+                            onCopy = {
+                                clipboardManager.setText(AnnotatedString(viewModel.getSelectedText()))
+                                viewModel.clearSelection()
+                            },
+                            onCut = { clipboardManager.setText(AnnotatedString(viewModel.cutSelectedBlocks())) },
+                            onDelete = { viewModel.deleteSelectedBlocks() },
+                            onSelectAll = { viewModel.selectAllBlocks() },
+                            onClearSelection = { viewModel.clearSelection() }
+                        )
+                    },
                     topContentPadding = topPadding,
                     allLinkableNotes = allLinkableNotes,
                     sectionLabelFor = sectionLabelFor,
@@ -353,7 +369,7 @@ fun TasksScreen(
             )
 
             BlockSelectionPill(
-                isVisible = isSelectionMode,
+                isVisible = isSelectionMode && !isDesktopPlatform,
                 selectedCount = selectedBlockIds.size,
                 onClearSelection = { viewModel.clearSelection() },
                 onSelectAll = { viewModel.selectAllBlocks() },
