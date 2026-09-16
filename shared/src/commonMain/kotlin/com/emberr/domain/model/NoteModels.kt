@@ -664,6 +664,26 @@ fun NoteBlock.withUpdatedAt(now: Long): NoteBlock = when (this) {
     is ThreeDotDividerBlock -> copy(updatedAt = now)
 }
 
+fun NoteBlock.withDeleted(deleted: Boolean, now: Long): NoteBlock = when (this) {
+    is TextBlock -> copy(isDeleted = deleted, updatedAt = now)
+    is HeadingBlock -> copy(isDeleted = deleted, updatedAt = now)
+    is CheckboxBlock -> copy(isDeleted = deleted, updatedAt = now)
+    is BulletedListBlock -> copy(isDeleted = deleted, updatedAt = now)
+    is NumberedListBlock -> copy(isDeleted = deleted, updatedAt = now)
+    is ToggleBlock -> copy(isDeleted = deleted, updatedAt = now)
+    is CodeBlock -> copy(isDeleted = deleted, updatedAt = now)
+    is BookmarkBlock -> copy(isDeleted = deleted, updatedAt = now)
+    is LinkedNoteBlock -> copy(isDeleted = deleted, updatedAt = now)
+    is ImageBlock -> copy(isDeleted = deleted, updatedAt = now)
+    is DocumentBlock -> copy(isDeleted = deleted, updatedAt = now)
+    is DatabaseBlock -> copy(isDeleted = deleted, updatedAt = now)
+    is TableBlock -> copy(isDeleted = deleted, updatedAt = now)
+    is VoiceBlock -> copy(isDeleted = deleted, updatedAt = now)
+    is QuoteBlock -> copy(isDeleted = deleted, updatedAt = now)
+    is SolidDividerBlock -> copy(isDeleted = deleted, updatedAt = now)
+    is ThreeDotDividerBlock -> copy(isDeleted = deleted, updatedAt = now)
+}
+
 // Rebuilds an entire note's content with fresh ids on every block - used when a note is
 // created from a template so the copy never collides with the template's own rows in Room
 // (block ids and DatabaseBlock schema ids are primary/foreign keys there).

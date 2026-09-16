@@ -156,10 +156,7 @@ class NoteRepositoryImpl(
             val entities = blockDao.getAllBlocksForNoteIncludingDeleted(metadata.noteId)
             if (entities.isEmpty()) return@withContext null
 
-            val blocks = entities.mapNotNull { entity ->
-                try { jsonFormat.decodeFromString<NoteBlock>(entity.blockDataJson) }
-                catch (_: Exception) { null }
-            }
+            val blocks = entities.mapNotNull { entity -> decodeBlockOrNull(entity.blockDataJson) }
             val content = NoteContent(blocks = blocks)
 
             // Populate the cache so subsequent reads and observers get this value.
@@ -173,12 +170,15 @@ class NoteRepositoryImpl(
 
     private fun savedContentOmitsTombstones(dateString: String) = dateString == "global_pinned"
 
-    private fun cacheSavedDailyContent(dateString: String, content: NoteContent) {
-        if (savedContentOmitsTombstones(dateString)) {
-            dailyNoteCache.update { it - dateString }
-        } else {
-            dailyNoteCache.update { it + (dateString to content) }
+    private fun cacheSavedContent(noteId: String, dailyDateString: String?, content: NoteContent) {
+        if (dailyDateString != null && savedContentOmitsTombstones(dailyDateString)) {
+            noteContentCache.update { it - noteId }
+            dailyNoteCache.update { it - dailyDateString }
+            return
         }
+
+        noteContentCache.update { it + (noteId to content) }
+        if (dailyDateString != null) dailyNoteCache.update { it + (dailyDateString to content) }
     }
 
     override suspend fun getSavedDailyNoteDates(): List<String> =
@@ -221,10 +221,7 @@ class NoteRepositoryImpl(
             }
         }
         val mergedBlocks = mergedBlocksByBlockId.values.map { it.copy(noteId = winner.noteId) }
-        val decodedBlocks = mergedBlocks.mapNotNull { entity ->
-            try { jsonFormat.decodeFromString<NoteBlock>(entity.blockDataJson) }
-            catch (_: Exception) { null }
-        }
+        val decodedBlocks = mergedBlocks.mapNotNull { entity -> decodeBlockOrNull(entity.blockDataJson) }
 
         noteDao.insertOrUpdateMetadata(winner.copy(filePath = ""))
         blockDao.insertOrUpdateBlocks(mergedBlocks)
@@ -252,7 +249,7 @@ class NoteRepositoryImpl(
     // Upserts only the blocks that actually changed since the last save. note_blocks is keyed by
     // (noteId, blockId), so a block that moved here from another note simply gets its own row -
     // it can't collide with or reclaim the row that block still has under its previous note.
-    private suspend fun upsertChangedBlocks(noteId: String, content: NoteContent) {
+    private suspend fun upsertChangedBlocks(noteId: String, content: NoteContent): List<NoteBlock> {
         val currentEntities = blockDao.getAllBlocksForNoteIncludingDeleted(noteId).associateBy { it.blockId }
         val presentIds = content.blocks.mapTo(HashSet()) { it.id }
         val now = System.currentTimeMillis()
@@ -288,7 +285,20 @@ class NoteRepositoryImpl(
         if (entitiesToUpsert.isNotEmpty()) {
             blockDao.insertOrUpdateBlocks(entitiesToUpsert)
         }
+
+        return SavedNoteContent.blocksTheNoteHoldsAfterSaving(
+            blocksBeingSaved = content.blocks,
+            blocksAlreadyStored = currentEntities.values.mapNotNull { decodeBlockOrNull(it.blockDataJson) },
+            removedAt = now
+        )
     }
+
+    private fun decodeBlockOrNull(blockDataJson: String): NoteBlock? =
+        try {
+            jsonFormat.decodeFromString<NoteBlock>(blockDataJson)
+        } catch (_: Exception) {
+            null
+        }
 
     // Flips isDeleted on a serialised block without a typed copy for every NoteBlock subtype.
 // The "type" discriminator and all other fields are preserved, so decode still resolves the
@@ -305,11 +315,6 @@ class NoteRepositoryImpl(
 
     override suspend fun saveDailyNote(dateString: String, content: NoteContent, updatedAt: Long?, remoteMeta: NoteMetadataEntity?) =
         withContext(Dispatchers.IO) {
-
-            // Update the cache synchronously before the DB write.
-            // This means any observer (DailyEditorViewModel) sees the new content
-            // immediately, without waiting for Room to finish writing.
-            cacheSavedDailyContent(dateString, content)
 
             val existing = noteDao.getDailyNoteMetadata(dateString)
             val noteId = existing?.noteId ?: remoteMeta?.noteId ?: UUID.randomUUID().toString()
@@ -345,7 +350,7 @@ class NoteRepositoryImpl(
             )
             noteDao.insertOrUpdateMetadata(metadata)
 
-            upsertChangedBlocks(noteId, content)
+            cacheSavedContent(noteId, dateString, NoteContent(blocks = upsertChangedBlocks(noteId, content)))
 
             AutoSyncTrigger.requestSync()
             VaultMirrorTrigger.requestNoteRefresh(noteId)
@@ -424,11 +429,7 @@ class NoteRepositoryImpl(
         val entities = blockDao.getAllBlocksForNoteIncludingDeleted(noteId)
         val lowerQuery = query.lowercase()
         for (entity in entities) {
-            val block = try {
-                jsonFormat.decodeFromString<NoteBlock>(entity.blockDataJson)
-            } catch (_: Exception) {
-                null
-            } ?: continue
+            val block = decodeBlockOrNull(entity.blockDataJson) ?: continue
             if (block.isDeleted) continue
             val text = flattenBlockText(block) ?: continue
             if (text.lowercase().contains(lowerQuery)) return text
@@ -470,10 +471,7 @@ class NoteRepositoryImpl(
             val entities = blockDao.getAllBlocksForNoteIncludingDeleted(noteId)
             if (entities.isEmpty()) return@withContext null
 
-            val blocks = entities.mapNotNull { entity ->
-                try { jsonFormat.decodeFromString<NoteBlock>(entity.blockDataJson) }
-                catch (_: Exception) { null }
-            }
+            val blocks = entities.mapNotNull { entity -> decodeBlockOrNull(entity.blockDataJson) }
             val content = NoteContent(blocks = blocks)
 
             // Populate cache on first DB read so future reads and observers are live.
@@ -511,41 +509,20 @@ class NoteRepositoryImpl(
     override suspend fun saveNote(metadata: NoteMetadataEntity, content: NoteContent, stampUpdatedAt: Boolean) =
         withContext(Dispatchers.IO) {
 
-            // Update the cache synchronously before the DB write.
-            // Any observer (NoteEditorViewModel) immediately sees the new blocks.
-            noteContentCache.update { it + (metadata.noteId to content) }
-
             val stampedMetadata = if (stampUpdatedAt) metadata.copy(updatedAt = System.currentTimeMillis()) else metadata
             noteDao.insertOrUpdateMetadata(stampedMetadata.copy(filePath = ""))
 
-            upsertChangedBlocks(metadata.noteId, content)
+            val persistedBlocks = upsertChangedBlocks(metadata.noteId, content)
+
+            cacheSavedContent(
+                metadata.noteId,
+                metadata.dateString?.takeIf { metadata.isDaily },
+                NoteContent(blocks = persistedBlocks)
+            )
 
             AutoSyncTrigger.requestSync()
             VaultMirrorTrigger.requestNoteRefresh(metadata.noteId)
-            syncCalendarTasks(
-                noteId = metadata.noteId,
-                blocks = content.blocks,
-                sourceType = TaskSource.NOTE,
-                dailyDateString = null
-            )
-            syncImageBlocks(
-                noteId       = metadata.noteId,
-                blocks       = content.blocks,
-                sourceType   = TaskSource.NOTE,
-                noteCreatedAt = metadata.createdAt
-            )
-            syncDocumentBlocks(
-                noteId        = metadata.noteId,
-                blocks        = content.blocks,
-                sourceType    = TaskSource.NOTE,
-                noteCreatedAt = metadata.createdAt
-            )
-            syncBookmarkBlocks(
-                noteId       = metadata.noteId,
-                blocks       = content.blocks,
-                sourceType   = TaskSource.NOTE,
-                noteUpdatedAt = stampedMetadata.updatedAt
-            )
+            refreshProjectionsForNote(stampedMetadata, content.blocks)
         }
 
     override suspend fun deleteNote(noteId: String, filePath: String) {
