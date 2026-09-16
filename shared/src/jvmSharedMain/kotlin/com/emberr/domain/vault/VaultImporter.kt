@@ -132,7 +132,11 @@ class VaultImporter(
         }
 
         val readResult = readBlocks(markdownToApply, currentBlocks)
-        if (readResult.blocks == currentBlocks && !metadataChanged(existingNote, frontMatter, file)) {
+        val noteAlreadyMatchesTheFile = readResult.blocks == currentBlocks &&
+            !metadataChanged(existingNote, frontMatter, file)
+
+        if (noteAlreadyMatchesTheFile) {
+            fileLedger.recordWrite(existingNote.noteId, path, markdownOnDisk, existingNote.updatedAt)
             return VaultImportReport(VaultImportOutcome.UNCHANGED, existingNote.title)
         }
 
@@ -147,6 +151,7 @@ class VaultImporter(
             ),
             content = NoteContent(blocks = readResult.blocks)
         )
+        fileLedger.recordWrite(existingNote.noteId, path, markdownOnDisk, existingNote.updatedAt)
 
         readResult.problems.forEach { problem -> VaultLog.e("${vaultPathOf(file)}: $problem") }
 

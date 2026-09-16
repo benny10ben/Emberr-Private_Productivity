@@ -222,6 +222,7 @@ class VaultMirrorService(
                 VaultLog.d("$description: ${result.notesWritten} written, ${result.filesRemoved} removed")
             }
             result.failures.forEach { failure -> VaultLog.e("$description: $failure") }
+            result.filesEditedOutsideTheApp.forEach { path -> importFile(File(path)) }
         } catch (cause: CancellationException) {
             throw cause
         } catch (cause: Exception) {

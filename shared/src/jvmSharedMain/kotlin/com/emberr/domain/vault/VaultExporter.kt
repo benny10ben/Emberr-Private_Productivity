@@ -25,10 +25,13 @@ data class VaultExportResult(
     val notesWritten: Int,
     val notesUnchanged: Int,
     val filesRemoved: Int,
-    val failures: List<String>
+    val failures: List<String>,
+    val filesEditedOutsideTheApp: List<String> = emptyList()
 ) {
     val isCompleteSuccess: Boolean get() = failures.isEmpty()
 }
+
+private enum class VaultFileWriteOutcome { WRITTEN, ALREADY_MATCHING, SKIPPED_OUTSIDE_EDIT }
 
 private data class PlannedNoteFile(
     val note: NoteMetadataEntity,
@@ -77,22 +80,27 @@ class VaultExporter(
                 ?: return@withLock removeFileForVanishedNote(noteId)
 
             val failures = mutableListOf<String>()
+            val filesEditedOutsideTheApp = mutableListOf<String>()
             var notesWritten = 0
             var notesUnchanged = 0
             var filesRemoved = 0
 
             try {
                 val markdown = buildMarkdownFor(planned, snapshot)
-                if (writeFileWhenContentChanged(planned.targetFile, markdown)) notesWritten++
-                else notesUnchanged++
+                val outcome = writeFileWhenContentChanged(planned.targetFile, markdown)
+                if (outcome == VaultFileWriteOutcome.WRITTEN) notesWritten++ else notesUnchanged++
 
-                val newPath = planned.targetFile.absolutePath
-                val previousPath = fileLedger.pathForNote(noteId)
-                if (previousPath != null && previousPath != newPath && File(previousPath).delete()) {
-                    filesRemoved++
+                if (outcome == VaultFileWriteOutcome.SKIPPED_OUTSIDE_EDIT) {
+                    filesEditedOutsideTheApp.add(planned.targetFile.absolutePath)
+                } else {
+                    val newPath = planned.targetFile.absolutePath
+                    val previousPath = fileLedger.pathForNote(noteId)
+                    if (previousPath != null && previousPath != newPath && File(previousPath).delete()) {
+                        filesRemoved++
+                    }
+                    fileLedger.recordWrite(noteId, newPath, markdown, planned.note.updatedAt)
+                    pathMemory.save(currentPathSnapshotWhileLocked())
                 }
-                fileLedger.recordWrite(noteId, newPath, markdown, planned.note.updatedAt)
-                pathMemory.save(currentPathSnapshotWhileLocked())
             } catch (cause: CancellationException) {
                 throw cause
             } catch (cause: IOException) {
@@ -107,7 +115,8 @@ class VaultExporter(
                 notesWritten = notesWritten,
                 notesUnchanged = notesUnchanged,
                 filesRemoved = filesRemoved,
-                failures = failures
+                failures = failures,
+                filesEditedOutsideTheApp = filesEditedOutsideTheApp
             )
         }
     }
@@ -137,6 +146,7 @@ class VaultExporter(
 
         val snapshot = takeVaultSnapshot()
         val failures = mutableListOf<String>()
+        val filesEditedOutsideTheApp = mutableListOf<String>()
         val writtenFilePaths = mutableSetOf<String>()
         val freshWrites = mutableListOf<VaultLedgerWrite>()
         var notesWritten = 0
@@ -147,17 +157,22 @@ class VaultExporter(
                 val markdown = buildMarkdownFor(planned, snapshot)
                 val targetPath = planned.targetFile.absolutePath
                 writtenFilePaths.add(targetPath)
-                freshWrites.add(
+
+                val outcome = writeFileWhenContentChanged(planned.targetFile, markdown)
+                if (outcome == VaultFileWriteOutcome.WRITTEN) notesWritten++ else notesUnchanged++
+
+                val recordedWrite = if (outcome == VaultFileWriteOutcome.SKIPPED_OUTSIDE_EDIT) {
+                    filesEditedOutsideTheApp.add(targetPath)
+                    ledgerWriteAlreadyRecordedFor(planned.note.noteId, targetPath)
+                } else {
                     VaultLedgerWrite(
                         noteId = planned.note.noteId,
                         path = targetPath,
                         markdown = markdown,
                         noteUpdatedAt = planned.note.updatedAt
                     )
-                )
-
-                if (writeFileWhenContentChanged(planned.targetFile, markdown)) notesWritten++
-                else notesUnchanged++
+                }
+                if (recordedWrite != null) freshWrites.add(recordedWrite)
             } catch (cause: CancellationException) {
                 throw cause
             } catch (cause: IOException) {
@@ -184,7 +199,8 @@ class VaultExporter(
             notesWritten = notesWritten,
             notesUnchanged = notesUnchanged,
             filesRemoved = filesRemoved,
-            failures = failures
+            failures = failures,
+            filesEditedOutsideTheApp = filesEditedOutsideTheApp
         )
     }
 
@@ -331,13 +347,25 @@ class VaultExporter(
         else VaultPaths.sanitiseFileName(note.title)
     }
 
-    private fun writeFileWhenContentChanged(targetFile: File, markdown: String): Boolean {
+    private fun ledgerWriteAlreadyRecordedFor(noteId: String, path: String): VaultLedgerWrite? {
+        val markdown = fileLedger.baseMarkdownForPath(path) ?: return null
+        val noteUpdatedAt = fileLedger.noteUpdatedAtForPath(path) ?: return null
+        return VaultLedgerWrite(noteId, path, markdown, noteUpdatedAt)
+    }
+
+    private fun writeFileWhenContentChanged(targetFile: File, markdown: String): VaultFileWriteOutcome {
         val parentDirectory = targetFile.parentFile
         if (parentDirectory != null && !parentDirectory.isDirectory && !parentDirectory.mkdirs()) {
             throw IOException("Could not create directory ${parentDirectory.path}")
         }
 
-        if (targetFile.isFile && targetFile.readText() == markdown) return false
+        val contentOnDisk = if (targetFile.isFile) targetFile.readText() else null
+        if (contentOnDisk == markdown) return VaultFileWriteOutcome.ALREADY_MATCHING
+
+        val markdownWeLastWrote = fileLedger.baseMarkdownForPath(targetFile.absolutePath)
+        if (contentOnDisk != null && markdownWeLastWrote != null && contentOnDisk != markdownWeLastWrote) {
+            return VaultFileWriteOutcome.SKIPPED_OUTSIDE_EDIT
+        }
 
         val temporaryFile = File(parentDirectory, targetFile.name + VaultPaths.TEMPORARY_EXTENSION)
         temporaryFile.writeText(markdown)
@@ -352,7 +380,7 @@ class VaultExporter(
         } catch (_: AtomicMoveNotSupportedException) {
             Files.move(temporaryFile.toPath(), targetFile.toPath(), StandardCopyOption.REPLACE_EXISTING)
         }
-        return true
+        return VaultFileWriteOutcome.WRITTEN
     }
 
     private fun removeStaleFiles(writtenFilePaths: Set<String>, failures: MutableList<String>): Int {
