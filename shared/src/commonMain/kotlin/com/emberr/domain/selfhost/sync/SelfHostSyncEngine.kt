@@ -885,9 +885,8 @@ class SelfHostSyncEngine(
                 mergedMetadata.dateString?.let { dateString ->
                     noteRepository.refreshDailyNoteCache(dateString, refreshedContent)
                 }
-            } else {
-                noteRepository.refreshNoteContentCache(noteId, refreshedContent)
             }
+            noteRepository.refreshNoteContentCache(noteId, refreshedContent)
             noteRepository.refreshProjectionsForNote(mergedMetadata, refreshedContent.blocks)
             VaultMirrorTrigger.requestNoteRefresh(noteId)
 
