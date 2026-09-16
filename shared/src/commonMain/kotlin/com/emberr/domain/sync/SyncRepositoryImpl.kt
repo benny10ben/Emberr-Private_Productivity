@@ -308,14 +308,15 @@ class SyncRepositoryImpl(
                                     // Prevents re-creating a note if a tombstone already exists.
                                     val tombstone = repository.getNoteTombstone(envelope.entityId)
                                     if (!envelope.isDeleted && (tombstone == null || tombstone.deletedAt < envelope.updatedAt)) {
+                                        val newMeta = remoteMeta.copy(selfHostSyncedAt = 0L)
                                         repository.saveNote(
-                                            remoteMeta,
+                                            newMeta,
                                             remoteContent,
                                             stampUpdatedAt = false
                                         )
 
                                         // EXPLICIT AI INDEXING CALL
-                                        repository.indexNote(remoteMeta, remoteContent)
+                                        repository.indexNote(newMeta, remoteContent)
                                         adoptRemoteEmbeddingsIfNeeded(
                                             remoteMeta.noteId, null, envelope.updatedAt,
                                             envelope.embeddedBlocksJson, syncKey
@@ -326,8 +327,10 @@ class SyncRepositoryImpl(
                                         pendingCoverImagePath = remoteMeta.coverImagePath
                                     }
                                 } else if (envelope.isDeleted && envelope.updatedAt > localMeta.updatedAt) {
-                                    val trashedMeta =
-                                        remoteMeta.copy(trashedAt = System.currentTimeMillis())
+                                    val trashedMeta = remoteMeta.copy(
+                                        trashedAt = System.currentTimeMillis(),
+                                        selfHostSyncedAt = localMeta.selfHostSyncedAt
+                                    )
                                     repository.saveNote(
                                         trashedMeta,
                                         remoteContent,
@@ -356,14 +359,18 @@ class SyncRepositoryImpl(
                                     // Checks for metadata differences ignoring non-sync fields like filePath.
                                     val metadataChanged = localMeta.copy(
                                         updatedAt = remoteMeta.updatedAt,
-                                        filePath = remoteMeta.filePath
+                                        filePath = remoteMeta.filePath,
+                                        selfHostSyncedAt = remoteMeta.selfHostSyncedAt
                                     ) != remoteMeta
                                     if (contentChanged || metadataChanged) {
                                         val resolvedUpdatedAt =
                                             maxOf(localMeta.updatedAt, envelope.updatedAt)
                                         val winningMeta =
                                             if (envelope.updatedAt > localMeta.updatedAt) {
-                                                remoteMeta.copy(updatedAt = resolvedUpdatedAt)
+                                                remoteMeta.copy(
+                                                    updatedAt = resolvedUpdatedAt,
+                                                    selfHostSyncedAt = localMeta.selfHostSyncedAt
+                                                )
                                             } else {
                                                 localMeta.copy(updatedAt = resolvedUpdatedAt)
                                             }
