@@ -299,7 +299,7 @@ internal fun RenameColumnSheet(context: DatabaseSheetContext) {
     }
     SheetCancelAndConfirmButtons(
         confirmText = "Save",
-        onCancel = { state.close() },
+        onCancel = { state.dismissCurrentSheet() },
         onConfirm = ::onConfirmRenameColumn,
         modifier = Modifier.padding(vertical = 12.dp)
     )
@@ -373,7 +373,7 @@ internal fun EditFormulaSheet(context: DatabaseSheetContext) {
     }
     SheetCancelAndConfirmButtons(
         confirmText = "Save",
-        onCancel = { state.close() },
+        onCancel = { state.dismissCurrentSheet() },
         onConfirm = ::onConfirmFormula,
         modifier = Modifier.padding(top = 12.dp, bottom = 12.dp)
     )

@@ -11,21 +11,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import com.emberr.domain.util.system.isDesktopPlatform
 import com.emberr.presentation.shared.editor.EditorActions
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.milliseconds
 
-/**
- * Owns every piece of transient UI state the database option sheets share: which sheets are
- * stacked, which cell they act on, the scratch text/filter inputs, and the audio recording
- * side effects that must be torn down whenever a sheet closes.
- *
- * Kept as a `@Stable` holder rather than a pile of `remember { mutableStateOf(...) }` calls so the
- * individual sheet composables can be split into their own files and still read/write one source of
- * truth without threading a dozen callbacks through each of them.
- */
 @Stable
 class DatabaseSheetState internal constructor(
     private val blockId: String,
@@ -67,16 +59,10 @@ class DatabaseSheetState internal constructor(
         if (sheetStack.isEmpty()) clearTransientSelection()
     }
 
-    /**
-     * Dismisses the sheet first and only then mutates the block. The delay lets the sheet's exit
-     * animation finish before recomposition rebuilds the table underneath it, which otherwise
-     * makes the dismissal visibly stutter.
-     *
-     * The commit sits in a `finally` because [scope] belongs to the database block, and the block
-     * is an item in the editor's lazy list. Closing the sheet drops the keyboard and reflows that
-     * list, so the item can be disposed inside the wait - which used to cancel the coroutine and
-     * silently throw the edit away. Cancelling now skips the rest of the wait instead of the save.
-     */
+    fun dismissCurrentSheet() {
+        if (isDesktopPlatform) close() else pop()
+    }
+
     fun applyAction(action: () -> Unit) {
         close()
         scope.launch {
@@ -113,11 +99,6 @@ class DatabaseSheetState internal constructor(
     }
 }
 
-/**
- * `rememberUpdatedState` keeps the holder pointed at the freshest [EditorActions] instance without
- * re-creating it, so a recomposition that hands down a new lambda bundle can never leave the
- * recording teardown calling into a stale one.
- */
 @Composable
 fun rememberDatabaseSheetState(blockId: String, actions: EditorActions): DatabaseSheetState {
     val scope = rememberCoroutineScope()

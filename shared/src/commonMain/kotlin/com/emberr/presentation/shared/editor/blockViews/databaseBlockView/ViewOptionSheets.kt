@@ -103,7 +103,7 @@ internal fun RenameViewSheet(context: DatabaseSheetContext) {
     }
     SheetCancelAndConfirmButtons(
         confirmText = "Save",
-        onCancel = { state.close() },
+        onCancel = { state.dismissCurrentSheet() },
         onConfirm = onConfirmRename,
         modifier = Modifier.padding(vertical = 12.dp)
     )
@@ -122,7 +122,6 @@ internal fun RenameViewSheet(context: DatabaseSheetContext) {
     }
 }
 
-/** Persists schema only - rows are intentionally dropped so a template stays a blank starting point. */
 @Composable
 internal fun SaveAsTemplateSheet(context: DatabaseSheetContext) {
     val state = context.state
@@ -145,7 +144,7 @@ internal fun SaveAsTemplateSheet(context: DatabaseSheetContext) {
     }
     SheetCancelAndConfirmButtons(
         confirmText = "Save",
-        onCancel = { state.close() },
+        onCancel = { state.dismissCurrentSheet() },
         onConfirm = onConfirmSaveAsTemplate,
         modifier = Modifier.padding(vertical = 12.dp)
     )
@@ -319,11 +318,11 @@ internal fun SortSheet(context: DatabaseSheetContext) {
                 text = "Clear all",
                 onClick = {
                     sortedColumnIds.forEach { actions.onUpdateDbSort(blockId, it, null) }
-                    state.close()
+                    state.dismissCurrentSheet()
                 },
                 modifier = Modifier.weight(1f)
             )
-            EmberrButtonPrimary(text = "Done", onClick = { state.close() }, modifier = Modifier.weight(1f))
+            EmberrButtonPrimary(text = "Done", onClick = { state.dismissCurrentSheet() }, modifier = Modifier.weight(1f))
         }
     }
 }
@@ -505,7 +504,7 @@ internal fun FilterSheet(context: DatabaseSheetContext) {
 
     SheetCancelAndConfirmButtons(
         confirmText = "Apply",
-        onCancel = { state.close() },
+        onCancel = { state.dismissCurrentSheet() },
         onConfirm = ::onConfirmFilter,
         modifier = Modifier.padding(top = 12.dp, bottom = 12.dp)
     )
@@ -562,11 +561,6 @@ internal fun GroupBySheet(context: DatabaseSheetContext) {
     Spacer(Modifier.height(8.dp))
 }
 
-/**
- * Board order is dragged locally in `orderedKeys` and only persisted on drop, so the list slides
- * under the finger without a round trip through the repository on every pointer event. Rows are
- * keyed by bucket name rather than index so a mid-drag reorder cannot steal the active gesture.
- */
 @Composable
 private fun BoardVisibilityAndOrderList(
     context: DatabaseSheetContext,
@@ -654,10 +648,6 @@ private fun BoardVisibilityAndOrderList(
     }
 }
 
-/**
- * Purely a display density knob, so unlike Group By/Filter there is no "None" entry - a view
- * always resolves to exactly one of the three sizes.
- */
 @Composable
 internal fun CardSizeSheet(context: DatabaseSheetContext) {
     val options = listOf(
