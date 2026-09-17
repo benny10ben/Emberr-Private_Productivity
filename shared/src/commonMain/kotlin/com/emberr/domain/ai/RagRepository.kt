@@ -4,6 +4,7 @@ import com.emberr.domain.ai.chat.ChatTurn
 import com.emberr.domain.ai.external.AiSettingsRepository
 import com.emberr.domain.ai.external.ExternalAiEngine
 import com.emberr.database.EmberrDatabase
+import com.emberr.domain.space.ActiveSpaceStore
 import com.emberr.domain.util.eventbus.AiEventBus
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -16,7 +17,8 @@ class RagRepository(
     private val database: EmberrDatabase,
     private val localAiEngine: LocalAiEngine,
     private val externalAiEngine: ExternalAiEngine,
-    private val aiSettingsRepository: AiSettingsRepository
+    private val aiSettingsRepository: AiSettingsRepository,
+    private val activeSpaceStore: ActiveSpaceStore
 ) {
     val localAiUnsupportedReason: String? get() = localAiEngine.unsupportedHardwareReason
 
@@ -51,7 +53,9 @@ class RagRepository(
 
         val queryVector = localAiEngine.generateEmbedding(userQuestion)
 
-        val allBlocks = database.vectorStoreQueries.getAllBlocks().executeAsList()
+        val allBlocks = database.vectorStoreQueries
+            .getBlocksInSpace(activeSpaceStore.currentActiveSpaceId())
+            .executeAsList()
 
         if (allBlocks.isEmpty()) {
             emit("I don't have any indexed notes yet. Try writing something first.")

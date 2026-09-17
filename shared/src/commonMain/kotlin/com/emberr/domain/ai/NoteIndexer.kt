@@ -113,6 +113,7 @@ class NoteIndexer(
                 database.vectorStoreQueries.insertMetadata(
                     block_id = pending.blockId,
                     note_id = metadata.noteId,
+                    space_id = metadata.spaceId,
                     chunk_text = pending.chunkText,
                     embedding = pending.embeddingString
                 )
