@@ -35,7 +35,7 @@ class MediaReferenceIndex(
 
             noteRepository.getNotesModifiedSince(0L).forEach { metadata ->
                 val content = if (metadata.isDaily && metadata.dateString != null) {
-                    noteRepository.getDailyNote(metadata.dateString)
+                    noteRepository.getDailyNoteInSpace(metadata.spaceId, metadata.dateString)
                 } else {
                     noteRepository.getNoteContent(metadata.noteId)
                 }

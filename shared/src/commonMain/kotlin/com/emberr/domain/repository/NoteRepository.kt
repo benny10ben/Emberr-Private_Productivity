@@ -1,6 +1,7 @@
 package com.emberr.domain.repository
 
 import com.emberr.data.local.room.BookmarkBlockEntity
+import com.emberr.data.local.room.CalendarEventExceptionEntity
 import com.emberr.data.local.room.CalendarTaskEntity
 import com.emberr.data.local.room.CategoryEntity
 import com.emberr.data.local.room.DatabaseTemplateEntity
@@ -56,20 +57,31 @@ interface NoteRepository {
 
     // Daily Tab operations
     suspend fun getDailyNoteMetadata(dateString: String): NoteMetadataEntity?
+    suspend fun getDailyNoteMetadataInSpace(spaceId: String, dateString: String): NoteMetadataEntity?
     suspend fun getDailyNote(dateString: String): NoteContent?
+    suspend fun getDailyNoteInSpace(spaceId: String, dateString: String): NoteContent?
     suspend fun getSavedDailyNoteDates(): List<String>
     suspend fun saveDailyNote(dateString: String, content: NoteContent, updatedAt: Long? = null, remoteMeta: NoteMetadataEntity? = null)
-    fun refreshDailyNoteCache(dateString: String, content: NoteContent)
+    fun refreshDailyNoteCache(spaceId: String, dateString: String, content: NoteContent)
     suspend fun dedupeDuplicateDailyNotes(): Int
 
     // Notes operations
     fun getAllNotes(): Flow<List<NoteMetadataEntity>>
+    suspend fun getAllNotesAcrossSpaces(): List<NoteMetadataEntity>
     fun getNotesInFolder(folderId: String): Flow<List<NoteMetadataEntity>>
     suspend fun getNoteContent(noteId: String): NoteContent?
     suspend fun saveNote(metadata: NoteMetadataEntity, content: NoteContent, stampUpdatedAt: Boolean = true)
+
+    suspend fun saveNoteInSpace(
+        spaceId: String,
+        metadata: NoteMetadataEntity,
+        content: NoteContent,
+        stampUpdatedAt: Boolean = true
+    )
     fun refreshNoteContentCache(noteId: String, content: NoteContent)
     suspend fun refreshProjectionsForNote(metadata: NoteMetadataEntity, blocks: List<NoteBlock>)
     suspend fun deleteNote(noteId: String, filePath: String)
+    suspend fun deleteAllContentInSpace(spaceId: String)
 
     // Hard-deletes the local Room row/blocks/index only, with no tombstone insert and no sync
     // trigger - used by SelfHostSyncEngine to apply a tombstone it received from another device,
@@ -81,11 +93,18 @@ interface NoteRepository {
     // dateString in LAN sync envelopes, which don't carry a noteId).
     suspend fun getNoteTombstonesModifiedSince(timestamp: Long): List<com.emberr.data.local.room.SelfHostDeletedNoteEntity>
     suspend fun getNoteTombstone(entityId: String): com.emberr.data.local.room.SelfHostDeletedNoteEntity?
+    suspend fun getNoteTombstoneInSpace(spaceId: String, entityId: String): com.emberr.data.local.room.SelfHostDeletedNoteEntity?
 
     // Applies a tombstone received from a peer: hard-deletes the local copy unless it was genuinely
     // edited after the deletion (last-write-wins), and records the tombstone locally regardless so
     // this device won't itself resurrect the note and can propagate the deletion onward.
-    suspend fun applyRemoteNoteTombstone(noteId: String, isDaily: Boolean, dateString: String?, deletedAt: Long)
+    suspend fun applyRemoteNoteTombstone(
+        spaceId: String,
+        noteId: String,
+        isDaily: Boolean,
+        dateString: String?,
+        deletedAt: Long
+    )
 
     // Favorites and Trash management
     fun getFavoriteNotes(): Flow<List<NoteMetadataEntity>>
@@ -96,6 +115,7 @@ interface NoteRepository {
     // Folder management
     fun getAllFolders(): Flow<List<FolderEntity>>
     suspend fun insertFolder(folder: FolderEntity)
+    suspend fun insertFolderInSpace(spaceId: String, folder: FolderEntity)
     suspend fun deleteFolder(folderId: String)
     suspend fun getNoteById(noteId: String): NoteMetadataEntity?
     suspend fun getFoldersModifiedSince(timestamp: Long): List<FolderEntity>
@@ -121,6 +141,8 @@ interface NoteRepository {
     suspend fun deleteCategory(categoryId: String)
     suspend fun getCategoriesModifiedSince(timestamp: Long): List<CategoryEntity>
     suspend fun applyRemoteCategory(category: CategoryEntity)
+
+    suspend fun applyRemoteEventException(exception: CalendarEventExceptionEntity)
 
     // Database templates (saved schemas: columns + views, never rows)
     fun getAllDatabaseTemplates(): Flow<List<DatabaseTemplateEntity>>

@@ -7,5 +7,6 @@ interface ChatSessionRepository {
     suspend fun getSession(sessionId: String): ChatSession?
     suspend fun saveSession(session: ChatSession)
     suspend fun deleteSession(sessionId: String)
+    suspend fun deleteSessionsInSpace(spaceId: String)
     suspend fun renameSession(sessionId: String, title: String)
 }

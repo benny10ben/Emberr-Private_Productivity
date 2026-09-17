@@ -63,6 +63,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.withContext
@@ -110,7 +111,9 @@ import kotlinx.serialization.json.put
 // autosave debounce window). BaseEditorViewModel.onCleared() fires a final save on
 // normal process death, so real-world data loss is essentially zero.
 
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class NoteRepositoryImpl(
+    private val activeSpaceStore: com.emberr.domain.space.ActiveSpaceStore,
     private val noteDao: NoteDao,
     private val folderDao: FolderDao,
     private val tagDao: TagDao,
@@ -132,6 +135,13 @@ class NoteRepositoryImpl(
         encodeDefaults = true
     }
 
+    private fun <T> inActiveSpace(scopedQuery: (String) -> Flow<T>): Flow<T> =
+        activeSpaceStore.activeSpaceId.flatMapLatest { spaceId -> scopedQuery(spaceId) }
+
+    private fun activeSpaceId(): String = activeSpaceStore.currentActiveSpaceId()
+
+    private fun dailyCacheKey(spaceId: String, dateString: String) = "$spaceId|$dateString"
+
     // In-memory cache for regular notes keyed by noteId.
     // Updated on every saveNote call, checked before every getNoteContent DB read.
     private val noteContentCache = MutableStateFlow<Map<String, NoteContent>>(emptyMap())
@@ -148,15 +158,18 @@ class NoteRepositoryImpl(
     // Exposes a Flow that emits whenever the cache entry for this dateString changes.
     // DailyEditorViewModel subscribes to this in its init block for the same reason.
     override fun observeDailyNote(dateString: String): Flow<NoteContent?> =
-        dailyNoteCache.map { it[dateString] }
+        inActiveSpace { spaceId -> dailyNoteCache.map { it[dailyCacheKey(spaceId, dateString)] } }
 
     override suspend fun getDailyNote(dateString: String): NoteContent? =
+        getDailyNoteInSpace(activeSpaceId(), dateString)
+
+    override suspend fun getDailyNoteInSpace(spaceId: String, dateString: String): NoteContent? =
         withContext(Dispatchers.IO) {
             // Return from cache if available — avoids a DB round-trip on repeat reads
             // and ensures callers always see the most recently written content.
-            dailyNoteCache.value[dateString]?.let { return@withContext it }
+            dailyNoteCache.value[dailyCacheKey(spaceId, dateString)]?.let { return@withContext it }
 
-            val metadata = noteDao.getDailyNoteMetadata(dateString) ?: return@withContext null
+            val metadata = noteDao.getDailyNoteMetadata(spaceId, dateString) ?: return@withContext null
             val entities = blockDao.getAllBlocksForNoteIncludingDeleted(metadata.noteId)
             if (entities.isEmpty()) return@withContext null
 
@@ -164,30 +177,32 @@ class NoteRepositoryImpl(
             val content = NoteContent(blocks = blocks)
 
             // Populate the cache so subsequent reads and observers get this value.
-            dailyNoteCache.update { it + (dateString to content) }
+            dailyNoteCache.update { it + (dailyCacheKey(spaceId, dateString) to content) }
             content
         }
 
-    override fun refreshDailyNoteCache(dateString: String, content: NoteContent) {
-        dailyNoteCache.update { it + (dateString to content) }
+    override fun refreshDailyNoteCache(spaceId: String, dateString: String, content: NoteContent) {
+        dailyNoteCache.update { it + (dailyCacheKey(spaceId, dateString) to content) }
     }
 
     private fun savedContentOmitsTombstones(dateString: String) = dateString == "global_pinned"
 
-    private fun cacheSavedContent(noteId: String, dailyDateString: String?, content: NoteContent) {
+    private fun cacheSavedContent(spaceId: String, noteId: String, dailyDateString: String?, content: NoteContent) {
         if (dailyDateString != null && savedContentOmitsTombstones(dailyDateString)) {
             noteContentCache.update { it - noteId }
-            dailyNoteCache.update { it - dailyDateString }
+            dailyNoteCache.update { it - dailyCacheKey(spaceId, dailyDateString) }
             return
         }
 
         noteContentCache.update { it + (noteId to content) }
-        if (dailyDateString != null) dailyNoteCache.update { it + (dailyDateString to content) }
+        if (dailyDateString != null) {
+            dailyNoteCache.update { it + (dailyCacheKey(spaceId, dailyDateString) to content) }
+        }
     }
 
     override suspend fun getSavedDailyNoteDates(): List<String> =
         withContext(Dispatchers.IO) {
-            noteDao.getAllDailyNoteMetadata()
+            noteDao.getAllDailyNoteMetadata(activeSpaceId())
                 .filter { it.trashedAt == null }
                 .mapNotNull { it.dateString }
                 .filter { it != "global_pinned" && it.isNotBlank() }
@@ -196,20 +211,25 @@ class NoteRepositoryImpl(
 
     override suspend fun dedupeDuplicateDailyNotes(): Int =
         withContext(Dispatchers.IO) {
-            val duplicateGroups = noteDao.getAllDailyNoteMetadata()
+            val duplicateGroups = noteDao.getAllDailyNoteMetadataAcrossSpaces()
                 .filter { it.dateString != null }
-                .groupBy { it.dateString }
+                .groupBy { it.spaceId to it.dateString }
                 .filterValues { it.size > 1 }
 
             var removedCount = 0
-            for ((dateString, duplicates) in duplicateGroups) {
+            for ((groupKey, duplicates) in duplicateGroups) {
+                val (spaceId, dateString) = groupKey
                 if (dateString == null) continue
-                removedCount += mergeDuplicateDailyNoteGroup(dateString, duplicates)
+                removedCount += mergeDuplicateDailyNoteGroup(spaceId, dateString, duplicates)
             }
             removedCount
         }
 
-    private suspend fun mergeDuplicateDailyNoteGroup(dateString: String, duplicates: List<NoteMetadataEntity>): Int {
+    private suspend fun mergeDuplicateDailyNoteGroup(
+        spaceId: String,
+        dateString: String,
+        duplicates: List<NoteMetadataEntity>
+    ): Int {
         val winner = duplicates.sortedWith(
             compareByDescending<NoteMetadataEntity> { it.updatedAt }.thenByDescending { it.noteId }
         ).first()
@@ -242,14 +262,17 @@ class NoteRepositoryImpl(
             noteDao.deleteNoteMetadata(loser.noteId)
         }
 
-        dailyNoteCache.update { it + (dateString to NoteContent(blocks = decodedBlocks)) }
+        dailyNoteCache.update { it + (dailyCacheKey(spaceId, dateString) to NoteContent(blocks = decodedBlocks)) }
 
         return losers.size
     }
 
     override suspend fun getDailyNoteMetadata(dateString: String): NoteMetadataEntity? =
+        getDailyNoteMetadataInSpace(activeSpaceId(), dateString)
+
+    override suspend fun getDailyNoteMetadataInSpace(spaceId: String, dateString: String): NoteMetadataEntity? =
         withContext(Dispatchers.IO) {
-            noteDao.getDailyNoteMetadata(dateString)
+            noteDao.getDailyNoteMetadata(spaceId, dateString)
         }
 
     // Upserts only the blocks that actually changed since the last save. note_blocks is keyed by
@@ -322,8 +345,15 @@ class NoteRepositoryImpl(
     override suspend fun saveDailyNote(dateString: String, content: NoteContent, updatedAt: Long?, remoteMeta: NoteMetadataEntity?) =
         withContext(Dispatchers.IO) {
 
-            val existing = noteDao.getDailyNoteMetadata(dateString)
-            val noteId = existing?.noteId ?: remoteMeta?.noteId ?: UUID.randomUUID().toString()
+            val spaceId = remoteMeta?.spaceId ?: activeSpaceId()
+            val existing = noteDao.getDailyNoteMetadata(spaceId, dateString)
+
+            val adoptableRemoteNoteId = remoteMeta?.noteId?.let { remoteNoteId ->
+                val spaceHoldingThatId = noteDao.getNoteById(remoteNoteId)?.spaceId
+                if (spaceHoldingThatId == null || spaceHoldingThatId == spaceId) remoteNoteId else null
+            }
+
+            val noteId = existing?.noteId ?: adoptableRemoteNoteId ?: UUID.randomUUID().toString()
 
             val previewText = content.blocks.joinToString(" ") { block ->
                 when (block) {
@@ -352,11 +382,12 @@ class NoteRepositoryImpl(
                 snippet = previewText,
                 isFavorite = baseMeta?.isFavorite ?: false,
                 coverImagePath = baseMeta?.coverImagePath,
-                trashedAt = baseMeta?.trashedAt
+                trashedAt = baseMeta?.trashedAt,
+                spaceId = spaceId
             )
             noteDao.insertOrUpdateMetadata(metadata)
 
-            cacheSavedContent(noteId, dateString, NoteContent(blocks = upsertChangedBlocks(noteId, content)))
+            cacheSavedContent(spaceId, noteId, dateString, NoteContent(blocks = upsertChangedBlocks(noteId, content)))
 
             AutoSyncTrigger.requestSync()
             VaultMirrorTrigger.requestNoteRefresh(noteId)
@@ -368,6 +399,7 @@ class NoteRepositoryImpl(
             // to query their content without scanning every note's block list.
             if (dateString != "global_pinned") {
                 syncCalendarTasks(
+                    spaceId = spaceId,
                     noteId = dateString,
                     blocks = content.blocks,
                     sourceType = TaskSource.DAILY,
@@ -394,7 +426,8 @@ class NoteRepositoryImpl(
             }
         }
 
-    override fun searchDailyNotes(query: String): Flow<List<NoteMetadataEntity>> = noteDao.searchDailyNotes(query)
+    override fun searchDailyNotes(query: String): Flow<List<NoteMetadataEntity>> =
+        inActiveSpace { noteDao.searchDailyNotes(it, query) }
 
     // Cross-note search. Runs the two DAO queries added for this feature:
     // 1) a title/snippet LIKE match (cheap, covers most everyday searches), and
@@ -406,10 +439,11 @@ class NoteRepositoryImpl(
         withContext(Dispatchers.IO) {
             if (query.isBlank()) return@withContext emptyList()
 
-            val titleOrSnippetMatches = noteDao.searchNotesByTitleOrSnippet(query).first()
+            val spaceId = activeSpaceId()
+            val titleOrSnippetMatches = noteDao.searchNotesByTitleOrSnippet(spaceId, query).first()
             val matchedIds = titleOrSnippetMatches.mapTo(mutableSetOf()) { it.noteId }
 
-            val contentMatchIds = blockDao.findNoteIdsMatchingContent(query)
+            val contentMatchIds = blockDao.findNoteIdsMatchingContent(spaceId, query)
                 .filterNot { it in matchedIds }
 
             val contentMatches = if (contentMatchIds.isEmpty()) {
@@ -460,16 +494,21 @@ class NoteRepositoryImpl(
         else -> null
     }.let { text -> text?.takeIf { it.isNotBlank() } }
 
-    override fun getAllNotes(): Flow<List<NoteMetadataEntity>> = noteDao.getAllNotes()
+    override fun getAllNotes(): Flow<List<NoteMetadataEntity>> = inActiveSpace { noteDao.getAllNotes(it) }
+
+    override suspend fun getAllNotesAcrossSpaces(): List<NoteMetadataEntity> =
+        withContext(Dispatchers.IO) { noteDao.getAllNotesAcrossSpaces() }
 
     override fun getNotesInFolder(folderId: String): Flow<List<NoteMetadataEntity>> = noteDao.getNotesInFolder(folderId)
 
     override fun getNoteCountsByFolder(): Flow<Map<String, Int>> =
-        noteDao.getNoteCountsByFolder().map { rows -> rows.associate { it.folderId to it.noteCount } }
+        inActiveSpace { spaceId ->
+            noteDao.getNoteCountsByFolder(spaceId).map { rows -> rows.associate { it.folderId to it.noteCount } }
+        }
 
-    override fun getFavoriteNotes(): Flow<List<NoteMetadataEntity>> = noteDao.getFavoriteNotes()
+    override fun getFavoriteNotes(): Flow<List<NoteMetadataEntity>> = inActiveSpace { noteDao.getFavoriteNotes(it) }
 
-    override fun getTrashedNotes(): Flow<List<NoteMetadataEntity>> = noteDao.getTrashedNotes()
+    override fun getTrashedNotes(): Flow<List<NoteMetadataEntity>> = inActiveSpace { noteDao.getTrashedNotes(it) }
 
     override suspend fun getNoteContent(noteId: String): NoteContent? =
         withContext(Dispatchers.IO) {
@@ -499,6 +538,7 @@ class NoteRepositoryImpl(
                 val dateString = metadata.dateString
                 if (dateString != null && dateString != "global_pinned") {
                     syncCalendarTasks(
+                        spaceId = metadata.spaceId,
                         noteId = dateString,
                         blocks = blocks,
                         sourceType = TaskSource.DAILY,
@@ -509,7 +549,7 @@ class NoteRepositoryImpl(
                     syncBookmarkBlocks(noteId = metadata.noteId, blocks = blocks, sourceType = TaskSource.DAILY, noteUpdatedAt = metadata.updatedAt)
                 }
             } else {
-                syncCalendarTasks(noteId = metadata.noteId, blocks = blocks, sourceType = TaskSource.NOTE, dailyDateString = null)
+                syncCalendarTasks(spaceId = metadata.spaceId, noteId = metadata.noteId, blocks = blocks, sourceType = TaskSource.NOTE, dailyDateString = null)
                 syncImageBlocks(noteId = metadata.noteId, blocks = blocks, sourceType = TaskSource.NOTE, noteCreatedAt = metadata.createdAt)
                 syncDocumentBlocks(noteId = metadata.noteId, blocks = blocks, sourceType = TaskSource.NOTE, noteCreatedAt = metadata.createdAt)
                 syncBookmarkBlocks(noteId = metadata.noteId, blocks = blocks, sourceType = TaskSource.NOTE, noteUpdatedAt = metadata.updatedAt)
@@ -517,14 +557,35 @@ class NoteRepositoryImpl(
         }
 
     override suspend fun saveNote(metadata: NoteMetadataEntity, content: NoteContent, stampUpdatedAt: Boolean) =
+        saveNoteResolvingSpace(metadata, content, stampUpdatedAt, null)
+
+    override suspend fun saveNoteInSpace(
+        spaceId: String,
+        metadata: NoteMetadataEntity,
+        content: NoteContent,
+        stampUpdatedAt: Boolean
+    ) = saveNoteResolvingSpace(metadata, content, stampUpdatedAt, requestedSpaceId = spaceId)
+
+    private suspend fun saveNoteResolvingSpace(
+        metadata: NoteMetadataEntity,
+        content: NoteContent,
+        stampUpdatedAt: Boolean,
+        requestedSpaceId: String?
+    ) =
         withContext(Dispatchers.IO) {
 
-            val stampedMetadata = if (stampUpdatedAt) metadata.copy(updatedAt = System.currentTimeMillis()) else metadata
+            val existingSpaceId = noteDao.getNoteById(metadata.noteId)?.spaceId
+            val resolvedSpaceId = existingSpaceId ?: requestedSpaceId ?: activeSpaceId()
+            val spacedMetadata = metadata.copy(spaceId = resolvedSpaceId)
+
+            val stampedMetadata =
+                if (stampUpdatedAt) spacedMetadata.copy(updatedAt = System.currentTimeMillis()) else spacedMetadata
             noteDao.insertOrUpdateMetadata(stampedMetadata.copy(filePath = ""))
 
             val persistedBlocks = upsertChangedBlocks(metadata.noteId, content)
 
             cacheSavedContent(
+                resolvedSpaceId,
                 metadata.noteId,
                 metadata.dateString?.takeIf { metadata.isDaily },
                 NoteContent(blocks = persistedBlocks)
@@ -541,24 +602,57 @@ class NoteRepositoryImpl(
             // deletion yet has no way to tell "permanently deleted" apart from "never existed here",
             // so its own next manifest upload would silently resurrect the note everywhere.
             val metadata = noteDao.getNoteById(noteId)
+            val previousTombstone = selfHostDeletedNoteDao.getTombstoneByNoteId(noteId)
             hardDeleteLocalNote(noteId)
             selfHostDeletedNoteDao.upsertTombstone(
                 SelfHostDeletedNoteEntity(
                     noteId = noteId,
-                    isDaily = metadata?.isDaily ?: false,
-                    dateString = metadata?.dateString,
-                    deletedAt = System.currentTimeMillis()
+                    isDaily = metadata?.isDaily ?: previousTombstone?.isDaily ?: false,
+                    dateString = metadata?.dateString ?: previousTombstone?.dateString,
+                    deletedAt = System.currentTimeMillis(),
+                    spaceId = metadata?.spaceId ?: previousTombstone?.spaceId ?: activeSpaceId()
                 )
             )
             AutoSyncTrigger.requestSync()
         }
     }
 
+    override suspend fun deleteAllContentInSpace(spaceId: String) {
+        withContext(Dispatchers.IO) {
+            noteDao.getAllNotesForBackup()
+                .filter { it.spaceId == spaceId }
+                .forEach { note -> deleteNote(note.noteId, note.filePath) }
+
+            folderDao.getAllFoldersAcrossSpaces().first()
+                .filter { it.spaceId == spaceId && !it.isDeleted }
+                .forEach { folder -> deleteFolder(folder.folderId) }
+
+            tagDao.getAllTagsAcrossSpaces().first()
+                .filter { it.spaceId == spaceId && !it.isDeleted }
+                .forEach { tag -> deleteTag(tag.tagId) }
+
+            categoryDao.getAllCategoriesOnceAcrossSpaces()
+                .filter { it.spaceId == spaceId && !it.isDeleted }
+                .forEach { category -> deleteCategory(category.categoryId) }
+        }
+    }
+
     override suspend fun hardDeleteLocalNote(noteId: String) {
         withContext(Dispatchers.IO) {
+            val metadata = noteDao.getNoteById(noteId)
+            val dailyCacheKeyToEvict =
+                if (metadata != null && metadata.isDaily && metadata.dateString != null) {
+                    dailyCacheKey(metadata.spaceId, metadata.dateString)
+                } else {
+                    null
+                }
+
             // Evict from cache so no observer gets a stale emission after deletion,
             // and so a future note created with the same ID starts with a clean slate.
             noteContentCache.update { it - noteId }
+            dailyCacheKeyToEvict?.let { cacheKey -> dailyNoteCache.update { it - cacheKey } }
+
+            deleteCalendarProjectionsForNote(metadata)
             noteDao.deleteNoteMetadata(noteId)
             blockDao.deleteAllBlocksForNote(noteId)
             mediaReferenceDao.deleteByNoteId(noteId)
@@ -567,16 +661,36 @@ class NoteRepositoryImpl(
         }
     }
 
+    private suspend fun deleteCalendarProjectionsForNote(metadata: NoteMetadataEntity?) {
+        if (metadata == null) return
+        val taskNoteKey = if (metadata.isDaily) metadata.dateString ?: return else metadata.noteId
+
+        calendarTaskDao.getTasksForNote(metadata.spaceId, taskNoteKey).forEach { task ->
+            calendarEventExceptionDao.deleteExceptionsForBlock(task.blockId)
+        }
+        calendarTaskDao.deleteTasksByNoteId(metadata.spaceId, taskNoteKey)
+    }
+
     override suspend fun getNoteTombstonesModifiedSince(timestamp: Long): List<SelfHostDeletedNoteEntity> =
         selfHostDeletedNoteDao.getTombstonesModifiedSince(timestamp)
 
     override suspend fun getNoteTombstone(entityId: String): SelfHostDeletedNoteEntity? =
-        selfHostDeletedNoteDao.getTombstoneByNoteId(entityId) ?: selfHostDeletedNoteDao.getTombstoneByDateString(entityId)
+        getNoteTombstoneInSpace(activeSpaceId(), entityId)
 
-    override suspend fun applyRemoteNoteTombstone(noteId: String, isDaily: Boolean, dateString: String?, deletedAt: Long) =
+    override suspend fun getNoteTombstoneInSpace(spaceId: String, entityId: String): SelfHostDeletedNoteEntity? =
+        selfHostDeletedNoteDao.getTombstoneByNoteId(entityId)
+            ?: selfHostDeletedNoteDao.getTombstoneByDateString(spaceId, entityId)
+
+    override suspend fun applyRemoteNoteTombstone(
+        spaceId: String,
+        noteId: String,
+        isDaily: Boolean,
+        dateString: String?,
+        deletedAt: Long
+    ) =
         withContext(Dispatchers.IO) {
             val local = if (isDaily && dateString != null) {
-                noteDao.getDailyNoteMetadata(dateString)
+                noteDao.getDailyNoteMetadata(spaceId, dateString)
             } else {
                 noteDao.getNoteById(noteId)
             }
@@ -590,21 +704,31 @@ class NoteRepositoryImpl(
                     noteId = noteId,
                     isDaily = isDaily,
                     dateString = dateString,
-                    deletedAt = deletedAt
+                    deletedAt = deletedAt,
+                    spaceId = local?.spaceId ?: spaceId
                 )
             )
         }
 
     override suspend fun getNoteById(noteId: String): NoteMetadataEntity? = noteDao.getNoteById(noteId)
 
-    override fun getAllFolders(): Flow<List<FolderEntity>> = folderDao.getAllFolders()
+    override fun getAllFolders(): Flow<List<FolderEntity>> = inActiveSpace { folderDao.getAllFolders(it) }
 
     override suspend fun getFoldersModifiedSince(timestamp: Long): List<FolderEntity> =
         folderDao.getFoldersModifiedSince(timestamp)
 
-    override suspend fun insertFolder(folder: FolderEntity) =
+    override suspend fun insertFolder(folder: FolderEntity) = insertFolderResolvingSpace(folder, null)
+
+    override suspend fun insertFolderInSpace(spaceId: String, folder: FolderEntity) =
+        insertFolderResolvingSpace(folder, spaceId)
+
+    private suspend fun insertFolderResolvingSpace(folder: FolderEntity, requestedSpaceId: String?) =
         withContext(Dispatchers.IO) {
-            folderDao.insertFolder(folder.copy(updatedAt = System.currentTimeMillis()))
+            val resolvedSpaceId =
+                folderDao.getFolderById(folder.folderId)?.spaceId ?: requestedSpaceId ?: activeSpaceId()
+            folderDao.insertFolder(
+                folder.copy(updatedAt = System.currentTimeMillis(), spaceId = resolvedSpaceId)
+            )
             AutoSyncTrigger.requestSync()
             VaultMirrorTrigger.requestFullRefresh()
         }
@@ -649,7 +773,7 @@ class NoteRepositoryImpl(
         }
     }
 
-    override fun getAllTags(): Flow<List<TagEntity>> = tagDao.getAllTags()
+    override fun getAllTags(): Flow<List<TagEntity>> = inActiveSpace { tagDao.getAllTags(it) }
 
     override suspend fun getTagsModifiedSince(timestamp: Long): List<TagEntity> =
         tagDao.getTagsModifiedSince(timestamp)
@@ -665,7 +789,8 @@ class NoteRepositoryImpl(
                     colorHex = colorHex,
                     createdAt = existing?.createdAt ?: now,
                     updatedAt = now,
-                    isDeleted = false
+                    isDeleted = false,
+                    spaceId = existing?.spaceId ?: activeSpaceId()
                 )
             )
             AutoSyncTrigger.requestSync()
@@ -686,7 +811,7 @@ class NoteRepositoryImpl(
             AutoSyncTrigger.requestSync()
         }
 
-    override fun getAllCategories(): Flow<List<CategoryEntity>> = categoryDao.getAllCategories()
+    override fun getAllCategories(): Flow<List<CategoryEntity>> = inActiveSpace { categoryDao.getAllCategories(it) }
 
     override suspend fun insertOrUpdateCategory(categoryId: String, name: String, colorHex: String) =
         withContext(Dispatchers.IO) {
@@ -699,6 +824,7 @@ class NoteRepositoryImpl(
                     categoryId = categoryId,
                     name = name,
                     colorHex = colorHex,
+                    spaceId = existing?.spaceId ?: activeSpaceId(),
                     createdAt = existing?.createdAt ?: now,
                     updatedAt = now,
                     isDeleted = false
@@ -740,7 +866,7 @@ class NoteRepositoryImpl(
             databaseTemplateDao.deleteTemplate(templateId)
         }
 
-    override fun getAllTemplates(): Flow<List<NoteMetadataEntity>> = noteDao.getAllTemplates()
+    override fun getAllTemplates(): Flow<List<NoteMetadataEntity>> = inActiveSpace { noteDao.getAllTemplates(it) }
 
     override suspend fun deleteTemplate(templateId: String) =
         withContext(Dispatchers.IO) {
@@ -779,12 +905,13 @@ class NoteRepositoryImpl(
     // TasksScreen and the calendar strip both read from this table, so they always
     // reflect the latest checkbox state without scanning raw block JSON.
     private suspend fun syncCalendarTasks(
+        spaceId: String,
         noteId: String,
         blocks: List<NoteBlock>,
         sourceType: TaskSource,
         dailyDateString: String? = null
     ) {
-        calendarTaskDao.deleteTasksByNoteId(noteId)
+        calendarTaskDao.deleteTasksByNoteId(spaceId, noteId)
         val allCheckboxes = extractActiveCheckboxes(blocks)
         val tasksToInsert = allCheckboxes.map { block ->
             val targetDate = when (sourceType) {
@@ -818,7 +945,8 @@ class NoteRepositoryImpl(
                 recurrenceFrequency = recurrenceFrequency,
                 recurrenceInterval = recurrenceInterval,
                 recurrenceDaysOfWeek = recurrenceDaysOfWeek,
-                recurrenceUntil = block.recurrenceRule?.untilDateString
+                recurrenceUntil = block.recurrenceRule?.untilDateString,
+                spaceId = spaceId
             )
         }
 
@@ -889,32 +1017,51 @@ class NoteRepositoryImpl(
         val (year, month) = yearMonth.split("-").map { it.toInt() }
         val monthStart = LocalDate(year, month, 1)
         val monthEnd = monthStart.plus(1, DateTimeUnit.MONTH).minus(1, DateTimeUnit.DAY)
-        return combine(calendarTaskDao.getAllTasksFlow(), calendarEventExceptionDao.getAllExceptionsFlow()) { tasks, exceptions ->
-            expandOccurrences(tasks, exceptions, monthStart, monthEnd)
+        return inActiveSpace { spaceId ->
+            combine(
+                calendarTaskDao.getAllTasksFlow(spaceId),
+                calendarEventExceptionDao.getAllExceptionsFlow()
+            ) { tasks, exceptions -> expandOccurrences(tasks, exceptions, monthStart, monthEnd) }
         }
     }
 
     override fun getCalendarTasksForDate(dateString: String): Flow<List<CalendarTaskEntity>> {
         val date = LocalDate.parse(dateString)
-        return combine(calendarTaskDao.getAllTasksFlow(), calendarEventExceptionDao.getAllExceptionsFlow()) { tasks, exceptions ->
-            expandOccurrences(tasks, exceptions, date, date)
+        return inActiveSpace { spaceId ->
+            combine(
+                calendarTaskDao.getAllTasksFlow(spaceId),
+                calendarEventExceptionDao.getAllExceptionsFlow()
+            ) { tasks, exceptions -> expandOccurrences(tasks, exceptions, date, date) }
         }
     }
 
-    override fun getAllTasksFlow(): Flow<List<CalendarTaskEntity>> {
-        return calendarTaskDao.getAllTasksFlow()
-    }
+    override fun getAllTasksFlow(): Flow<List<CalendarTaskEntity>> =
+        inActiveSpace { calendarTaskDao.getAllTasksFlow(it) }
 
     override suspend fun upsertOccurrenceCompletion(blockId: String, occurrenceDate: String, isChecked: Boolean) =
         withContext(Dispatchers.IO) {
-            val existing = calendarEventExceptionDao.getAllExceptionsFlow().first()
-                .firstOrNull { it.blockId == blockId && it.occurrenceDate == occurrenceDate }
+            val now = System.currentTimeMillis()
+            val existing = calendarEventExceptionDao.getException(blockId, occurrenceDate)
             calendarEventExceptionDao.upsert(
-                (existing ?: CalendarEventExceptionEntity(blockId = blockId, occurrenceDate = occurrenceDate)).copy(
+                (existing ?: CalendarEventExceptionEntity(
+                    blockId = blockId,
+                    occurrenceDate = occurrenceDate,
+                    updatedAt = now
+                )).copy(
                     isChecked = isChecked,
-                    completedAt = if (isChecked) System.currentTimeMillis() else null
+                    completedAt = if (isChecked) now else null,
+                    updatedAt = now
                 )
             )
+            AutoSyncTrigger.requestSync()
+        }
+
+    override suspend fun applyRemoteEventException(exception: CalendarEventExceptionEntity) =
+        withContext(Dispatchers.IO) {
+            val local = calendarEventExceptionDao.getException(exception.blockId, exception.occurrenceDate)
+            if (local == null || exception.updatedAt > local.updatedAt) {
+                calendarEventExceptionDao.upsert(exception)
+            }
         }
 
     override suspend fun toggleTaskCompletion(blockId: String, isChecked: Boolean) =
@@ -1046,7 +1193,7 @@ class NoteRepositoryImpl(
                             text = text, timestamp = timestamp, categoryId = categoryId,
                             durationMinutes = durationMinutes, url = url, description = description
                         )
-                        calendarEventExceptionDao.rekeyExceptionsFrom(blockId, newBlockId, occurrenceDate)
+                        calendarEventExceptionDao.rekeyExceptionsFrom(blockId, newBlockId, occurrenceDate, System.currentTimeMillis())
                     }
                 }
                 RecurrenceEditScope.ALL_PAST_EVENTS -> {
@@ -1056,7 +1203,7 @@ class NoteRepositoryImpl(
                         text = text, timestamp = timestamp, categoryId = categoryId,
                         durationMinutes = durationMinutes, url = url, description = description
                     )
-                    calendarEventExceptionDao.rekeyExceptionsUpTo(blockId, newBlockId, occurrenceDate)
+                    calendarEventExceptionDao.rekeyExceptionsUpTo(blockId, newBlockId, occurrenceDate, System.currentTimeMillis())
                     if (next == null) {
                         deleteEntireSeries(task)
                     } else {
@@ -1073,10 +1220,15 @@ class NoteRepositoryImpl(
         occurrenceDate: String,
         transform: (CalendarEventExceptionEntity) -> CalendarEventExceptionEntity
     ) {
-        val existing = calendarEventExceptionDao.getAllExceptionsFlow().first()
-            .firstOrNull { it.blockId == blockId && it.occurrenceDate == occurrenceDate }
-        val base = existing ?: CalendarEventExceptionEntity(blockId = blockId, occurrenceDate = occurrenceDate)
-        calendarEventExceptionDao.upsert(transform(base))
+        val now = System.currentTimeMillis()
+        val existing = calendarEventExceptionDao.getException(blockId, occurrenceDate)
+        val base = existing ?: CalendarEventExceptionEntity(
+            blockId = blockId,
+            occurrenceDate = occurrenceDate,
+            updatedAt = now
+        )
+        calendarEventExceptionDao.upsert(transform(base).copy(updatedAt = now))
+        AutoSyncTrigger.requestSync()
     }
 
     private suspend fun deleteEntireSeries(task: CalendarTaskEntity) {
@@ -1161,7 +1313,7 @@ class NoteRepositoryImpl(
         return newBlockId
     }
 
-    override fun getIncompleteTasksCount(): Flow<Int> = noteDao.getIncompleteTasksCount()
+    override fun getIncompleteTasksCount(): Flow<Int> = inActiveSpace { noteDao.getIncompleteTasksCount(it) }
 
     private suspend fun syncMediaReferences(noteId: String, blocks: List<NoteBlock>) {
         mediaReferenceDao.deleteByNoteId(noteId)
@@ -1203,8 +1355,7 @@ class NoteRepositoryImpl(
         }
     }
 
-    override fun getAllImagesFlow(): Flow<List<ImageBlockEntity>> =
-        imageBlockDao.getAllImagesFlow()
+    override fun getAllImagesFlow(): Flow<List<ImageBlockEntity>> = inActiveSpace { imageBlockDao.getAllImagesFlow(it) }
 
     // Rebuilds the DocumentBlockEntity projection table for a given note on every save.
     // DocumentsScreen reads from this via getAllDocumentsFlow().
@@ -1238,7 +1389,7 @@ class NoteRepositoryImpl(
     }
 
     override fun getAllDocumentsFlow(): Flow<List<DocumentBlockEntity>> =
-        documentBlockDao.getAllDocumentsFlow()
+        inActiveSpace { documentBlockDao.getAllDocumentsFlow(it) }
 
     // Rebuilds the BookmarkBlockEntity projection table for a given note on every save.
     // BookmarksScreen reads from this via getAllBookmarksFlow().
@@ -1272,15 +1423,14 @@ class NoteRepositoryImpl(
     }
 
     override fun getAllBookmarksFlow(): Flow<List<BookmarkBlockEntity>> =
-        bookmarkBlockDao.getAllBookmarksFlow()
+        inActiveSpace { bookmarkBlockDao.getAllBookmarksFlow(it) }
 
-    override fun getImagesCount(): Flow<Int> = imageBlockDao.getImagesCount()
-    override fun getDocumentsCount(): Flow<Int> = documentBlockDao.getDocumentsCount()
-    override fun getBookmarksCount(): Flow<Int> = bookmarkBlockDao.getBookmarksCount()
+    override fun getImagesCount(): Flow<Int> = inActiveSpace { imageBlockDao.getImagesCount(it) }
+    override fun getDocumentsCount(): Flow<Int> = inActiveSpace { documentBlockDao.getDocumentsCount(it) }
+    override fun getBookmarksCount(): Flow<Int> = inActiveSpace { bookmarkBlockDao.getBookmarksCount(it) }
 
-    override fun getAllLinkableNotes(): Flow<List<NoteMetadataEntity>> {
-        return noteDao.getAllLinkableNotes()
-    }
+    override fun getAllLinkableNotes(): Flow<List<NoteMetadataEntity>> =
+        inActiveSpace { noteDao.getAllLinkableNotes(it) }
 
     override suspend fun updateNoteSortOrder(noteId: String, order: Int) =
         withContext(Dispatchers.IO) {
