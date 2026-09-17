@@ -8,7 +8,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 sealed class NoteSyncEvent {
     // A note's persisted content changed (incoming remote sync, an import, or "global_pinned") -
     // listeners should reload it, but only if they don't have unsaved local edits in flight
-    data class NoteChanged(val entityId: String) : NoteSyncEvent()
+    data class NoteChanged(val entityId: String, val spaceId: String? = null) : NoteSyncEvent()
 
     // A specific block moved to a different daily note - safe to apply even mid-autosave since it
     // mutates only that one block id rather than reconciling a whole note's content
@@ -30,8 +30,8 @@ object SyncEventBus {
     )
     val events: SharedFlow<NoteSyncEvent> = _events.asSharedFlow()
 
-    suspend fun emitSyncCompleted(entityId: String) {
-        _events.emit(NoteSyncEvent.NoteChanged(entityId))
+    suspend fun emitSyncCompleted(entityId: String, spaceId: String? = null) {
+        _events.emit(NoteSyncEvent.NoteChanged(entityId, spaceId))
     }
 
     suspend fun emitBlockMoved(blockId: String, fromDateString: String?, toDateString: String) {

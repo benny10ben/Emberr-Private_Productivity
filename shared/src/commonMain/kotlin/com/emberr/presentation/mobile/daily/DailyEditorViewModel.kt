@@ -372,6 +372,9 @@ class DailyEditorViewModel(
                     }
                     is NoteSyncEvent.BlockRemoved -> removeBlockLocally(event.blockId, event.dateString)
                     is NoteSyncEvent.NoteChanged -> {
+                        if (event.spaceId != null && !activeSpaceStore.isActiveSpace(event.spaceId)) {
+                            return@collect
+                        }
                         val syncedEntityId = event.entityId
 
                         // If the remote edit affects a cached date other than the currently active one,

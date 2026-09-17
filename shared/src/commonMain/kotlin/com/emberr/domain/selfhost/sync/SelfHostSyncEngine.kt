@@ -1014,7 +1014,8 @@ class SelfHostSyncEngine(
             // Emit an event so open editors immediately refresh title, cover, and pinned states.
             // This happens before pushing, since local database/cache merges are already committed.
             com.emberr.domain.util.sync.SyncEventBus.emitSyncCompleted(
-                if (mergedMetadata.isDaily) mergedMetadata.dateString ?: noteId else noteId
+                if (mergedMetadata.isDaily) mergedMetadata.dateString ?: noteId else noteId,
+                mergedMetadata.spaceId
             )
 
             adoptRemoteEmbeddingsIfWinning(
@@ -1062,7 +1063,8 @@ class SelfHostSyncEngine(
         noteRepository.hardDeleteLocalNote(noteId)
         SelfHostSyncLog.d("TextSync: applied remote tombstone for $noteId, hard-deleted local copy")
         com.emberr.domain.util.sync.SyncEventBus.emitSyncCompleted(
-            if (isDaily) remoteEntry.dateString ?: noteId else noteId
+            if (isDaily) remoteEntry.dateString ?: noteId else noteId,
+            localMetadata.spaceId
         )
         return ReconcileOutcome.SYNCED
     }

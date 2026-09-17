@@ -328,7 +328,7 @@ class SyncRepositoryImpl(
                                             envelope.embeddedBlocksJson, syncKey
                                         )
 
-                                        SyncEventBus.emitSyncCompleted(envelope.entityId)
+                                        SyncEventBus.emitSyncCompleted(envelope.entityId, remoteMeta.spaceId)
                                         pendingMediaContent = remoteContent
                                         pendingCoverImagePath = remoteMeta.coverImagePath
                                     }
@@ -355,7 +355,7 @@ class SyncRepositoryImpl(
                                         envelope.embeddedBlocksJson, syncKey
                                     )
 
-                                    SyncEventBus.emitSyncCompleted(envelope.entityId)
+                                    SyncEventBus.emitSyncCompleted(envelope.entityId, savedTrashedMeta.spaceId)
                                 } else if (!envelope.isDeleted) {
                                     val localContent = repository.getNoteContent(envelope.entityId)
                                     val mergedContent = NoteMergeHelper.mergeNoteContent(
@@ -403,7 +403,7 @@ class SyncRepositoryImpl(
                                             envelope.embeddedBlocksJson, syncKey
                                         )
 
-                                        SyncEventBus.emitSyncCompleted(envelope.entityId)
+                                        SyncEventBus.emitSyncCompleted(envelope.entityId, savedMeta.spaceId)
                                     }
                                 }
                             }
@@ -451,7 +451,7 @@ class SyncRepositoryImpl(
                                             envelope.embeddedBlocksJson, syncKey
                                         )
 
-                                        SyncEventBus.emitSyncCompleted(dateString)
+                                        SyncEventBus.emitSyncCompleted(dateString, finalMeta.spaceId)
                                         pendingMediaContent = remoteContent
                                     }
                                 } else {
@@ -497,7 +497,7 @@ class SyncRepositoryImpl(
                                             envelope.embeddedBlocksJson, syncKey
                                         )
 
-                                        SyncEventBus.emitSyncCompleted(dateString)
+                                        SyncEventBus.emitSyncCompleted(dateString, mergedMeta.spaceId)
                                     }
                                 }
                             }
@@ -546,7 +546,8 @@ class SyncRepositoryImpl(
                                 )
                                 SyncEventBus.emitSyncCompleted(
                                     if (tombstone.isDaily) tombstone.dateString
-                                        ?: tombstone.noteId else tombstone.noteId
+                                        ?: tombstone.noteId else tombstone.noteId,
+                                    tombstone.spaceId
                                 )
                             }
 
