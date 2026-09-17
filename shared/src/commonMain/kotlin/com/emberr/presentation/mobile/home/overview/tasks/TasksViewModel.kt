@@ -9,6 +9,7 @@ import com.emberr.domain.model.NoteBlock
 import com.emberr.domain.model.NoteContent
 import com.emberr.domain.model.markDeleted
 import com.emberr.domain.repository.NoteRepository
+import com.emberr.domain.space.ActiveSpaceStore
 import com.emberr.domain.sync.AutoSyncTrigger
 import com.emberr.domain.util.sync.SyncCoordinator
 import com.emberr.domain.util.sync.SyncEventBus
@@ -34,7 +35,8 @@ data class BlockLocation(val noteId: String, val isDaily: Boolean)
 
 class TasksViewModel(
     private val repository: NoteRepository,
-    private val reminderScheduler: ReminderScheduler
+    private val reminderScheduler: ReminderScheduler,
+    private val activeSpaceStore: ActiveSpaceStore
 ) : ViewModel() {
 
     private val _isLoading = MutableStateFlow(true)
@@ -67,6 +69,8 @@ class TasksViewModel(
 
     private var typingJob: Job? = null
     private val dirtyBlocks = mutableSetOf<String>()
+
+    private var loadedSpaceId: String? = null
 
     val allLinkableNotes = repository.getAllLinkableNotes()
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
@@ -121,6 +125,10 @@ class TasksViewModel(
             _isLoading.value = true
 
             repository.getAllTasksFlow().collectLatest { allTasks ->
+                val emittedSpaceId = activeSpaceStore.currentActiveSpaceId()
+                if (loadedSpaceId != null && loadedSpaceId != emittedSpaceId) discardTaskSessionState()
+                loadedSpaceId = emittedSpaceId
+
                 val dbTasksMap = allTasks.associateBy { it.blockId }
                 val currentTime = System.currentTimeMillis()
 
@@ -199,6 +207,20 @@ class TasksViewModel(
                 _isLoading.value = false
             }
         }
+    }
+
+    private fun discardTaskSessionState() {
+        typingJob?.cancel()
+        dirtyBlocks.clear()
+        blockSourceMap.clear()
+        sessionBlockCache.clear()
+        localEditTimestamps.clear()
+        localToggleTimestamps.clear()
+        _blockLocations.value = emptyMap()
+        _selectedBlockIds.value = emptySet()
+        _focusRequest.value = null
+        _activeBlocks.value = emptyList()
+        _completedBlocks.value = emptyList()
     }
 
     fun toggleCompletedView() {
@@ -459,6 +481,10 @@ class TasksViewModel(
     private suspend fun flushDirtyBlocks() {
         val blocksToSave = dirtyBlocks.toList()
         if (blocksToSave.isEmpty()) return
+        if (!activeSpaceStore.isActiveSpace(loadedSpaceId)) {
+            dirtyBlocks.clear()
+            return
+        }
 
         val currentBlocks = if (_isShowingCompleted.value) _completedBlocks.value else _activeBlocks.value
         val byNote = blocksToSave.groupBy { blockSourceMap[it] }

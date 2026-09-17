@@ -26,6 +26,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.stateIn
 import com.emberr.domain.ai.models.LocalModelUploadManager
 import com.emberr.domain.ai.models.ModelDownloadLog
@@ -33,6 +34,7 @@ import com.emberr.domain.ai.models.ModelDownloadProgress
 import com.emberr.domain.ai.models.ModelDownloadScheduler
 import com.emberr.domain.ai.models.ModelFileNames
 import com.emberr.domain.ai.ReindexAllNotesUseCase
+import com.emberr.domain.space.ActiveSpaceStore
 import com.emberr.domain.ai.models.hasPendingModelDeletion
 import com.emberr.domain.ai.models.hasResumableDownload
 import com.emberr.domain.ai.models.resumeProgressFraction
@@ -73,7 +75,8 @@ class RagViewModel(
     private val localModelUploadManager: LocalModelUploadManager,
     private val vaultToolRunner: VaultToolRunner,
     private val vaultPendingWriteEvents: VaultPendingWriteEvents,
-    private val vaultToolCallEvents: VaultToolCallEvents
+    private val vaultToolCallEvents: VaultToolCallEvents,
+    private val activeSpaceStore: ActiveSpaceStore
 ) : ViewModel() {
 
     val localAiUnsupportedReason: String? = ragRepository.localAiUnsupportedReason
@@ -136,6 +139,7 @@ class RagViewModel(
     val currentSessionId: StateFlow<String?> = _currentSessionId.asStateFlow()
 
     private var currentSessionCreatedAt: Long? = null
+    private var currentSessionSpaceId: String? = null
     private val _editingMessageId = MutableStateFlow<String?>(null)
 
     private val _embeddingSetupState = MutableStateFlow<EmbeddingSetupState>(EmbeddingSetupState.Checking)
@@ -151,6 +155,18 @@ class RagViewModel(
         observeChatSessionSyncEvents()
         observePendingVaultWrites()
         observeVaultToolCalls()
+        observeActiveSpaceChanges()
+    }
+
+    private fun observeActiveSpaceChanges() {
+        viewModelScope.launch {
+            activeSpaceStore.activeSpaceId.drop(1).collect {
+                activeGenerationJob?.cancel()
+                activeGenerationJob = null
+                _isLoading.value = false
+                clearChat()
+            }
+        }
     }
 
     private fun observePendingVaultWrites() {
@@ -505,6 +521,7 @@ class RagViewModel(
 
     fun submitQuery(query: String) {
         if (query.isBlank()) return
+        if (currentSessionSpaceId == null) currentSessionSpaceId = activeSpaceStore.currentActiveSpaceId()
 
         val editingId = _editingMessageId.value
         if (editingId != null) {
@@ -616,6 +633,7 @@ class RagViewModel(
             _messages.value = session.messages
             _currentSessionId.value = session.id
             currentSessionCreatedAt = session.createdAt
+            currentSessionSpaceId = activeSpaceStore.currentActiveSpaceId()
         }
     }
 
@@ -624,6 +642,7 @@ class RagViewModel(
         try {
             val currentMessages = _messages.value
             if (currentMessages.isEmpty()) return
+            if (!activeSpaceStore.isActiveSpace(currentSessionSpaceId)) return
 
             val sessionId = _currentSessionId.value ?: Uuid.random().toString()
             _currentSessionId.value = sessionId
@@ -684,6 +703,7 @@ class RagViewModel(
         _messages.value = emptyList()
         _currentSessionId.value = null
         currentSessionCreatedAt = null
+        currentSessionSpaceId = null
     }
 
     fun renameSession(sessionId: String, newTitle: String) {

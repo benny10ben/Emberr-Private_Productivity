@@ -7,6 +7,7 @@ import com.emberr.data.local.room.toRecurrenceRule
 import com.emberr.domain.model.*
 import com.emberr.domain.repository.NoteRepository
 import com.emberr.domain.sample.SampleDailyNoteSeeder
+import com.emberr.domain.space.ActiveSpaceStore
 import com.emberr.domain.util.eventbus.AiEventBus
 import com.emberr.domain.util.voice.AudioRecorder
 import com.emberr.domain.util.media.MediaStorageHelper
@@ -49,7 +50,8 @@ class DailyEditorViewModel(
     reminderScheduler: ReminderScheduler,
     audioRecorder: AudioRecorder,
     appScope: CoroutineScope,
-    private val sampleDailyNoteSeeder: SampleDailyNoteSeeder
+    private val sampleDailyNoteSeeder: SampleDailyNoteSeeder,
+    private val activeSpaceStore: ActiveSpaceStore
 ) : BaseEditorViewModel(repository, mediaStorageHelper, reminderScheduler, audioRecorder, appScope) {
 
     // Date state
@@ -63,6 +65,8 @@ class DailyEditorViewModel(
 
     private val _loadedDateString = MutableStateFlow<String?>(null)
     val loadedDateString: StateFlow<String?> = _loadedDateString.asStateFlow()
+
+    private var loadedSpaceId: String? = null
 
     // Preview cache
     private val _previewCache = MutableStateFlow<Map<String, List<NoteBlock>>>(emptyMap())
@@ -325,6 +329,17 @@ class DailyEditorViewModel(
             FirstContentRenderSignal.reportContentRendered()
         }
         viewModelScope.launch {
+            activeSpaceStore.activeSpaceId.drop(1).collect {
+                autosaveJob?.cancel()
+                _previewCache.value = emptyMap()
+                clearTimeline()
+                val dateToReload = currentDateString ?: return@collect
+                currentDateString = null
+                _blocks.value = emptyList()
+                loadDailyNote(dateToReload)
+            }
+        }
+        viewModelScope.launch {
             VoiceTaskEventBus.taskAddedEvent.collect { event ->
                 if (event.dateString == currentDateString) {
                     val currentBlocks = _blocks.value.toMutableList()
@@ -480,6 +495,7 @@ class DailyEditorViewModel(
         if (_loadedDateString.value == null || _loadedDateString.value != currentDateString) return false
 
         val dateToSave = currentDateString ?: return false
+        val spaceToSave = loadedSpaceId ?: return false
 
         return try {
             withContext(Dispatchers.IO) {
@@ -490,6 +506,7 @@ class DailyEditorViewModel(
                     // queued behind a long lock wait would write whatever date the user has since
                     // switched to into dateToSave's note instead of its own - cross-date contamination.
                     if (currentDateString != dateToSave) return@withLock false
+                    if (!activeSpaceStore.isActiveSpace(spaceToSave)) return@withLock false
 
                     val reconciled = reconcileWithDisk(dateToSave, _blocks.value)
                     if (reconciled !== _blocks.value) _blocks.value = reconciled
@@ -533,6 +550,7 @@ class DailyEditorViewModel(
     fun loadDailyNote(dateString: String) {
         if (currentDateString == dateString) return
         currentDateString = dateString
+        loadedSpaceId = activeSpaceStore.currentActiveSpaceId()
         _loadedDateString.value = null
 
         AiEventBus.activeNoteId = dateString

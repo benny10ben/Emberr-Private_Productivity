@@ -12,6 +12,7 @@ import com.emberr.domain.model.RecurrenceRule
 import com.emberr.domain.model.markDeleted
 import com.emberr.domain.model.NoteBlock
 import com.emberr.domain.repository.NoteRepository
+import com.emberr.domain.space.ActiveSpaceStore
 import com.emberr.domain.util.sync.SyncCoordinator
 import com.emberr.domain.util.sync.SyncEventBus
 import com.emberr.presentation.reminders.ReminderScheduler
@@ -29,7 +30,8 @@ import java.util.UUID
 class CalendarViewModel(
     private val repository: NoteRepository,
     private val reminderScheduler: ReminderScheduler,
-    private val settingsManager: SettingsManager
+    private val settingsManager: SettingsManager,
+    private val activeSpaceStore: ActiveSpaceStore
 ) : ViewModel() {
 
     val categories: StateFlow<List<CalendarCategory>> = repository.getAllCategories()
@@ -45,9 +47,15 @@ class CalendarViewModel(
 
     init {
         viewModelScope.launch(Dispatchers.IO) {
-            if (repository.getAllCategories().first().isEmpty()) {
-                val default = defaultCalendarCategories().first()
-                repository.insertOrUpdateCategory(default.id, default.name, default.colorHex)
+            activeSpaceStore.activeSpaceId.collect { spaceId ->
+                if (repository.getAllCategories().first().isEmpty()) {
+                    val default = defaultCalendarCategories().first()
+                    repository.insertOrUpdateCategory(
+                        categoryId = defaultCategoryIdInSpace(default.id, spaceId),
+                        name = default.name,
+                        colorHex = default.colorHex
+                    )
+                }
             }
         }
     }
@@ -245,6 +253,8 @@ class CalendarViewModel(
         }
     }
 }
+
+private fun defaultCategoryIdInSpace(categoryId: String, spaceId: String) = "${categoryId}_$spaceId"
 
 private fun CategoryEntity.toCalendarCategory() = CalendarCategory(
     id = categoryId,

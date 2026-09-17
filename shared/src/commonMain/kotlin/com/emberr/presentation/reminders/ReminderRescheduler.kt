@@ -35,7 +35,7 @@ class ReminderRescheduler(
     suspend fun rescheduleUpcomingReminders() {
         try {
             val nowMillis = Clock.System.now().toEpochMilliseconds()
-            val tasks = calendarTaskDao.getAllTasks()
+            val tasks = calendarTaskDao.getAllTasksAcrossSpaces()
             if (tasks.isEmpty()) return
 
             val exceptions = calendarEventExceptionDao.getAllExceptionsFlow().first()

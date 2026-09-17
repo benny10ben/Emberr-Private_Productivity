@@ -11,6 +11,7 @@ import com.emberr.domain.model.*
 import com.emberr.domain.repository.FavoriteNoteOrderStore
 import com.emberr.domain.repository.NoteRepository
 import com.emberr.domain.sample.SampleNotesSeeder
+import com.emberr.domain.space.ActiveSpaceStore
 import com.emberr.domain.template.DefaultTemplateSeeder
 import com.emberr.domain.util.eventbus.VoiceTaskEventBus
 import com.emberr.domain.util.voice.VoiceRecognizer
@@ -50,7 +51,8 @@ class HomeViewModel(
     private val templateSeeder: DefaultTemplateSeeder,
     private val sampleNotesSeeder: SampleNotesSeeder,
     private val localMediaGarbageCollector: LocalMediaGarbageCollector,
-    private val favoriteNoteOrderStore: FavoriteNoteOrderStore
+    private val favoriteNoteOrderStore: FavoriteNoteOrderStore,
+    private val activeSpaceStore: ActiveSpaceStore
 ) : ViewModel() {
 
     val sortType: StateFlow<SortType> = settingsManager.sortTypeFlow
@@ -449,6 +451,15 @@ class HomeViewModel(
             delay(2_000.milliseconds)
             localMediaGarbageCollector.collectAndDeleteOrphanedMedia()
             com.emberr.domain.ai.models.cleanupPendingModelDeletions()
+        }
+        viewModelScope.launch {
+            activeSpaceStore.activeSpaceId.drop(1).collect {
+                _selectedFolderId.value = null
+                _selectedNoteIds.value = emptySet()
+                _selectedFolderIds.value = emptySet()
+                _searchQuery.value = ""
+                withContext(Dispatchers.IO) { templateSeeder.seedIfMissing() }
+            }
         }
         viewModelScope.launch {
             repository.getIncompleteTasksCount().collect { count ->
