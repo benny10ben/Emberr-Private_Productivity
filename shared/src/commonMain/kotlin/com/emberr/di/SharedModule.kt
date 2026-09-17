@@ -269,8 +269,21 @@ val sharedModule = module {
             activeSpaceStore = get()
         )
     }
+    single {
+        com.emberr.presentation.reminders.ReminderTargetResolver(
+            calendarTaskDao = get(),
+            noteDao = get()
+        )
+    }
+
     viewModel { TrashViewModel(repository = get()) }
     viewModel { SearchViewModel(repository = get(), activeSpaceStore = get()) }
+    viewModel {
+        com.emberr.presentation.space.SpaceViewModel(
+            spaceRepository = get(),
+            activeSpaceStore = get()
+        )
+    }
     viewModel {
         com.emberr.presentation.calendar.CalendarViewModel(
             repository = get(),

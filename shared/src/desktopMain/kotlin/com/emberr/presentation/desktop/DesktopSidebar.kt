@@ -8,7 +8,6 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
@@ -21,7 +20,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ripple
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -37,7 +35,6 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.painter.Painter
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.AwaitPointerEventScope
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerEventType
@@ -70,6 +67,8 @@ import com.emberr.presentation.shared.components.AnimatedFolderIcon
 import com.emberr.presentation.shared.components.EmberrButtonPrimary
 import com.emberr.presentation.shared.components.EmberrButtonSecondary
 import com.emberr.presentation.shared.components.EmberrDesktopMenu
+import com.emberr.presentation.shared.components.EmberrDesktopMenuItem
+import com.emberr.presentation.shared.components.EmberrDesktopMenuItems
 import com.emberr.presentation.shared.components.EmberrTextField
 import emberr.shared.generated.resources.Res
 import emberr.shared.generated.resources.file_text
@@ -85,7 +84,7 @@ private val ROW_MIN_HEIGHT       = 42.dp
 private val ROW_VERTICAL_PADDING = 2.dp
 private val ROW_INNER_PADDING    = 4.dp
 private val ROW_ICON_LEADING_GAP = 8.dp
-private val ROW_ICON_START       = SIDEBAR_BASE_START + ROW_INNER_PADDING + ROW_ICON_LEADING_GAP
+internal val ROW_ICON_START      = SIDEBAR_BASE_START + ROW_INNER_PADDING + ROW_ICON_LEADING_GAP
 private val ROW_LABEL_GAP        = 10.dp
 private val ROW_SHAPE            = RoundedCornerShape(8.dp)
 private val GUIDE_COLUMN_START   = ROW_ICON_START + 4.dp
@@ -167,29 +166,7 @@ fun Modifier.sidebarNoRippleClickable(onClick: () -> Unit): Modifier =
     }
 
 @Composable
-private fun DesktopContextMenuItem(icon: ImageVector, text: String, isDestructive: Boolean = false, onClick: () -> Unit) {
-    val contentColor = if (isDestructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
-    val interactionSource = remember { MutableInteractionSource() }
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(6.dp))
-            .clickable(
-                interactionSource = interactionSource,
-                indication = ripple(color = contentColor),
-                onClick = onClick
-            )
-            .padding(horizontal = 12.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(icon, contentDescription = null, tint = contentColor.copy(alpha = if (isDestructive) 1f else 0.75f), modifier = Modifier.size(16.dp))
-        Spacer(Modifier.width(10.dp))
-        Text(text, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium, color = contentColor)
-    }
-}
-
-@Composable
-private fun DesktopNamePopup(
+internal fun DesktopNamePopup(
     title: String,
     initialValue: String,
     confirmLabel: String,
@@ -404,14 +381,15 @@ fun SidebarFolderRow(
             EmberrDesktopMenu(
                 expanded = showContextMenu,
                 onDismissRequest = { showContextMenu = false },
-                modifier = Modifier.width(200.dp),
                 offset = DpOffset.Zero
             ) {
-                if (menu.showRename) {
-                    DesktopContextMenuItem(Icons.Default.CreateNewFolder, "Add Subfolder") { showContextMenu = false; showAddSubfolderPopup = true }
-                    DesktopContextMenuItem(Icons.Default.Edit, "Rename") { showContextMenu = false; showRenamePopup = true }
+                EmberrDesktopMenuItems {
+                    if (menu.showRename) {
+                        EmberrDesktopMenuItem("Add Subfolder", Icons.Default.CreateNewFolder) { showContextMenu = false; showAddSubfolderPopup = true }
+                        EmberrDesktopMenuItem("Rename", Icons.Default.Edit) { showContextMenu = false; showRenamePopup = true }
+                    }
+                    EmberrDesktopMenuItem(menu.deleteLabel, Icons.Default.Delete, isDestructive = true) { showContextMenu = false; onDelete() }
                 }
-                DesktopContextMenuItem(Icons.Default.Delete, menu.deleteLabel, isDestructive = true) { showContextMenu = false; onDelete() }
             }
         }
 
@@ -594,16 +572,17 @@ fun SidebarNoteRow(
             EmberrDesktopMenu(
                 expanded = showContextMenu,
                 onDismissRequest = { showContextMenu = false },
-                modifier = Modifier.width(200.dp),
                 offset = DpOffset.Zero
             ) {
-                if (menu.showRename) {
-                    DesktopContextMenuItem(Icons.Default.Edit, "Rename") { showContextMenu = false; showRenamePopup = true }
+                EmberrDesktopMenuItems {
+                    if (menu.showRename) {
+                        EmberrDesktopMenuItem("Rename", Icons.Default.Edit) { showContextMenu = false; showRenamePopup = true }
+                    }
+                    if (menu.showFavorite) {
+                        EmberrDesktopMenuItem(menu.favoriteLabel, Icons.Default.Star) { showContextMenu = false; onToggleFavorite() }
+                    }
+                    EmberrDesktopMenuItem(menu.deleteLabel, Icons.Default.Delete, isDestructive = true) { showContextMenu = false; onDelete() }
                 }
-                if (menu.showFavorite) {
-                    DesktopContextMenuItem(Icons.Default.Star, menu.favoriteLabel) { showContextMenu = false; onToggleFavorite() }
-                }
-                DesktopContextMenuItem(Icons.Default.Delete, menu.deleteLabel, isDestructive = true) { showContextMenu = false; onDelete() }
             }
         }
 

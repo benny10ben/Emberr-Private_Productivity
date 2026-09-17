@@ -82,6 +82,10 @@ import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.HazeTint
 import kotlin.time.Clock
 import kotlinx.datetime.DateTimeUnit
+import com.emberr.presentation.reminders.ReminderClickBus
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.withContext
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.plus
@@ -264,6 +268,8 @@ fun DesktopMainScreen(
     homeViewModel: HomeViewModel = koinViewModel(),
     dailyViewModel: DailyEditorViewModel = koinViewModel(),
     syncViewModel: SyncViewModel = koinViewModel(),
+    spaceViewModel: com.emberr.presentation.space.SpaceViewModel = koinViewModel(),
+    reminderTargetResolver: com.emberr.presentation.reminders.ReminderTargetResolver = koinInject(),
     settingsManager: SettingsManager = koinInject(),
     isSidebarVisible: Boolean = true,
     sidebarWidth: Dp = 340.dp,
@@ -332,6 +338,9 @@ fun DesktopMainScreen(
 
     // Right panel state
     val lastOpenedState by settingsManager.lastOpenedDesktopStateFlow.collectAsState(initial = "")
+    val spaces by spaceViewModel.spaces.collectAsState()
+    val activeSpaceId by spaceViewModel.activeSpaceId.collectAsState()
+
     var detail by remember { mutableStateOf<DetailPane?>(null) }
     var hasRestored by remember { mutableStateOf(false) }
 
@@ -428,6 +437,46 @@ fun DesktopMainScreen(
     val density = LocalDensity.current
     val rowHeightPx = with(density) { SIDEBAR_ROW_HEIGHT.toPx() }
 
+    var previousSpaceId by remember { mutableStateOf(activeSpaceId) }
+
+    var isOpeningReminderTarget by remember { mutableStateOf(false) }
+
+    LaunchedEffect(activeSpaceId) {
+        if (previousSpaceId == activeSpaceId) return@LaunchedEffect
+        previousSpaceId = activeSpaceId
+
+        val keepCurrentPane = isOpeningReminderTarget
+        isOpeningReminderTarget = false
+
+        if (detail is DetailPane.Note && !keepCurrentPane) {
+            dailyViewModel.selectDate(today)
+            detail = DetailPane.Daily(today)
+        }
+        sidebarListState.scrollToItem(0)
+    }
+
+    LaunchedEffect(Unit) {
+        ReminderClickBus.pendingBlockId.filterNotNull().collect { blockId ->
+            val target = withContext(Dispatchers.IO) { reminderTargetResolver.resolve(blockId) }
+            ReminderClickBus.consumePendingBlockId()
+            if (target == null) return@collect
+
+            if (target.spaceId != activeSpaceId) {
+                isOpeningReminderTarget = true
+                spaceViewModel.openSpace(target.spaceId)
+            }
+
+            val targetDate = target.dateString?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+            if (target.isDaily && targetDate != null) {
+                dailyViewModel.selectDate(targetDate)
+                detail = DetailPane.Daily(targetDate)
+            } else {
+                detail = DetailPane.Note(target.noteId)
+            }
+            isPeeking = false
+        }
+    }
+
     val settingsMenuSlot = @Composable {
         UserSettings(
             expanded = showSettingsMenu,
@@ -510,6 +559,7 @@ fun DesktopMainScreen(
 
         val rowKeys: List<String?> = buildList {
             add(null)
+            add(null) // Space header
 
             if (favoriteNotes.isNotEmpty()) {
                 add(null) // Favorites header
@@ -681,6 +731,15 @@ fun DesktopMainScreen(
                                 ) { detail = DetailPane.Documents; isPeeking = false }
                                 SidebarGroupSeparator()
                             }
+                        }
+
+                        item {
+                            SidebarSpaceHeader(
+                                displayName = spaces.firstOrNull { it.spaceId == activeSpaceId }?.displayName.orEmpty(),
+                                canDelete = spaces.size > 1,
+                                onRename = { name -> spaceViewModel.renameSpace(activeSpaceId, name) },
+                                onDelete = { spaceViewModel.deleteSpace(activeSpaceId) }
+                            )
                         }
 
                         if (favoriteNotes.isNotEmpty()) {
@@ -1033,13 +1092,20 @@ fun DesktopMainScreen(
                     )
                 }
 
+                DesktopSpaceBar(
+                    spaces = spaces,
+                    activeSpaceId = activeSpaceId,
+                    onOpenSpace = { spaceId -> spaceViewModel.openSpace(spaceId) },
+                    onCreateSpace = { name -> spaceViewModel.createSpaceAndOpenIt(name) },
+                    onReorderSpaces = { orderedIds -> spaceViewModel.reorderSpaces(orderedIds) }
+                )
             }
 
             // floating search + AI assistant buttons, mirrors mobile's EmberrBottomBar circles
             Row(
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
-                    .padding(end = endPadding + 16.dp, bottom = 16.dp),
+                    .padding(end = endPadding + 16.dp, bottom = DESKTOP_SPACE_BAR_HEIGHT + 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 TopBarIconButton(
