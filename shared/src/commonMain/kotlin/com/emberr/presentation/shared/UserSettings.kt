@@ -2,18 +2,18 @@ package com.emberr.presentation.shared
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.unit.dp
 import com.emberr.domain.util.system.isDesktopPlatform
 import com.emberr.presentation.shared.components.EmberrBottomSheet
 import com.emberr.presentation.shared.components.EmberrButtonPrimary
 import com.emberr.presentation.shared.components.EmberrDesktopMenu
+import com.emberr.presentation.shared.components.EmberrDesktopMenuItem
+import com.emberr.presentation.shared.components.EmberrDesktopMenuItems
 import emberr.shared.generated.resources.Res
 import emberr.shared.generated.resources.cog
 import emberr.shared.generated.resources.trash
@@ -54,58 +54,24 @@ private fun UserSettingsDesktopMenu(
     onNavigateToSettings: () -> Unit,
     onNavigateToTrash: () -> Unit,
 ) {
-    Column(modifier = Modifier.width(220.dp).padding(vertical = 4.dp)) {
+    EmberrDesktopMenuItems {
 
-        DesktopMenuItem(
-            icon = painterResource(Res.drawable.cog),
+        EmberrDesktopMenuItem(
             text = "Settings",
+            icon = painterResource(Res.drawable.cog),
             onClick = {
                 onDismiss()
                 onNavigateToSettings()
             }
         )
 
-        DesktopMenuItem(
-            icon = painterResource(Res.drawable.trash),
+        EmberrDesktopMenuItem(
             text = "Trash",
+            icon = painterResource(Res.drawable.trash),
             onClick = {
                 onDismiss()
                 onNavigateToTrash()
             }
-        )
-    }
-}
-
-@Composable
-private fun DesktopMenuItem(
-    icon: Painter,
-    text: String,
-    isDestructive: Boolean = false,
-    onClick: () -> Unit
-) {
-    val textColor = if (isDestructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
-    val iconColor = if (isDestructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 2.dp)
-            .clip(RoundedCornerShape(12.dp))
-            .clickable { onClick() }
-            .padding(horizontal = 12.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(
-            icon,
-            contentDescription = null,
-            tint = iconColor,
-            modifier = Modifier.size(20.dp)
-        )
-        Spacer(modifier = Modifier.width(12.dp))
-        Text(
-            text,
-            style = MaterialTheme.typography.bodyLarge,
-            color = textColor
         )
     }
 }
