@@ -10,6 +10,7 @@ import androidx.compose.ui.unit.dp
 import com.emberr.data.local.room.DatabaseTemplateEntity
 import com.emberr.presentation.shared.components.EmberrBottomSheet
 import com.emberr.presentation.shared.components.EmberrButtonPrimary
+import com.emberr.presentation.shared.components.rememberShowAfterKeyboardCloses
 import emberr.shared.generated.resources.Res
 import emberr.shared.generated.resources.files
 import emberr.shared.generated.resources.hash
@@ -24,7 +25,9 @@ fun DatabaseTemplatePickerSheet(
     onCreateBlank: () -> Unit,
     onSelectTemplate: (DatabaseTemplateEntity) -> Unit
 ) {
-    EmberrBottomSheet(expanded = expanded, onDismiss = onDismiss, title = "Add Database") { closeAnd ->
+    val isKeyboardOutOfTheWay = rememberShowAfterKeyboardCloses(expanded)
+
+    EmberrBottomSheet(expanded = isKeyboardOutOfTheWay, onDismiss = onDismiss, title = "Add Database") { closeAnd ->
         MuteRippleOnMobile {
             Column(modifier = Modifier.fillMaxWidth().padding(bottom = 22.dp)) {
                 SheetMenuRow(icon = painterResource(Res.drawable.hash), text = "Create Blank Database") {
@@ -51,7 +54,7 @@ fun DatabaseTemplatePickerSheet(
                     text = "Close",
                     onClick = onDismiss,
                     modifier = Modifier.fillMaxWidth()
-                        .padding(vertical = 12.dp, horizontal = 20.dp)
+                        .padding(vertical = 12.dp)
                 )
             }
         }

@@ -3,6 +3,7 @@ package com.emberr.presentation.shared.components
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.ime
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -47,6 +48,16 @@ class KeyboardHandoff internal constructor(
 
     private var job: Job? = null
 
+    suspend fun awaitKeyboardClosed() {
+        if (!isKeyboardOpen) return
+        focusManager.clearFocus()
+        keyboard?.hide()
+        withTimeoutOrNull(600.milliseconds) {
+            snapshotFlow { imeInsets.getBottom(density) }.first { it == 0 }
+        }
+        delay(50.milliseconds)
+    }
+
     fun run(action: () -> Unit) {
         if (isPending) return
         if (!isKeyboardOpen) {
@@ -54,15 +65,10 @@ class KeyboardHandoff internal constructor(
             return
         }
         isPending = true
-        focusManager.clearFocus()
-        keyboard?.hide()
         job?.cancel()
         job = scope.launch {
             try {
-                withTimeoutOrNull(600.milliseconds) {
-                    snapshotFlow { imeInsets.getBottom(density) }.first { it == 0 }
-                }
-                delay(50.milliseconds)
+                awaitKeyboardClosed()
                 action()
             } finally {
                 isPending = false
@@ -81,4 +87,21 @@ fun rememberKeyboardHandoff(): KeyboardHandoff {
     return remember(scope, imeInsets, density, focusManager, keyboard) {
         KeyboardHandoff(scope, imeInsets, density, focusManager, keyboard)
     }
+}
+
+@Composable
+fun rememberShowAfterKeyboardCloses(isRequested: Boolean): Boolean {
+    val handoff = rememberKeyboardHandoff()
+    var isReadyToShow by remember { mutableStateOf(false) }
+
+    LaunchedEffect(isRequested) {
+        if (!isRequested) {
+            isReadyToShow = false
+            return@LaunchedEffect
+        }
+        handoff.awaitKeyboardClosed()
+        isReadyToShow = true
+    }
+
+    return isReadyToShow
 }
