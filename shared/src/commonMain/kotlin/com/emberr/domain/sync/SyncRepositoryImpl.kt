@@ -2,12 +2,16 @@ package com.emberr.domain.sync
 
 import com.emberr.core.security.SyncEncryptionManager
 import com.emberr.data.local.prefs.SettingsManager
+import com.emberr.data.local.room.CalendarEventExceptionDao
+import com.emberr.data.local.room.CalendarEventExceptionEntity
 import com.emberr.data.local.room.CategoryEntity
 import com.emberr.data.local.room.ChatSessionDao
 import com.emberr.data.local.room.ChatSessionEntity
 import com.emberr.data.local.room.FolderEntity
 import com.emberr.data.local.room.NoteMetadataEntity
 import com.emberr.data.local.room.SelfHostDeletedApiConfigDao
+import com.emberr.data.local.room.SpaceDao
+import com.emberr.data.local.room.SpaceEntity
 import com.emberr.data.local.room.TagEntity
 import com.emberr.domain.ai.external.AiSettingsRepository
 import com.emberr.domain.ai.external.ExternalAiProvider
@@ -22,10 +26,11 @@ import com.emberr.domain.model.NoteContent
 import com.emberr.domain.model.VoiceBlock
 import com.emberr.domain.media.MediaReferenceIndex
 import com.emberr.domain.repository.NoteRepository
+import com.emberr.domain.space.SpaceRepository
 import com.emberr.domain.model.BOOKMARK_CATEGORY_ORDER_ENTITY_ID
-import com.emberr.domain.model.BookmarkCategoryOrder
+import com.emberr.domain.model.BookmarkCategoryOrderBySpace
 import com.emberr.domain.model.FAVORITE_NOTE_ORDER_ENTITY_ID
-import com.emberr.domain.model.FavoriteNoteOrder
+import com.emberr.domain.model.FavoriteNoteOrderBySpace
 import com.emberr.domain.repository.BookmarkCategoryOrderStore
 import com.emberr.domain.repository.FavoriteNoteOrderStore
 import com.emberr.domain.selfhost.sync.ApiConfigSyncEntry
@@ -53,6 +58,9 @@ class SyncRepositoryImpl(
     private val encryptionManager: SyncEncryptionManager,
     private val syncClient: SyncClient,
     private val chatSessionDao: ChatSessionDao,
+    private val calendarEventExceptionDao: CalendarEventExceptionDao,
+    private val spaceDao: SpaceDao,
+    private val spaceRepository: SpaceRepository,
     private val selfHostDeletedApiConfigDao: SelfHostDeletedApiConfigDao,
     private val aiSettingsRepository: AiSettingsRepository,
     private val database: EmberrDatabase,
@@ -235,8 +243,9 @@ class SyncRepositoryImpl(
         const val MEDIA_ORPHAN_GRACE_PERIOD_MS = 24L * 60 * 60 * 1000
     }
 
-    private fun adoptRemoteEmbeddingsIfNeeded(
+    private suspend fun adoptRemoteEmbeddingsIfNeeded(
         noteId: String,
+        spaceId: String,
         localUpdatedAt: Long?,
         remoteUpdatedAt: Long,
         embeddedBlocksJson: String,
@@ -258,6 +267,7 @@ class SyncRepositoryImpl(
                 database.vectorStoreQueries.insertMetadata(
                     block_id = block.blockId,
                     note_id = noteId,
+                    space_id = spaceId,
                     chunk_text = block.chunkText,
                     embedding = block.embedding
                 )
@@ -293,23 +303,28 @@ class SyncRepositoryImpl(
                                     json.decodeFromString<NoteContent>(decryptedContentJson)
                                 } else NoteContent(blocks = emptyList())
 
+                                spaceRepository.ensureSpaceExists(remoteMeta.spaceId)
                                 val localMeta = repository.getNoteById(envelope.entityId)
 
                                 if (localMeta == null) {
                                     // Prevents re-creating a note if a tombstone already exists.
-                                    val tombstone = repository.getNoteTombstone(envelope.entityId)
+                                    val tombstone = repository.getNoteTombstoneInSpace(
+                                        remoteMeta.spaceId,
+                                        envelope.entityId
+                                    )
                                     if (!envelope.isDeleted && (tombstone == null || tombstone.deletedAt < envelope.updatedAt)) {
                                         val newMeta = remoteMeta.copy(selfHostSyncedAt = 0L)
-                                        repository.saveNote(
-                                            newMeta,
-                                            remoteContent,
+                                        repository.saveNoteInSpace(
+                                            spaceId = remoteMeta.spaceId,
+                                            metadata = newMeta,
+                                            content = remoteContent,
                                             stampUpdatedAt = false
                                         )
 
                                         // EXPLICIT AI INDEXING CALL
                                         repository.indexNote(newMeta, remoteContent)
                                         adoptRemoteEmbeddingsIfNeeded(
-                                            remoteMeta.noteId, null, envelope.updatedAt,
+                                            remoteMeta.noteId, remoteMeta.spaceId, null, envelope.updatedAt,
                                             envelope.embeddedBlocksJson, syncKey
                                         )
 
@@ -328,10 +343,15 @@ class SyncRepositoryImpl(
                                         stampUpdatedAt = false
                                     )
 
+                                    val savedTrashedMeta = trashedMeta.copy(
+                                        spaceId = repository.getNoteById(trashedMeta.noteId)?.spaceId
+                                            ?: localMeta.spaceId
+                                    )
+
                                     // EXPLICIT AI INDEXING CALL
-                                    repository.indexNote(trashedMeta, remoteContent)
+                                    repository.indexNote(savedTrashedMeta, remoteContent)
                                     adoptRemoteEmbeddingsIfNeeded(
-                                        trashedMeta.noteId, localMeta.updatedAt, envelope.updatedAt,
+                                        savedTrashedMeta.noteId, savedTrashedMeta.spaceId, localMeta.updatedAt, envelope.updatedAt,
                                         envelope.embeddedBlocksJson, syncKey
                                     )
 
@@ -371,10 +391,15 @@ class SyncRepositoryImpl(
                                             stampUpdatedAt = false
                                         )
 
+                                        val savedMeta = winningMeta.copy(
+                                            spaceId = repository.getNoteById(winningMeta.noteId)?.spaceId
+                                                ?: winningMeta.spaceId
+                                        )
+
                                         // EXPLICIT AI INDEXING CALL
-                                        repository.indexNote(winningMeta, mergedContent)
+                                        repository.indexNote(savedMeta, mergedContent)
                                         adoptRemoteEmbeddingsIfNeeded(
-                                            winningMeta.noteId, localMeta.updatedAt, envelope.updatedAt,
+                                            savedMeta.noteId, savedMeta.spaceId, localMeta.updatedAt, envelope.updatedAt,
                                             envelope.embeddedBlocksJson, syncKey
                                         )
 
@@ -392,10 +417,17 @@ class SyncRepositoryImpl(
                                 } else NoteContent(blocks = emptyList())
 
                                 val dateString = envelope.entityId
-                                val localMeta = repository.getDailyNoteMetadata(dateString)
+                                spaceRepository.ensureSpaceExists(remoteMeta.spaceId)
+                                val localMeta = repository.getDailyNoteMetadataInSpace(
+                                    remoteMeta.spaceId,
+                                    dateString
+                                )
 
                                 if (localMeta == null) {
-                                    val tombstone = repository.getNoteTombstone(dateString)
+                                    val tombstone = repository.getNoteTombstoneInSpace(
+                                        remoteMeta.spaceId,
+                                        dateString
+                                    )
                                     if (tombstone == null || tombstone.deletedAt < envelope.updatedAt) {
                                         repository.saveDailyNote(
                                             dateString,
@@ -405,15 +437,17 @@ class SyncRepositoryImpl(
                                         )
 
                                         // EXPLICIT AI INDEXING CALL
-                                        val finalMeta = repository.getDailyNoteMetadata(dateString)
-                                            ?: remoteMeta
+                                        val finalMeta = repository.getDailyNoteMetadataInSpace(
+                                            remoteMeta.spaceId,
+                                            dateString
+                                        ) ?: remoteMeta
                                         repository.indexDailyNote(
                                             dateString,
                                             remoteContent,
                                             finalMeta
                                         )
                                         adoptRemoteEmbeddingsIfNeeded(
-                                            finalMeta.noteId, null, envelope.updatedAt,
+                                            finalMeta.noteId, finalMeta.spaceId, null, envelope.updatedAt,
                                             envelope.embeddedBlocksJson, syncKey
                                         )
 
@@ -421,7 +455,10 @@ class SyncRepositoryImpl(
                                         pendingMediaContent = remoteContent
                                     }
                                 } else {
-                                    val localContent = repository.getDailyNote(dateString)
+                                    val localContent = repository.getDailyNoteInSpace(
+                                        remoteMeta.spaceId,
+                                        dateString
+                                    )
                                     val mergedContent = NoteMergeHelper.mergeNoteContent(
                                         localContent = localContent,
                                         localUpdatedAt = localMeta.updatedAt,
@@ -456,7 +493,7 @@ class SyncRepositoryImpl(
                                             mergedMeta
                                         )
                                         adoptRemoteEmbeddingsIfNeeded(
-                                            mergedMeta.noteId, localMeta.updatedAt, envelope.updatedAt,
+                                            mergedMeta.noteId, mergedMeta.spaceId, localMeta.updatedAt, envelope.updatedAt,
                                             envelope.embeddedBlocksJson, syncKey
                                         )
 
@@ -465,27 +502,43 @@ class SyncRepositoryImpl(
                                 }
                             }
 
+                            SyncType.SPACE -> {
+                                val remoteSpace =
+                                    json.decodeFromString<SpaceEntity>(decryptedMetaJson)
+                                spaceRepository.applyRemoteSpace(remoteSpace)
+                            }
+
                             SyncType.TAG -> {
                                 val remoteTag = json.decodeFromString<TagEntity>(decryptedMetaJson)
+                                spaceRepository.ensureSpaceExists(remoteTag.spaceId)
                                 repository.applyRemoteTag(remoteTag)
                             }
 
                             SyncType.FOLDER -> {
                                 val remoteFolder =
                                     json.decodeFromString<FolderEntity>(decryptedMetaJson)
+                                spaceRepository.ensureSpaceExists(remoteFolder.spaceId)
                                 repository.applyRemoteFolder(remoteFolder)
                             }
 
                             SyncType.CATEGORY -> {
                                 val remoteCategory =
                                     json.decodeFromString<CategoryEntity>(decryptedMetaJson)
+                                spaceRepository.ensureSpaceExists(remoteCategory.spaceId)
                                 repository.applyRemoteCategory(remoteCategory)
+                            }
+
+                            SyncType.EVENT_EXCEPTION -> {
+                                val remoteException =
+                                    json.decodeFromString<CalendarEventExceptionEntity>(decryptedMetaJson)
+                                repository.applyRemoteEventException(remoteException)
                             }
 
                             SyncType.NOTE_TOMBSTONE -> {
                                 val tombstone =
                                     json.decodeFromString<NoteTombstonePayload>(decryptedMetaJson)
                                 repository.applyRemoteNoteTombstone(
+                                    spaceId = tombstone.spaceId,
                                     noteId = tombstone.noteId,
                                     isDaily = tombstone.isDaily,
                                     dateString = tombstone.dateString,
@@ -506,6 +559,7 @@ class SyncRepositoryImpl(
                                     if (envelope.isDeleted) {
                                         chatSessionDao.softDeleteSession(remoteSession.id, envelope.updatedAt)
                                     } else {
+                                        spaceRepository.ensureSpaceExists(remoteSession.spaceId)
                                         chatSessionDao.upsertSession(remoteSession)
                                     }
                                     ChatSyncEventBus.emitSessionChanged(remoteSession.id)
@@ -544,15 +598,15 @@ class SyncRepositoryImpl(
                             }
 
                             SyncType.BOOKMARK_CATEGORY_ORDER -> {
-                                val remoteOrder =
-                                    json.decodeFromString<BookmarkCategoryOrder>(decryptedMetaJson)
-                                bookmarkCategoryOrderStore.applyRemoteOrder(remoteOrder)
+                                val remoteOrders =
+                                    json.decodeFromString<BookmarkCategoryOrderBySpace>(decryptedMetaJson)
+                                bookmarkCategoryOrderStore.applyRemoteOrders(remoteOrders)
                             }
 
                             SyncType.FAVORITE_NOTE_ORDER -> {
-                                val remoteOrder =
-                                    json.decodeFromString<FavoriteNoteOrder>(decryptedMetaJson)
-                                favoriteNoteOrderStore.applyRemoteOrder(remoteOrder)
+                                val remoteOrders =
+                                    json.decodeFromString<FavoriteNoteOrderBySpace>(decryptedMetaJson)
+                                favoriteNoteOrderStore.applyRemoteOrders(remoteOrders)
                             }
 
                         }
@@ -613,9 +667,22 @@ class SyncRepositoryImpl(
                 emptySet()
             }
 
+            val modifiedSpaces = spaceDao.getSpacesModifiedSince(lastSyncTime)
+            modifiedSpaces.forEach { space ->
+                val encryptedSpace =
+                    encryptionManager.encryptPayload(json.encodeToString(space), syncKey)
+                changes.add(
+                    SyncEnvelope(
+                        entityId = space.spaceId, entityType = SyncType.SPACE,
+                        metadataJson = encryptedSpace, contentJson = "",
+                        updatedAt = space.updatedAt, isDeleted = space.isDeleted
+                    )
+                )
+            }
+
             modifiedNotes.forEach { meta ->
                 val content = if (meta.isDaily && meta.dateString != null) {
-                    repository.getDailyNote(meta.dateString)
+                    repository.getDailyNoteInSpace(meta.spaceId, meta.dateString)
                 } else {
                     repository.getNoteContent(meta.noteId)
                 } ?: NoteContent(blocks = emptyList())
@@ -698,11 +765,26 @@ class SyncRepositoryImpl(
                 )
             }
 
+            val modifiedExceptions = calendarEventExceptionDao.getExceptionsModifiedSince(lastSyncTime)
+            modifiedExceptions.forEach { exception ->
+                val encryptedException =
+                    encryptionManager.encryptPayload(json.encodeToString(exception), syncKey)
+                changes.add(
+                    SyncEnvelope(
+                        entityId = "${exception.blockId}|${exception.occurrenceDate}",
+                        entityType = SyncType.EVENT_EXCEPTION,
+                        metadataJson = encryptedException, contentJson = "",
+                        updatedAt = exception.updatedAt, isDeleted = false
+                    )
+                )
+            }
+
             // Collects permanently deleted note tombstones.
             val modifiedTombstones = repository.getNoteTombstonesModifiedSince(lastSyncTime)
             modifiedTombstones.forEach { tombstone ->
                 val payload = NoteTombstonePayload(
                     noteId = tombstone.noteId,
+                    spaceId = tombstone.spaceId,
                     isDaily = tombstone.isDaily,
                     dateString = tombstone.dateString,
                     deletedAt = tombstone.deletedAt
@@ -778,30 +860,34 @@ class SyncRepositoryImpl(
                 )
             }
 
-            val localCategoryOrder = bookmarkCategoryOrderStore.getOrder()
-            if (localCategoryOrder.updatedAt > lastSyncTime) {
+            val localCategoryOrders = bookmarkCategoryOrderStore.getAllOrders()
+            val newestCategoryOrderChange =
+                localCategoryOrders.ordersBySpaceId.values.maxOfOrNull { it.updatedAt } ?: 0L
+            if (newestCategoryOrderChange > lastSyncTime) {
                 val encryptedOrder =
-                    encryptionManager.encryptPayload(json.encodeToString(localCategoryOrder), syncKey)
+                    encryptionManager.encryptPayload(json.encodeToString(localCategoryOrders), syncKey)
                 changes.add(
                     SyncEnvelope(
                         entityId = BOOKMARK_CATEGORY_ORDER_ENTITY_ID,
                         entityType = SyncType.BOOKMARK_CATEGORY_ORDER,
                         metadataJson = encryptedOrder, contentJson = "",
-                        updatedAt = localCategoryOrder.updatedAt, isDeleted = false
+                        updatedAt = newestCategoryOrderChange, isDeleted = false
                     )
                 )
             }
 
-            val localFavoriteOrder = favoriteNoteOrderStore.getOrder()
-            if (localFavoriteOrder.updatedAt > lastSyncTime) {
+            val localFavoriteOrders = favoriteNoteOrderStore.getAllOrders()
+            val newestFavoriteOrderChange =
+                localFavoriteOrders.ordersBySpaceId.values.maxOfOrNull { it.updatedAt } ?: 0L
+            if (newestFavoriteOrderChange > lastSyncTime) {
                 val encryptedFavoriteOrder =
-                    encryptionManager.encryptPayload(json.encodeToString(localFavoriteOrder), syncKey)
+                    encryptionManager.encryptPayload(json.encodeToString(localFavoriteOrders), syncKey)
                 changes.add(
                     SyncEnvelope(
                         entityId = FAVORITE_NOTE_ORDER_ENTITY_ID,
                         entityType = SyncType.FAVORITE_NOTE_ORDER,
                         metadataJson = encryptedFavoriteOrder, contentJson = "",
-                        updatedAt = localFavoriteOrder.updatedAt, isDeleted = false
+                        updatedAt = newestFavoriteOrderChange, isDeleted = false
                     )
                 )
             }

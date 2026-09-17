@@ -1,14 +1,17 @@
 package com.emberr.domain.sync
 
+import com.emberr.data.local.room.DEFAULT_SPACE_ID
 import kotlinx.serialization.Serializable
 
 @Serializable
 enum class SyncType {
     NOTE,
+    SPACE,
     DAILY_NOTE,
     TAG,
     FOLDER,
     CATEGORY,
+    EVENT_EXCEPTION,
     NOTE_TOMBSTONE,
     CHAT_SESSION,
     EXTERNAL_API_CONFIG,
@@ -24,6 +27,7 @@ enum class SyncType {
 @Serializable
 data class NoteTombstonePayload(
     val noteId: String,
+    val spaceId: String = DEFAULT_SPACE_ID,
     val isDaily: Boolean,
     val dateString: String?,
     val deletedAt: Long
