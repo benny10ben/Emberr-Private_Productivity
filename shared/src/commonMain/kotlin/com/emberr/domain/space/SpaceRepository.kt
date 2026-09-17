@@ -116,6 +116,16 @@ class SpaceRepository(
         VaultMirrorTrigger.requestFullRefresh()
     }
 
+    suspend fun reorderSpaces(orderedSpaceIds: List<String>) {
+        if (orderedSpaceIds.isEmpty()) return
+
+        val now = System.currentTimeMillis()
+        orderedSpaceIds.forEachIndexed { position, spaceId ->
+            spaceDao.updateSpaceSortOrder(spaceId = spaceId, sortOrder = position, updatedAt = now)
+        }
+        AutoSyncTrigger.requestSync()
+    }
+
     suspend fun deleteSpace(spaceId: String) {
         val remainingSpaces = spaceDao.getAllSpacesOnce().filter { it.spaceId != spaceId }
         check(remainingSpaces.isNotEmpty()) { "The last remaining space cannot be deleted." }

@@ -220,6 +220,9 @@ interface SpaceDao {
     @Query("UPDATE spaces SET displayName = :displayName, updatedAt = :updatedAt WHERE spaceId = :spaceId")
     suspend fun renameSpace(spaceId: String, displayName: String, updatedAt: Long)
 
+    @Query("UPDATE spaces SET sortOrder = :sortOrder, updatedAt = :updatedAt WHERE spaceId = :spaceId")
+    suspend fun updateSpaceSortOrder(spaceId: String, sortOrder: Int, updatedAt: Long)
+
     @Query("UPDATE spaces SET isDeleted = 1, updatedAt = :updatedAt WHERE spaceId = :spaceId")
     suspend fun markSpaceDeleted(spaceId: String, updatedAt: Long)
 }
