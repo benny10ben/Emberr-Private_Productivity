@@ -37,7 +37,6 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
@@ -47,16 +46,14 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import org.koin.compose.viewmodel.koinViewModel
 import com.emberr.domain.model.BookmarkBlock
 import com.emberr.domain.util.system.isDesktopPlatform
 import com.emberr.presentation.shared.components.EmberrBlur
-import com.emberr.presentation.shared.stableStatusBarsPadding
 import com.emberr.presentation.shared.components.KmpBackHandler
+import com.emberr.presentation.shared.components.EmberrTopHeaderBar
 import com.emberr.presentation.shared.components.TopBarIconButton
 import com.emberr.presentation.shared.components.customEmberrShadow
 import com.emberr.presentation.shared.components.emberrBlur
@@ -67,7 +64,6 @@ import com.emberr.presentation.shared.editor.blockViews.BookmarkBlockView
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
 import emberr.shared.generated.resources.Res
-import emberr.shared.generated.resources.chevron_left
 import emberr.shared.generated.resources.circle_plus
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -288,18 +284,29 @@ fun BookmarksScreen(
             )
 
 
-            BookmarksTopBar(
+            EmberrTopHeaderBar(
                 modifier = Modifier.align(Alignment.TopCenter),
-                isSelectionMode = isSelectionMode,
+                title = "Bookmarks",
+                titleVisibility = titleCollapseProgress,
+                onTitleClick = onCollapsedTitleClick,
                 hazeState = hazeState,
-                collapsedTitle = "Bookmarks",
-                collapsedTitleProgress = titleCollapseProgress,
-                onCollapsedTitleClick = onCollapsedTitleClick,
                 onPositioned = { topBarBottomPx = it.positionInRoot().y + it.size.height },
                 onBackClick = {
                     if (isSelectionMode) viewModel.clearSelection() else onNavigateBack()
                 },
-                onAddClick = { showAddUrlInput = true }
+                actions = {
+                    if (!isSelectionMode) {
+                        TopBarIconButton(
+                            icon = painterResource(Res.drawable.circle_plus),
+                            contentDescription = "Add Bookmark",
+                            bgColor = Color.Transparent,
+                            tint = MaterialTheme.colorScheme.primary,
+                            hazeState = hazeState,
+                            hazeStyle = EmberrBlur.Regular,
+                            onClick = { showAddUrlInput = true }
+                        )
+                    }
+                }
             )
 
             AnimatedVisibility(
@@ -495,78 +502,6 @@ fun BookmarkGrid(
                     Box(modifier = Modifier.weight(1f).background(MaterialTheme.colorScheme.background))
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun BookmarksTopBar(
-    modifier: Modifier = Modifier,
-    isSelectionMode: Boolean,
-    hazeState: HazeState? = null,
-    collapsedTitle: String = "",
-    collapsedTitleProgress: Float = 0f,
-    onCollapsedTitleClick: () -> Unit = {},
-    onPositioned: (LayoutCoordinates) -> Unit = {},
-    onBackClick: () -> Unit,
-    onAddClick: () -> Unit
-) {
-    val defaultContentColor = MaterialTheme.colorScheme.onSurface
-
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .then(if (isDesktopPlatform) Modifier else Modifier.stableStatusBarsPadding())
-            .padding(top = if (isDesktopPlatform) 16.dp else 10.dp, start = 16.dp, end = 16.dp)
-            .onGloballyPositioned(onPositioned),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        TopBarIconButton(
-            icon = painterResource(Res.drawable.chevron_left),
-            contentDescription = "Back",
-            bgColor = Color.Transparent,
-            tint = MaterialTheme.colorScheme.primary,
-            hazeState = hazeState,
-            hazeStyle = EmberrBlur.Regular,
-            onClick = onBackClick
-        )
-
-        if (collapsedTitleProgress > 0f) {
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(horizontal = 8.dp)
-                    .graphicsLayer { alpha = collapsedTitleProgress }
-                    .clickable(onClick = onCollapsedTitleClick),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = collapsedTitle,
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = defaultContentColor,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    textAlign = TextAlign.Center
-                )
-            }
-        } else {
-            Spacer(Modifier.weight(1f))
-        }
-
-        if (!isSelectionMode) {
-            TopBarIconButton(
-                icon = painterResource(Res.drawable.circle_plus),
-                contentDescription = "Add Bookmark",
-                bgColor = Color.Transparent,
-                tint = MaterialTheme.colorScheme.primary,
-                hazeState = hazeState,
-                hazeStyle = EmberrBlur.Regular,
-                onClick = onAddClick
-            )
-        } else {
-            Spacer(Modifier.size(1.dp))
         }
     }
 }

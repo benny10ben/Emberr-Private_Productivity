@@ -93,14 +93,16 @@ import com.emberr.presentation.shared.components.EmberrBottomSheet
 import com.emberr.presentation.shared.components.EmberrButtonPrimary
 import com.emberr.presentation.shared.components.EmberrDesktopMenu
 import com.emberr.presentation.shared.components.SelectedOptionBackground
+import com.emberr.presentation.shared.components.EmberrTopHeaderBar
+import com.emberr.presentation.shared.components.TopHeaderBarButtonSize
 import com.emberr.presentation.shared.components.TopBarIconButton
+import com.emberr.presentation.shared.components.topHeaderBarPadding
 import com.emberr.presentation.shared.components.emberrBlur
 import com.emberr.presentation.shared.components.EmberrVerticalScrollbar
 import com.emberr.presentation.shared.components.smoothWheelScroll
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
 import emberr.shared.generated.resources.Res
-import emberr.shared.generated.resources.chevron_left
 import emberr.shared.generated.resources.tablet
 import emberr.shared.generated.resources.widget2
 import kotlinx.coroutines.delay
@@ -140,6 +142,7 @@ fun CalendarScreen(
 
     var showViewsSheet by remember { mutableStateOf(false) }
     var showCategoriesSheet by remember { mutableStateOf(false) }
+    var showCalendarOptionsMenu by remember { mutableStateOf(false) }
     val viewMode by viewModel.viewMode.collectAsState()
     var selectedDate by remember { mutableStateOf(Clock.System.todayIn(TimeZone.currentSystemDefault())) }
     val categories by viewModel.categories.collectAsState()
@@ -358,17 +361,64 @@ fun CalendarScreen(
                     .pointerInput(Unit) { detectTapGestures {} }
                     .then(if (isDesktopPlatform) Modifier else Modifier.stableStatusBarsPadding())
             ) {
-                CalendarTopBar(
-                    selectedDate = selectedDate,
-                    viewMode = viewMode,
-                    slideDirection = slideDirection,
+                EmberrTopHeaderBar(
+                    hazeState = internalHazeState,
+                    applyStatusBarPadding = false,
+                    contentPadding = topHeaderBarPadding(bottom = 16.dp),
+                    verticalAlignment = Alignment.Top,
                     onBackClick = onNavigateBack,
-                    onViewModeChange = viewModel::setViewMode,
-                    categories = categories,
-                    onAddCategory = viewModel::addCategory,
-                    onUpdateCategory = viewModel::updateCategory,
-                    onDeleteCategory = viewModel::deleteCategory,
-                    hazeState = internalHazeState
+                    centerContent = {
+                        CalendarTitle(
+                            selectedDate = selectedDate,
+                            viewMode = viewMode,
+                            slideDirection = slideDirection
+                        )
+                    },
+                    actions = {
+                        if (isDesktopPlatform) {
+                            Box {
+                                TopBarIconButton(
+                                    icon = Icons.Default.MoreVert,
+                                    contentDescription = "Options",
+                                    bgColor = Color.Transparent,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    hazeState = internalHazeState,
+                                    hazeStyle = EmberrBlur.Regular,
+                                    onClick = { showCalendarOptionsMenu = true }
+                                )
+
+                                EmberrDesktopMenu(
+                                    expanded = showCalendarOptionsMenu,
+                                    onDismissRequest = { showCalendarOptionsMenu = false },
+                                    modifier = Modifier.width(260.dp)
+                                ) {
+                                    Column(modifier = Modifier.padding(vertical = 8.dp, horizontal = 8.dp).padding(top = 6.dp)) {
+                                        ViewModeSection(
+                                            viewMode = viewMode,
+                                            onViewModeChange = {
+                                                viewModel.setViewMode(it)
+                                                showCalendarOptionsMenu = false
+                                            }
+                                        )
+
+                                        HorizontalDivider(
+                                            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f),
+                                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+                                        )
+
+                                        CategorySection(
+                                            categories = categories,
+                                            onAddCategory = viewModel::addCategory,
+                                            onUpdateCategory = viewModel::updateCategory,
+                                            onDeleteCategory = viewModel::deleteCategory
+                                        )
+                                    }
+                                }
+                            }
+                        } else {
+                            Box(modifier = Modifier.size(TopHeaderBarButtonSize))
+                        }
+                    }
                 )
             }
 
@@ -523,125 +573,55 @@ fun CalendarScreen(
 }
 
 @Composable
-private fun CalendarTopBar(
+private fun CalendarTitle(
     selectedDate: LocalDate,
     viewMode: CalendarViewMode,
-    slideDirection: AnimatedContentTransitionScope.SlideDirection,
-    onBackClick: () -> Unit,
-    onViewModeChange: (CalendarViewMode) -> Unit,
-    categories: List<CalendarCategory>,
-    onAddCategory: (name: String, colorHex: String) -> Unit,
-    onUpdateCategory: (id: String, name: String, colorHex: String) -> Unit,
-    onDeleteCategory: (id: String) -> Unit,
-    hazeState: HazeState,
-    modifier: Modifier = Modifier
+    slideDirection: AnimatedContentTransitionScope.SlideDirection
 ) {
-    val defaultContentColor = MaterialTheme.colorScheme.onSurface
+    val titleColor = MaterialTheme.colorScheme.onSurface
 
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(top = if (isDesktopPlatform) 16.dp else 10.dp, start = 16.dp, end = 16.dp, bottom = 16.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(modifier = Modifier.align(Alignment.Top)) {
-            TopBarIconButton(
-                icon = painterResource(Res.drawable.chevron_left),
-                contentDescription = "Back",
-                bgColor = Color.Transparent,
-                tint = MaterialTheme.colorScheme.primary,
-                hazeState = hazeState,
-                hazeStyle = EmberrBlur.Regular,
-                onClick = onBackClick
-            )
-        }
-
-        AnimatedContent(
-            targetState = selectedDate,
-            transitionSpec = {
-                (slideIntoContainer(slideDirection, tween(300, easing = FastOutSlowInEasing)) + fadeIn(tween(300))) togetherWith
-                        (slideOutOfContainer(slideDirection, tween(300, easing = FastOutSlowInEasing)) + fadeOut(tween(300)))
-            },
-            label = "CalendarTitleTransition",
-            modifier = Modifier.height(72.dp)
-        ) { date ->
-            Box(
-                modifier = Modifier.fillMaxHeight(),
-                contentAlignment = Alignment.TopCenter
-            ) {
-                if (viewMode == CalendarViewMode.MONTH) {
-                    Text(
-                        text = formatMonthYear(date),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = defaultContentColor,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(top = 8.dp)
-                    )
-                } else {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier.padding(top = 8.dp)
-                    ) {
-                        Text(
-                            text = formatSelectedDateTitle(date),
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = defaultContentColor,
-                            textAlign = TextAlign.Center
-                        )
-                        Text(
-                            text = formatDayOfWeek(date),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = defaultContentColor.copy(alpha = 0.6f),
-                            textAlign = TextAlign.Center
-                        )
-                    }
-                }
-            }
-        }
-
-        if (isDesktopPlatform) {
-            var showOptionsMenu by remember { mutableStateOf(false) }
-            Box(modifier = Modifier.align(Alignment.Top)) {
-                TopBarIconButton(
-                    icon = Icons.Default.MoreVert,
-                    contentDescription = "Options",
-                    bgColor = Color.Transparent,
-                    tint = MaterialTheme.colorScheme.primary,
-                    hazeState = hazeState,
-                    hazeStyle = EmberrBlur.Regular,
-                    onClick = { showOptionsMenu = true }
+    AnimatedContent(
+        targetState = selectedDate,
+        transitionSpec = {
+            (slideIntoContainer(slideDirection, tween(300, easing = FastOutSlowInEasing)) + fadeIn(tween(300))) togetherWith
+                    (slideOutOfContainer(slideDirection, tween(300, easing = FastOutSlowInEasing)) + fadeOut(tween(300)))
+        },
+        label = "CalendarTitleTransition",
+        modifier = Modifier.height(72.dp)
+    ) { date ->
+        Box(
+            modifier = Modifier.fillMaxHeight(),
+            contentAlignment = Alignment.TopCenter
+        ) {
+            if (viewMode == CalendarViewMode.MONTH) {
+                Text(
+                    text = formatMonthYear(date),
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = titleColor,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(top = 8.dp)
                 )
-                EmberrDesktopMenu(
-                    expanded = showOptionsMenu,
-                    onDismissRequest = { showOptionsMenu = false },
-                    modifier = Modifier.width(260.dp)
+            } else {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.padding(top = 8.dp)
                 ) {
-                    Column(modifier = Modifier.padding(vertical = 8.dp, horizontal = 8.dp).padding(top = 6.dp)) {
-                        ViewModeSection(
-                            viewMode = viewMode,
-                            onViewModeChange = {
-                                onViewModeChange(it)
-                                showOptionsMenu = false
-                            }
-                        )
-
-                        HorizontalDivider(
-                            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f),
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
-                        )
-
-                        CategorySection(
-                            categories = categories,
-                            onAddCategory = onAddCategory,
-                            onUpdateCategory = onUpdateCategory,
-                            onDeleteCategory = onDeleteCategory
-                        )
-                    }
+                    Text(
+                        text = formatSelectedDateTitle(date),
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = titleColor,
+                        textAlign = TextAlign.Center
+                    )
+                    Text(
+                        text = formatDayOfWeek(date),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = titleColor.copy(alpha = 0.6f),
+                        textAlign = TextAlign.Center
+                    )
                 }
             }
-        } else {
-            Box(modifier = Modifier.size(44.dp))
         }
     }
 }

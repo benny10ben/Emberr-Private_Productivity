@@ -17,12 +17,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
@@ -42,7 +40,6 @@ import com.emberr.presentation.shared.editor.SelectionModeObserver
 import com.emberr.presentation.shared.editor.MobileMenuState
 import com.emberr.presentation.shared.editor.EditorEventBus
 import com.emberr.presentation.shared.editor.blockViews.databaseBlockView.DatabaseTemplatePickerSheet
-import com.emberr.presentation.shared.editor.blockViews.databaseBlockView.NoteLinkText
 import dev.chrisbanes.haze.HazeState
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.delay
@@ -66,13 +63,15 @@ import com.emberr.presentation.shared.UserSettings
 import com.emberr.presentation.shared.components.EmberrBlur
 import com.emberr.presentation.shared.components.EmberrBottomSheet
 import com.emberr.presentation.shared.components.EmberrButtonPrimary
+import com.emberr.presentation.shared.components.EmberrTopHeaderBar
+import com.emberr.presentation.shared.components.TopHeaderTitlePlacement
 import com.emberr.presentation.shared.components.TopBarIconButton
+import com.emberr.presentation.shared.components.topHeaderBarPadding
 import com.emberr.presentation.shared.components.TopBarIconButtonGroup
 import com.emberr.presentation.shared.components.TopBarIconButtonItem
 import com.emberr.presentation.shared.components.rememberKeyboardHandoff
 import com.emberr.presentation.shared.editor.BlockStyleBar
 import com.emberr.presentation.shared.rememberStableStatusBarsPadding
-import com.emberr.presentation.shared.stableStatusBarsPadding
 import com.emberr.presentation.sync.SyncViewModel
 import com.emberr.domain.util.system.showNativeToast
 import dev.chrisbanes.haze.hazeSource
@@ -80,8 +79,6 @@ import emberr.shared.generated.resources.Res
 import emberr.shared.generated.resources.calendar
 import emberr.shared.generated.resources.ellipsis
 import emberr.shared.generated.resources.history2
-import kotlinx.datetime.toLocalDateTime
-import kotlin.time.Instant
 import org.jetbrains.compose.resources.painterResource
 
 private fun Modifier.noRippleClickable(onClick: () -> Unit): Modifier = composed {
@@ -142,7 +139,6 @@ fun DailyScreen(
         if (!isSelectionMode) showBlockStyleBar = false
     }
 
-    var showScheduledTasksSheet by remember { mutableStateOf(false) }
     var showCalendarSheet by remember { mutableStateOf(false) }
     var showTimelineDialog by remember { mutableStateOf(false) }
     val timelineDays by viewModel.timelineDays.collectAsState()
@@ -640,35 +636,69 @@ fun DailyScreen(
                     )
                 }
 
-                DailyTopBar(
-                    selectedDate = selectedDate,
-                    onCalendarIconClick = { showCalendarSheet = true },
-                    onTimelineClick = {
-                        viewModel.loadTimeline()
-                        showTimelineDialog = true
-                    },
-                    onNotificationsClick = { showScheduledTasksSheet = true },
-                    onOpenCalendarScreenClick = onNavigateToCalendar,
+                EmberrTopHeaderBar(
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .zIndex(2f)
+                        .pointerInput(Unit) { detectTapGestures {} },
+                    title = dailyHeaderTitle(selectedDate),
+                    titlePlacement = TopHeaderTitlePlacement.Start,
+                    titleStyle = MaterialTheme.typography.titleLarge,
+                    titleColor = MaterialTheme.colorScheme.onBackground,
+                    titlePadding = PaddingValues(top = 10.dp, bottom = 8.dp),
+                    onTitleClick = { showCalendarSheet = true },
+                    showBackButton = false,
+                    reserveBackButtonSpace = false,
                     hazeState = hazeState,
-                    showSettingsMenu = showSettingsMenu,
-                    onSettingsMenuOpen = { showSettingsMenu = true },
-                    onSettingsMenuDismiss = { showSettingsMenu = false },
-                    onNavigateToSettings = onNavigateToSettings,
-                    onNavigateToTrash = onNavigateToTrash,
-                    modifier = Modifier.fillMaxWidth().align(Alignment.TopCenter).zIndex(2f)
-                        .onGloballyPositioned { topBarBottomPx = it.positionInRoot().y + it.size.height }
-                )
-            }
+                    applyStatusBarPadding = true,
+                    contentPadding = topHeaderBarPadding(top = 8.dp, bottom = 14.dp),
+                    onPositioned = { topBarBottomPx = it.positionInRoot().y + it.size.height },
+                    actions = {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            TopBarIconButton(
+                                icon = painterResource(Res.drawable.history2),
+                                contentDescription = "Open timeline",
+                                bgColor = Color.Transparent,
+                                tint = MaterialTheme.colorScheme.primary,
+                                hazeState = hazeState,
+                                hazeStyle = EmberrBlur.Regular,
+                                onClick = {
+                                    viewModel.loadTimeline()
+                                    showTimelineDialog = true
+                                }
+                            )
 
-            if (showScheduledTasksSheet) {
-                UpcomingTasksSheet(
-                    initialDate = initialDate,
-                    calendarTaskMap = calendarTaskMap,
-                    viewModel = viewModel,
-                    onDismiss = { showScheduledTasksSheet = false },
-                    onTaskNoteLinkClick = { noteId ->
-                        showScheduledTasksSheet = false
-                        onNavigateToEditor(noteId)
+                            Box {
+                                TopBarIconButtonGroup(
+                                    bgColor = Color.Transparent,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    hazeState = hazeState,
+                                    hazeStyle = EmberrBlur.Regular,
+                                    items = listOf(
+                                        TopBarIconButtonItem(
+                                            icon = painterResource(Res.drawable.calendar),
+                                            contentDescription = "Open Calendar",
+                                            onClick = onNavigateToCalendar
+                                        ),
+                                        TopBarIconButtonItem(
+                                            icon = painterResource(Res.drawable.ellipsis),
+                                            contentDescription = "Settings",
+                                            onClick = { showSettingsMenu = true }
+                                        )
+                                    )
+                                )
+
+                                UserSettings(
+                                    expanded = showSettingsMenu,
+                                    onDismiss = { showSettingsMenu = false },
+                                    onNavigateToSettings = onNavigateToSettings,
+                                    onNavigateToTrash = onNavigateToTrash
+                                )
+                            }
+                        }
                     }
                 )
             }
@@ -708,155 +738,12 @@ fun DailyScreen(
     }
 }
 
-@Composable
-private fun DailyTopBar(
-    selectedDate: LocalDate,
-    onCalendarIconClick: () -> Unit,
-    onTimelineClick: () -> Unit,
-    onNotificationsClick: () -> Unit,
-    onOpenCalendarScreenClick: () -> Unit,
-    hazeState: HazeState,
-    showSettingsMenu: Boolean,
-    onSettingsMenuOpen: () -> Unit,
-    onSettingsMenuDismiss: () -> Unit,
-    onNavigateToSettings: () -> Unit,
-    onNavigateToTrash: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .pointerInput(Unit) { detectTapGestures {} }
-            .stableStatusBarsPadding()
-            .padding(top = 10.dp, bottom = 10.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(
-                    start = 16.dp,
-                    end = 16.dp,
-                    bottom = 4.dp
-                ),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                val isToday = selectedDate == Clock.System.todayIn(TimeZone.currentSystemDefault())
-                val titleText = if (isToday) "Today" else {
-                    val shortDay = selectedDate.dayOfWeek.name.take(3).lowercase().replaceFirstChar { it.uppercase() }
-                    "$shortDay ${selectedDate.day}"
-                }
+private fun dailyHeaderTitle(selectedDate: LocalDate): String {
+    val today = Clock.System.todayIn(TimeZone.currentSystemDefault())
+    if (selectedDate == today) return "Today"
 
-                Text(
-                    text = titleText,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onBackground,
-                    modifier = Modifier
-                        .padding(top = 10.dp, bottom = 8.dp)
-                        .noRippleClickable { onCalendarIconClick() }
-                )
-            }
-
-            // Right Side: Icons
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically)
-            {
-                TopBarIconButton(
-                    icon = painterResource(Res.drawable.history2),
-                    contentDescription = "Open timeline",
-                    bgColor = Color.Transparent,
-                    tint = MaterialTheme.colorScheme.primary,
-                    hazeState = hazeState,
-                    hazeStyle = EmberrBlur.Regular,
-                    onClick = onTimelineClick
-                )
-
-                Box {
-                    TopBarIconButtonGroup(
-                        bgColor = Color.Transparent,
-                        tint = MaterialTheme.colorScheme.primary,
-                        hazeState = hazeState,
-                        hazeStyle = EmberrBlur.Regular,
-                        items = listOf(
-                            TopBarIconButtonItem(
-                                icon = painterResource(Res.drawable.calendar),
-                                contentDescription = "Open Calendar",
-                                onClick = onOpenCalendarScreenClick
-                            ),
-//                            TopBarIconButtonItem(
-//                                icon = painterResource(Res.drawable.inbox),
-//                                contentDescription = "Notifications",
-//                                onClick = onNotificationsClick
-//                            ),
-                            TopBarIconButtonItem(
-                                icon = painterResource(Res.drawable.ellipsis),
-                                contentDescription = "Settings",
-                                onClick = onSettingsMenuOpen
-                            )
-                        )
-                    )
-
-                    UserSettings(
-                        expanded = showSettingsMenu,
-                        onDismiss = onSettingsMenuDismiss,
-                        onNavigateToSettings = onNavigateToSettings,
-                        onNavigateToTrash = onNavigateToTrash
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun UpcomingTasksSheet(
-    initialDate: LocalDate,
-    calendarTaskMap: Map<LocalDate, List<CalendarTaskEntity>>,
-    viewModel: DailyEditorViewModel,
-    onDismiss: () -> Unit,
-    onTaskNoteLinkClick: (String) -> Unit
-) {
-    val todayTasks = calendarTaskMap[initialDate] ?: emptyList()
-    val tomorrowTasks = calendarTaskMap[initialDate.plus(1, DateTimeUnit.DAY)] ?: emptyList()
-
-    EmberrBottomSheet(
-        expanded = true,
-        onDismiss = onDismiss,
-        title = "Upcoming Tasks",
-    ) { _ ->
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            if (todayTasks.isEmpty() && tomorrowTasks.isEmpty()) {
-                Text(
-                    "No tasks scheduled for today or tomorrow.",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                )
-            } else {
-                if (todayTasks.isNotEmpty()) {
-                    TaskDaySection("Today", todayTasks, viewModel, onTaskNoteLinkClick)
-                }
-
-                if (tomorrowTasks.isNotEmpty()) {
-                    TaskDaySection("Tomorrow", tomorrowTasks, viewModel, onTaskNoteLinkClick)
-                }
-            }
-
-            EmberrButtonPrimary(
-                text = "Close",
-                onClick = onDismiss,
-                modifier = Modifier.fillMaxWidth()
-                    .padding(vertical = 12.dp)
-            )
-        }
-    }
+    val shortDayName = selectedDate.dayOfWeek.name.take(3).lowercase().replaceFirstChar { it.uppercase() }
+    return "$shortDayName ${selectedDate.day}"
 }
 
 @Composable
@@ -895,85 +782,6 @@ private fun DailyCalendarSheet(
                 modifier = Modifier.fillMaxWidth()
                     .padding(vertical = 12.dp, horizontal = 20.dp)
             )
-        }
-    }
-}
-
-@Composable
-internal fun TaskDaySection(
-    dayTitle: String,
-    tasks: List<CalendarTaskEntity>,
-    viewModel: DailyEditorViewModel,
-    onNoteLinkClick: (String) -> Unit = {}
-) {
-    val sortedTasks = remember(tasks) {
-        tasks.sortedBy { it.reminderTimestamp ?: 0L }
-    }
-
-    Column(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
-        // Day Header
-        Text(
-            text = dayTitle,
-            style = MaterialTheme.typography.bodyLarge,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onBackground,
-            modifier = Modifier.padding(bottom = 16.dp)
-        )
-
-        Column(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)) {
-            sortedTasks.forEach { task ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    val timestamp = task.reminderTimestamp
-                    val timeLabel = if (timestamp == null || timestamp == 0L) {
-                        "All Day"
-                    } else {
-                        val dt = Instant.fromEpochMilliseconds(timestamp)
-                            .toLocalDateTime(TimeZone.currentSystemDefault())
-                        val hour = dt.hour
-                        val amPm = if (hour >= 12) "PM" else "AM"
-                        val displayHour = if (hour % 12 == 0) 12 else hour % 12
-                        "$displayHour:${dt.minute.toString().padStart(2, '0')} $amPm"
-                    }
-
-                    Text(
-                        text = timeLabel,
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                        modifier = Modifier.width(72.dp)
-                    )
-
-                    Checkbox(
-                        checked = task.isChecked,
-                        onCheckedChange = { isChecked ->
-                            viewModel.toggleCalendarTask(task, isChecked)
-                        },
-                        modifier = Modifier.size(24.dp),
-                        colors = CheckboxDefaults.colors(
-                            checkedColor = MaterialTheme.colorScheme.primary,
-                            checkmarkColor = MaterialTheme.colorScheme.onPrimary,
-                            uncheckedColor = MaterialTheme.colorScheme.outline
-                        )
-                    )
-
-                    Spacer(modifier = Modifier.width(14.dp))
-
-                    NoteLinkText(
-                        text = task.text.ifBlank { "Empty task" },
-                        fontSize = MaterialTheme.typography.bodyLarge.fontSize,
-                        fontWeight = null,
-                        color = if (task.isChecked) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.onBackground,
-                        maxLines = Int.MAX_VALUE,
-                        onNoteLinkClick = onNoteLinkClick,
-                        textDecoration = if (task.isChecked) androidx.compose.ui.text.style.TextDecoration.LineThrough else null
-                    )
-                }
-            }
         }
     }
 }

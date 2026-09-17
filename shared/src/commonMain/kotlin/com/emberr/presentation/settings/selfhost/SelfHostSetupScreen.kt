@@ -63,21 +63,16 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import com.emberr.domain.selfhost.sync.SelfHostSyncLog
-import com.emberr.domain.util.system.isDesktopPlatform
 import com.emberr.presentation.settings.SettingsGroup
 import com.emberr.presentation.shared.components.EmberrAlertDialog
-import com.emberr.presentation.shared.components.EmberrBlur
 import com.emberr.presentation.shared.components.EmberrButtonPrimary
 import com.emberr.presentation.shared.components.EmberrTextField
-import com.emberr.presentation.shared.components.TopBarIconButton
-import com.emberr.presentation.shared.stableStatusBarsPadding
+import com.emberr.presentation.shared.components.EmberrTopHeaderBar
+import com.emberr.presentation.shared.components.topHeaderBarPadding
 import com.emberr.ui.theme.LocalEmberrFontStyle
 import com.emberr.ui.theme.fontFamilyFor
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
-import emberr.shared.generated.resources.Res
-import emberr.shared.generated.resources.chevron_left
-import org.jetbrains.compose.resources.painterResource
 import org.koin.compose.viewmodel.koinViewModel
 
 @Composable
@@ -116,7 +111,12 @@ fun SelfHostSetupScreen(
                 .zIndex(10f)
                 .onGloballyPositioned { coordinates -> topBarHeightPx = coordinates.size.height.toFloat() }
         ) {
-            SelfHostSetupTopBar(onNavigateBack = onNavigateBack, hazeState = internalHazeState)
+            EmberrTopHeaderBar(
+                title = "Self-Host",
+                hazeState = internalHazeState,
+                contentPadding = topHeaderBarPadding(bottom = 16.dp),
+                onBackClick = onNavigateBack
+            )
         }
     }
 }
@@ -663,40 +663,6 @@ private fun ErrorMessageCard(message: String) {
             text = message,
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.error
-        )
-    }
-}
-
-@Composable
-private fun SelfHostSetupTopBar(onNavigateBack: () -> Unit, hazeState: HazeState) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .then(if (isDesktopPlatform) Modifier else Modifier.stableStatusBarsPadding())
-            .padding(
-                top = if (isDesktopPlatform) 16.dp else 10.dp,
-                start = 16.dp,
-                end = 16.dp,
-                bottom = 16.dp
-            ),
-        contentAlignment = Alignment.CenterStart
-    ) {
-        TopBarIconButton(
-            icon = painterResource(Res.drawable.chevron_left),
-            contentDescription = "Back",
-            bgColor = Color.Transparent,
-            tint = MaterialTheme.colorScheme.primary,
-            hazeState = hazeState,
-            hazeStyle = EmberrBlur.Regular,
-            onClick = onNavigateBack
-        )
-
-        Text(
-            text = "Self-Host",
-            style = MaterialTheme.typography.bodyLarge,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.align(Alignment.Center)
         )
     }
 }

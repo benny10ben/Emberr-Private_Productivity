@@ -47,7 +47,6 @@ import com.emberr.presentation.shared.editor.EditorActions
 import com.emberr.presentation.settings.SettingsScreen
 import com.emberr.presentation.settings.selfhost.SelfHostSetupScreen
 import com.emberr.presentation.shared.UserSettings
-import com.emberr.presentation.shared.components.EmberrBottomSheet
 import com.emberr.presentation.shared.components.EmberrButtonPrimary
 import com.emberr.presentation.shared.components.EmberrButtonSecondary
 import com.emberr.presentation.shared.components.EmberrDesktopMenu
@@ -60,7 +59,6 @@ import com.emberr.presentation.mobile.daily.CollapsedWeekStrip
 import com.emberr.presentation.mobile.daily.DailyEditorPane
 import com.emberr.presentation.mobile.daily.DailyEditorViewModel
 import com.emberr.presentation.mobile.daily.DailyTimelineDialog
-import com.emberr.presentation.mobile.daily.TaskDaySection
 import com.emberr.presentation.mobile.home.DesktopSortMenu
 import com.emberr.presentation.mobile.home.DropInsertPosition
 import com.emberr.presentation.mobile.home.HomeViewModel
@@ -321,7 +319,6 @@ fun DesktopMainScreen(
 
     // Daily data (for strip + sheets)
     val selectedDate by dailyViewModel.selectedDate.collectAsState()
-    val calendarTaskMap by dailyViewModel.calendarTaskMap.collectAsState()
 
     LaunchedEffect(selectedDate) {
         val nearbyDateStrings = (-NEARBY_DAILY_PREFETCH_RADIUS..NEARBY_DAILY_PREFETCH_RADIUS).map { dayOffset ->
@@ -367,7 +364,6 @@ fun DesktopMainScreen(
     var isPeeking by remember { mutableStateOf(false) }
 
     // Sheets
-    var showScheduledTasksSheet by remember { mutableStateOf(false) }
     var showTimelineDialog by remember { mutableStateOf(false) }
     val timelineDays by dailyViewModel.timelineDays.collectAsState()
     val isTimelineLoading by dailyViewModel.isTimelineLoading.collectAsState()
@@ -564,11 +560,6 @@ fun DesktopMainScreen(
                                     contentDescription = "Calendar",
                                     onClick = { detail = DetailPane.Calendar; isPeeking = false }
                                 ),
-//                                TopBarIconButtonItem(
-//                                    icon = painterResource(Res.drawable.inbox),
-//                                    contentDescription = "Upcoming tasks",
-//                                    onClick = { showScheduledTasksSheet = true }
-//                                ),
                                 TopBarIconButtonItem(
                                     icon = painterResource(Res.drawable.ellipsis),
                                     contentDescription = "Settings",
@@ -1468,40 +1459,6 @@ fun DesktopMainScreen(
                             dailyViewModel.openTimelineBlock(date, blockId)
                         }
                     )
-                }
-
-                if (showScheduledTasksSheet) {
-                    val todayTasks = calendarTaskMap[today] ?: emptyList()
-                    val tomorrowTasks = calendarTaskMap[today.plus(1, DateTimeUnit.DAY)] ?: emptyList()
-                    EmberrBottomSheet(
-                        expanded = true,
-                        onDismiss = { showScheduledTasksSheet = false },
-                        title = "Upcoming Tasks"
-                    ) { _ ->
-                        Column(
-                            modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
-                            verticalArrangement = Arrangement.spacedBy(24.dp)
-                        ) {
-                            if (todayTasks.isEmpty() && tomorrowTasks.isEmpty()) {
-                                Text(
-                                    "No tasks scheduled for today or tomorrow.",
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                                )
-                            } else {
-                                if (todayTasks.isNotEmpty()) TaskDaySection(
-                                    "Today",
-                                    todayTasks,
-                                    dailyViewModel
-                                )
-                                if (tomorrowTasks.isNotEmpty()) TaskDaySection(
-                                    "Tomorrow",
-                                    tomorrowTasks,
-                                    dailyViewModel
-                                )
-                            }
-                        }
-                    }
                 }
 
                 if (showSearchDialog) {

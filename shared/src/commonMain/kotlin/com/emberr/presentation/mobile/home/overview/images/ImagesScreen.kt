@@ -2,7 +2,6 @@ package com.emberr.presentation.mobile.home.overview.images
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -13,16 +12,12 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.graphics.Color
 import kotlinx.coroutines.launch
@@ -31,16 +26,15 @@ import com.emberr.domain.model.ImageBlock
 import com.emberr.domain.util.system.isDesktopPlatform
 import com.emberr.presentation.shared.components.EmberrBlur
 import com.emberr.presentation.shared.components.KmpBackHandler
-import com.emberr.presentation.shared.stableStatusBarsPadding
 import com.emberr.presentation.shared.editor.BlockSelectionPill
 import com.emberr.presentation.shared.editor.blockViews.ImageBlockView
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.haze
+import com.emberr.presentation.shared.components.EmberrTopHeaderBar
 import com.emberr.presentation.shared.components.TopBarIconButton
 import com.emberr.presentation.shared.components.EmberrVerticalScrollbar
 import dev.chrisbanes.haze.hazeSource
 import emberr.shared.generated.resources.Res
-import emberr.shared.generated.resources.chevron_left
 import emberr.shared.generated.resources.circle_plus
 import org.jetbrains.compose.resources.painterResource
 
@@ -198,18 +192,29 @@ fun ImagesScreen(
             )
 
 
-            ImagesTopBar(
+            EmberrTopHeaderBar(
                 modifier = Modifier.align(Alignment.TopCenter),
+                title = "Images",
+                titleVisibility = titleCollapseProgress,
+                onTitleClick = onCollapsedTitleClick,
                 hazeState = hazeState,
-                isSelectionMode = isSelectionMode,
-                collapsedTitle = "Images",
-                collapsedTitleProgress = titleCollapseProgress,
-                onCollapsedTitleClick = onCollapsedTitleClick,
                 onPositioned = { topBarBottomPx = it.positionInRoot().y + it.size.height },
                 onBackClick = {
                     if (isSelectionMode) viewModel.clearSelection() else onNavigateBack()
                 },
-                onAddClick = onTriggerImagePicker
+                actions = {
+                    if (!isSelectionMode) {
+                        TopBarIconButton(
+                            icon = painterResource(Res.drawable.circle_plus),
+                            contentDescription = "Add Image",
+                            bgColor = Color.Transparent,
+                            tint = MaterialTheme.colorScheme.primary,
+                            hazeState = hazeState,
+                            hazeStyle = EmberrBlur.Regular,
+                            onClick = onTriggerImagePicker
+                        )
+                    }
+                }
             )
 
             BlockSelectionPill(
@@ -306,79 +311,6 @@ fun ImageGrid(
                     }
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun ImagesTopBar(
-    modifier: Modifier = Modifier,
-    isSelectionMode: Boolean,
-    hazeState: HazeState? = null,
-    collapsedTitle: String = "",
-    collapsedTitleProgress: Float = 0f,
-    onCollapsedTitleClick: () -> Unit = {},
-    onPositioned: (LayoutCoordinates) -> Unit = {},
-    onBackClick: () -> Unit,
-    onAddClick: () -> Unit
-) {
-    val defaultBgColor = if (isDesktopPlatform) MaterialTheme.colorScheme.background else MaterialTheme.colorScheme.background.copy(alpha = 0.65f)
-    val defaultContentColor = MaterialTheme.colorScheme.onSurface
-
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .then(if (isDesktopPlatform) Modifier else Modifier.stableStatusBarsPadding())
-            .padding(top = if (isDesktopPlatform) 16.dp else 10.dp, start = 16.dp, end = 16.dp)
-            .onGloballyPositioned(onPositioned),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        TopBarIconButton(
-            icon = painterResource(Res.drawable.chevron_left),
-            contentDescription = "Back",
-            bgColor = Color.Transparent,
-            tint = MaterialTheme.colorScheme.primary,
-            hazeState = hazeState,
-            hazeStyle = EmberrBlur.Regular,
-            onClick = onBackClick
-        )
-
-        if (collapsedTitleProgress > 0f) {
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(horizontal = 8.dp)
-                    .graphicsLayer { alpha = collapsedTitleProgress }
-                    .clickable(onClick = onCollapsedTitleClick),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = collapsedTitle,
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = defaultContentColor,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    textAlign = TextAlign.Center
-                )
-            }
-        } else {
-            Spacer(Modifier.weight(1f))
-        }
-
-        if (!isSelectionMode) {
-            TopBarIconButton(
-                icon = painterResource(Res.drawable.circle_plus),
-                contentDescription = "Add Image",
-                bgColor = Color.Transparent,
-                tint = MaterialTheme.colorScheme.primary,
-                hazeState = hazeState,
-                hazeStyle = EmberrBlur.Regular,
-                onClick = onAddClick
-            )
-        } else {
-            Spacer(Modifier.size(1.dp))
         }
     }
 }

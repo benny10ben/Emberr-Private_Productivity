@@ -85,7 +85,9 @@ import com.emberr.domain.model.TextAlignment
 import com.emberr.domain.repository.EmojiRepository
 import com.emberr.domain.util.system.showFeedback
 import com.emberr.presentation.shared.components.EmberrDesktopMenu
+import com.emberr.presentation.shared.components.EmberrTopHeaderBar
 import com.emberr.presentation.shared.components.TopBarIconButton
+import com.emberr.presentation.shared.components.topHeaderBarPadding
 import com.emberr.presentation.shared.StickyNoteWindowBus
 import com.emberr.presentation.shared.SubNoteOpenMode
 import com.emberr.data.local.prefs.SettingsManager
@@ -697,18 +699,19 @@ fun NoteScreen(
                     }
                 }
 
-                NoteTopBar(
-                    showOptionsMenu = showOptionsMenu,
-                    showBackButton = showBackButton,
-                    isEditingTemplate = isEditingTemplate,
-                    onDismissOptionsMenu = { showOptionsMenu = false },
+                EmberrTopHeaderBar(
+                    title = noteTitle.ifBlank { "Untitled" },
+                    titleVisibility = if (isEditingTemplate) 0f else titleCollapseProgress,
+                    titleColor = topBarContentColor ?: MaterialTheme.colorScheme.onSurface,
+                    onTitleClick = onCollapsedTitleClick,
+                    background = topBarBgColor ?: Color.Transparent,
                     hazeState = hazeState,
-                    topBarBgColor = topBarBgColor,
-                    topBarContentColor = topBarContentColor,
-                    collapsedTitle = noteTitle.ifBlank { "Untitled" },
-                    collapsedTitleProgress = titleCollapseProgress,
-                    onCollapsedTitleClick = onCollapsedTitleClick,
-                    topMargin = desktopTopMargin,
+                    contentPadding = topHeaderBarPadding(
+                        top = desktopTopMargin + if (isDesktopPlatform) 16.dp else 10.dp,
+                        horizontal = if (isDesktopPlatform) 22.dp else 16.dp
+                    ),
+                    showBackButton = showBackButton,
+                    reserveBackButtonSpace = false,
                     onPositioned = { topBarBottomPx = it.positionInRoot().y + it.size.height },
                     onBackClick = {
                         if (isSelectionMode) {
@@ -717,34 +720,60 @@ fun NoteScreen(
                             onNavigateBack()
                         }
                     },
-                    onOptionsClick = { showOptionsMenu = true },
-                    desktopMenuContent = {
-                        NoteOptionsDesktopMenu(
-                            isFavorite = isFavorite,
-                            hasIcon = noteIcon != null,
-                            hasCover = coverImagePath != null,
-                            showWordCount = showWordCount,
-                            blockAlignment = blockAlignment,
-                            onDismiss = { showOptionsMenu = false },
-                            onToggleFavorite = handleToggleFavorite,
-                            onAddIcon = handleAddIcon,
-                            onRemoveIcon = handleRemoveIcon,
-                            isEditingTemplate = isEditingTemplate,
-                            onAddCover = handleAddCover,
-                            onRemoveCover = handleRemoveCover,
-                            onToggleWordCount = handleToggleWordCount,
-                            onSetAlignment = handleSetAlignment,
-                            onMoveToTrash = handleMoveToTrash,
-                            onCopyPlain = handleCopyPlain,
-                            onCopyMarkdown = handleCopyMarkdown,
-                            onDownloadMarkdown = handleDownloadMarkdown,
-                            onDownloadPdf = handleDownloadPdf,
-                            showStickyNoteOption = !isStickyNote,
-                            onOpenAsStickyNote = {
-                                showOptionsMenu = false
-                                StickyNoteWindowBus.open(noteId)
+                    overlayContent = {
+                        if (isEditingTemplate) {
+                            EditingTemplatePill(
+                                hazeState = hazeState,
+                                modifier = Modifier.align(Alignment.Center)
+                            )
+                        }
+                    },
+                    actions = {
+                        Box {
+                            TopBarIconButton(
+                                icon = painterResource(Res.drawable.ellipsis),
+                                contentDescription = "Options",
+                                bgColor = Color.Transparent,
+                                tint = MaterialTheme.colorScheme.primary,
+                                hazeState = hazeState,
+                                hazeStyle = EmberrBlur.Regular,
+                                onClick = { showOptionsMenu = true }
+                            )
+
+                            if (isDesktopPlatform) {
+                                EmberrDesktopMenu(
+                                    expanded = showOptionsMenu,
+                                    onDismissRequest = { showOptionsMenu = false }
+                                ) {
+                                    NoteOptionsDesktopMenu(
+                                        isFavorite = isFavorite,
+                                        hasIcon = noteIcon != null,
+                                        hasCover = coverImagePath != null,
+                                        showWordCount = showWordCount,
+                                        blockAlignment = blockAlignment,
+                                        onDismiss = { showOptionsMenu = false },
+                                        onToggleFavorite = handleToggleFavorite,
+                                        onAddIcon = handleAddIcon,
+                                        onRemoveIcon = handleRemoveIcon,
+                                        isEditingTemplate = isEditingTemplate,
+                                        onAddCover = handleAddCover,
+                                        onRemoveCover = handleRemoveCover,
+                                        onToggleWordCount = handleToggleWordCount,
+                                        onSetAlignment = handleSetAlignment,
+                                        onMoveToTrash = handleMoveToTrash,
+                                        onCopyPlain = handleCopyPlain,
+                                        onCopyMarkdown = handleCopyMarkdown,
+                                        onDownloadMarkdown = handleDownloadMarkdown,
+                                        onDownloadPdf = handleDownloadPdf,
+                                        showStickyNoteOption = !isStickyNote,
+                                        onOpenAsStickyNote = {
+                                            showOptionsMenu = false
+                                            StickyNoteWindowBus.open(noteId)
+                                        }
+                                    )
+                                }
                             }
-                        )
+                        }
                     }
                 )
 
@@ -1237,121 +1266,28 @@ private fun EmojiGridItem(emoji: String, onClick: () -> Unit) {
     }
 }
 
-// Top bar (back + options). isEditingTemplate adds a centered pill so users don't mistake a
-// template for a regular note (templates never show up in the normal notes list/search).
 @Composable
-private fun NoteTopBar(
-    onBackClick: () -> Unit,
-    onOptionsClick: () -> Unit,
-    showBackButton: Boolean = true,
-    showOptionsMenu: Boolean = false,
-    isEditingTemplate: Boolean = false,
-    hazeState: HazeState? = null,
-    topBarBgColor: Color? = null,
-    topBarContentColor: Color? = null,
-    onDismissOptionsMenu: () -> Unit = {},
-    desktopMenuContent: @Composable () -> Unit = {},
-    collapsedTitle: String = "",
-    collapsedTitleProgress: Float = 0f,
-    onCollapsedTitleClick: () -> Unit = {},
-    topMargin: Dp = 0.dp,
-    onPositioned: (androidx.compose.ui.layout.LayoutCoordinates) -> Unit = {}
-) {
-    val defaultContentColor = topBarContentColor ?: MaterialTheme.colorScheme.onSurface
+private fun EditingTemplatePill(hazeState: HazeState?, modifier: Modifier = Modifier) {
+    val shape = RoundedCornerShape(12.dp)
 
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .then(if (isDesktopPlatform) Modifier else Modifier.stableStatusBarsPadding())
-            .padding(top = topMargin + if (isDesktopPlatform) 16.dp else 10.dp).padding(horizontal = if (isDesktopPlatform) 22.dp else 16.dp)
-            .onGloballyPositioned(onPositioned),
-        contentAlignment = Alignment.Center
+    Surface(
+        shape = shape,
+        color = MaterialTheme.colorScheme.background.copy(alpha = 0.65f),
+        contentColor = MaterialTheme.colorScheme.primary,
+        modifier = modifier
+            .clip(shape)
+            .emberrBlur(hazeState, EmberrBlur.Regular)
+            .border(
+                width = 0.5.dp,
+                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
+                shape = shape
+            )
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            if (showBackButton) {
-                TopBarIconButton(
-                    icon = painterResource(Res.drawable.chevron_left),
-                    contentDescription = "Back",
-                    bgColor = Color.Transparent,
-                    tint = MaterialTheme.colorScheme.primary,
-                    hazeState = hazeState,
-                    hazeStyle = EmberrBlur.Regular,
-                    onClick = onBackClick
-                )
-            } else {
-                Spacer(Modifier.size(1.dp))
-            }
-
-            if (!isEditingTemplate && collapsedTitleProgress > 0f) {
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(horizontal = 8.dp)
-                        .graphicsLayer { alpha = collapsedTitleProgress }
-                        .clickable(onClick = onCollapsedTitleClick),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = collapsedTitle,
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = defaultContentColor,
-                        maxLines = 1,
-                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                        textAlign = TextAlign.Center
-                    )
-                }
-            } else {
-                Spacer(Modifier.weight(1f))
-            }
-
-            Box {
-                TopBarIconButton(
-                    icon = painterResource(Res.drawable.ellipsis),
-                    contentDescription = "Options",
-                    bgColor = Color.Transparent,
-                    tint = MaterialTheme.colorScheme.primary,
-                    hazeState = hazeState,
-                    hazeStyle = EmberrBlur.Regular,
-                    onClick = onOptionsClick
-                )
-
-                if (isDesktopPlatform) {
-                    EmberrDesktopMenu(
-                        expanded = showOptionsMenu,
-                        onDismissRequest = onDismissOptionsMenu
-                    ) {
-                        desktopMenuContent()
-                    }
-                }
-            }
-        }
-
-        if (isEditingTemplate) {
-            Surface(
-                shape = RoundedCornerShape(12.dp),
-                color = MaterialTheme.colorScheme.background.copy(alpha = 0.65f),
-                contentColor = MaterialTheme.colorScheme.primary,
-                modifier = Modifier
-                    .clip(RoundedCornerShape(12.dp))
-                    .emberrBlur(hazeState, EmberrBlur.Regular)
-                    .border(
-                        width = 0.5.dp,
-                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
-                        shape = RoundedCornerShape(12.dp)
-                    )
-            ) {
-                Text(
-                    text = "Editing Template",
-                    style = MaterialTheme.typography.labelSmall,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
-                )
-            }
-        }
+        Text(
+            text = "Editing Template",
+            style = MaterialTheme.typography.labelSmall,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+        )
     }
 }
 

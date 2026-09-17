@@ -33,7 +33,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import com.emberr.presentation.shared.rememberStableStatusBarsPadding
-import com.emberr.presentation.shared.stableStatusBarsPadding
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.layout.ContentScale
@@ -53,8 +52,6 @@ import com.emberr.domain.model.NoteContent
 import com.emberr.domain.util.eventbus.WidgetComposeRequest
 import com.emberr.domain.util.eventbus.WidgetComposeRequestBus
 import com.emberr.domain.util.system.isDesktopPlatform
-import com.emberr.presentation.mobile.daily.DailyEditorViewModel
-import com.emberr.presentation.mobile.daily.TaskDaySection
 import com.emberr.presentation.shared.UserSettings
 import com.emberr.presentation.shared.components.EmberrBlur
 import com.emberr.presentation.shared.components.EmberrBottomSheet
@@ -64,7 +61,10 @@ import com.emberr.presentation.shared.components.EmberrDesktopMenu
 import com.emberr.presentation.shared.components.KmpBackHandler
 import com.emberr.presentation.shared.components.EmberrPillShadowAmbientColor
 import com.emberr.presentation.shared.components.EmberrPillShadowSpotColor
+import com.emberr.presentation.shared.components.EmberrTopHeaderBar
+import com.emberr.presentation.shared.components.TopHeaderTitlePlacement
 import com.emberr.presentation.shared.components.TopBarIconButtonGroup
+import com.emberr.presentation.shared.components.topHeaderBarPadding
 import com.emberr.presentation.shared.components.TopBarIconButtonItem
 import com.emberr.presentation.shared.components.smoothWheelScroll
 import com.emberr.presentation.sync.SyncViewModel
@@ -72,11 +72,6 @@ import com.emberr.domain.util.system.showNativeToast
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
 import kotlinx.coroutines.isActive
-import kotlin.time.Clock
-import kotlinx.datetime.DateTimeUnit
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.plus
-import kotlinx.datetime.todayIn
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 import com.emberr.presentation.shared.components.EmberrButtonPrimary
@@ -154,12 +149,10 @@ fun HomeScreen(
     onToggleSidebar: () -> Unit = {},
     onNavigateToSettings: () -> Unit = {},
     syncViewModel: SyncViewModel = koinViewModel(),
-    dailyEditorViewModel: DailyEditorViewModel = koinViewModel(),
 ) {
     val hazeState = remember { HazeState() }
 
-    var showScheduledTasksSheet by remember { mutableStateOf(false) }
-    val calendarTaskMap by dailyEditorViewModel.calendarTaskMap.collectAsState()
+    var showUserSettingsMenu by remember { mutableStateOf(false) }
 
     val isLoading by viewModel.isLoading.collectAsState()
     val foldersByParent by viewModel.foldersByParent.collectAsState()
@@ -938,15 +931,68 @@ fun HomeScreen(
                 }
             }
 
-            HomeTopBar(
-                isSelectionMode = isSelectionMode,
-                onToggleSidebar = onToggleSidebar,
+            EmberrTopHeaderBar(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .pointerInput(Unit) { detectTapGestures {} },
+                title = if (isSelectionMode) "" else "Home",
+                titlePlacement = TopHeaderTitlePlacement.Start,
+                titleStyle = MaterialTheme.typography.titleLarge,
+                titleColor = MaterialTheme.colorScheme.onBackground,
+                showBackButton = false,
+                reserveBackButtonSpace = false,
                 hazeState = hazeState,
-                onNavigateToCalendar = onNavigateToCalendar,
-                onOpenScheduledTasks = { showScheduledTasksSheet = true },
-                onNavigateToSettings = onNavigateToSettings,
-                onNavigateToTrash = onNavigateToTrash,
-                modifier = Modifier.align(Alignment.TopCenter)
+                applyStatusBarPadding = true,
+                contentPadding = topHeaderBarPadding(top = 10.dp, bottom = 16.dp),
+                leadingContent = {
+                    if (!isSelectionMode && isDesktopPlatform) {
+                        IconButton(
+                            onClick = onToggleSidebar,
+                            modifier = Modifier.offset(x = (-8).dp)
+                        ) {
+                            Icon(
+                                Icons.Default.Menu,
+                                contentDescription = "Toggle sidebar",
+                                tint = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    }
+                },
+                actions = {
+                    Box {
+                        TopBarIconButtonGroup(
+                            bgColor = Color.Transparent,
+                            tint = MaterialTheme.colorScheme.primary,
+                            hazeState = hazeState,
+                            hazeStyle = EmberrBlur.Regular,
+                            items = listOf(
+                                TopBarIconButtonItem(
+                                    icon = painterResource(Res.drawable.calendar),
+                                    contentDescription = "Open Calendar",
+                                    onClick = onNavigateToCalendar
+                                ),
+                                TopBarIconButtonItem(
+                                    icon = painterResource(Res.drawable.ellipsis),
+                                    contentDescription = "Settings",
+                                    onClick = { showUserSettingsMenu = true }
+                                )
+                            )
+                        )
+
+                        UserSettings(
+                            expanded = showUserSettingsMenu,
+                            onDismiss = { showUserSettingsMenu = false },
+                            onNavigateToSettings = {
+                                showUserSettingsMenu = false
+                                onNavigateToSettings()
+                            },
+                            onNavigateToTrash = {
+                                showUserSettingsMenu = false
+                                onNavigateToTrash()
+                            }
+                        )
+                    }
+                }
             )
         }
     }
@@ -1029,157 +1075,6 @@ fun HomeScreen(
                 )
             }
 
-
-            if (showScheduledTasksSheet) {
-                val today = remember { Clock.System.todayIn(TimeZone.currentSystemDefault()) }
-                val todayTasks = calendarTaskMap[today] ?: emptyList()
-                val tomorrowTasks = calendarTaskMap[today.plus(1, DateTimeUnit.DAY)] ?: emptyList()
-
-                EmberrBottomSheet(
-                    expanded = true,
-                    onDismiss = { showScheduledTasksSheet = false },
-                    title = "Upcoming Tasks",
-                ) { _ ->
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 16.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        if (todayTasks.isEmpty() && tomorrowTasks.isEmpty()) {
-                            Text(
-                                "No tasks scheduled for today or tomorrow.",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                            )
-                        } else {
-                            val onTaskNoteLinkClick: (String) -> Unit = { noteId ->
-                                showScheduledTasksSheet = false
-                                onNavigateToEditor(noteId)
-                            }
-
-                            if (todayTasks.isNotEmpty()) {
-                                TaskDaySection(
-                                    "Today",
-                                    todayTasks,
-                                    dailyEditorViewModel,
-                                    onTaskNoteLinkClick
-                                )
-                            }
-
-                            if (tomorrowTasks.isNotEmpty()) {
-                                TaskDaySection(
-                                    "Tomorrow",
-                                    tomorrowTasks,
-                                    dailyEditorViewModel,
-                                    onTaskNoteLinkClick
-                                )
-                            }
-                        }
-
-                        EmberrButtonPrimary(
-                            text = "Close",
-                            onClick = { showScheduledTasksSheet = false },
-                            modifier = Modifier.fillMaxWidth()
-                                .padding(vertical = 12.dp)
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun HomeTopBar(
-    isSelectionMode: Boolean,
-    onToggleSidebar: () -> Unit,
-    hazeState: HazeState,
-    onNavigateToCalendar: () -> Unit,
-    onOpenScheduledTasks: () -> Unit,
-    onNavigateToSettings: () -> Unit,
-    onNavigateToTrash: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    var showNotesMenu by remember { mutableStateOf(false) }
-
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .pointerInput(Unit) { detectTapGestures {} }
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .stableStatusBarsPadding()
-                .padding(
-                    start = 16.dp,
-                    end = 16.dp,
-                    bottom = 16.dp,
-                    top = 10.dp
-                ),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.weight(1f)
-            ) {
-                if (!isSelectionMode) {
-                    if (isDesktopPlatform) {
-                        IconButton(
-                            onClick = onToggleSidebar,
-                            modifier = Modifier.offset(x = (-8).dp)
-                        ) {
-                            Icon(
-                                Icons.Default.Menu,
-                                null,
-                                tint = MaterialTheme.colorScheme.onSurface
-                            )
-                        }
-                    }
-                    Text(
-                        "Home",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onBackground
-                    )
-                }
-            }
-
-            Box {
-                TopBarIconButtonGroup(
-                    bgColor = Color.Transparent,
-                    tint = MaterialTheme.colorScheme.primary,
-                    hazeState = hazeState,
-                    hazeStyle = EmberrBlur.Regular,
-                    items = listOf(
-                        TopBarIconButtonItem(
-                            icon = painterResource(Res.drawable.calendar),
-                            contentDescription = "Open Calendar",
-                            onClick = onNavigateToCalendar
-                        ),
-//                        TopBarIconButtonItem(
-//                            icon = painterResource(Res.drawable.inbox),
-//                            contentDescription = "Notifications",
-//                            onClick = onOpenScheduledTasks
-//                        ),
-                        TopBarIconButtonItem(
-                            icon = painterResource(Res.drawable.ellipsis),
-                            contentDescription = "Settings",
-                            onClick = { showNotesMenu = true }
-                        )
-                    )
-                )
-
-                UserSettings(
-                    expanded = showNotesMenu, onDismiss = { showNotesMenu = false },
-                    onNavigateToSettings = {
-                        onNavigateToSettings(); showNotesMenu = false
-                    },
-                    onNavigateToTrash = { onNavigateToTrash(); showNotesMenu = false }
-                )
-            }
         }
     }
 }

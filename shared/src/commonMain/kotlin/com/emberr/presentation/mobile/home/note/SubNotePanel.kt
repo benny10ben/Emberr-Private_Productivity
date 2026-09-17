@@ -24,7 +24,7 @@ import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.unit.dp
 import com.emberr.domain.model.NoteBlock
 import com.emberr.presentation.shared.SubNoteOpenMode
-import com.emberr.presentation.shared.components.TopBarIconButton
+import com.emberr.presentation.shared.components.EmberrTopHeaderBar
 import dev.chrisbanes.haze.HazeState
 import emberr.shared.generated.resources.Res
 import emberr.shared.generated.resources.maximize_2
@@ -47,7 +47,7 @@ private fun Painter.scaledDown(factor: Float): Painter = object : Painter() {
  * fillMaxSize() then refers only to the right panel — the left sidebar
  * is never touched, even when isExpanded = true (widthFraction = 1f).
  *
- * The expand icon sits immediately to the right of NoteTopBar's back arrow,
+ * The expand icon sits immediately to the right of the note header bar's back arrow,
  * styled identically (44dp container, 22dp icon, same bg/tint).
  */
 @Composable
@@ -195,20 +195,17 @@ fun SubNotePanel(
                 }
             }
 
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .padding(top = 16.dp, start = 74.dp)
-            ) {
-                TopBarIconButton(
-                    icon = (if (isExpanded) painterResource(Res.drawable.minimize_2) else painterResource(Res.drawable.maximize_2)).scaledDown(0.8f),
-                    contentDescription = if (isExpanded) "Collapse panel" else "Expand panel",
-                    bgColor = MaterialTheme.colorScheme.background.copy(alpha = 0.65f),
-                    tint = MaterialTheme.colorScheme.onSurface,
-                    hazeState = hazeState,
-                    onClick = { isExpanded = !isExpanded }
-                )
-            }
+            EmberrTopHeaderBar(
+                modifier = Modifier.align(Alignment.TopStart),
+                backIcon = (if (isExpanded) painterResource(Res.drawable.minimize_2) else painterResource(Res.drawable.maximize_2)).scaledDown(0.8f),
+                backContentDescription = if (isExpanded) "Collapse panel" else "Expand panel",
+                backButtonBackground = MaterialTheme.colorScheme.background.copy(alpha = 0.65f),
+                backButtonTint = MaterialTheme.colorScheme.onSurface,
+                hazeState = hazeState,
+                applyStatusBarPadding = false,
+                contentPadding = PaddingValues(top = 16.dp, start = 74.dp),
+                onBackClick = { isExpanded = !isExpanded }
+            )
         }
     }
 }

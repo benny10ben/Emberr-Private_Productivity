@@ -42,16 +42,15 @@ import androidx.compose.ui.unit.toSize
 import coil3.compose.AsyncImage
 import com.emberr.presentation.shared.components.EmberrBlur
 import com.emberr.presentation.shared.components.KmpBackHandler
-import com.emberr.presentation.shared.components.TopBarIconButton
+import com.emberr.presentation.shared.components.EmberrTopHeaderBar
+import com.emberr.presentation.shared.components.topHeaderBarPadding
 import com.emberr.presentation.shared.components.emberrBlur
 import com.emberr.presentation.shared.editor.DefaultBlockShape
-import com.emberr.presentation.shared.stableStatusBarsPadding
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.haze
 import dev.chrisbanes.haze.hazeSource
 import org.jetbrains.compose.resources.painterResource
 import emberr.shared.generated.resources.Res
-import emberr.shared.generated.resources.chevron_left
 import emberr.shared.generated.resources.copy
 import emberr.shared.generated.resources.download
 import emberr.shared.generated.resources.trash
@@ -289,25 +288,15 @@ fun FullScreenImageScreen(
                 }
         )
 
-        Row(
+        EmberrTopHeaderBar(
             modifier = Modifier
-                .fillMaxWidth()
                 .align(Alignment.TopCenter)
-                .graphicsLayer { alpha = currentExpansion() }
-                .stableStatusBarsPadding()
-                .padding(top = 18.dp, start = 18.dp, end = 18.dp),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            TopBarIconButton(
-                icon = painterResource(Res.drawable.chevron_left),
-                contentDescription = "Back",
-                bgColor = Color.Transparent,
-                tint = MaterialTheme.colorScheme.primary,
-                hazeState = hazeState,
-                hazeStyle = EmberrBlur.Regular,
-                onClick = closeFullScreen
-            )
-        }
+                .graphicsLayer { alpha = currentExpansion() },
+            hazeState = hazeState,
+            applyStatusBarPadding = true,
+            contentPadding = topHeaderBarPadding(top = 18.dp, horizontal = 18.dp),
+            onBackClick = closeFullScreen
+        )
 
         Box(
             modifier = Modifier

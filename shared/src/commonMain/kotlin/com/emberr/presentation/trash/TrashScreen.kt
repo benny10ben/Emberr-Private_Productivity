@@ -20,26 +20,23 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import com.emberr.data.local.room.NoteMetadataEntity
 import com.emberr.domain.util.system.isDesktopPlatform
 import com.emberr.presentation.shared.components.EmberrBottomSheet
 import com.emberr.presentation.shared.components.EmberrButtonPrimary
+import com.emberr.presentation.shared.components.EmberrTopHeaderBar
 import com.emberr.presentation.shared.components.TopBarIconButton
-import com.emberr.presentation.shared.stableStatusBarsPadding
+import com.emberr.presentation.shared.components.topHeaderBarPadding
 import com.emberr.presentation.mobile.home.NoteCard
 import com.emberr.presentation.shared.components.EmberrBlur
 import com.emberr.presentation.shared.components.EmberrVerticalScrollbar
 import com.emberr.presentation.shared.components.smoothWheelScroll
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
-import emberr.shared.generated.resources.Res
-import emberr.shared.generated.resources.chevron_left
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import org.jetbrains.compose.resources.painterResource
 import org.koin.compose.viewmodel.koinViewModel
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -123,11 +120,24 @@ fun TrashScreen(
                 .zIndex(10f)
                 .onGloballyPositioned { coordinates -> topBarHeightPx = coordinates.size.height.toFloat() }
         ) {
-            TrashTopBar(
-                onNavigateBack = onNavigateBack,
-                showEmptyAction = trashedNotes.isNotEmpty(),
-                onEmptyTrashClick = { showEmptyTrashConfirm = true },
-                hazeState = hazeState
+            EmberrTopHeaderBar(
+                title = "Trash",
+                hazeState = hazeState,
+                contentPadding = topHeaderBarPadding(bottom = 16.dp),
+                onBackClick = onNavigateBack,
+                actions = {
+                    if (trashedNotes.isNotEmpty()) {
+                        TopBarIconButton(
+                            icon = Icons.Default.DeleteSweep,
+                            contentDescription = "Empty Trash",
+                            bgColor = Color.Transparent,
+                            tint = MaterialTheme.colorScheme.error,
+                            hazeState = hazeState,
+                            hazeStyle = EmberrBlur.Regular,
+                            onClick = { showEmptyTrashConfirm = true }
+                        )
+                    }
+                }
             )
         }
 
@@ -154,61 +164,6 @@ fun TrashScreen(
                 viewModel.emptyTrash()
             }
         )
-    }
-}
-
-@Composable
-private fun TrashTopBar(
-    onNavigateBack: () -> Unit,
-    showEmptyAction: Boolean,
-    onEmptyTrashClick: () -> Unit,
-    hazeState: HazeState,
-) {
-    val defaultContentColor = MaterialTheme.colorScheme.onSurface
-
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .then(if (isDesktopPlatform) Modifier else Modifier.stableStatusBarsPadding())
-            .padding(
-                top = if (isDesktopPlatform) 16.dp else 10.dp,
-                start = 16.dp,
-                end = 16.dp,
-                bottom = 16.dp
-            ),
-        contentAlignment = Alignment.CenterStart
-    ) {
-        TopBarIconButton(
-            icon = painterResource(Res.drawable.chevron_left),
-            contentDescription = "Back",
-            bgColor = Color.Transparent,
-            tint = MaterialTheme.colorScheme.primary,
-            hazeState = hazeState,
-            hazeStyle = EmberrBlur.Regular,
-            onClick = onNavigateBack
-        )
-
-        Text(
-            text = "Trash",
-            style = MaterialTheme.typography.bodyLarge,
-            fontWeight = FontWeight.Bold,
-            color = defaultContentColor,
-            modifier = Modifier.align(Alignment.Center)
-        )
-
-        if (showEmptyAction) {
-            Box(modifier = Modifier.align(Alignment.CenterEnd)) {
-                TopBarIconButton(
-                    icon = Icons.Default.DeleteSweep,
-                    contentDescription = "Empty Trash",
-                    bgColor = Color.Transparent,
-                    tint = MaterialTheme.colorScheme.error,
-                    hazeState = hazeState,
-                    hazeStyle = EmberrBlur.Regular,
-                    onClick = onEmptyTrashClick
-                )
-            }
-        }
     }
 }
 

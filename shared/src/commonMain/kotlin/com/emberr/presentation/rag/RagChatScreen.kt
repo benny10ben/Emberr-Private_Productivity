@@ -8,8 +8,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -26,7 +24,6 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -42,7 +39,6 @@ import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.emberr.domain.util.eventbus.AiEventBus
 import com.emberr.domain.util.system.isDesktopPlatform
@@ -60,18 +56,17 @@ import com.emberr.presentation.rag.settings.FineTuningSheet
 import com.emberr.presentation.rag.settings.LocalAiSettingsSheet
 import com.emberr.presentation.shared.components.EmberrBlur
 import com.emberr.presentation.shared.components.EmberrDesktopMenu
+import com.emberr.presentation.shared.components.EmberrTopHeaderBar
 import com.emberr.presentation.shared.components.TopBarIconButton
+import com.emberr.presentation.shared.components.TopHeaderBarButtonSize
+import com.emberr.presentation.shared.components.topHeaderBarPadding
 import com.emberr.presentation.shared.rememberStableStatusBarsPadding
 import com.emberr.presentation.shared.stableStatusBarsPadding
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
-import emberr.shared.generated.resources.Res
-import emberr.shared.generated.resources.chevron_left
-import org.jetbrains.compose.resources.painterResource
 
 internal val DesktopPanelTopInset = 12.dp
 internal val DesktopPanelContentInset = 13.dp
-private val TopBarButtonSize = 44.dp
 private val VaultAccessPillGap = 4.dp
 
 @OptIn(ExperimentalSharedTransitionApi::class)
@@ -289,79 +284,59 @@ private fun RagChatContent(
             }
         }
 
-        Box(
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .fillMaxWidth()
-                .then(if (isDesktopPlatform) Modifier else Modifier.stableStatusBarsPadding())
-                .padding(
-                    start = if (isDesktopPlatform) DesktopPanelContentInset else 16.dp,
-                    end = if (isDesktopPlatform) DesktopPanelContentInset else 16.dp,
-                    top = if (isDesktopPlatform) DesktopPanelTopInset else 10.dp,
-                    bottom = 8.dp
-                )
-        ) {
-            Box(modifier = Modifier.align(Alignment.CenterStart)) {
-                TopBarIconButton(
-                    icon = painterResource(Res.drawable.chevron_left),
-                    contentDescription = "Back",
-                    bgColor = Color.Transparent,
-                    tint = MaterialTheme.colorScheme.primary,
-                    hazeState = hazeState,
-                    hazeStyle = EmberrBlur.Regular,
-                    onClick = onDismiss
-                )
-            }
+        val isChatReady = embeddingSetupState == EmbeddingSetupState.Ready
 
-            if (embeddingSetupState == EmbeddingSetupState.Ready) {
-                Row(
-                    modifier = Modifier.align(Alignment.Center),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
+        EmberrTopHeaderBar(
+            modifier = Modifier.align(Alignment.TopCenter),
+            title = if (isChatReady) "Ask Emberr" else "",
+            titleColor = MaterialTheme.colorScheme.onBackground,
+            titleLeadingIcon = if (isChatReady) {
+                {
                     Icon(
                         Icons.Default.AutoAwesome,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(20.dp)
                     )
-                    Spacer(Modifier.width(8.dp))
-                    Text(
-                        text = "Ask Emberr",
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onBackground
-                    )
                 }
-            }
+            } else null,
+            hazeState = hazeState,
+            contentPadding = topHeaderBarPadding(
+                top = if (isDesktopPlatform) DesktopPanelTopInset else 10.dp,
+                horizontal = if (isDesktopPlatform) DesktopPanelContentInset else 16.dp,
+                bottom = 8.dp
+            ),
+            onBackClick = onDismiss,
+            actions = {
+                if (isChatReady) {
+                    Box {
+                        TopBarIconButton(
+                            icon = rememberVectorPainter(Icons.Default.Menu),
+                            contentDescription = "Chat history",
+                            bgColor = Color.Transparent,
+                            tint = MaterialTheme.colorScheme.primary,
+                            hazeState = hazeState,
+                            hazeStyle = EmberrBlur.Regular,
+                            onClick = { showChatHistorySheet = true }
+                        )
 
-            if (embeddingSetupState == EmbeddingSetupState.Ready) {
-                Box(modifier = Modifier.align(Alignment.CenterEnd)) {
-                    TopBarIconButton(
-                        icon = rememberVectorPainter(Icons.Default.Menu),
-                        contentDescription = "Chat history",
-                        onClick = { showChatHistorySheet = true },
-                        bgColor = Color.Transparent,
-                        tint = MaterialTheme.colorScheme.primary,
-                        hazeState = hazeState,
-                        hazeStyle = EmberrBlur.Regular,
-                    )
-
-                    if (isDesktopPlatform) {
-                        EmberrDesktopMenu(
-                            expanded = showChatHistorySheet,
-                            onDismissRequest = { showChatHistorySheet = false }
-                        ) {
-                            Column(modifier = Modifier.width(320.dp).padding(vertical = 8.dp)) {
-                                ChatHistoryMenuContent(
-                                    viewModel = viewModel,
-                                    closeAnd = { action -> action(); showChatHistorySheet = false }
-                                )
+                        if (isDesktopPlatform) {
+                            EmberrDesktopMenu(
+                                expanded = showChatHistorySheet,
+                                onDismissRequest = { showChatHistorySheet = false }
+                            ) {
+                                Column(modifier = Modifier.width(320.dp).padding(vertical = 8.dp)) {
+                                    ChatHistoryMenuContent(
+                                        viewModel = viewModel,
+                                        closeAnd = { action -> action(); showChatHistorySheet = false }
+                                    )
+                                }
                             }
                         }
                     }
                 }
             }
-        }
+        )
 
         if (embeddingSetupState == EmbeddingSetupState.Ready) {
             Box(
@@ -371,7 +346,7 @@ private fun RagChatContent(
                     .then(if (isDesktopPlatform) Modifier else Modifier.stableStatusBarsPadding())
                     .padding(
                         top = (if (isDesktopPlatform) DesktopPanelTopInset else 10.dp) +
-                            TopBarButtonSize + 8.dp + VaultAccessPillGap
+                            TopHeaderBarButtonSize + 8.dp + VaultAccessPillGap
                     ),
                 contentAlignment = Alignment.Center
             ) {

@@ -39,14 +39,14 @@ import com.emberr.domain.sync.SyncServerStatus
 import com.emberr.domain.util.system.AppPermission
 import com.emberr.domain.util.system.isDesktopPlatform
 import com.emberr.domain.util.system.rememberAppPermissionCoordinator
-import com.emberr.presentation.shared.stableStatusBarsPadding
 import com.emberr.presentation.shared.components.EmberrBottomSheet
 import com.emberr.presentation.shared.components.EmberrButtonPrimary
 import com.emberr.presentation.shared.components.EmberrButtonSecondary
 import com.emberr.presentation.shared.components.EmberrTextField
 import com.emberr.presentation.shared.components.EmberrVerticalScrollbar
 import com.emberr.presentation.shared.components.SelectedOptionBackground
-import com.emberr.presentation.shared.components.TopBarIconButton
+import com.emberr.presentation.shared.components.EmberrTopHeaderBar
+import com.emberr.presentation.shared.components.topHeaderBarPadding
 import com.emberr.presentation.sync.SyncPairingDialog
 import com.emberr.presentation.sync.SyncScannerDialog
 import com.emberr.presentation.sync.SyncViewModel
@@ -63,7 +63,6 @@ import emberr.shared.generated.resources.badge_plus
 import emberr.shared.generated.resources.badge_question_mark
 import emberr.shared.generated.resources.bell
 import emberr.shared.generated.resources.calendar_clock
-import emberr.shared.generated.resources.chevron_left
 import emberr.shared.generated.resources.chevron_right
 import emberr.shared.generated.resources.file_down
 import emberr.shared.generated.resources.files
@@ -81,7 +80,6 @@ import emberr.shared.generated.resources.text_type
 import emberr.shared.generated.resources.timer_reset
 import emberr.shared.generated.resources.triangle_alert
 import com.emberr.presentation.shared.SubNoteOpenMode
-import com.emberr.presentation.shared.components.EmberrBlur
 import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
 import org.koin.compose.viewmodel.koinViewModel
@@ -319,7 +317,13 @@ fun SettingsScreen(
                 .zIndex(10f)
                 .onGloballyPositioned { coordinates -> topBarHeightPx = coordinates.size.height.toFloat() }
         ) {
-            SettingsTopBar(onNavigateBack = onNavigateBack, hazeState = hazeState, showBackButton = showBackButton)
+            EmberrTopHeaderBar(
+                title = "Settings",
+                hazeState = hazeState,
+                contentPadding = topHeaderBarPadding(bottom = 16.dp),
+                showBackButton = showBackButton,
+                onBackClick = onNavigateBack
+            )
         }
 
         if (showImportExportSheet) {
@@ -1166,44 +1170,6 @@ private fun SettingsOptionRow(
                     .background(MaterialTheme.colorScheme.primary)
             )
         }
-    }
-}
-
-@Composable
-private fun SettingsTopBar(onNavigateBack: () -> Unit, hazeState: HazeState, showBackButton: Boolean = true) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .then(if (isDesktopPlatform) Modifier else Modifier.stableStatusBarsPadding())
-            .padding(
-                top = if (isDesktopPlatform) 16.dp else 10.dp,
-                start = 16.dp,
-                end = 16.dp,
-                bottom = 16.dp
-            ),
-        contentAlignment = Alignment.CenterStart
-    ) {
-        if (showBackButton) {
-            TopBarIconButton(
-                icon = painterResource(Res.drawable.chevron_left),
-                contentDescription = "Back",
-                bgColor = Color.Transparent,
-                tint = MaterialTheme.colorScheme.primary,
-                hazeState = hazeState,
-                hazeStyle = EmberrBlur.Regular,
-                onClick = onNavigateBack
-            )
-        } else {
-            Spacer(Modifier.size(44.dp))
-        }
-
-        Text(
-            text = "Settings",
-            style = MaterialTheme.typography.bodyLarge,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.align(Alignment.Center)
-        )
     }
 }
 
