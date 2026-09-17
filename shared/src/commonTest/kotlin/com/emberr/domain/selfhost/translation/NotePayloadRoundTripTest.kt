@@ -1,5 +1,6 @@
 package com.emberr.domain.selfhost.translation
 
+import com.emberr.data.local.room.DEFAULT_SPACE_ID
 import com.emberr.data.local.room.NoteBlockEntity
 import com.emberr.data.local.room.NoteMetadataEntity
 import com.emberr.domain.model.NoteBlock
@@ -35,7 +36,8 @@ class NotePayloadRoundTripTest {
         showWordCount = true,
         sortOrder = 4,
         isTemplate = false,
-        selfHostSyncedAt = 9_999L
+        selfHostSyncedAt = 9_999L,
+        spaceId = "space-1"
     )
 
     private fun entityFor(block: NoteBlock, displayOrder: Int, isDeleted: Boolean = false) =
@@ -203,6 +205,26 @@ class NotePayloadRoundTripTest {
 
         assertTrue("\"schemaVersion\":$NOTE_PAYLOAD_SCHEMA_VERSION" in payloadJson.replace(" ", ""))
         assertEquals(1, NOTE_PAYLOAD_SCHEMA_VERSION)
+    }
+
+    @Test
+    fun theSpaceANoteBelongsToTravelsWithIt() {
+        val operations = NoteJsonParser.parseJsonToDatabaseOperations(
+            NoteJsonCompiler.compileNoteToJson(metadata, emptyList())
+        )
+
+        assertEquals("space-1", operations.metadataUpsert.spaceId)
+    }
+
+    @Test
+    fun aPayloadFromBeforeSpacesExistedLandsInTheDefaultSpace() {
+        val payloadWithoutSpace = """
+            {"noteId":"note-1","title":"Shopping list","createdAt":1000,"updatedAt":2000,"filePath":""}
+        """.trimIndent()
+
+        val operations = NoteJsonParser.parseJsonToDatabaseOperations(payloadWithoutSpace)
+
+        assertEquals(DEFAULT_SPACE_ID, operations.metadataUpsert.spaceId)
     }
 
     @Test

@@ -1,5 +1,6 @@
 package com.emberr.domain.selfhost.translation
 
+import com.emberr.data.local.room.DEFAULT_SPACE_ID
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
 
@@ -9,6 +10,7 @@ const val NOTE_PAYLOAD_SCHEMA_VERSION = 1
 data class NotePayload(
     val schemaVersion: Int = NOTE_PAYLOAD_SCHEMA_VERSION,
     val noteId: String,
+    val spaceId: String = DEFAULT_SPACE_ID,
     val title: String,
     val icon: String? = null,
     val folderId: String? = null,

@@ -286,14 +286,18 @@ class WebDavSyncClient(
     suspend fun downloadNoteWithEtag(noteId: String): Pair<String, String?>? =
         downloadAndDecryptJsonWithEtag(WebDavSyncPaths.notePath(noteId))
 
-    suspend fun uploadDaily(dateString: String, jsonPayload: String, ifMatchEtag: String? = null): String? =
-        uploadEncryptedJson(WebDavSyncPaths.dailyPath(dateString), jsonPayload, ifMatchEtag)
+    suspend fun uploadDaily(
+        spaceId: String,
+        dateString: String,
+        jsonPayload: String,
+        ifMatchEtag: String? = null
+    ): String? = uploadEncryptedJson(WebDavSyncPaths.dailyPath(spaceId, dateString), jsonPayload, ifMatchEtag)
 
-    suspend fun downloadDaily(dateString: String): String? =
-        downloadAndDecryptJson(WebDavSyncPaths.dailyPath(dateString))
+    suspend fun downloadDaily(spaceId: String, dateString: String): String? =
+        downloadAndDecryptJson(WebDavSyncPaths.dailyPath(spaceId, dateString))
 
-    suspend fun downloadDailyWithEtag(dateString: String): Pair<String, String?>? =
-        downloadAndDecryptJsonWithEtag(WebDavSyncPaths.dailyPath(dateString))
+    suspend fun downloadDailyWithEtag(spaceId: String, dateString: String): Pair<String, String?>? =
+        downloadAndDecryptJsonWithEtag(WebDavSyncPaths.dailyPath(spaceId, dateString))
 
     // Media files are streamed rather than passed as ByteArray - a note's attached video/document can be
     // orders of magnitude larger than a note's own JSON, so encryptBytes/decryptBytes's whole-array approach

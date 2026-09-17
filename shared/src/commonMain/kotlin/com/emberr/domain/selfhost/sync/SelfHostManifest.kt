@@ -1,5 +1,6 @@
 package com.emberr.domain.selfhost.sync
 
+import com.emberr.data.local.room.DEFAULT_SPACE_ID
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -9,6 +10,7 @@ enum class SelfHostEntryType { NOTE, DAILY, MEDIA, CHAT_SESSION }
 data class SelfHostManifestEntry(
     val entryId: String,
     val entryType: SelfHostEntryType,
+    val spaceId: String = DEFAULT_SPACE_ID,
     val updatedAt: Long,
     val dateString: String? = null,
     val isDeleted: Boolean = false,

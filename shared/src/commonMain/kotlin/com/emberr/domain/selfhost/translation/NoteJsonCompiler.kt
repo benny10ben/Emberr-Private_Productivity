@@ -29,6 +29,7 @@ object NoteJsonCompiler {
 
         val payload = NotePayload(
             noteId = metadata.noteId,
+            spaceId = metadata.spaceId,
             title = metadata.title,
             icon = metadata.icon,
             folderId = metadata.folderId,

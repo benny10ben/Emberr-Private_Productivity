@@ -2,6 +2,8 @@ package com.emberr.domain.selfhost.sync
 
 import com.emberr.data.local.prefs.SettingsManager
 import com.emberr.data.local.room.BlockDao
+import com.emberr.data.local.room.CalendarEventExceptionDao
+import com.emberr.data.local.room.CalendarEventExceptionEntity
 import com.emberr.data.local.room.CategoryDao
 import com.emberr.data.local.room.CategoryEntity
 import com.emberr.data.local.room.ChatSessionDao
@@ -13,13 +15,16 @@ import com.emberr.data.local.room.NoteDao
 import com.emberr.data.local.room.NoteMetadataEntity
 import com.emberr.data.local.room.SelfHostDeletedApiConfigDao
 import com.emberr.data.local.room.SelfHostDeletedNoteDao
+import com.emberr.data.local.room.PLACEHOLDER_SPACE_UPDATED_AT
+import com.emberr.data.local.room.SpaceDao
+import com.emberr.data.local.room.SpaceEntity
 import com.emberr.data.local.room.TagDao
 import com.emberr.data.local.room.TagEntity
 import com.emberr.domain.ai.external.AiSettingsRepository
 import com.emberr.domain.ai.external.ExternalAiProvider
 import com.emberr.domain.ai.external.ExternalAiProviderConfig
-import com.emberr.domain.model.BookmarkCategoryOrder
-import com.emberr.domain.model.FavoriteNoteOrder
+import com.emberr.domain.model.BookmarkCategoryOrderBySpace
+import com.emberr.domain.model.FavoriteNoteOrderBySpace
 import com.emberr.domain.repository.BookmarkCategoryOrderStore
 import com.emberr.domain.repository.FavoriteNoteOrderStore
 import com.emberr.domain.model.NoteBlock
@@ -27,6 +32,7 @@ import com.emberr.domain.model.NoteContent
 import com.emberr.domain.media.MediaReferenceIndex
 import com.emberr.domain.repository.NoteRepository
 import com.emberr.domain.selfhost.merge.NoteMergeHelper
+import com.emberr.domain.space.SpaceRepository
 import com.emberr.domain.selfhost.translation.EmbeddedBlockPayload
 import com.emberr.domain.selfhost.translation.NoteJsonCompiler
 import com.emberr.domain.selfhost.translation.NoteJsonParser
@@ -41,6 +47,7 @@ import com.emberr.domain.util.sync.withSyncCoordinatorOrSkip
 import com.emberr.domain.vault.VaultMirrorTrigger
 import com.emberr.database.EmberrDatabase
 import java.io.File
+import java.util.UUID
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -64,6 +71,9 @@ class SelfHostSyncEngine(
     private val folderDao: FolderDao,
     private val tagDao: TagDao,
     private val categoryDao: CategoryDao,
+    private val calendarEventExceptionDao: CalendarEventExceptionDao,
+    private val spaceDao: SpaceDao,
+    private val spaceRepository: SpaceRepository,
     private val settingsManager: SettingsManager,
     private val mediaStorageHelper: MediaStorageHelper,
     private val noteRepository: NoteRepository,
@@ -387,30 +397,54 @@ class SelfHostSyncEngine(
             // If a local row doesn't exist (e.g., a new note or wiped data), it defaults to 0
             // and safely syncs as a new entry.
             val remoteTextEntries = manifest.entries.filter { it.entryType != SelfHostEntryType.MEDIA }
-            val localRowsForRemoteEntries = noteDao.getNotesByIdsIncludingTemplates(remoteTextEntries.map { it.entryId })
+            val localRowsByNoteId = noteDao
+                .getNotesByIdsIncludingTemplates(
+                    remoteTextEntries.filterNot { it.entryType == SelfHostEntryType.DAILY }.map { it.entryId }
+                )
                 .associateBy { it.noteId }
+            val localDailyRowsByEntryId = noteDao.getAllDailyNoteMetadataAcrossSpaces()
+                .filter { it.dateString != null }
+                .associateBy { dailyManifestEntryId(it.spaceId, it.dateString.orEmpty()) }
+
+            fun localRowForEntry(entry: SelfHostManifestEntry): NoteMetadataEntity? =
+                if (entry.entryType == SelfHostEntryType.DAILY) {
+                    localDailyRowsByEntryId[entry.entryId]
+                } else {
+                    localRowsByNoteId[entry.entryId]
+                }
+
             val remoteChangedEntries = remoteTextEntries
-                .filter { it.updatedAt > (localRowsForRemoteEntries[it.entryId]?.selfHostSyncedAt ?: 0L) }
-                .associateBy { it.entryId }
-            val localChangedNotes = noteDao.getNotesNeedingSelfHostSync().associateBy { it.noteId }
-            val candidateIds = remoteChangedEntries.keys + localChangedNotes.keys
+                .filter { it.updatedAt > (localRowForEntry(it)?.selfHostSyncedAt ?: 0L) }
+
+            val candidates = LinkedHashMap<String, SelfHostManifestEntry?>()
+            remoteChangedEntries.forEach { entry ->
+                candidates[localRowForEntry(entry)?.noteId ?: entry.entryId] = entry
+            }
+            val localChangedNotes = noteDao.getNotesNeedingSelfHostSync()
+            localChangedNotes.forEach { note ->
+                if (!candidates.containsKey(note.noteId)) candidates[note.noteId] = null
+            }
 
             SelfHostSyncLog.d(
                 "TextSync: remoteChanged=${remoteChangedEntries.size}, localChanged=${localChangedNotes.size}, " +
-                        "candidates=${candidateIds.size}"
+                        "candidates=${candidates.size}"
             )
+
+            if (withSyncCoordinatorOrSkip { reconcileSpaces() } == null) {
+                SelfHostSyncLog.d("TextSync: spaces skipped this cycle, SyncCoordinator.mutex busy - will retry next trigger")
+            }
 
             var syncedCount = 0
             var conflictCount = 0
             var skippedBusyCount = 0
             val conflictedNoteIds = mutableSetOf<String>()
 
-            for (noteId in candidateIds) {
+            for ((noteId, remoteEntry) in candidates) {
                 // Lock each note individually for reconciliation.
                 // If the lock is busy (e.g., user is editing), we skip it so other notes aren't delayed.
                 // Skipped notes will be retried on the next sync pass.
                 val outcome = withSyncCoordinatorOrSkip {
-                    reconcileNote(noteId, remoteEntry = remoteChangedEntries[noteId])
+                    reconcileNote(noteId, remoteEntry = remoteEntry)
                 } ?: run {
                     SelfHostSyncLog.d("TextSync: note=$noteId skipped this cycle, SyncCoordinator.mutex busy - will retry next trigger")
                     ReconcileOutcome.LOCK_BUSY
@@ -432,6 +466,9 @@ class SelfHostSyncEngine(
             }
             if (withSyncCoordinatorOrSkip { reconcileCategories() } == null) {
                 SelfHostSyncLog.d("TextSync: categories skipped this cycle, SyncCoordinator.mutex busy - will retry next trigger")
+            }
+            if (withSyncCoordinatorOrSkip { reconcileEventExceptions() } == null) {
+                SelfHostSyncLog.d("TextSync: event exceptions skipped this cycle, SyncCoordinator.mutex busy - will retry next trigger")
             }
             if (withSyncCoordinatorOrSkip { reconcileApiConfigs() } == null) {
                 SelfHostSyncLog.d("TextSync: api configs skipped this cycle, SyncCoordinator.mutex busy - will retry next trigger")
@@ -474,6 +511,46 @@ class SelfHostSyncEngine(
         }
     }
 
+    private suspend fun reconcileSpaces() {
+        try {
+            val remoteJsonWithEtag = webDavSyncClient.downloadAndDecryptJsonWithEtag(WebDavSyncPaths.SPACES_FILE)
+            val remoteJson = remoteJsonWithEtag?.first
+            val remoteSpaces = remoteJson
+                ?.let { collectionJson.decodeFromString(ListSerializer(SpaceEntity.serializer()), it) }
+                .orEmpty()
+            val localSpaces = spaceDao.getSpacesModifiedSince(PLACEHOLDER_SPACE_UPDATED_AT)
+
+            val merged = LinkedHashMap<String, SpaceEntity>()
+            localSpaces.forEach { merged[it.spaceId] = it }
+            remoteSpaces.forEach { remote ->
+                val local = merged[remote.spaceId]
+                if (local == null || remote.updatedAt >= local.updatedAt) {
+                    merged[remote.spaceId] = remote
+                }
+            }
+            val mergedList = merged.values.toList()
+            mergedList.forEach { spaceDao.insertOrUpdateSpace(it) }
+            spaceRepository.moveActiveSpaceIfItNoLongerExists()
+
+            if (mergedList.toSet() != localSpaces.toSet()) {
+                VaultMirrorTrigger.requestFullRefresh()
+            }
+
+            if (mergedList.toSet() != remoteSpaces.toSet()) {
+                webDavSyncClient.uploadEncryptedJson(
+                    WebDavSyncPaths.SPACES_FILE,
+                    collectionJson.encodeToString(ListSerializer(SpaceEntity.serializer()), mergedList),
+                    remoteJsonWithEtag?.second
+                )
+            }
+            SelfHostSyncLog.d("SpaceSync: complete, ${mergedList.size} space(s) reconciled")
+        } catch (cause: WebDavConflictException) {
+            SelfHostSyncLog.d("SpaceSync: remote spaces.json changed concurrently, will retry next cycle")
+        } catch (cause: Exception) {
+            SelfHostSyncLog.e("SpaceSync: failed to sync spaces: ${cause.message}", cause)
+        }
+    }
+
     // Folders, tags, and categories sync as single encrypted JSON files since they are small.
     // We merge them entity-by-entity using a "last-write-wins" approach based on updatedAt.
     private suspend fun reconcileFolders() {
@@ -494,6 +571,7 @@ class SelfHostSyncEngine(
                 }
             }
             val mergedList = merged.values.toList()
+            mergedList.forEach { spaceRepository.ensureSpaceExists(it.spaceId) }
             mergedList.forEach { folderDao.insertFolder(it) }
 
             // Folders decide the vault's directory layout, so a changed folder can move any note's
@@ -517,6 +595,48 @@ class SelfHostSyncEngine(
         }
     }
 
+    private suspend fun reconcileEventExceptions() {
+        try {
+            val remoteJsonWithEtag =
+                webDavSyncClient.downloadAndDecryptJsonWithEtag(WebDavSyncPaths.EVENT_EXCEPTIONS_FILE)
+            val remoteJson = remoteJsonWithEtag?.first
+            val remoteExceptions = remoteJson
+                ?.let { collectionJson.decodeFromString(ListSerializer(CalendarEventExceptionEntity.serializer()), it) }
+                .orEmpty()
+            val localExceptions = calendarEventExceptionDao.getExceptionsModifiedSince(0L)
+
+            val merged = LinkedHashMap<String, CalendarEventExceptionEntity>()
+            localExceptions.forEach { merged[occurrenceKeyOf(it)] = it }
+            remoteExceptions.forEach { remote ->
+                val local = merged[occurrenceKeyOf(remote)]
+                if (local == null || remote.updatedAt >= local.updatedAt) {
+                    merged[occurrenceKeyOf(remote)] = remote
+                }
+            }
+            val mergedList = merged.values.toList()
+            mergedList.forEach { calendarEventExceptionDao.upsert(it) }
+
+            if (mergedList.toSet() != remoteExceptions.toSet()) {
+                webDavSyncClient.uploadEncryptedJson(
+                    WebDavSyncPaths.EVENT_EXCEPTIONS_FILE,
+                    collectionJson.encodeToString(
+                        ListSerializer(CalendarEventExceptionEntity.serializer()),
+                        mergedList
+                    ),
+                    remoteJsonWithEtag?.second
+                )
+            }
+            SelfHostSyncLog.d("EventExceptionSync: complete, ${mergedList.size} occurrence override(s) reconciled")
+        } catch (cause: WebDavConflictException) {
+            SelfHostSyncLog.d("EventExceptionSync: remote event_exceptions.json changed concurrently, will retry next cycle")
+        } catch (cause: Exception) {
+            SelfHostSyncLog.e("EventExceptionSync: failed to sync event exceptions: ${cause.message}", cause)
+        }
+    }
+
+    private fun occurrenceKeyOf(exception: CalendarEventExceptionEntity): String =
+        "${exception.blockId}|${exception.occurrenceDate}"
+
     private suspend fun reconcileTags() {
         try {
             val remoteJsonWithEtag = webDavSyncClient.downloadAndDecryptJsonWithEtag(WebDavSyncPaths.TAGS_FILE)
@@ -535,6 +655,7 @@ class SelfHostSyncEngine(
                 }
             }
             val mergedList = merged.values.toList()
+            mergedList.forEach { spaceRepository.ensureSpaceExists(it.spaceId) }
             mergedList.forEach { tagDao.insertOrUpdateTag(it) }
 
             if (mergedList.toSet() != remoteTags.toSet()) {
@@ -570,6 +691,7 @@ class SelfHostSyncEngine(
                 }
             }
             val mergedList = merged.values.toList()
+            mergedList.forEach { spaceRepository.ensureSpaceExists(it.spaceId) }
             mergedList.forEach { categoryDao.insertOrUpdateCategory(it) }
 
             if (mergedList.toSet() != remoteCategories.toSet()) {
@@ -669,20 +791,20 @@ class SelfHostSyncEngine(
         try {
             val remoteJsonWithEtag =
                 webDavSyncClient.downloadAndDecryptJsonWithEtag(WebDavSyncPaths.BOOKMARK_CATEGORY_ORDER_FILE)
-            val remoteOrder = remoteJsonWithEtag?.first
-                ?.let { collectionJson.decodeFromString(BookmarkCategoryOrder.serializer(), it) }
+            val remoteOrders = remoteJsonWithEtag?.first
+                ?.let { collectionJson.decodeFromString(BookmarkCategoryOrderBySpace.serializer(), it) }
 
-            if (remoteOrder != null) bookmarkCategoryOrderStore.applyRemoteOrder(remoteOrder)
+            if (remoteOrders != null) bookmarkCategoryOrderStore.applyRemoteOrders(remoteOrders)
 
-            val mergedOrder = bookmarkCategoryOrderStore.getOrder()
-            if (mergedOrder.updatedAt > 0L && mergedOrder != remoteOrder) {
+            val mergedOrders = bookmarkCategoryOrderStore.getAllOrders()
+            if (mergedOrders.ordersBySpaceId.isNotEmpty() && mergedOrders != remoteOrders) {
                 webDavSyncClient.uploadEncryptedJson(
                     WebDavSyncPaths.BOOKMARK_CATEGORY_ORDER_FILE,
-                    collectionJson.encodeToString(BookmarkCategoryOrder.serializer(), mergedOrder),
+                    collectionJson.encodeToString(BookmarkCategoryOrderBySpace.serializer(), mergedOrders),
                     remoteJsonWithEtag?.second
                 )
             }
-            SelfHostSyncLog.d("BookmarkCategoryOrderSync: complete, ${mergedOrder.categories.size} categor(y/ies) ordered")
+            SelfHostSyncLog.d("BookmarkCategoryOrderSync: complete, ${mergedOrders.ordersBySpaceId.size} space(s) ordered")
         } catch (cause: WebDavConflictException) {
             SelfHostSyncLog.d("BookmarkCategoryOrderSync: remote bookmark_category_order.json changed concurrently, will retry next cycle")
         } catch (cause: Exception) {
@@ -698,20 +820,20 @@ class SelfHostSyncEngine(
         try {
             val remoteJsonWithEtag =
                 webDavSyncClient.downloadAndDecryptJsonWithEtag(WebDavSyncPaths.FAVORITE_NOTE_ORDER_FILE)
-            val remoteOrder = remoteJsonWithEtag?.first
-                ?.let { collectionJson.decodeFromString(FavoriteNoteOrder.serializer(), it) }
+            val remoteOrders = remoteJsonWithEtag?.first
+                ?.let { collectionJson.decodeFromString(FavoriteNoteOrderBySpace.serializer(), it) }
 
-            if (remoteOrder != null) favoriteNoteOrderStore.applyRemoteOrder(remoteOrder)
+            if (remoteOrders != null) favoriteNoteOrderStore.applyRemoteOrders(remoteOrders)
 
-            val mergedOrder = favoriteNoteOrderStore.getOrder()
-            if (mergedOrder.updatedAt > 0L && mergedOrder != remoteOrder) {
+            val mergedOrders = favoriteNoteOrderStore.getAllOrders()
+            if (mergedOrders.ordersBySpaceId.isNotEmpty() && mergedOrders != remoteOrders) {
                 webDavSyncClient.uploadEncryptedJson(
                     WebDavSyncPaths.FAVORITE_NOTE_ORDER_FILE,
-                    collectionJson.encodeToString(FavoriteNoteOrder.serializer(), mergedOrder),
+                    collectionJson.encodeToString(FavoriteNoteOrderBySpace.serializer(), mergedOrders),
                     remoteJsonWithEtag?.second
                 )
             }
-            SelfHostSyncLog.d("FavoriteNoteOrderSync: complete, ${mergedOrder.noteIds.size} favorite(s) ordered")
+            SelfHostSyncLog.d("FavoriteNoteOrderSync: complete, ${mergedOrders.ordersBySpaceId.size} space(s) ordered")
         } catch (cause: WebDavConflictException) {
             SelfHostSyncLog.d("FavoriteNoteOrderSync: remote favorite_note_order.json changed concurrently, will retry next cycle")
         } catch (cause: Exception) {
@@ -762,6 +884,7 @@ class SelfHostSyncEngine(
             return SelfHostManifestEntry(
                 entryId = sessionId,
                 entryType = SelfHostEntryType.CHAT_SESSION,
+                spaceId = localSession.spaceId,
                 updatedAt = localSession.updatedAt,
                 isDeleted = localSession.isDeleted
             )
@@ -777,7 +900,10 @@ class SelfHostSyncEngine(
         } else {
             val remoteJson = webDavSyncClient.downloadAndDecryptJsonWithEtag(WebDavSyncPaths.chatSessionPath(sessionId))?.first
             val remoteSession = remoteJson?.let { collectionJson.decodeFromString(ChatSessionEntity.serializer(), it) }
-            if (remoteSession != null) chatSessionDao.upsertSession(remoteSession)
+            if (remoteSession != null) {
+                spaceRepository.ensureSpaceExists(remoteSession.spaceId)
+                chatSessionDao.upsertSession(remoteSession)
+            }
         }
         com.emberr.domain.util.sync.ChatSyncEventBus.emitSessionChanged(sessionId)
         return remoteEntry
@@ -791,21 +917,26 @@ class SelfHostSyncEngine(
         return try {
             val isDaily = remoteEntry?.entryType == SelfHostEntryType.DAILY
             val remoteDateString = remoteEntry?.dateString
+            val remoteSpaceId = remoteEntry?.spaceId
 
-            val localMetadata = if (isDaily && remoteDateString != null) {
-                noteDao.getDailyNoteMetadata(remoteDateString) ?: noteDao.getNoteById(candidateId)
+            val localMetadata = if (isDaily && remoteDateString != null && remoteSpaceId != null) {
+                noteDao.getDailyNoteMetadata(remoteSpaceId, remoteDateString)
             } else {
                 noteDao.getNoteById(candidateId)
             }
-            val noteId = localMetadata?.noteId ?: candidateId
 
             val remoteJsonWithEtag = when {
                 remoteEntry == null -> null
                 isDaily -> {
                     val dateString = remoteDateString ?: localMetadata?.dateString
-                    if (dateString != null) webDavSyncClient.downloadDailyWithEtag(dateString) else null
+                    val spaceId = remoteSpaceId ?: localMetadata?.spaceId
+                    if (dateString != null && spaceId != null) {
+                        webDavSyncClient.downloadDailyWithEtag(spaceId, dateString)
+                    } else {
+                        null
+                    }
                 }
-                else -> webDavSyncClient.downloadNoteWithEtag(noteId)
+                else -> webDavSyncClient.downloadNoteWithEtag(localMetadata?.noteId ?: candidateId)
             }
             val remoteJson = remoteJsonWithEtag?.first
             // Capture the ETag from the download. The final push must condition on this exact ETag
@@ -813,9 +944,19 @@ class SelfHostSyncEngine(
             val downloadTimeEtag = remoteJsonWithEtag?.second
             val remoteOps = remoteJson?.let { NoteJsonParser.parseJsonToDatabaseOperations(it) }
 
-            val mergedMetadata = pickNewerMetadata(localMetadata, remoteOps?.metadataUpsert)
-                ?.copy(noteId = noteId)
+            val newerMetadata = pickNewerMetadata(localMetadata, remoteOps?.metadataUpsert)
                 ?: return ReconcileOutcome.UNCHANGED
+
+            val targetSpaceId = localMetadata?.spaceId ?: newerMetadata.spaceId
+            val noteId = localMetadata?.noteId
+                ?: adoptableNoteIdInSpace(remoteOps?.metadataUpsert?.noteId, targetSpaceId)
+                ?: candidateId.takeUnless { isDaily }
+                ?: UUID.randomUUID().toString()
+
+            val mergedMetadata = newerMetadata.copy(
+                noteId = noteId,
+                spaceId = targetSpaceId
+            )
 
             val localBlocks = blockDao.getAllBlocksForNoteIncludingDeleted(noteId).filter { block ->
                 val belongsToNote = block.noteId == noteId
@@ -836,6 +977,7 @@ class SelfHostSyncEngine(
                 remoteDeletions = remoteDeletions
             )
 
+            spaceRepository.ensureSpaceExists(mergedMetadata.spaceId)
             noteDao.insertOrUpdateMetadata(mergedMetadata.copy(filePath = ""))
             blockDao.insertOrUpdateBlocks(mergedBlocks)
 
@@ -858,7 +1000,11 @@ class SelfHostSyncEngine(
 
             if (mergedMetadata.isDaily) {
                 mergedMetadata.dateString?.let { dateString ->
-                    noteRepository.refreshDailyNoteCache(dateString, refreshedContent)
+                    noteRepository.refreshDailyNoteCache(
+                        mergedMetadata.spaceId,
+                        dateString,
+                        refreshedContent
+                    )
                 }
             }
             noteRepository.refreshNoteContentCache(noteId, refreshedContent)
@@ -871,7 +1017,13 @@ class SelfHostSyncEngine(
                 if (mergedMetadata.isDaily) mergedMetadata.dateString ?: noteId else noteId
             )
 
-            adoptRemoteEmbeddingsIfWinning(noteId, localMetadata, remoteOps?.metadataUpsert, remoteOps?.embeddedBlocks.orEmpty())
+            adoptRemoteEmbeddingsIfWinning(
+                noteId = noteId,
+                spaceId = mergedMetadata.spaceId,
+                localMetadata = localMetadata,
+                remoteMetadata = remoteOps?.metadataUpsert,
+                remoteEmbeddedBlocks = remoteOps?.embeddedBlocks.orEmpty()
+            )
 
             pushMergedNote(mergedMetadata, mergedBlocks, downloadTimeEtag)
 
@@ -890,7 +1042,8 @@ class SelfHostSyncEngine(
     private suspend fun applyRemoteTombstone(candidateId: String, remoteEntry: SelfHostManifestEntry): ReconcileOutcome {
         val isDaily = remoteEntry.entryType == SelfHostEntryType.DAILY
         val localMetadata = if (isDaily && remoteEntry.dateString != null) {
-            noteDao.getDailyNoteMetadata(remoteEntry.dateString) ?: noteDao.getNoteById(candidateId)
+            noteDao.getDailyNoteMetadata(remoteEntry.spaceId, remoteEntry.dateString)
+                ?: findLocalNoteInSpace(candidateId, remoteEntry.spaceId)
         } else {
             noteDao.getNoteById(candidateId)
         }
@@ -921,6 +1074,7 @@ class SelfHostSyncEngine(
     // leaving this device's block_metadata rows out of date until it happens to re-index locally.
     private suspend fun adoptRemoteEmbeddingsIfWinning(
         noteId: String,
+        spaceId: String,
         localMetadata: NoteMetadataEntity?,
         remoteMetadata: NoteMetadataEntity?,
         remoteEmbeddedBlocks: List<EmbeddedBlockPayload>
@@ -940,6 +1094,7 @@ class SelfHostSyncEngine(
                 database.vectorStoreQueries.insertMetadata(
                     block_id = block.blockId,
                     note_id = noteId,
+                    space_id = spaceId,
                     chunk_text = block.chunkText,
                     embedding = block.embedding
                 )
@@ -958,11 +1113,36 @@ class SelfHostSyncEngine(
         val json = NoteJsonCompiler.compileNoteToJson(metadata, blocks, embeddedBlocks)
 
         if (metadata.isDaily) {
-            webDavSyncClient.uploadDaily(metadata.dateString ?: metadata.noteId, json, ifMatchEtag)
+            webDavSyncClient.uploadDaily(
+                metadata.spaceId,
+                metadata.dateString ?: metadata.noteId,
+                json,
+                ifMatchEtag
+            )
         } else {
             webDavSyncClient.uploadNote(metadata.noteId, json, ifMatchEtag)
         }
     }
+
+    private suspend fun findLocalNoteInSpace(noteId: String, spaceId: String): NoteMetadataEntity? =
+        noteDao.getNoteById(noteId)?.takeIf { it.spaceId == spaceId }
+
+    private suspend fun adoptableNoteIdInSpace(noteId: String?, spaceId: String): String? {
+        if (noteId == null) return null
+        val spaceHoldingThatId = noteDao.getNoteById(noteId)?.spaceId
+
+        return if (spaceHoldingThatId == null || spaceHoldingThatId == spaceId) noteId else null
+    }
+
+    private fun dailyManifestEntryId(spaceId: String, dateString: String): String =
+        "daily_${spaceId}_$dateString"
+
+    private fun manifestEntryIdFor(note: NoteMetadataEntity): String =
+        if (note.isDaily && note.dateString != null) {
+            dailyManifestEntryId(note.spaceId, note.dateString)
+        } else {
+            note.noteId
+        }
 
     private fun pickNewerMetadata(local: NoteMetadataEntity?, remote: NoteMetadataEntity?): NoteMetadataEntity? {
         return when {
@@ -1005,7 +1185,7 @@ class SelfHostSyncEngine(
             if (tombstone.remoteFileDeleted) continue
             try {
                 val remotePath = if (tombstone.isDaily) {
-                    WebDavSyncPaths.dailyPath(tombstone.dateString ?: tombstone.noteId)
+                    WebDavSyncPaths.dailyPath(tombstone.spaceId, tombstone.dateString ?: tombstone.noteId)
                 } else {
                     WebDavSyncPaths.notePath(tombstone.noteId)
                 }
@@ -1020,9 +1200,15 @@ class SelfHostSyncEngine(
         }
 
         val localTombstoneEntries = localTombstones.map { tombstone ->
+            val isDailyTombstone = tombstone.isDaily && tombstone.dateString != null
             SelfHostManifestEntry(
-                entryId = tombstone.noteId,
+                entryId = if (isDailyTombstone) {
+                    dailyManifestEntryId(tombstone.spaceId, tombstone.dateString.orEmpty())
+                } else {
+                    tombstone.noteId
+                },
                 entryType = if (tombstone.isDaily) SelfHostEntryType.DAILY else SelfHostEntryType.NOTE,
+                spaceId = tombstone.spaceId,
                 updatedAt = tombstone.deletedAt,
                 dateString = tombstone.dateString,
                 isDeleted = true
@@ -1040,25 +1226,23 @@ class SelfHostSyncEngine(
         val previousEntriesById = previousManifest.entries.associateBy { it.entryId }
 
         val noteEntries = noteDao.getAllNotesForBackup()
-            .filter { it.noteId !in tombstoneIds }
+            .filter { manifestEntryIdFor(it) !in tombstoneIds }
             .map { note ->
+                val rebuiltEntry = SelfHostManifestEntry(
+                    entryId = manifestEntryIdFor(note),
+                    entryType = if (note.isDaily) SelfHostEntryType.DAILY else SelfHostEntryType.NOTE,
+                    spaceId = note.spaceId,
+                    updatedAt = note.updatedAt,
+                    dateString = note.dateString.takeIf { note.isDaily }
+                )
+
                 // If a note conflicted, its push was rejected.
                 // We preserve the downloaded manifest entry for it, rather than rebuilding it from local state,
                 // because the local state hasn't been successfully accepted by the server yet.
                 if (note.noteId in conflictedNoteIds) {
-                    previousEntriesById[note.noteId] ?: SelfHostManifestEntry(
-                        entryId = note.noteId,
-                        entryType = if (note.isDaily) SelfHostEntryType.DAILY else SelfHostEntryType.NOTE,
-                        updatedAt = note.updatedAt,
-                        dateString = note.dateString.takeIf { note.isDaily }
-                    )
+                    previousEntriesById[rebuiltEntry.entryId] ?: rebuiltEntry
                 } else {
-                    SelfHostManifestEntry(
-                        entryId = note.noteId,
-                        entryType = if (note.isDaily) SelfHostEntryType.DAILY else SelfHostEntryType.NOTE,
-                        updatedAt = note.updatedAt,
-                        dateString = note.dateString.takeIf { note.isDaily }
-                    )
+                    rebuiltEntry
                 }
             }
         val preservedMediaEntries = previousManifest.entries.filter { it.entryType == SelfHostEntryType.MEDIA }

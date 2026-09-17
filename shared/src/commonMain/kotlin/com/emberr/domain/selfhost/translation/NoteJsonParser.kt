@@ -47,7 +47,8 @@ object NoteJsonParser {
             isSubNote = payload.isSubNote,
             showWordCount = payload.showWordCount,
             sortOrder = payload.sortOrder,
-            isTemplate = payload.isTemplate
+            isTemplate = payload.isTemplate,
+            spaceId = payload.spaceId
         )
 
         val blockUpserts = payload.blocks.map { block ->
