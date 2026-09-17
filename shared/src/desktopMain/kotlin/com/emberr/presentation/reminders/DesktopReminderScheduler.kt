@@ -5,6 +5,8 @@ import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit
 
+private const val HELP_PROBE_TIMEOUT_SECONDS = 2L
+
 class DesktopReminderScheduler : ReminderScheduler {
 
     private val scheduler = Executors.newSingleThreadScheduledExecutor()
@@ -12,13 +14,26 @@ class DesktopReminderScheduler : ReminderScheduler {
 
     private val os = System.getProperty("os.name").lowercase()
 
+    private val clickWatchers = Executors.newCachedThreadPool { runnable ->
+        Thread(runnable, "emberr-reminder-click").apply { isDaemon = true }
+    }
+
+    private val linuxNotificationsSupportActions: Boolean by lazy {
+        runCatching {
+            val help = ProcessBuilder("notify-send", "--help").redirectErrorStream(true).start()
+            val helpText = help.inputStream.bufferedReader().use { it.readText() }
+            help.waitFor(HELP_PROBE_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+            helpText.contains("--action")
+        }.getOrDefault(false)
+    }
+
     override fun schedule(blockId: String, noteTitle: String, text: String, timestamp: Long) {
         cancel(blockId)
         val delay = timestamp - System.currentTimeMillis()
         if (delay <= 0) return
 
         val task = scheduler.schedule({
-            triggerNativeNotification(noteTitle, text)
+            triggerNativeNotification(blockId, noteTitle, text)
             activeTasks.remove(blockId)
         }, delay, TimeUnit.MILLISECONDS)
 
@@ -30,7 +45,7 @@ class DesktopReminderScheduler : ReminderScheduler {
         activeTasks.remove(blockId)
     }
 
-    private fun triggerNativeNotification(title: String, message: String) {
+    private fun triggerNativeNotification(blockId: String, title: String, message: String) {
         try {
             when {
                 os.contains("win") -> {
@@ -53,18 +68,37 @@ class DesktopReminderScheduler : ReminderScheduler {
                     val script = "display notification \"$message\" with title \"$title\""
                     ProcessBuilder("osascript", "-e", script).start()
                 }
-                else -> {
-                    ProcessBuilder(
-                        "notify-send",
-                        "-a", "Emberr",
-                        "-u", "normal",
-                        title,
-                        message
-                    ).start()
-                }
+                else -> showClickableLinuxNotification(blockId, title, message)
             }
         } catch (e: Exception) {
             println("Notification failed: ${e.message}")
+        }
+    }
+
+    private fun showClickableLinuxNotification(blockId: String, title: String, message: String) {
+        if (!linuxNotificationsSupportActions) {
+            ProcessBuilder("notify-send", "-a", "Emberr", "-u", "normal", title, message).start()
+            return
+        }
+
+        val notification = ProcessBuilder(
+            "notify-send",
+            "-a", "Emberr",
+            "-u", "normal",
+            "-A", "default=Open",
+            "-A", "open=Open",
+            title,
+            message
+        ).start()
+
+        clickWatchers.submit {
+            val chosenAction = runCatching {
+                notification.inputStream.bufferedReader().use { it.readLine() }
+            }.getOrNull()
+
+            if (!chosenAction.isNullOrBlank()) {
+                ReminderClickBus.requestOpen(blockId)
+            }
         }
     }
 }

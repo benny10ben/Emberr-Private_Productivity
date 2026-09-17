@@ -56,7 +56,9 @@ import com.emberr.domain.util.export.handleImportBackup
 import com.emberr.presentation.navigation.Screen
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
+import com.emberr.presentation.reminders.ReminderClickBus
 import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.withContext
 import org.koin.core.context.GlobalContext
 import org.koin.core.context.startKoin
@@ -168,6 +170,10 @@ fun main() = application {
 
     var isMainWindowOpen by remember { mutableStateOf(true) }
 
+    LaunchedEffect(Unit) {
+        ReminderClickBus.pendingBlockId.filterNotNull().collect { isMainWindowOpen = true }
+    }
+
     EmberrSystemTray(
         iconResourcePath = "app_icon.png",
         tooltip = "Emberr",
@@ -195,6 +201,13 @@ fun main() = application {
         }
     ) {
         val currentWindow = this.window as Frame
+
+        LaunchedEffect(Unit) {
+            ReminderClickBus.pendingBlockId.filterNotNull().collect {
+                currentWindow.toFront()
+                currentWindow.requestFocus()
+            }
+        }
 
         val settingsManager = remember { GlobalContext.get().get<SettingsManager>() }
         val fontSizePreferenceName by settingsManager.fontSizePreferenceFlow.collectAsState(
