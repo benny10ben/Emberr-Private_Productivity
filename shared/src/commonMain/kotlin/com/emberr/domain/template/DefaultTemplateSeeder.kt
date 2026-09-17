@@ -2,6 +2,7 @@ package com.emberr.domain.template
 
 import com.emberr.data.local.room.NoteMetadataEntity
 import com.emberr.domain.repository.NoteRepository
+import com.emberr.domain.space.ActiveSpaceStore
 
 // Registry of every template that should exist out of the box. Add a new object (in its own
 // file, implementing PredefinedTemplate) and list it here to ship another default template.
@@ -21,16 +22,21 @@ val PREDEFINED_TEMPLATES: List<PredefinedTemplate> = listOf(ProjectsTemplate, Re
  * new install (or a row that has since aged out via the 30-day cleanupOldTrashedNotes sweep) is
  * missing entirely and gets (re)created here.
  */
-class DefaultTemplateSeeder(private val repository: NoteRepository) {
+class DefaultTemplateSeeder(
+    private val repository: NoteRepository,
+    private val activeSpaceStore: ActiveSpaceStore
+) {
 
     suspend fun seedIfMissing() {
         val now = System.currentTimeMillis()
+        val spaceId = activeSpaceStore.currentActiveSpaceId()
         for (template in PREDEFINED_TEMPLATES) {
-            if (repository.getNoteById(template.templateId) != null) continue
+            val noteId = template.noteIdInSpace(spaceId)
+            if (repository.getNoteById(noteId) != null) continue
 
             repository.saveNote(
                 metadata = NoteMetadataEntity(
-                    noteId = template.templateId,
+                    noteId = noteId,
                     title = template.title,
                     icon = template.icon,
                     folderId = null,
