@@ -14,7 +14,10 @@ import kotlinx.serialization.Serializable
 @Serializable
 @Entity(
     tableName = "notes_metadata",
-    indices = [Index(value = ["isDaily", "dateString"])]
+    indices = [
+        Index(value = ["spaceId", "isDaily", "dateString"]),
+        Index(value = ["spaceId", "updatedAt"])
+    ]
 )
 data class NoteMetadataEntity(
     @PrimaryKey val noteId: String,
@@ -34,7 +37,8 @@ data class NoteMetadataEntity(
     val showWordCount: Boolean = false,
     val sortOrder: Int = 0,
     val isTemplate: Boolean = false,
-    val selfHostSyncedAt: Long = 0L
+    val selfHostSyncedAt: Long = 0L,
+    val spaceId: String = DEFAULT_SPACE_ID
 )
 
 /**
@@ -43,7 +47,10 @@ data class NoteMetadataEntity(
  * [CategoryEntity]. `isDeleted` already existed here as a soft-delete tombstone.
  */
 @Serializable
-@Entity(tableName = "folders")
+@Entity(
+    tableName = "folders",
+    indices = [Index(value = ["spaceId"])]
+)
 data class FolderEntity(
     @PrimaryKey val folderId: String,
     val name: String,
@@ -51,7 +58,8 @@ data class FolderEntity(
     val createdAt: Long,
     val isDeleted: Boolean = false,
     val sortOrder: Int = 0,
-    val updatedAt: Long = 0L
+    val updatedAt: Long = 0L,
+    val spaceId: String = DEFAULT_SPACE_ID
 )
 
 data class FolderNoteCount(
@@ -64,14 +72,18 @@ data class FolderNoteCount(
  * `updatedAt`/`isDeleted` exist purely for self-host sync, same reasoning as [CategoryEntity].
  */
 @Serializable
-@Entity(tableName = "global_tags")
+@Entity(
+    tableName = "global_tags",
+    indices = [Index(value = ["spaceId"])]
+)
 data class TagEntity(
     @PrimaryKey val tagId: String,
     val name: String,
     val colorHex: String,
     val createdAt: Long,
     val updatedAt: Long = 0L,
-    val isDeleted: Boolean = false
+    val isDeleted: Boolean = false,
+    val spaceId: String = DEFAULT_SPACE_ID
 )
 
 /**
@@ -82,14 +94,18 @@ data class TagEntity(
  * locally with nothing left to sync.
  */
 @Serializable
-@Entity(tableName = "calendar_categories")
+@Entity(
+    tableName = "calendar_categories",
+    indices = [Index(value = ["spaceId"])]
+)
 data class CategoryEntity(
     @PrimaryKey val categoryId: String,
     val name: String,
     val colorHex: String,
     val createdAt: Long,
     val updatedAt: Long = 0L,
-    val isDeleted: Boolean = false
+    val isDeleted: Boolean = false,
+    val spaceId: String = DEFAULT_SPACE_ID
 )
 
 /**
@@ -114,11 +130,15 @@ data class DatabaseTemplateEntity(
  * [CategoryEntity]'s tombstone, so a device that hasn't purged its own copy yet is told to.
  */
 @Serializable
-@Entity(tableName = "self_host_deleted_notes")
+@Entity(
+    tableName = "self_host_deleted_notes",
+    indices = [Index(value = ["spaceId"])]
+)
 data class SelfHostDeletedNoteEntity(
     @PrimaryKey val noteId: String,
     val isDaily: Boolean,
     val dateString: String?,
     val deletedAt: Long,
-    val remoteFileDeleted: Boolean = false
+    val remoteFileDeleted: Boolean = false,
+    val spaceId: String = DEFAULT_SPACE_ID
 )

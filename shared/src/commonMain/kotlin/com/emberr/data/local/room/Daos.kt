@@ -25,40 +25,43 @@ interface NoteDao {
     @Query("SELECT coverImagePath FROM notes_metadata WHERE coverImagePath IS NOT NULL")
     suspend fun getAllCoverImagePaths(): List<String?>
 
-    @Query("SELECT * FROM notes_metadata WHERE isDaily = 0 AND trashedAt IS NULL AND isSubNote = 0 AND isTemplate = 0 ORDER BY updatedAt DESC")
-    fun getAllNotes(): Flow<List<NoteMetadataEntity>>
+    @Query("SELECT * FROM notes_metadata WHERE spaceId = :spaceId AND isDaily = 0 AND trashedAt IS NULL AND isSubNote = 0 AND isTemplate = 0 ORDER BY updatedAt DESC")
+    fun getAllNotes(spaceId: String): Flow<List<NoteMetadataEntity>>
 
     @Query("SELECT * FROM notes_metadata WHERE folderId = :folderId AND trashedAt IS NULL AND isSubNote = 0 AND isTemplate = 0 ORDER BY updatedAt DESC")
     fun getNotesInFolder(folderId: String): Flow<List<NoteMetadataEntity>>
     @Query(
         """
         SELECT folderId AS folderId, COUNT(*) AS noteCount FROM notes_metadata
-        WHERE folderId IS NOT NULL AND trashedAt IS NULL AND isSubNote = 0 AND isTemplate = 0
-              AND isFavorite = 0
+        WHERE spaceId = :spaceId AND folderId IS NOT NULL AND trashedAt IS NULL AND isSubNote = 0
+              AND isTemplate = 0 AND isFavorite = 0
         GROUP BY folderId
         """
     )
-    fun getNoteCountsByFolder(): Flow<List<FolderNoteCount>>
+    fun getNoteCountsByFolder(spaceId: String): Flow<List<FolderNoteCount>>
 
-    @Query("SELECT * FROM notes_metadata WHERE isDaily = 1 AND dateString = :date AND isTemplate = 0 LIMIT 1")
-    suspend fun getDailyNoteMetadata(date: String): NoteMetadataEntity?
+    @Query("SELECT * FROM notes_metadata WHERE spaceId = :spaceId AND isDaily = 1 AND dateString = :date AND isTemplate = 0 LIMIT 1")
+    suspend fun getDailyNoteMetadata(spaceId: String, date: String): NoteMetadataEntity?
+
+    @Query("SELECT * FROM notes_metadata WHERE spaceId = :spaceId AND isDaily = 1 AND isTemplate = 0")
+    suspend fun getAllDailyNoteMetadata(spaceId: String): List<NoteMetadataEntity>
 
     @Query("SELECT * FROM notes_metadata WHERE isDaily = 1 AND isTemplate = 0")
-    suspend fun getAllDailyNoteMetadata(): List<NoteMetadataEntity>
+    suspend fun getAllDailyNoteMetadataAcrossSpaces(): List<NoteMetadataEntity>
 
-    @Query("SELECT * FROM notes_metadata WHERE isDaily = 1 AND isTemplate = 0 AND snippet LIKE '%' || :query || '%' ORDER BY dateString DESC")
-    fun searchDailyNotes(query: String): Flow<List<NoteMetadataEntity>>
+    @Query("SELECT * FROM notes_metadata WHERE spaceId = :spaceId AND isDaily = 1 AND isTemplate = 0 AND snippet LIKE '%' || :query || '%' ORDER BY dateString DESC")
+    fun searchDailyNotes(spaceId: String, query: String): Flow<List<NoteMetadataEntity>>
 
     // Cross-note search
     @Query(
         """
         SELECT * FROM notes_metadata
-        WHERE trashedAt IS NULL AND isSubNote = 0 AND isTemplate = 0
+        WHERE spaceId = :spaceId AND trashedAt IS NULL AND isSubNote = 0 AND isTemplate = 0
         AND (title LIKE '%' || :query || '%' OR snippet LIKE '%' || :query || '%')
         ORDER BY updatedAt DESC
         """
     )
-    fun searchNotesByTitleOrSnippet(query: String): Flow<List<NoteMetadataEntity>>
+    fun searchNotesByTitleOrSnippet(spaceId: String, query: String): Flow<List<NoteMetadataEntity>>
 
     // isTemplate = 0 here too: this is also used to resolve cross-note *content* search hits
     // (NoteRepositoryImpl.searchNotes), and that content match comes from a raw block-JSON scan
@@ -66,11 +69,11 @@ interface NoteDao {
     @Query("SELECT * FROM notes_metadata WHERE noteId IN (:ids) AND isTemplate = 0")
     suspend fun getNotesByIds(ids: List<String>): List<NoteMetadataEntity>
 
-    @Query("SELECT * FROM notes_metadata WHERE isFavorite = 1 AND trashedAt IS NULL AND isTemplate = 0 ORDER BY updatedAt DESC")
-    fun getFavoriteNotes(): Flow<List<NoteMetadataEntity>>
+    @Query("SELECT * FROM notes_metadata WHERE spaceId = :spaceId AND isFavorite = 1 AND trashedAt IS NULL AND isTemplate = 0 ORDER BY updatedAt DESC")
+    fun getFavoriteNotes(spaceId: String): Flow<List<NoteMetadataEntity>>
 
-    @Query("SELECT * FROM notes_metadata WHERE trashedAt IS NOT NULL AND isTemplate = 0 ORDER BY trashedAt DESC")
-    fun getTrashedNotes(): Flow<List<NoteMetadataEntity>>
+    @Query("SELECT * FROM notes_metadata WHERE spaceId = :spaceId AND trashedAt IS NOT NULL AND isTemplate = 0 ORDER BY trashedAt DESC")
+    fun getTrashedNotes(spaceId: String): Flow<List<NoteMetadataEntity>>
 
     @Query("DELETE FROM notes_metadata WHERE noteId = :noteId")
     suspend fun deleteNoteMetadata(noteId: String)
@@ -81,8 +84,8 @@ interface NoteDao {
     @Query("SELECT * FROM notes_metadata WHERE noteId = :id LIMIT 1")
     fun observeNoteById(id: String): Flow<NoteMetadataEntity?>
 
-    @Query("SELECT * FROM notes_metadata WHERE isDaily = 0 AND trashedAt IS NULL AND isSubNote = 0 AND isTemplate = 0 ORDER BY updatedAt DESC LIMIT :limit")
-    suspend fun getRecentNotes(limit: Int): List<NoteMetadataEntity>
+    @Query("SELECT * FROM notes_metadata WHERE spaceId = :spaceId AND isDaily = 0 AND trashedAt IS NULL AND isSubNote = 0 AND isTemplate = 0 ORDER BY updatedAt DESC LIMIT :limit")
+    suspend fun getRecentNotes(spaceId: String, limit: Int): List<NoteMetadataEntity>
 
     @Query("UPDATE notes_metadata SET trashedAt = NULL, updatedAt = :updatedAt WHERE noteId = :noteId")
     suspend fun restoreNote(noteId: String, updatedAt: Long)
@@ -113,11 +116,17 @@ interface NoteDao {
     @Query("UPDATE notes_metadata SET selfHostSyncedAt = :syncedAt WHERE noteId = :noteId")
     suspend fun updateSelfHostSyncedAt(noteId: String, syncedAt: Long)
 
-    @Query("SELECT COUNT(*) FROM calendar_tasks WHERE isChecked = 0")
-    fun getIncompleteTasksCount(): Flow<Int>
+    @Query("SELECT COUNT(*) FROM calendar_tasks WHERE spaceId = :spaceId AND isChecked = 0")
+    fun getIncompleteTasksCount(spaceId: String): Flow<Int>
 
-    @Query("SELECT * FROM notes_metadata WHERE isDaily = 0 AND trashedAt IS NULL AND isTemplate = 0")
-    fun getAllLinkableNotes(): Flow<List<NoteMetadataEntity>>
+    @Query("SELECT * FROM notes_metadata WHERE spaceId = :spaceId AND isDaily = 0 AND trashedAt IS NULL AND isTemplate = 0")
+    fun getAllLinkableNotes(spaceId: String): Flow<List<NoteMetadataEntity>>
+
+    @Query("SELECT * FROM notes_metadata WHERE isDaily = 0 AND trashedAt IS NULL AND isSubNote = 0 AND isTemplate = 0 ORDER BY updatedAt DESC")
+    suspend fun getAllNotesAcrossSpaces(): List<NoteMetadataEntity>
+
+    @Query("SELECT * FROM notes_metadata WHERE isDaily = 0 AND trashedAt IS NULL AND isSubNote = 0 AND isTemplate = 0 ORDER BY updatedAt DESC")
+    fun getAllNotesAcrossSpacesFlow(): Flow<List<NoteMetadataEntity>>
 
     @Query("SELECT * FROM notes_metadata")
     suspend fun getAllNotesForBackup(): List<NoteMetadataEntity>
@@ -133,8 +142,8 @@ interface NoteDao {
 
     // Templates menu: every reusable template (predefined + user-saved), alphabetical so the
     // search/filter UI has a stable starting order.
-    @Query("SELECT * FROM notes_metadata WHERE isTemplate = 1 AND trashedAt IS NULL ORDER BY title ASC")
-    fun getAllTemplates(): Flow<List<NoteMetadataEntity>>
+    @Query("SELECT * FROM notes_metadata WHERE spaceId = :spaceId AND isTemplate = 1 AND trashedAt IS NULL ORDER BY title ASC")
+    fun getAllTemplates(spaceId: String): Flow<List<NoteMetadataEntity>>
 }
 
 /**
@@ -145,8 +154,11 @@ interface FolderDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertFolder(folder: FolderEntity)
 
+    @Query("SELECT * FROM folders WHERE spaceId = :spaceId AND isDeleted = 0 ORDER BY CASE WHEN sortOrder = 0 THEN 1 ELSE 0 END, sortOrder ASC, createdAt ASC")
+    fun getAllFolders(spaceId: String): Flow<List<FolderEntity>>
+
     @Query("SELECT * FROM folders WHERE isDeleted = 0 ORDER BY CASE WHEN sortOrder = 0 THEN 1 ELSE 0 END, sortOrder ASC, createdAt ASC")
-    fun getAllFolders(): Flow<List<FolderEntity>>
+    fun getAllFoldersAcrossSpaces(): Flow<List<FolderEntity>>
 
     @Query("UPDATE folders SET isDeleted = 1, updatedAt = :updatedAt WHERE folderId = :folderId")
     suspend fun markFolderDeleted(folderId: String, updatedAt: Long)
@@ -166,8 +178,11 @@ interface TagDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertOrUpdateTag(tag: TagEntity)
 
+    @Query("SELECT * FROM global_tags WHERE spaceId = :spaceId AND isDeleted = 0 ORDER BY name ASC")
+    fun getAllTags(spaceId: String): Flow<List<TagEntity>>
+
     @Query("SELECT * FROM global_tags WHERE isDeleted = 0 ORDER BY name ASC")
-    fun getAllTags(): Flow<List<TagEntity>>
+    fun getAllTagsAcrossSpaces(): Flow<List<TagEntity>>
 
     @Query("UPDATE global_tags SET isDeleted = 1, updatedAt = :updatedAt WHERE tagId = :tagId")
     suspend fun markTagDeleted(tagId: String, updatedAt: Long)
@@ -180,15 +195,51 @@ interface TagDao {
 }
 
 @Dao
+interface SpaceDao {
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertOrUpdateSpace(space: SpaceEntity)
+
+    @Query("SELECT * FROM spaces WHERE isDeleted = 0 ORDER BY sortOrder ASC, createdAt ASC")
+    fun getAllSpaces(): Flow<List<SpaceEntity>>
+
+    @Query("SELECT * FROM spaces WHERE isDeleted = 0 ORDER BY sortOrder ASC, createdAt ASC")
+    suspend fun getAllSpacesOnce(): List<SpaceEntity>
+
+    @Query("SELECT * FROM spaces WHERE spaceId = :spaceId LIMIT 1")
+    suspend fun getSpaceById(spaceId: String): SpaceEntity?
+
+    @Query("SELECT COUNT(*) FROM spaces WHERE isDeleted = 0")
+    suspend fun countSpaces(): Int
+
+    @Query("SELECT * FROM spaces WHERE updatedAt > :timestamp")
+    suspend fun getSpacesModifiedSince(timestamp: Long): List<SpaceEntity>
+
+    @Query("SELECT * FROM spaces")
+    suspend fun getAllSpacesForBackup(): List<SpaceEntity>
+
+    @Query("UPDATE spaces SET displayName = :displayName, updatedAt = :updatedAt WHERE spaceId = :spaceId")
+    suspend fun renameSpace(spaceId: String, displayName: String, updatedAt: Long)
+
+    @Query("UPDATE spaces SET isDeleted = 1, updatedAt = :updatedAt WHERE spaceId = :spaceId")
+    suspend fun markSpaceDeleted(spaceId: String, updatedAt: Long)
+}
+
+@Dao
 interface CategoryDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertOrUpdateCategory(category: CategoryEntity)
 
+    @Query("SELECT * FROM calendar_categories WHERE spaceId = :spaceId AND isDeleted = 0 ORDER BY createdAt ASC")
+    fun getAllCategories(spaceId: String): Flow<List<CategoryEntity>>
+
+    @Query("SELECT * FROM calendar_categories WHERE spaceId = :spaceId AND isDeleted = 0")
+    suspend fun getAllCategoriesOnce(spaceId: String): List<CategoryEntity>
+
     @Query("SELECT * FROM calendar_categories WHERE isDeleted = 0 ORDER BY createdAt ASC")
-    fun getAllCategories(): Flow<List<CategoryEntity>>
+    fun getAllCategoriesAcrossSpaces(): Flow<List<CategoryEntity>>
 
     @Query("SELECT * FROM calendar_categories WHERE isDeleted = 0")
-    suspend fun getAllCategoriesOnce(): List<CategoryEntity>
+    suspend fun getAllCategoriesOnceAcrossSpaces(): List<CategoryEntity>
 
     @Query("SELECT * FROM calendar_categories WHERE categoryId = :categoryId LIMIT 1")
     suspend fun getCategoryById(categoryId: String): CategoryEntity?
@@ -208,18 +259,18 @@ interface CalendarTaskDao {
 
     // Fast query for the Calendar Pager to render the dot indicators.
     // Pass yearMonth as "2026-07" to get everything in July.
-    @Query("SELECT * FROM calendar_tasks WHERE targetDate LIKE :yearMonth || '%'")
-    fun getTasksForMonth(yearMonth: String): Flow<List<CalendarTaskEntity>>
+    @Query("SELECT * FROM calendar_tasks WHERE spaceId = :spaceId AND targetDate LIKE :yearMonth || '%'")
+    fun getTasksForMonth(spaceId: String, yearMonth: String): Flow<List<CalendarTaskEntity>>
 
-    @Query("SELECT * FROM calendar_tasks WHERE targetDate LIKE :yearMonth || '%'")
-    suspend fun getTasksInMonth(yearMonth: String): List<CalendarTaskEntity>
+    @Query("SELECT * FROM calendar_tasks WHERE spaceId = :spaceId AND targetDate LIKE :yearMonth || '%'")
+    suspend fun getTasksInMonth(spaceId: String, yearMonth: String): List<CalendarTaskEntity>
 
     // Precise query for the Bottom Sheet when a user clicks a specific day.
-    @Query("SELECT * FROM calendar_tasks WHERE targetDate = :dateString")
-    fun getTasksForDate(dateString: String): Flow<List<CalendarTaskEntity>>
+    @Query("SELECT * FROM calendar_tasks WHERE spaceId = :spaceId AND targetDate = :dateString")
+    fun getTasksForDate(spaceId: String, dateString: String): Flow<List<CalendarTaskEntity>>
 
-    @Query("SELECT * FROM calendar_tasks WHERE targetDate = :dateString")
-    suspend fun getTasksOnDate(dateString: String): List<CalendarTaskEntity>
+    @Query("SELECT * FROM calendar_tasks WHERE spaceId = :spaceId AND targetDate = :dateString")
+    suspend fun getTasksOnDate(spaceId: String, dateString: String): List<CalendarTaskEntity>
 
     @Query("SELECT * FROM calendar_tasks WHERE blockId = :blockId LIMIT 1")
     suspend fun getTaskById(blockId: String): CalendarTaskEntity?
@@ -229,21 +280,30 @@ interface CalendarTaskDao {
     suspend fun updateTaskStatus(blockId: String, isChecked: Boolean)
 
     // Used by the NoteEditorViewModel/DailyEditorViewModel to clear old tasks before saving new ones.
-    @Query("DELETE FROM calendar_tasks WHERE noteId = :noteId")
-    suspend fun deleteTasksByNoteId(noteId: String)
+    @Query("SELECT * FROM calendar_tasks WHERE spaceId = :spaceId AND noteId = :noteId")
+    suspend fun getTasksForNote(spaceId: String, noteId: String): List<CalendarTaskEntity>
+
+    @Query("DELETE FROM calendar_tasks WHERE spaceId = :spaceId AND noteId = :noteId")
+    suspend fun deleteTasksByNoteId(spaceId: String, noteId: String)
 
     // For when a user backspaces/deletes a single task in the editor.
     @Query("DELETE FROM calendar_tasks WHERE blockId = :blockId")
     suspend fun deleteTaskById(blockId: String)
 
-    @Query("SELECT * FROM calendar_tasks WHERE targetDate >= :fromDate AND isChecked = 0 ORDER BY targetDate ASC")
-    suspend fun getUpcomingTasks(fromDate: String): List<CalendarTaskEntity>
+    @Query("SELECT * FROM calendar_tasks WHERE spaceId = :spaceId AND targetDate >= :fromDate AND isChecked = 0 ORDER BY targetDate ASC")
+    suspend fun getUpcomingTasks(spaceId: String, fromDate: String): List<CalendarTaskEntity>
+
+    @Query("SELECT * FROM calendar_tasks WHERE spaceId = :spaceId")
+    fun getAllTasksFlow(spaceId: String): Flow<List<CalendarTaskEntity>>
+
+    @Query("SELECT * FROM calendar_tasks WHERE spaceId = :spaceId")
+    suspend fun getAllTasks(spaceId: String): List<CalendarTaskEntity>
 
     @Query("SELECT * FROM calendar_tasks")
-    fun getAllTasksFlow(): Flow<List<CalendarTaskEntity>>
+    fun getAllTasksAcrossSpacesFlow(): Flow<List<CalendarTaskEntity>>
 
     @Query("SELECT * FROM calendar_tasks")
-    suspend fun getAllTasks(): List<CalendarTaskEntity>
+    suspend fun getAllTasksAcrossSpaces(): List<CalendarTaskEntity>
 }
 
 @Dao
@@ -254,6 +314,12 @@ interface CalendarEventExceptionDao {
 
     @Query("SELECT * FROM calendar_event_exceptions")
     fun getAllExceptionsFlow(): Flow<List<CalendarEventExceptionEntity>>
+
+    @Query("SELECT * FROM calendar_event_exceptions WHERE blockId = :blockId AND occurrenceDate = :occurrenceDate LIMIT 1")
+    suspend fun getException(blockId: String, occurrenceDate: String): CalendarEventExceptionEntity?
+
+    @Query("SELECT * FROM calendar_event_exceptions WHERE updatedAt > :timestamp")
+    suspend fun getExceptionsModifiedSince(timestamp: Long): List<CalendarEventExceptionEntity>
 
     @Query("DELETE FROM calendar_event_exceptions WHERE blockId = :blockId")
     suspend fun deleteExceptionsForBlock(blockId: String)
@@ -268,11 +334,11 @@ interface CalendarEventExceptionDao {
     @Query("DELETE FROM calendar_event_exceptions WHERE blockId = :blockId AND occurrenceDate <= :toDateInclusive")
     suspend fun deleteExceptionsUpTo(blockId: String, toDateInclusive: String)
 
-    @Query("UPDATE calendar_event_exceptions SET blockId = :newBlockId WHERE blockId = :oldBlockId AND occurrenceDate >= :fromDateInclusive")
-    suspend fun rekeyExceptionsFrom(oldBlockId: String, newBlockId: String, fromDateInclusive: String)
+    @Query("UPDATE calendar_event_exceptions SET blockId = :newBlockId, updatedAt = :updatedAt WHERE blockId = :oldBlockId AND occurrenceDate >= :fromDateInclusive")
+    suspend fun rekeyExceptionsFrom(oldBlockId: String, newBlockId: String, fromDateInclusive: String, updatedAt: Long)
 
-    @Query("UPDATE calendar_event_exceptions SET blockId = :newBlockId WHERE blockId = :oldBlockId AND occurrenceDate <= :toDateInclusive")
-    suspend fun rekeyExceptionsUpTo(oldBlockId: String, newBlockId: String, toDateInclusive: String)
+    @Query("UPDATE calendar_event_exceptions SET blockId = :newBlockId, updatedAt = :updatedAt WHERE blockId = :oldBlockId AND occurrenceDate <= :toDateInclusive")
+    suspend fun rekeyExceptionsUpTo(oldBlockId: String, newBlockId: String, toDateInclusive: String, updatedAt: Long)
 }
 
 @Dao
@@ -284,11 +350,14 @@ interface ImageBlockDao {
     @Query("DELETE FROM image_blocks WHERE noteId = :noteId")
     suspend fun deleteByNoteId(noteId: String)
 
-    @Query("SELECT * FROM image_blocks ORDER BY noteCreatedAt DESC")
-    fun getAllImagesFlow(): Flow<List<ImageBlockEntity>>
+    @Query("SELECT * FROM image_blocks WHERE noteId IN (SELECT noteId FROM notes_metadata WHERE spaceId = :spaceId) ORDER BY noteCreatedAt DESC")
+    fun getAllImagesFlow(spaceId: String): Flow<List<ImageBlockEntity>>
 
-    @Query("SELECT COUNT(*) FROM image_blocks")
-    fun getImagesCount(): Flow<Int>
+    @Query("SELECT COUNT(*) FROM image_blocks WHERE noteId IN (SELECT noteId FROM notes_metadata WHERE spaceId = :spaceId)")
+    fun getImagesCount(spaceId: String): Flow<Int>
+
+    @Query("SELECT * FROM image_blocks ORDER BY noteCreatedAt DESC")
+    fun getAllImagesAcrossSpacesFlow(): Flow<List<ImageBlockEntity>>
 }
 
 @Dao
@@ -300,11 +369,14 @@ interface DocumentBlockDao {
     @Query("DELETE FROM document_blocks WHERE noteId = :noteId")
     suspend fun deleteByNoteId(noteId: String)
 
-    @Query("SELECT * FROM document_blocks ORDER BY noteCreatedAt DESC")
-    fun getAllDocumentsFlow(): Flow<List<DocumentBlockEntity>>
+    @Query("SELECT * FROM document_blocks WHERE noteId IN (SELECT noteId FROM notes_metadata WHERE spaceId = :spaceId) ORDER BY noteCreatedAt DESC")
+    fun getAllDocumentsFlow(spaceId: String): Flow<List<DocumentBlockEntity>>
 
-    @Query("SELECT COUNT(*) FROM document_blocks")
-    fun getDocumentsCount(): Flow<Int>
+    @Query("SELECT COUNT(*) FROM document_blocks WHERE noteId IN (SELECT noteId FROM notes_metadata WHERE spaceId = :spaceId)")
+    fun getDocumentsCount(spaceId: String): Flow<Int>
+
+    @Query("SELECT * FROM document_blocks ORDER BY noteCreatedAt DESC")
+    fun getAllDocumentsAcrossSpacesFlow(): Flow<List<DocumentBlockEntity>>
 }
 
 @Dao
@@ -316,11 +388,14 @@ interface BookmarkBlockDao {
     @Query("DELETE FROM bookmark_blocks WHERE noteId = :noteId")
     suspend fun deleteByNoteId(noteId: String)
 
-    @Query("SELECT * FROM bookmark_blocks ORDER BY noteUpdatedAt DESC")
-    fun getAllBookmarksFlow(): Flow<List<BookmarkBlockEntity>>
+    @Query("SELECT * FROM bookmark_blocks WHERE noteId IN (SELECT noteId FROM notes_metadata WHERE spaceId = :spaceId) ORDER BY noteUpdatedAt DESC")
+    fun getAllBookmarksFlow(spaceId: String): Flow<List<BookmarkBlockEntity>>
 
-    @Query("SELECT COUNT(*) FROM bookmark_blocks")
-    fun getBookmarksCount(): Flow<Int>
+    @Query("SELECT COUNT(*) FROM bookmark_blocks WHERE noteId IN (SELECT noteId FROM notes_metadata WHERE spaceId = :spaceId)")
+    fun getBookmarksCount(spaceId: String): Flow<Int>
+
+    @Query("SELECT * FROM bookmark_blocks ORDER BY noteUpdatedAt DESC")
+    fun getAllBookmarksAcrossSpacesFlow(): Flow<List<BookmarkBlockEntity>>
 }
 
 /**
@@ -361,8 +436,8 @@ interface SelfHostDeletedNoteDao {
     @Query("SELECT * FROM self_host_deleted_notes WHERE noteId = :noteId LIMIT 1")
     suspend fun getTombstoneByNoteId(noteId: String): SelfHostDeletedNoteEntity?
 
-    @Query("SELECT * FROM self_host_deleted_notes WHERE dateString = :dateString LIMIT 1")
-    suspend fun getTombstoneByDateString(dateString: String): SelfHostDeletedNoteEntity?
+    @Query("SELECT * FROM self_host_deleted_notes WHERE spaceId = :spaceId AND dateString = :dateString LIMIT 1")
+    suspend fun getTombstoneByDateString(spaceId: String, dateString: String): SelfHostDeletedNoteEntity?
 }
 
 @Dao

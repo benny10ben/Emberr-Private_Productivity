@@ -2,6 +2,7 @@ package com.emberr.data.local.prefs
 
 import android.content.SharedPreferences
 import com.emberr.core.security.TinkSecretStore
+import com.emberr.data.local.room.DEFAULT_SPACE_ID
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -12,6 +13,26 @@ class AndroidSettingsManager(
     private val sharedPreferences: SharedPreferences,
     private val secretStore: TinkSecretStore
 ) : SettingsManager {
+
+    override val activeSpaceIdFlow: Flow<String> = callbackFlow {
+        val listener = SharedPreferences.OnSharedPreferenceChangeListener { prefs, key ->
+            if (key == SyncConstants.KEY_ACTIVE_SPACE_ID) {
+                trySend(prefs.getString(SyncConstants.KEY_ACTIVE_SPACE_ID, DEFAULT_SPACE_ID) ?: DEFAULT_SPACE_ID)
+            }
+        }
+        sharedPreferences.registerOnSharedPreferenceChangeListener(listener)
+
+        trySend(sharedPreferences.getString(SyncConstants.KEY_ACTIVE_SPACE_ID, DEFAULT_SPACE_ID) ?: DEFAULT_SPACE_ID)
+
+        awaitClose { sharedPreferences.unregisterOnSharedPreferenceChangeListener(listener) }
+    }
+
+    override fun getActiveSpaceId(): String =
+        sharedPreferences.getString(SyncConstants.KEY_ACTIVE_SPACE_ID, DEFAULT_SPACE_ID) ?: DEFAULT_SPACE_ID
+
+    override fun saveActiveSpaceId(spaceId: String) {
+        sharedPreferences.edit { putString(SyncConstants.KEY_ACTIVE_SPACE_ID, spaceId) }
+    }
 
     override val sortTypeFlow: Flow<String> = callbackFlow {
         val listener = SharedPreferences.OnSharedPreferenceChangeListener { prefs, key ->

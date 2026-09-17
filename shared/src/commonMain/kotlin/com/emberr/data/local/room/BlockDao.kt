@@ -17,8 +17,12 @@ interface BlockDao {
     @Query("SELECT * FROM note_blocks WHERE noteId = :noteId ORDER BY displayOrder ASC")
     suspend fun getAllBlocksForNoteIncludingDeleted(noteId: String): List<NoteBlockEntity>
 
-    @Query("SELECT DISTINCT noteId FROM note_blocks WHERE isDeleted = 0 AND blockDataJson LIKE '%' || :query || '%'")
-    suspend fun findNoteIdsMatchingContent(query: String): List<String>
+    @Query(
+        "SELECT DISTINCT noteId FROM note_blocks WHERE isDeleted = 0 " +
+            "AND blockDataJson LIKE '%' || :query || '%' " +
+            "AND noteId IN (SELECT noteId FROM notes_metadata WHERE spaceId = :spaceId)"
+    )
+    suspend fun findNoteIdsMatchingContent(spaceId: String, query: String): List<String>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertOrUpdateBlock(block: NoteBlockEntity)

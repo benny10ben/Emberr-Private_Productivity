@@ -1,7 +1,9 @@
 package com.emberr.data.local.room
 
 import androidx.room.Entity
+import kotlinx.serialization.Serializable
 
+@Serializable
 @Entity(tableName = "calendar_event_exceptions", primaryKeys = ["blockId", "occurrenceDate"])
 data class CalendarEventExceptionEntity(
     val blockId: String,
@@ -14,5 +16,6 @@ data class CalendarEventExceptionEntity(
     val overrideText: String? = null,
     val overrideCategoryId: String? = null,
     val overrideUrl: String? = null,
-    val overrideDescription: String? = null
+    val overrideDescription: String? = null,
+    val updatedAt: Long
 )

@@ -7,6 +7,7 @@ import androidx.room.RoomDatabaseConstructor
 
 @Database(
     entities = [
+        SpaceEntity::class,
         NoteMetadataEntity::class,
         FolderEntity::class,
         TagEntity::class,
@@ -28,6 +29,7 @@ import androidx.room.RoomDatabaseConstructor
 )
 @ConstructedBy(AppDatabaseConstructor::class)
 abstract class AppDatabase : RoomDatabase() {
+    abstract fun spaceDao(): SpaceDao
     abstract fun noteDao(): NoteDao
     abstract fun folderDao(): FolderDao
     abstract fun tagDao(): TagDao

@@ -6,6 +6,10 @@ import kotlinx.coroutines.flow.Flow
  * Multiplatform contract for handling user preferences.
  */
 interface SettingsManager {
+    val activeSpaceIdFlow: Flow<String>
+    fun getActiveSpaceId(): String
+    fun saveActiveSpaceId(spaceId: String)
+
     val sortTypeFlow: Flow<String>
     val sortOrderFlow: Flow<String>
     val lastOpenedDesktopStateFlow: Flow<String>

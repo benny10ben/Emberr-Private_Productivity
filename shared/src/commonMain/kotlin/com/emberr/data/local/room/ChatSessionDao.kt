@@ -7,8 +7,8 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface ChatSessionDao {
-    @Query("SELECT * FROM chat_sessions WHERE isDeleted = 0 ORDER BY updatedAt DESC")
-    fun getAllSessions(): Flow<List<ChatSessionEntity>>
+    @Query("SELECT * FROM chat_sessions WHERE spaceId = :spaceId AND isDeleted = 0 ORDER BY updatedAt DESC")
+    fun getAllSessions(spaceId: String): Flow<List<ChatSessionEntity>>
 
     @Query("SELECT * FROM chat_sessions WHERE id = :sessionId LIMIT 1")
     suspend fun getSession(sessionId: String): ChatSessionEntity?

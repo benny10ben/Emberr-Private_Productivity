@@ -1,5 +1,6 @@
 package com.emberr.data.local.prefs
 object SyncConstants {
+    const val KEY_ACTIVE_SPACE_ID = "active_space_id"
     // Sorting
     const val KEY_SORT_TYPE = "sort_type"
     const val KEY_SORT_ORDER = "sort_order"

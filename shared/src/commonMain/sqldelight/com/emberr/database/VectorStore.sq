@@ -2,16 +2,19 @@ CREATE TABLE block_metadata (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     block_id TEXT NOT NULL UNIQUE,
     note_id TEXT NOT NULL,
+    space_id TEXT NOT NULL,
     chunk_text TEXT NOT NULL,
     embedding TEXT NOT NULL
 );
 
-insertMetadata:
-INSERT OR REPLACE INTO block_metadata(block_id, note_id, chunk_text, embedding)
-VALUES (?, ?, ?, ?);
+CREATE INDEX block_metadata_space_id ON block_metadata(space_id);
 
-getAllBlocks:
-SELECT note_id, chunk_text, embedding FROM block_metadata;
+insertMetadata:
+INSERT OR REPLACE INTO block_metadata(block_id, note_id, space_id, chunk_text, embedding)
+VALUES (?, ?, ?, ?, ?);
+
+getBlocksInSpace:
+SELECT note_id, chunk_text, embedding FROM block_metadata WHERE space_id = ?;
 
 getBlocksForNote:
 SELECT block_id, chunk_text, embedding FROM block_metadata WHERE note_id = ?;

@@ -2,11 +2,59 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "5ed5341f0602986f70c2cfc5380bf8e3",
+    "identityHash": "b593e1eaf1bbd3ea7222eaa2899844f4",
     "entities": [
       {
+        "tableName": "spaces",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`spaceId` TEXT NOT NULL, `displayName` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, `sortOrder` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `isDeleted` INTEGER NOT NULL, PRIMARY KEY(`spaceId`))",
+        "fields": [
+          {
+            "fieldPath": "spaceId",
+            "columnName": "spaceId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "displayName",
+            "columnName": "displayName",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "createdAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sortOrder",
+            "columnName": "sortOrder",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updatedAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isDeleted",
+            "columnName": "isDeleted",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "spaceId"
+          ]
+        }
+      },
+      {
         "tableName": "notes_metadata",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`noteId` TEXT NOT NULL, `title` TEXT NOT NULL, `icon` TEXT, `folderId` TEXT, `isDaily` INTEGER NOT NULL, `dateString` TEXT, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `filePath` TEXT NOT NULL, `snippet` TEXT NOT NULL, `isFavorite` INTEGER NOT NULL, `coverImagePath` TEXT, `trashedAt` INTEGER, `isSubNote` INTEGER NOT NULL, `showWordCount` INTEGER NOT NULL, `sortOrder` INTEGER NOT NULL, `isTemplate` INTEGER NOT NULL, `selfHostSyncedAt` INTEGER NOT NULL, PRIMARY KEY(`noteId`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`noteId` TEXT NOT NULL, `title` TEXT NOT NULL, `icon` TEXT, `folderId` TEXT, `isDaily` INTEGER NOT NULL, `dateString` TEXT, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `filePath` TEXT NOT NULL, `snippet` TEXT NOT NULL, `isFavorite` INTEGER NOT NULL, `coverImagePath` TEXT, `trashedAt` INTEGER, `isSubNote` INTEGER NOT NULL, `showWordCount` INTEGER NOT NULL, `sortOrder` INTEGER NOT NULL, `isTemplate` INTEGER NOT NULL, `selfHostSyncedAt` INTEGER NOT NULL, `spaceId` TEXT NOT NULL, PRIMARY KEY(`noteId`))",
         "fields": [
           {
             "fieldPath": "noteId",
@@ -110,6 +158,12 @@
             "columnName": "selfHostSyncedAt",
             "affinity": "INTEGER",
             "notNull": true
+          },
+          {
+            "fieldPath": "spaceId",
+            "columnName": "spaceId",
+            "affinity": "TEXT",
+            "notNull": true
           }
         ],
         "primaryKey": {
@@ -120,20 +174,31 @@
         },
         "indices": [
           {
-            "name": "index_notes_metadata_isDaily_dateString",
+            "name": "index_notes_metadata_spaceId_isDaily_dateString",
             "unique": false,
             "columnNames": [
+              "spaceId",
               "isDaily",
               "dateString"
             ],
             "orders": [],
-            "createSql": "CREATE INDEX IF NOT EXISTS `index_notes_metadata_isDaily_dateString` ON `${TABLE_NAME}` (`isDaily`, `dateString`)"
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_notes_metadata_spaceId_isDaily_dateString` ON `${TABLE_NAME}` (`spaceId`, `isDaily`, `dateString`)"
+          },
+          {
+            "name": "index_notes_metadata_spaceId_updatedAt",
+            "unique": false,
+            "columnNames": [
+              "spaceId",
+              "updatedAt"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_notes_metadata_spaceId_updatedAt` ON `${TABLE_NAME}` (`spaceId`, `updatedAt`)"
           }
         ]
       },
       {
         "tableName": "folders",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`folderId` TEXT NOT NULL, `name` TEXT NOT NULL, `parentFolderId` TEXT, `createdAt` INTEGER NOT NULL, `isDeleted` INTEGER NOT NULL, `sortOrder` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, PRIMARY KEY(`folderId`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`folderId` TEXT NOT NULL, `name` TEXT NOT NULL, `parentFolderId` TEXT, `createdAt` INTEGER NOT NULL, `isDeleted` INTEGER NOT NULL, `sortOrder` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `spaceId` TEXT NOT NULL, PRIMARY KEY(`folderId`))",
         "fields": [
           {
             "fieldPath": "folderId",
@@ -175,6 +240,12 @@
             "columnName": "updatedAt",
             "affinity": "INTEGER",
             "notNull": true
+          },
+          {
+            "fieldPath": "spaceId",
+            "columnName": "spaceId",
+            "affinity": "TEXT",
+            "notNull": true
           }
         ],
         "primaryKey": {
@@ -182,11 +253,22 @@
           "columnNames": [
             "folderId"
           ]
-        }
+        },
+        "indices": [
+          {
+            "name": "index_folders_spaceId",
+            "unique": false,
+            "columnNames": [
+              "spaceId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_folders_spaceId` ON `${TABLE_NAME}` (`spaceId`)"
+          }
+        ]
       },
       {
         "tableName": "global_tags",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`tagId` TEXT NOT NULL, `name` TEXT NOT NULL, `colorHex` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `isDeleted` INTEGER NOT NULL, PRIMARY KEY(`tagId`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`tagId` TEXT NOT NULL, `name` TEXT NOT NULL, `colorHex` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `isDeleted` INTEGER NOT NULL, `spaceId` TEXT NOT NULL, PRIMARY KEY(`tagId`))",
         "fields": [
           {
             "fieldPath": "tagId",
@@ -223,6 +305,12 @@
             "columnName": "isDeleted",
             "affinity": "INTEGER",
             "notNull": true
+          },
+          {
+            "fieldPath": "spaceId",
+            "columnName": "spaceId",
+            "affinity": "TEXT",
+            "notNull": true
           }
         ],
         "primaryKey": {
@@ -230,7 +318,18 @@
           "columnNames": [
             "tagId"
           ]
-        }
+        },
+        "indices": [
+          {
+            "name": "index_global_tags_spaceId",
+            "unique": false,
+            "columnNames": [
+              "spaceId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_global_tags_spaceId` ON `${TABLE_NAME}` (`spaceId`)"
+          }
+        ]
       },
       {
         "tableName": "note_blocks",
@@ -296,7 +395,7 @@
       },
       {
         "tableName": "calendar_tasks",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`blockId` TEXT NOT NULL, `noteId` TEXT NOT NULL, `text` TEXT NOT NULL, `isChecked` INTEGER NOT NULL, `targetDate` TEXT, `reminderTimestamp` INTEGER, `sourceType` TEXT NOT NULL, `categoryId` TEXT, `durationMinutes` INTEGER NOT NULL DEFAULT 30, `url` TEXT, `description` TEXT, `recurrenceFrequency` TEXT, `recurrenceInterval` INTEGER NOT NULL DEFAULT 1, `recurrenceDaysOfWeek` TEXT, `recurrenceUntil` TEXT, PRIMARY KEY(`blockId`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`blockId` TEXT NOT NULL, `noteId` TEXT NOT NULL, `text` TEXT NOT NULL, `isChecked` INTEGER NOT NULL, `targetDate` TEXT, `reminderTimestamp` INTEGER, `sourceType` TEXT NOT NULL, `categoryId` TEXT, `durationMinutes` INTEGER NOT NULL DEFAULT 30, `url` TEXT, `description` TEXT, `recurrenceFrequency` TEXT, `recurrenceInterval` INTEGER NOT NULL DEFAULT 1, `recurrenceDaysOfWeek` TEXT, `recurrenceUntil` TEXT, `spaceId` TEXT NOT NULL, PRIMARY KEY(`blockId`))",
         "fields": [
           {
             "fieldPath": "blockId",
@@ -381,6 +480,12 @@
             "fieldPath": "recurrenceUntil",
             "columnName": "recurrenceUntil",
             "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "spaceId",
+            "columnName": "spaceId",
+            "affinity": "TEXT",
+            "notNull": true
           }
         ],
         "primaryKey": {
@@ -391,13 +496,14 @@
         },
         "indices": [
           {
-            "name": "index_calendar_tasks_targetDate",
+            "name": "index_calendar_tasks_spaceId_targetDate",
             "unique": false,
             "columnNames": [
+              "spaceId",
               "targetDate"
             ],
             "orders": [],
-            "createSql": "CREATE INDEX IF NOT EXISTS `index_calendar_tasks_targetDate` ON `${TABLE_NAME}` (`targetDate`)"
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_calendar_tasks_spaceId_targetDate` ON `${TABLE_NAME}` (`spaceId`, `targetDate`)"
           },
           {
             "name": "index_calendar_tasks_noteId",
@@ -667,7 +773,7 @@
       },
       {
         "tableName": "calendar_categories",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`categoryId` TEXT NOT NULL, `name` TEXT NOT NULL, `colorHex` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `isDeleted` INTEGER NOT NULL, PRIMARY KEY(`categoryId`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`categoryId` TEXT NOT NULL, `name` TEXT NOT NULL, `colorHex` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `isDeleted` INTEGER NOT NULL, `spaceId` TEXT NOT NULL, PRIMARY KEY(`categoryId`))",
         "fields": [
           {
             "fieldPath": "categoryId",
@@ -704,6 +810,12 @@
             "columnName": "isDeleted",
             "affinity": "INTEGER",
             "notNull": true
+          },
+          {
+            "fieldPath": "spaceId",
+            "columnName": "spaceId",
+            "affinity": "TEXT",
+            "notNull": true
           }
         ],
         "primaryKey": {
@@ -711,11 +823,22 @@
           "columnNames": [
             "categoryId"
           ]
-        }
+        },
+        "indices": [
+          {
+            "name": "index_calendar_categories_spaceId",
+            "unique": false,
+            "columnNames": [
+              "spaceId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_calendar_categories_spaceId` ON `${TABLE_NAME}` (`spaceId`)"
+          }
+        ]
       },
       {
         "tableName": "self_host_deleted_notes",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`noteId` TEXT NOT NULL, `isDaily` INTEGER NOT NULL, `dateString` TEXT, `deletedAt` INTEGER NOT NULL, `remoteFileDeleted` INTEGER NOT NULL, PRIMARY KEY(`noteId`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`noteId` TEXT NOT NULL, `isDaily` INTEGER NOT NULL, `dateString` TEXT, `deletedAt` INTEGER NOT NULL, `remoteFileDeleted` INTEGER NOT NULL, `spaceId` TEXT NOT NULL, PRIMARY KEY(`noteId`))",
         "fields": [
           {
             "fieldPath": "noteId",
@@ -745,6 +868,12 @@
             "columnName": "remoteFileDeleted",
             "affinity": "INTEGER",
             "notNull": true
+          },
+          {
+            "fieldPath": "spaceId",
+            "columnName": "spaceId",
+            "affinity": "TEXT",
+            "notNull": true
           }
         ],
         "primaryKey": {
@@ -752,11 +881,22 @@
           "columnNames": [
             "noteId"
           ]
-        }
+        },
+        "indices": [
+          {
+            "name": "index_self_host_deleted_notes_spaceId",
+            "unique": false,
+            "columnNames": [
+              "spaceId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_self_host_deleted_notes_spaceId` ON `${TABLE_NAME}` (`spaceId`)"
+          }
+        ]
       },
       {
         "tableName": "chat_sessions",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `title` TEXT NOT NULL, `messagesJson` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `isDeleted` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `title` TEXT NOT NULL, `messagesJson` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `isDeleted` INTEGER NOT NULL, `spaceId` TEXT NOT NULL, PRIMARY KEY(`id`))",
         "fields": [
           {
             "fieldPath": "id",
@@ -793,6 +933,12 @@
             "columnName": "isDeleted",
             "affinity": "INTEGER",
             "notNull": true
+          },
+          {
+            "fieldPath": "spaceId",
+            "columnName": "spaceId",
+            "affinity": "TEXT",
+            "notNull": true
           }
         ],
         "primaryKey": {
@@ -810,6 +956,15 @@
             ],
             "orders": [],
             "createSql": "CREATE INDEX IF NOT EXISTS `index_chat_sessions_updatedAt` ON `${TABLE_NAME}` (`updatedAt`)"
+          },
+          {
+            "name": "index_chat_sessions_spaceId",
+            "unique": false,
+            "columnNames": [
+              "spaceId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_chat_sessions_spaceId` ON `${TABLE_NAME}` (`spaceId`)"
           }
         ]
       },
@@ -839,7 +994,7 @@
       },
       {
         "tableName": "calendar_event_exceptions",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`blockId` TEXT NOT NULL, `occurrenceDate` TEXT NOT NULL, `isCancelled` INTEGER NOT NULL, `isChecked` INTEGER NOT NULL, `completedAt` INTEGER, `overrideTimestamp` INTEGER, `overrideDurationMinutes` INTEGER, `overrideText` TEXT, `overrideCategoryId` TEXT, `overrideUrl` TEXT, `overrideDescription` TEXT, PRIMARY KEY(`blockId`, `occurrenceDate`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`blockId` TEXT NOT NULL, `occurrenceDate` TEXT NOT NULL, `isCancelled` INTEGER NOT NULL, `isChecked` INTEGER NOT NULL, `completedAt` INTEGER, `overrideTimestamp` INTEGER, `overrideDurationMinutes` INTEGER, `overrideText` TEXT, `overrideCategoryId` TEXT, `overrideUrl` TEXT, `overrideDescription` TEXT, `updatedAt` INTEGER NOT NULL, PRIMARY KEY(`blockId`, `occurrenceDate`))",
         "fields": [
           {
             "fieldPath": "blockId",
@@ -899,6 +1054,12 @@
             "fieldPath": "overrideDescription",
             "columnName": "overrideDescription",
             "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updatedAt",
+            "affinity": "INTEGER",
+            "notNull": true
           }
         ],
         "primaryKey": {
@@ -948,7 +1109,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '5ed5341f0602986f70c2cfc5380bf8e3')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'b593e1eaf1bbd3ea7222eaa2899844f4')"
     ]
   }
 }

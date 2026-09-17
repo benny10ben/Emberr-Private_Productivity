@@ -8,7 +8,10 @@ import kotlinx.serialization.Serializable
 @Serializable
 @Entity(
     tableName = "chat_sessions",
-    indices = [Index("updatedAt")]
+    indices = [
+        Index("updatedAt"),
+        Index(value = ["spaceId"])
+    ]
 )
 data class ChatSessionEntity(
     @PrimaryKey val id: String,
@@ -16,5 +19,6 @@ data class ChatSessionEntity(
     val messagesJson: String,
     val createdAt: Long,
     val updatedAt: Long,
-    val isDeleted: Boolean = false
+    val isDeleted: Boolean = false,
+    val spaceId: String = DEFAULT_SPACE_ID
 )

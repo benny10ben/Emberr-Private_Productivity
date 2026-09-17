@@ -19,7 +19,7 @@ enum class TaskSource {
 @Entity(
     tableName = "calendar_tasks",
     indices = [
-        Index("targetDate"),
+        Index(value = ["spaceId", "targetDate"]),
         Index("noteId")
     ]
 )
@@ -38,7 +38,8 @@ data class CalendarTaskEntity(
     val recurrenceFrequency: RecurrenceFrequency? = null,
     @ColumnInfo(defaultValue = "1") val recurrenceInterval: Int = 1,
     val recurrenceDaysOfWeek: String? = null,
-    val recurrenceUntil: String? = null
+    val recurrenceUntil: String? = null,
+    val spaceId: String = DEFAULT_SPACE_ID
 )
 
 fun CalendarTaskEntity.toRecurrenceRule(): RecurrenceRule? {

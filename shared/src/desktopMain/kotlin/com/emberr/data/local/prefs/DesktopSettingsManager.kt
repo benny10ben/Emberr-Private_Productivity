@@ -2,6 +2,7 @@ package com.emberr.data.local.prefs
 
 import com.emberr.core.security.secrets.DesktopSecretStore
 import com.emberr.core.security.secrets.SecretNamespace
+import com.emberr.data.local.room.DEFAULT_SPACE_ID
 import java.io.File
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -12,6 +13,17 @@ class DesktopSettingsManager(private val secretStore: DesktopSecretStore) : Sett
     private val prefs = DesktopPreferenceStore(
         storageDirectory = File(System.getProperty("user.home"), ".emberr")
     )
+
+    private val _activeSpaceId = MutableStateFlow(prefs.get(SyncConstants.KEY_ACTIVE_SPACE_ID, DEFAULT_SPACE_ID))
+
+    override val activeSpaceIdFlow: Flow<String> = _activeSpaceId
+
+    override fun getActiveSpaceId(): String = _activeSpaceId.value
+
+    override fun saveActiveSpaceId(spaceId: String) {
+        prefs.put(SyncConstants.KEY_ACTIVE_SPACE_ID, spaceId)
+        _activeSpaceId.value = spaceId
+    }
 
     private val _sortType = MutableStateFlow(prefs.get(SyncConstants.KEY_SORT_TYPE, SyncConstants.DEFAULT_SORT_TYPE))
     private val _sortOrder = MutableStateFlow(prefs.get(SyncConstants.KEY_SORT_ORDER, SyncConstants.DEFAULT_SORT_ORDER))
