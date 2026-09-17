@@ -8,7 +8,7 @@ import kotlinx.serialization.Serializable
 /**
  * Represents the metadata for a note.
  * Crucially, this does NOT hold the actual note content (blocks, text, images).
- * Content is securely encrypted and stored as files via FileStorageManager.
+ * Content lives in the note_blocks table, one row per block. The filePath column is unused.
  * This entity just keeps track of titles, dates, and UI state so the app can quickly load lists and search.
  */
 @Serializable
