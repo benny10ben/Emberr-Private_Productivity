@@ -2,6 +2,7 @@
 
 package com.emberr.domain.ai.tools
 
+import com.emberr.domain.vault.ActiveVaultSpace
 import java.io.File
 import java.nio.file.Files
 import kotlinx.coroutines.async
@@ -16,6 +17,8 @@ import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
+private const val TEST_SPACE_ID = "test-space"
+
 class VaultToolExecutorTest {
 
     private lateinit var vaultRootDirectory: File
@@ -25,7 +28,7 @@ class VaultToolExecutorTest {
     fun setUp() {
         vaultRootDirectory = Files.createTempDirectory("vault-executor-test").toFile()
         executor = VaultToolExecutor(
-            vaultRootDirectory = vaultRootDirectory,
+            activeSpace = { ActiveVaultSpace(TEST_SPACE_ID, vaultRootDirectory) },
             vaultImporter = FakeVaultNoteImporter(),
             pendingWriteEvents = VaultPendingWriteEvents(),
             toolCallEvents = VaultToolCallEvents()
@@ -39,7 +42,7 @@ class VaultToolExecutorTest {
 
     @Test
     fun listNotesOnAnEmptyVaultReturnsNoNotes() {
-        val result = assertIs<VaultToolResult.Notes>(executor.listNotes())
+        val result = assertIs<VaultToolResult.Notes>(executor.listNotes(vaultRootDirectory))
         assertTrue(result.notes.isEmpty())
     }
 
@@ -50,7 +53,7 @@ class VaultToolExecutorTest {
         File(vaultRootDirectory, "CLAUDE.md").writeText("vault rules")
         File(vaultRootDirectory, "Groceries.md.tmp").writeText("partial write")
 
-        val result = assertIs<VaultToolResult.Notes>(executor.listNotes())
+        val result = assertIs<VaultToolResult.Notes>(executor.listNotes(vaultRootDirectory))
         assertEquals(listOf("Groceries.md", "Recipe.md"), result.notes.map { it.relativePath })
     }
 
@@ -60,26 +63,26 @@ class VaultToolExecutorTest {
         File(dailyFolder, "2026-09-12.md").writeText("today")
         File(vaultRootDirectory, "Groceries.md").writeText("- milk")
 
-        val result = assertIs<VaultToolResult.Notes>(executor.listNotes("Daily"))
+        val result = assertIs<VaultToolResult.Notes>(executor.listNotes(vaultRootDirectory, "Daily"))
         assertEquals(listOf("Daily/2026-09-12.md"), result.notes.map { it.relativePath })
     }
 
     @Test
     fun listNotesOnAMissingFolderIsAFailure() {
-        assertIs<VaultToolResult.Failure>(executor.listNotes("Nonexistent"))
+        assertIs<VaultToolResult.Failure>(executor.listNotes(vaultRootDirectory, "Nonexistent"))
     }
 
     @Test
     fun readNoteReturnsTheFileContent() {
         File(vaultRootDirectory, "Groceries.md").writeText("- milk\n- eggs")
 
-        val result = assertIs<VaultToolResult.NoteContent>(executor.readNote("Groceries.md"))
+        val result = assertIs<VaultToolResult.NoteContent>(executor.readNote(vaultRootDirectory, "Groceries.md"))
         assertEquals("- milk\n- eggs", result.markdown)
     }
 
     @Test
     fun readNoteOnAMissingFileIsAFailure() {
-        assertIs<VaultToolResult.Failure>(executor.readNote("Nonexistent.md"))
+        assertIs<VaultToolResult.Failure>(executor.readNote(vaultRootDirectory, "Nonexistent.md"))
     }
 
     @Test
@@ -88,7 +91,7 @@ class VaultToolExecutorTest {
         secretFile.writeText("outside the vault")
 
         try {
-            assertIs<VaultToolResult.Failure>(executor.readNote("../secret.md"))
+            assertIs<VaultToolResult.Failure>(executor.readNote(vaultRootDirectory, "../secret.md"))
         } finally {
             secretFile.delete()
         }
@@ -100,7 +103,7 @@ class VaultToolExecutorTest {
         File(dailyFolder, "2026-09-12.md").writeText("Remember to water the PLANTS")
         File(vaultRootDirectory, "Groceries.md").writeText("- milk")
 
-        val result = assertIs<VaultToolResult.Notes>(executor.searchNotes("plants"))
+        val result = assertIs<VaultToolResult.Notes>(executor.searchNotes(vaultRootDirectory, "plants"))
         assertEquals(listOf("Daily/2026-09-12.md"), result.notes.map { it.relativePath })
     }
 
@@ -108,13 +111,13 @@ class VaultToolExecutorTest {
     fun searchNotesWithNoMatchesReturnsAnEmptyList() {
         File(vaultRootDirectory, "Groceries.md").writeText("- milk")
 
-        val result = assertIs<VaultToolResult.Notes>(executor.searchNotes("plants"))
+        val result = assertIs<VaultToolResult.Notes>(executor.searchNotes(vaultRootDirectory, "plants"))
         assertTrue(result.notes.isEmpty())
     }
 
     @Test
     fun searchNotesWithABlankQueryIsAFailure() {
-        assertIs<VaultToolResult.Failure>(executor.searchNotes("  "))
+        assertIs<VaultToolResult.Failure>(executor.searchNotes(vaultRootDirectory, "  "))
     }
 
     @Test
@@ -122,7 +125,7 @@ class VaultToolExecutorTest {
         File(vaultRootDirectory, "Groceries.md").writeText("- milk")
         val toolCallEvents = VaultToolCallEvents()
         val executorWithEvents = VaultToolExecutor(
-            vaultRootDirectory = vaultRootDirectory,
+            activeSpace = { ActiveVaultSpace(TEST_SPACE_ID, vaultRootDirectory) },
             vaultImporter = FakeVaultNoteImporter(),
             pendingWriteEvents = VaultPendingWriteEvents(),
             toolCallEvents = toolCallEvents
@@ -142,7 +145,7 @@ class VaultToolExecutorTest {
         val toolCallEvents = VaultToolCallEvents()
         val pendingWriteEvents = VaultPendingWriteEvents()
         val executorWithEvents = VaultToolExecutor(
-            vaultRootDirectory = vaultRootDirectory,
+            activeSpace = { ActiveVaultSpace(TEST_SPACE_ID, vaultRootDirectory) },
             vaultImporter = FakeVaultNoteImporter(),
             pendingWriteEvents = pendingWriteEvents,
             toolCallEvents = toolCallEvents

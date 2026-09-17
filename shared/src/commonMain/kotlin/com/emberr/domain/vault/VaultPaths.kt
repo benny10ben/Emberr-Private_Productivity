@@ -3,12 +3,15 @@
 package com.emberr.domain.vault
 
 import com.emberr.data.local.room.FolderEntity
+import com.emberr.data.local.room.SpaceEntity
 
 private const val MAX_FILE_NAME_LENGTH = 80
 private val illegalFileNameCharacters = setOf('/', '\\', ':', '*', '?', '"', '<', '>', '|')
 
 object VaultPaths {
 
+    const val SPACE_FOLDER_SUFFIX = "(Space)"
+    const val SPACE_ID_FILE_NAME = ".emberr-space"
     const val DAILY_FOLDER_NAME = "Daily"
     const val SUB_NOTE_FOLDER_NAME = "Subnotes"
     const val VAULT_RULES_FILE_NAME = "CLAUDE.md"
@@ -44,6 +47,25 @@ object VaultPaths {
             .trim()
 
         return trimmed.ifEmpty { "Untitled" }
+    }
+
+    fun looksLikeSpaceFolderName(directoryName: String): Boolean =
+        directoryName.endsWith(SPACE_FOLDER_SUFFIX) && directoryName.length > SPACE_FOLDER_SUFFIX.length
+
+    fun displayNameFromSpaceFolderName(directoryName: String): String =
+        sanitiseFileName(directoryName.removeSuffix(SPACE_FOLDER_SUFFIX))
+
+    fun spaceFolderNamesBySpaceId(spaces: List<SpaceEntity>): Map<String, String> {
+        val baseNames = spaces.associate { it.spaceId to sanitiseFileName(it.displayName) }
+        val namesInUse = baseNames.values.groupingBy { it.lowercase() }.eachCount()
+
+        return baseNames.mapValues { (spaceId, baseName) ->
+            if (namesInUse.getValue(baseName.lowercase()) > 1) {
+                "$baseName (${VaultBlockTags.shortTagFor(spaceId)})$SPACE_FOLDER_SUFFIX"
+            } else {
+                "$baseName$SPACE_FOLDER_SUFFIX"
+            }
+        }
     }
 
     fun folderSegmentsFor(folderId: String?, foldersById: Map<String, FolderEntity>): List<String> {

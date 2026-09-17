@@ -2,6 +2,7 @@
 
 package com.emberr.domain.ai.tools
 
+import com.emberr.domain.vault.ActiveVaultSpace
 import java.io.File
 import java.nio.file.Files
 import kotlinx.coroutines.test.runTest
@@ -12,6 +13,8 @@ import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+
+private const val TEST_SPACE_ID = "test-space"
 
 class VaultToolExecutorWriteTest {
 
@@ -26,7 +29,7 @@ class VaultToolExecutorWriteTest {
         importer = FakeVaultNoteImporter()
         pendingWriteEvents = VaultPendingWriteEvents()
         executor = VaultToolExecutor(
-            vaultRootDirectory = vaultRootDirectory,
+            activeSpace = { ActiveVaultSpace(TEST_SPACE_ID, vaultRootDirectory) },
             vaultImporter = importer,
             pendingWriteEvents = pendingWriteEvents,
             toolCallEvents = VaultToolCallEvents()
@@ -73,6 +76,7 @@ class VaultToolExecutorWriteTest {
     @Test
     fun applyCreateWritesTheFileAndImportsIt() = runTest {
         val write = VaultPendingWrite(
+            spaceId = TEST_SPACE_ID,
             kind = VaultPendingWriteKind.CREATE,
             relativePath = "Idea.md",
             proposedContent = "A new idea"
@@ -91,6 +95,7 @@ class VaultToolExecutorWriteTest {
         noteFile.writeText("---\nid: note-1\ntitle: Groceries\n---\n- milk")
 
         val write = VaultPendingWrite(
+            spaceId = TEST_SPACE_ID,
             kind = VaultPendingWriteKind.UPDATE,
             relativePath = "Groceries.md",
             proposedContent = "- milk\n- eggs"
@@ -109,6 +114,7 @@ class VaultToolExecutorWriteTest {
         noteFile.writeText("---\nid: note-1\ntitle: Groceries\n---\n- milk")
 
         val write = VaultPendingWrite(
+            spaceId = TEST_SPACE_ID,
             kind = VaultPendingWriteKind.UPDATE,
             relativePath = "Groceries.md",
             proposedContent = "---\nid: note-1\ntitle: Groceries\n---\n- milk\n- eggs"
@@ -128,6 +134,7 @@ class VaultToolExecutorWriteTest {
         noteFile.writeText("---\nid: note-1\ntitle: Groceries\n---\n- milk")
 
         val write = VaultPendingWrite(
+            spaceId = TEST_SPACE_ID,
             kind = VaultPendingWriteKind.APPEND,
             relativePath = "Groceries.md",
             proposedContent = "- eggs"
@@ -145,7 +152,7 @@ class VaultToolExecutorWriteTest {
         val noteFile = File(vaultRootDirectory, "Groceries.md")
         noteFile.writeText("---\nid: note-1\ntitle: Groceries\n---\n- milk")
 
-        val write = VaultPendingWrite(kind = VaultPendingWriteKind.DELETE, relativePath = "Groceries.md")
+        val write = VaultPendingWrite(spaceId = TEST_SPACE_ID, kind = VaultPendingWriteKind.DELETE, relativePath = "Groceries.md")
         val result = executor.applyPendingWrite(write)
 
         assertIs<VaultToolResult.NoteContent>(result)
@@ -155,11 +162,48 @@ class VaultToolExecutorWriteTest {
 
     @Test
     fun applyDeleteFailsWhenNoteIsAlreadyGone() = runTest {
-        val write = VaultPendingWrite(kind = VaultPendingWriteKind.DELETE, relativePath = "Nonexistent.md")
+        val write = VaultPendingWrite(spaceId = TEST_SPACE_ID, kind = VaultPendingWriteKind.DELETE, relativePath = "Nonexistent.md")
 
         val result = executor.applyPendingWrite(write)
 
         assertIs<VaultToolResult.Failure>(result)
+        assertNull(importer.lastImportedFile)
+    }
+
+    @Test
+    fun applyIsRefusedWhenTheWriteWasProposedInAnotherSpace() = runTest {
+        val noteFile = File(vaultRootDirectory, "Groceries.md")
+        noteFile.writeText("---\nid: note-1\ntitle: Groceries\n---\n- milk")
+
+        val write = VaultPendingWrite(
+            spaceId = "a-different-space",
+            kind = VaultPendingWriteKind.UPDATE,
+            relativePath = "Groceries.md",
+            proposedContent = "- rewritten by the wrong space"
+        )
+
+        val result = executor.applyPendingWrite(write)
+
+        assertIs<VaultToolResult.Failure>(result)
+        assertEquals("---\nid: note-1\ntitle: Groceries\n---\n- milk", noteFile.readText())
+        assertNull(importer.lastImportedFile)
+    }
+
+    @Test
+    fun applyIsRefusedWhenTheWriteRecordsNoSpace() = runTest {
+        val noteFile = File(vaultRootDirectory, "Groceries.md")
+        noteFile.writeText("---\nid: note-1\ntitle: Groceries\n---\n- milk")
+
+        val write = VaultPendingWrite(
+            kind = VaultPendingWriteKind.UPDATE,
+            relativePath = "Groceries.md",
+            proposedContent = "- rewritten from an older session"
+        )
+
+        val result = executor.applyPendingWrite(write)
+
+        assertIs<VaultToolResult.Failure>(result)
+        assertEquals("---\nid: note-1\ntitle: Groceries\n---\n- milk", noteFile.readText())
         assertNull(importer.lastImportedFile)
     }
 }

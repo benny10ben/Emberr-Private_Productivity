@@ -33,6 +33,16 @@ object VaultRulesFile {
         This folder mirrors the notes in the Emberr app. Editing a file here changes the real
         note, usually within a second. Emberr has to be running for that to happen.
 
+        Every top-level directory ending in `(Space)` is one space in the app, for example
+        `Personal(Space)`. Notes only ever live inside one of them. A new `X(Space)` directory
+        creates a space called X, and moving a note's file into a different space does nothing -
+        Emberr writes it back to the space that owns it.
+
+        Each space directory holds a hidden `.emberr-space` file naming that space. Leave it alone.
+        It is what lets Emberr recognise a space after you rename its directory, and what lets a
+        vault copied to another device rejoin the same space instead of becoming a second one. If
+        you delete it, Emberr falls back to matching on the directory name and writes it again.
+
     """.trimIndent() + "\n\n" + VaultMarkdownFormatGuide.TEXT + "\n\n" + """
         ## How to do things
 
@@ -50,8 +60,8 @@ object VaultRulesFile {
         Renaming the file itself does nothing. Emberr builds the file name from `title:` and will
         rename it back.
 
-        `Daily/` and `Subnotes/` belong to Emberr. Do not create folders with those names, and do
-        not put new notes in them.
+        `Daily/` and `Subnotes/` inside a space directory belong to Emberr. Do not create folders
+        with those names, and do not put new notes in them.
 
         `Inbox.md` is where the app drops anything captured quickly, so Emberr always keeps it.
         Deleting that file empties the note instead of trashing it, and the empty file comes back.

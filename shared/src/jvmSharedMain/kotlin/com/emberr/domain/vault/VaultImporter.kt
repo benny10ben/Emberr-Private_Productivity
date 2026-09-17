@@ -2,6 +2,7 @@
 
 package com.emberr.domain.vault
 
+import com.emberr.data.local.room.CategoryDao
 import com.emberr.data.local.room.CategoryEntity
 import com.emberr.data.local.room.FolderDao
 import com.emberr.data.local.room.FolderEntity
@@ -10,6 +11,8 @@ import com.emberr.data.local.room.NoteMetadataEntity
 import com.emberr.domain.model.NoteBlock
 import com.emberr.domain.model.NoteContent
 import com.emberr.domain.repository.NoteRepository
+import com.emberr.domain.space.ActiveSpaceStore
+import com.emberr.domain.space.SpaceRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
@@ -34,10 +37,16 @@ interface VaultNoteImporter {
     suspend fun importFile(file: File): VaultImportReport
 }
 
+private data class VaultFileLocation(val spaceId: String, val folderId: String?)
+
 class VaultImporter(
     private val noteDao: NoteDao,
     private val folderDao: FolderDao,
+    private val categoryDao: CategoryDao,
     private val noteRepository: NoteRepository,
+    private val spaceRepository: SpaceRepository,
+    private val activeSpaceStore: ActiveSpaceStore,
+    private val spaceDirectories: VaultSpaceDirectories,
     private val fileLedger: VaultFileLedger,
     private val vaultExporter: VaultExporter
 ) : VaultNoteImporter {
@@ -64,12 +73,25 @@ class VaultImporter(
     }
 
     private suspend fun deleteFolderForRemovedDirectory(folderId: String, directoryName: String): Boolean {
-        val stillExists = folderDao.getAllFolders().first().any { it.folderId == folderId }
-        if (!stillExists) return false
+        val folders = folderDao.getAllFoldersAcrossSpaces().first()
+        val folder = folders.firstOrNull { it.folderId == folderId } ?: return false
+        if (directoryStillExistsFor(folder, folders.associateBy { it.folderId })) return false
 
         noteRepository.deleteFolder(folderId)
         VaultLog.d("folder \"$directoryName\" removed because its directory was deleted")
         return true
+    }
+
+    private suspend fun directoryStillExistsFor(
+        folder: FolderEntity,
+        foldersById: Map<String, FolderEntity>
+    ): Boolean {
+        val spaceDirectory = spaceDirectories.directoryFor(folder.spaceId) ?: return false
+        var directory = spaceDirectory
+        for (segment in VaultPaths.folderSegmentsFor(folder.folderId, foldersById)) {
+            directory = File(directory, segment)
+        }
+        return directory.isDirectory
     }
 
     private suspend fun importFileWhileLocked(file: File): VaultImportReport {
@@ -121,7 +143,7 @@ class VaultImporter(
 
         var hadConflict = false
         val markdownToApply = if (baseMarkdown != null && appAlsoChangedTheNote) {
-            val currentMarkdown = renderCurrentMarkdown(existingNote, currentBlocks)
+            val currentMarkdown = renderCurrentMarkdown(existingNote, currentBlocks, file)
             val merged = VaultMarkdownMerge.merge(baseMarkdown, markdownOnDisk, currentMarkdown)
             if (merged.hasRealConflict) {
                 hadConflict = true
@@ -132,7 +154,7 @@ class VaultImporter(
             markdownOnDisk
         }
 
-        val readResult = readBlocks(markdownToApply, currentBlocks)
+        val readResult = readBlocks(markdownToApply, currentBlocks, existingNote.spaceId)
         val noteAlreadyMatchesTheFile = readResult.blocks == currentBlocks &&
             !metadataChanged(existingNote, frontMatter, file)
 
@@ -171,19 +193,21 @@ class VaultImporter(
             ?: file.name.removeSuffix(VaultPaths.MARKDOWN_EXTENSION)
 
         val now = System.currentTimeMillis()
-        val readResult = readBlocks(markdownOnDisk, emptyList())
+        val location = locationOfFile(file)
+        val readResult = readBlocks(markdownOnDisk, emptyList(), location.spaceId)
 
         val metadata = NoteMetadataEntity(
             noteId = UUID.randomUUID().toString(),
             title = title,
             icon = frontMatter.icon,
-            folderId = resolveFolderIdForFile(file),
+            folderId = location.folderId,
             isDaily = false,
             dateString = null,
             createdAt = frontMatter.createdAt ?: now,
             updatedAt = now,
             filePath = "",
-            isFavorite = frontMatter.isFavorite
+            isFavorite = frontMatter.isFavorite,
+            spaceId = location.spaceId
         )
 
         fileLedger.recordWrite(
@@ -192,7 +216,11 @@ class VaultImporter(
             markdown = markdownOnDisk,
             noteUpdatedAt = metadata.updatedAt
         )
-        noteRepository.saveNote(metadata = metadata, content = NoteContent(blocks = readResult.blocks))
+        noteRepository.saveNoteInSpace(
+            spaceId = location.spaceId,
+            metadata = metadata,
+            content = NoteContent(blocks = readResult.blocks)
+        )
         readResult.problems.forEach { problem -> VaultLog.e("${vaultPathOf(file)}: $problem") }
 
         return VaultImportReport(VaultImportOutcome.CREATED, title)
@@ -275,63 +303,119 @@ class VaultImporter(
                 VaultMarkdownScanner.splitFrontMatter(text).first.noteId == noteId
             }
 
-    private suspend fun readBlocks(markdown: String, existingBlocks: List<NoteBlock>) =
-        NoteMarkdownReader.readNote(
+    private suspend fun readBlocks(
+        markdown: String,
+        existingBlocks: List<NoteBlock>,
+        spaceId: String
+    ) = NoteMarkdownReader.readNote(
             VaultNoteReadRequest(
                 markdown = markdown,
                 existingBlocks = existingBlocks,
                 timestamp = System.currentTimeMillis(),
                 generateBlockId = { UUID.randomUUID().toString() },
-                noteIdsByLowercaseTitle = noteIdsByLowercaseTitle(),
-                categoryIdsByLowercaseName = categoryIdsByLowercaseName()
+                noteIdsByLowercaseTitle = noteIdsByLowercaseTitle(spaceId),
+                categoryIdsByLowercaseName = categoryIdsByLowercaseName(spaceId)
             )
         )
 
     private suspend fun renderCurrentMarkdown(
         note: NoteMetadataEntity,
-        blocks: List<NoteBlock>
+        blocks: List<NoteBlock>,
+        file: File
     ): String = NoteMarkdownWriter.writeNote(
         VaultNoteWriteRequest(
             metadata = note,
             blocks = blocks,
-            noteTitlesById = noteDao.getAllNotesForBackup().associate { it.noteId to it.title },
-            categoryNamesById = liveCategories().associate { it.categoryId to it.name }
+            noteTitlesById = notesInSpace(note.spaceId).associate { it.noteId to it.title },
+            categoryNamesById = liveCategories(note.spaceId).associate { it.categoryId to it.name },
+            mediaPathPrefix = VaultPaths.mediaPathPrefixForDepth(folderDepthOf(file))
         )
     )
 
-    private suspend fun liveCategories(): List<CategoryEntity> =
-        noteRepository.getAllCategories().first().filter { !it.isDeleted }
+    private fun folderDepthOf(file: File): Int {
+        val parent = file.parentFile ?: return 0
+        val relative = parent.toRelativeString(vaultExporter.vaultRootDirectory)
+        if (relative.isBlank() || relative == ".") return 0
+        return relative.split(File.separatorChar).count { it.isNotBlank() }
+    }
 
-    private suspend fun categoryIdsByLowercaseName(): Map<String, String> =
-        liveCategories().associate { it.name.lowercase() to it.categoryId }
+    private suspend fun notesInSpace(spaceId: String): List<NoteMetadataEntity> =
+        noteDao.getAllNotesForBackup().filter { it.spaceId == spaceId }
 
-    private suspend fun noteIdsByLowercaseTitle(): Map<String, String> =
-        noteDao.getAllNotesForBackup()
+    private suspend fun liveCategories(spaceId: String): List<CategoryEntity> =
+        categoryDao.getAllCategoriesOnceAcrossSpaces()
+            .filter { !it.isDeleted && it.spaceId == spaceId }
+
+    private suspend fun categoryIdsByLowercaseName(spaceId: String): Map<String, String> =
+        liveCategories(spaceId).associate { it.name.lowercase() to it.categoryId }
+
+    private suspend fun noteIdsByLowercaseTitle(spaceId: String): Map<String, String> =
+        notesInSpace(spaceId)
             .filter { it.trashedAt == null }
             .associate { it.title.lowercase() to it.noteId }
 
-    // A directory in the vault is a folder in the app, so a missing one is created.
-    private suspend fun resolveFolderIdForFile(file: File): String? {
+    private suspend fun locationOfFile(file: File): VaultFileLocation {
         val rootPath = vaultExporter.vaultRootDirectory.absolutePath
-        val parentPath = file.parentFile?.absolutePath ?: return null
-        if (parentPath == rootPath) return null
+        val parentPath = file.parentFile?.absolutePath
+            ?: return VaultFileLocation(activeSpaceStore.currentActiveSpaceId(), null)
 
         val segments = parentPath.removePrefix(rootPath).trim('/').split('/').filter { it.isNotBlank() }
-        if (segments.isEmpty()) return null
+        val topSegment = segments.firstOrNull()
+
+        val spaceId = when {
+            topSegment == null -> activeSpaceStore.currentActiveSpaceId()
+            VaultPaths.looksLikeSpaceFolderName(topSegment) -> findOrCreateSpaceForFolderName(topSegment)
+            else -> activeSpaceStore.currentActiveSpaceId()
+        }
+
+        val folderSegments = if (topSegment != null && VaultPaths.looksLikeSpaceFolderName(topSegment)) {
+            segments.drop(1)
+        } else {
+            segments
+        }
+
+        if (folderSegments.isEmpty()) return VaultFileLocation(spaceId, null)
 
         // Daily notes and sub-notes live in directories the exporter owns, not folders.
-        if (segments.first() in reservedDirectoryNames) return null
+        if (folderSegments.first() in reservedDirectoryNames) return VaultFileLocation(spaceId, null)
 
         var parentFolderId: String? = null
-        for (segment in segments) {
-            parentFolderId = findOrCreateFolderNamed(segment, parentFolderId)
+        for (segment in folderSegments) {
+            parentFolderId = findOrCreateFolderNamed(segment, parentFolderId, spaceId)
         }
-        return parentFolderId
+        return VaultFileLocation(spaceId, parentFolderId)
     }
 
-    private suspend fun findOrCreateFolderNamed(name: String, parentFolderId: String?): String {
-        val existing = folderDao.getAllFolders().first().firstOrNull { folder ->
-            folder.name.equals(name, ignoreCase = true) && folder.parentFolderId == parentFolderId
+    private suspend fun findOrCreateSpaceForFolderName(directoryName: String): String {
+        spaceIdRecordedInDirectory(directoryName)?.let { return it }
+        spaceDirectories.spaceIdForFolderName(directoryName)?.let { return it }
+
+        val displayName = VaultPaths.displayNameFromSpaceFolderName(directoryName)
+        val newSpaceId = spaceRepository.createSpace(displayName)
+        VaultLog.d("created space \"$displayName\" from the vault")
+        return newSpaceId
+    }
+
+    private suspend fun spaceIdRecordedInDirectory(directoryName: String): String? {
+        val recordedSpaceId = spaceDirectories.spaceIdRecordedIn(directoryName) ?: return null
+        if (spaceDirectories.folderNamesBySpaceId().containsKey(recordedSpaceId)) return recordedSpaceId
+        if (spaceRepository.getSpace(recordedSpaceId) != null) return null
+
+        val displayName = VaultPaths.displayNameFromSpaceFolderName(directoryName)
+        spaceRepository.ensureSpaceExists(recordedSpaceId, displayName)
+        VaultLog.d("adopted space \"$displayName\" ($recordedSpaceId) from the vault")
+        return recordedSpaceId
+    }
+
+    private suspend fun findOrCreateFolderNamed(
+        name: String,
+        parentFolderId: String?,
+        spaceId: String
+    ): String {
+        val existing = folderDao.getAllFoldersAcrossSpaces().first().firstOrNull { folder ->
+            folder.spaceId == spaceId &&
+                folder.name.equals(name, ignoreCase = true) &&
+                folder.parentFolderId == parentFolderId
         }
         if (existing != null) return existing.folderId
 
@@ -341,9 +425,10 @@ class VaultImporter(
             name = name,
             parentFolderId = parentFolderId,
             createdAt = now,
-            updatedAt = now
+            updatedAt = now,
+            spaceId = spaceId
         )
-        noteRepository.insertFolder(newFolder)
+        noteRepository.insertFolderInSpace(spaceId, newFolder)
         VaultLog.d("created folder \"$name\" from the vault")
         return newFolder.folderId
     }
@@ -363,8 +448,13 @@ class VaultImporter(
 
     // The directory a file sits in decides the note's folder. Daily notes and sub-notes keep
     // whichever folder they already have.
-    private suspend fun folderIdForExistingNote(note: NoteMetadataEntity, file: File): String? =
-        if (note.isDaily || note.isSubNote) note.folderId else resolveFolderIdForFile(file)
+    private suspend fun folderIdForExistingNote(note: NoteMetadataEntity, file: File): String? = when {
+        note.isDaily || note.isSubNote -> note.folderId
+        else -> {
+            val location = locationOfFile(file)
+            if (location.spaceId == note.spaceId) location.folderId else note.folderId
+        }
+    }
 
     private fun writeConflictCopy(file: File, currentMarkdown: String) {
         val conflictFile = File(

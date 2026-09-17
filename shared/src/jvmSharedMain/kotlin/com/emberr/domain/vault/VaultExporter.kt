@@ -2,10 +2,12 @@
 
 package com.emberr.domain.vault
 
+import com.emberr.data.local.room.CategoryDao
 import com.emberr.data.local.room.FolderDao
 import com.emberr.data.local.room.FolderEntity
 import com.emberr.data.local.room.NoteDao
 import com.emberr.data.local.room.NoteMetadataEntity
+import com.emberr.data.local.room.SpaceDao
 import com.emberr.domain.repository.NoteRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -43,13 +45,16 @@ private class VaultSnapshot(
     val plannedFilesByNoteId: Map<String, PlannedNoteFile>,
     val noteTitlesById: Map<String, String>,
     val categoryNamesById: Map<String, String>,
-    val foldersById: Map<String, FolderEntity>
+    val foldersById: Map<String, FolderEntity>,
+    val spaceFolderNamesBySpaceId: Map<String, String>
 )
 
 class VaultExporter(
     val vaultRootDirectory: File,
     private val noteDao: NoteDao,
     private val folderDao: FolderDao,
+    private val spaceDao: SpaceDao,
+    private val categoryDao: CategoryDao,
     private val noteRepository: NoteRepository,
     private val fileLedger: VaultFileLedger,
     private val pathMemory: VaultPathMemory
@@ -57,6 +62,7 @@ class VaultExporter(
 
     private val exportMutex = Mutex()
     private var folderDirectoriesByFolderId: Map<String, String> = emptyMap()
+    private var spaceDirectoryPaths: Set<String> = emptySet()
 
     // Shared with the importer so a file is never read while it is half written.
     val vaultMutex: Mutex get() = exportMutex
@@ -182,7 +188,11 @@ class VaultExporter(
             }
         }
 
-        val folderDirectories = createDirectoryForEveryFolder(snapshot.foldersById)
+        spaceDirectoryPaths = createDirectoryForEverySpace(snapshot.spaceFolderNamesBySpaceId)
+        val folderDirectories = createDirectoryForEveryFolder(
+            snapshot.foldersById,
+            snapshot.spaceFolderNamesBySpaceId
+        )
         folderDirectoriesByFolderId = folderDirectories
         val filesRemoved = removeStaleFiles(writtenFilePaths, failures)
         removeDirectoriesWeNoLongerOwn(folderDirectories.values.toSet())
@@ -205,29 +215,35 @@ class VaultExporter(
     }
 
     private suspend fun takeVaultSnapshot(): VaultSnapshot {
-        val foldersById = folderDao.getAllFolders().first().associateBy { it.folderId }
+        val foldersById = folderDao.getAllFoldersAcrossSpaces().first().associateBy { it.folderId }
+        val spaceFolderNames = VaultPaths.spaceFolderNamesBySpaceId(spaceDao.getAllSpacesOnce())
         val allNotes = noteDao.getAllNotesForBackup()
-        val plannedFiles = planNoteFiles(allNotes.filter { isExportable(it) }, foldersById)
+        val plannedFiles = planNoteFiles(allNotes.filter { isExportable(it) }, foldersById, spaceFolderNames)
 
         return VaultSnapshot(
             plannedFilesByNoteId = plannedFiles.associateBy { it.note.noteId },
             noteTitlesById = allNotes.associate { it.noteId to it.title },
-            categoryNamesById = noteRepository.getAllCategories().first()
+            categoryNamesById = categoryDao.getAllCategoriesOnceAcrossSpaces()
                 .filter { !it.isDeleted }
                 .associate { it.categoryId to it.name },
-            foldersById = foldersById
+            foldersById = foldersById,
+            spaceFolderNamesBySpaceId = spaceFolderNames
         )
     }
 
     // Even an empty folder gets its directory, so a missing directory means it was deleted.
-    private fun createDirectoryForEveryFolder(foldersById: Map<String, FolderEntity>): Map<String, String> {
+    private fun createDirectoryForEveryFolder(
+        foldersById: Map<String, FolderEntity>,
+        spaceFolderNames: Map<String, String>
+    ): Map<String, String> {
         val directoriesByFolderId = LinkedHashMap<String, String>(foldersById.size)
 
-        for ((folderId, _) in foldersById) {
+        for ((folderId, folder) in foldersById) {
+            val spaceFolderName = spaceFolderNames[folder.spaceId] ?: continue
             val segments = VaultPaths.folderSegmentsFor(folderId, foldersById)
             if (segments.isEmpty()) continue
 
-            var directory = vaultRootDirectory
+            var directory = File(vaultRootDirectory, spaceFolderName)
             for (segment in segments) {
                 directory = File(directory, segment)
             }
@@ -238,12 +254,39 @@ class VaultExporter(
         return directoriesByFolderId
     }
 
+    private fun createDirectoryForEverySpace(spaceFolderNames: Map<String, String>): Set<String> {
+        val directoryPaths = mutableSetOf<String>()
+        for ((spaceId, folderName) in spaceFolderNames) {
+            val directory = File(vaultRootDirectory, folderName)
+            if (directory.isDirectory || directory.mkdirs()) {
+                directoryPaths.add(directory.absolutePath)
+                recordSpaceIdIn(directory, spaceId)
+            }
+        }
+        return directoryPaths
+    }
+
+    private fun recordSpaceIdIn(directory: File, spaceId: String) {
+        val markerFile = File(directory, VaultPaths.SPACE_ID_FILE_NAME)
+        try {
+            if (markerFile.isFile && markerFile.readText().trim() == spaceId) return
+            markerFile.writeText(spaceId)
+        } catch (cause: Exception) {
+            VaultLog.e("could not record the space id in ${directory.name}: ${cause.message}")
+        }
+    }
+
     private fun removeDirectoriesWeNoLongerOwn(folderDirectoryPaths: Set<String>) {
         vaultRootDirectory.walkBottomUp()
             .filter { it.isDirectory && it.absolutePath != vaultRootDirectory.absolutePath }
             .filterNot { it.absolutePath in folderDirectoryPaths }
+            .filterNot { it.absolutePath in spaceDirectoryPaths }
             .filterNot { it.name == VaultPaths.DAILY_FOLDER_NAME || it.name == VaultPaths.SUB_NOTE_FOLDER_NAME }
             .forEach { directory ->
+                val remainingFiles = directory.listFiles().orEmpty()
+                val onlyHoldsTheSpaceMarker = remainingFiles.size == 1 &&
+                    remainingFiles.first().name == VaultPaths.SPACE_ID_FILE_NAME
+                if (onlyHoldsTheSpaceMarker) remainingFiles.first().delete()
                 if (directory.listFiles()?.isEmpty() == true) directory.delete()
             }
     }
@@ -301,10 +344,23 @@ class VaultExporter(
 
     private fun planNoteFiles(
         notes: List<NoteMetadataEntity>,
-        foldersById: Map<String, FolderEntity>
+        foldersById: Map<String, FolderEntity>,
+        spaceFolderNames: Map<String, String>
     ): List<PlannedNoteFile> {
-        val drafts = notes.map { note ->
-            Triple(note, folderSegmentsFor(note, foldersById), baseFileNameFor(note))
+        val drafts = notes.mapNotNull { note ->
+            val spaceFolderName = spaceFolderNames[note.spaceId]
+            if (spaceFolderName == null) {
+                VaultLog.e(
+                    "note ${note.noteId} (\"${note.title}\") is not exported because its space " +
+                        "${note.spaceId} has no live row, so its markdown file will be swept as stale"
+                )
+                return@mapNotNull null
+            }
+            Triple(
+                note,
+                listOf(spaceFolderName) + folderSegmentsFor(note, foldersById),
+                baseFileNameFor(note)
+            )
         }
 
         val notesPerTargetPath = drafts

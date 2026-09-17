@@ -12,6 +12,7 @@ enum class VaultPendingWriteStatus { PENDING, APPLIED, REJECTED, FAILED }
 data class VaultPendingWrite(
     val kind: VaultPendingWriteKind,
     val relativePath: String,
+    val spaceId: String = "",
     val previousContent: String? = null,
     val proposedContent: String? = null,
     val status: VaultPendingWriteStatus = VaultPendingWriteStatus.PENDING,

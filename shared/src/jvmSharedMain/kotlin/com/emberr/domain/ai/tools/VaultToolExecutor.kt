@@ -6,6 +6,7 @@ import com.emberr.domain.vault.VaultImportOutcome
 import com.emberr.domain.vault.VaultLog
 import com.emberr.domain.vault.VaultMarkdownScanner
 import com.emberr.domain.vault.VaultNoteImporter
+import com.emberr.domain.vault.ActiveVaultSpace
 import com.emberr.domain.vault.VaultPaths
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -13,29 +14,31 @@ import java.io.File
 import java.io.IOException
 
 class VaultToolExecutor(
-    private val vaultRootDirectory: File,
+    private val activeSpace: suspend () -> ActiveVaultSpace?,
     private val vaultImporter: VaultNoteImporter,
     private val pendingWriteEvents: VaultPendingWriteEvents,
     private val toolCallEvents: VaultToolCallEvents
 ) : VaultToolRunner {
 
-    private val sandbox = VaultPathSandbox(vaultRootDirectory)
-
     override suspend fun run(toolName: String, arguments: Map<String, String>): VaultToolResult =
         withContext(Dispatchers.IO) {
             VaultLog.d("vault tool call: ${describeCallForLog(toolName, arguments)}")
 
-            val result = when (toolName) {
-                VaultTools.listNotes.name -> listNotes(arguments["folder_path"].orEmpty())
-                VaultTools.readNote.name -> readNote(arguments["path"].orEmpty())
-                VaultTools.searchNotes.name -> searchNotes(arguments["query"].orEmpty())
+            val currentSpace = activeSpace()
+
+            val result = if (currentSpace == null) {
+                VaultToolResult.Failure("The active space has no vault folder, so vault tools are unavailable")
+            } else when (toolName) {
+                VaultTools.listNotes.name -> listNotes(currentSpace.directory, arguments["folder_path"].orEmpty())
+                VaultTools.readNote.name -> readNote(currentSpace.directory, arguments["path"].orEmpty())
+                VaultTools.searchNotes.name -> searchNotes(currentSpace.directory, arguments["query"].orEmpty())
                 VaultTools.createNote.name ->
-                    proposeCreate(arguments["path"].orEmpty(), arguments["content"].orEmpty())
+                    proposeCreate(currentSpace, arguments["path"].orEmpty(), arguments["content"].orEmpty())
                 VaultTools.updateNote.name ->
-                    proposeUpdate(arguments["path"].orEmpty(), arguments["content"].orEmpty())
+                    proposeUpdate(currentSpace, arguments["path"].orEmpty(), arguments["content"].orEmpty())
                 VaultTools.appendToNote.name ->
-                    proposeAppend(arguments["path"].orEmpty(), arguments["content"].orEmpty())
-                VaultTools.deleteNote.name -> proposeDelete(arguments["path"].orEmpty())
+                    proposeAppend(currentSpace, arguments["path"].orEmpty(), arguments["content"].orEmpty())
+                VaultTools.deleteNote.name -> proposeDelete(currentSpace, arguments["path"].orEmpty())
                 else -> VaultToolResult.Failure("Unknown or unavailable tool: $toolName")
             }
 
@@ -89,6 +92,18 @@ class VaultToolExecutor(
         }
 
     private suspend fun applyPendingWriteInternal(write: VaultPendingWrite): VaultToolResult {
+        val currentSpace = activeSpace()
+            ?: return VaultToolResult.Failure("The active space has no vault folder, so vault tools are unavailable")
+
+        val proposedInTheActiveSpace = write.spaceId.isNotBlank() && write.spaceId == currentSpace.spaceId
+        if (!proposedInTheActiveSpace) {
+            return VaultToolResult.Failure(
+                "This change was proposed in a different space, so it was not applied. " +
+                    "Ask again in the space you want to change."
+            )
+        }
+
+        val sandbox = VaultPathSandbox(currentSpace.directory)
         val file = when (val resolution = sandbox.resolve(write.relativePath)) {
             is VaultPathResolution.Rejected -> return VaultToolResult.Failure(resolution.reason)
             is VaultPathResolution.Allowed -> resolution.file
@@ -158,20 +173,20 @@ class VaultToolExecutor(
         return "$frontMatterBlock\n$newBody"
     }
 
-    private fun proposeCreate(path: String, content: String): VaultToolResult {
-        val file = when (val resolution = sandbox.resolve(path)) {
+    private fun proposeCreate(space: ActiveVaultSpace, path: String, content: String): VaultToolResult {
+        val file = when (val resolution = VaultPathSandbox(space.directory).resolve(path)) {
             is VaultPathResolution.Rejected -> return VaultToolResult.Failure(resolution.reason)
             is VaultPathResolution.Allowed -> resolution.file
         }
         if (file.exists()) return VaultToolResult.Failure("A note already exists at \"$path\"")
 
         return VaultToolResult.Proposed(
-            VaultPendingWrite(kind = VaultPendingWriteKind.CREATE, relativePath = path, proposedContent = content)
+            VaultPendingWrite(spaceId = space.spaceId, kind = VaultPendingWriteKind.CREATE, relativePath = path, proposedContent = content)
         )
     }
 
-    private fun proposeUpdate(path: String, content: String): VaultToolResult {
-        val file = when (val resolution = sandbox.resolve(path)) {
+    private fun proposeUpdate(space: ActiveVaultSpace, path: String, content: String): VaultToolResult {
+        val file = when (val resolution = VaultPathSandbox(space.directory).resolve(path)) {
             is VaultPathResolution.Rejected -> return VaultToolResult.Failure(resolution.reason)
             is VaultPathResolution.Allowed -> resolution.file
         }
@@ -181,6 +196,7 @@ class VaultToolExecutor(
 
         return VaultToolResult.Proposed(
             VaultPendingWrite(
+                spaceId = space.spaceId,
                 kind = VaultPendingWriteKind.UPDATE,
                 relativePath = path,
                 previousContent = file.readText(),
@@ -189,8 +205,8 @@ class VaultToolExecutor(
         )
     }
 
-    private fun proposeAppend(path: String, content: String): VaultToolResult {
-        val file = when (val resolution = sandbox.resolve(path)) {
+    private fun proposeAppend(space: ActiveVaultSpace, path: String, content: String): VaultToolResult {
+        val file = when (val resolution = VaultPathSandbox(space.directory).resolve(path)) {
             is VaultPathResolution.Rejected -> return VaultToolResult.Failure(resolution.reason)
             is VaultPathResolution.Allowed -> resolution.file
         }
@@ -200,6 +216,7 @@ class VaultToolExecutor(
 
         return VaultToolResult.Proposed(
             VaultPendingWrite(
+                spaceId = space.spaceId,
                 kind = VaultPendingWriteKind.APPEND,
                 relativePath = path,
                 previousContent = file.readText(),
@@ -208,8 +225,8 @@ class VaultToolExecutor(
         )
     }
 
-    private fun proposeDelete(path: String): VaultToolResult {
-        val file = when (val resolution = sandbox.resolve(path)) {
+    private fun proposeDelete(space: ActiveVaultSpace, path: String): VaultToolResult {
+        val file = when (val resolution = VaultPathSandbox(space.directory).resolve(path)) {
             is VaultPathResolution.Rejected -> return VaultToolResult.Failure(resolution.reason)
             is VaultPathResolution.Allowed -> resolution.file
         }
@@ -218,12 +235,12 @@ class VaultToolExecutor(
         }
 
         return VaultToolResult.Proposed(
-            VaultPendingWrite(kind = VaultPendingWriteKind.DELETE, relativePath = path, previousContent = file.readText())
+            VaultPendingWrite(spaceId = space.spaceId, kind = VaultPendingWriteKind.DELETE, relativePath = path, previousContent = file.readText())
         )
     }
 
-    fun listNotes(folderPath: String = ""): VaultToolResult {
-        val directory = when (val resolution = sandbox.resolve(folderPath)) {
+    fun listNotes(spaceRoot: File, folderPath: String = ""): VaultToolResult {
+        val directory = when (val resolution = VaultPathSandbox(spaceRoot).resolve(folderPath)) {
             is VaultPathResolution.Rejected -> return VaultToolResult.Failure(resolution.reason)
             is VaultPathResolution.Allowed -> resolution.file
         }
@@ -235,7 +252,7 @@ class VaultToolExecutor(
         val allNotes = directory.listFiles()
             .orEmpty()
             .filter { it.isFile && VaultPaths.isImportableMarkdownFile(it.name) }
-            .map { it.toNoteSummary() }
+            .map { it.toNoteSummary(spaceRoot) }
             .sortedBy { it.title.lowercase() }
 
         return VaultToolResult.Notes(
@@ -244,8 +261,8 @@ class VaultToolExecutor(
         )
     }
 
-    fun readNote(path: String): VaultToolResult {
-        val file = when (val resolution = sandbox.resolve(path)) {
+    fun readNote(spaceRoot: File, path: String): VaultToolResult {
+        val file = when (val resolution = VaultPathSandbox(spaceRoot).resolve(path)) {
             is VaultPathResolution.Rejected -> return VaultToolResult.Failure(resolution.reason)
             is VaultPathResolution.Allowed -> resolution.file
         }
@@ -265,15 +282,15 @@ class VaultToolExecutor(
         return VaultToolResult.NoteContent(relativePath = path, markdown = limited)
     }
 
-    fun searchNotes(query: String): VaultToolResult {
+    fun searchNotes(spaceRoot: File, query: String): VaultToolResult {
         if (query.isBlank()) {
             return VaultToolResult.Failure("Search query cannot be blank")
         }
 
-        val allMatches = vaultRootDirectory.walkTopDown()
+        val allMatches = spaceRoot.walkTopDown()
             .filter { it.isFile && VaultPaths.isImportableMarkdownFile(it.name) }
             .filter { it.readText().contains(query, ignoreCase = true) }
-            .map { it.toNoteSummary() }
+            .map { it.toNoteSummary(spaceRoot) }
             .sortedBy { it.title.lowercase() }
             .toList()
 
@@ -283,8 +300,8 @@ class VaultToolExecutor(
         )
     }
 
-    private fun File.toNoteSummary() = VaultNoteSummary(
-        relativePath = relativeTo(vaultRootDirectory).path,
+    private fun File.toNoteSummary(spaceRoot: File) = VaultNoteSummary(
+        relativePath = relativeTo(spaceRoot).path,
         title = nameWithoutExtension
     )
 
