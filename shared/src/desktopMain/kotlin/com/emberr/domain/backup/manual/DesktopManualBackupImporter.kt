@@ -7,7 +7,9 @@ import com.emberr.data.local.room.getRoomDatabase
 import com.emberr.domain.backup.BackupFormat
 import com.emberr.domain.backup.automatic.BackupRescheduler
 import com.emberr.domain.repository.NoteRepository
+import com.emberr.domain.space.SpaceRepository
 import com.emberr.domain.util.sync.SyncEventBus
+import com.emberr.domain.vault.VaultMirrorTrigger
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import java.io.File
@@ -18,6 +20,7 @@ class DesktopManualBackupImporter(
     private val settingsManager: SettingsManager,
     private val backupRepository: BackupRepository,
     private val noteRepository: NoteRepository,
+    private val spaceRepository: SpaceRepository,
     private val backupRescheduler: BackupRescheduler
 ) {
 
@@ -66,10 +69,16 @@ class DesktopManualBackupImporter(
                 tagDao = tempDatabase.tagDao(),
                 blockDao = tempDatabase.blockDao(),
                 calendarTaskDao = tempDatabase.calendarTaskDao(),
+                categoryDao = tempDatabase.categoryDao(),
                 imageBlockDao = tempDatabase.imageBlockDao(),
                 documentBlockDao = tempDatabase.documentBlockDao(),
                 bookmarkBlockDao = tempDatabase.bookmarkBlockDao(),
                 mediaReferenceDao = tempDatabase.mediaReferenceDao(),
+                spaceDao = tempDatabase.spaceDao(),
+                chatSessionDao = tempDatabase.chatSessionDao(),
+                databaseTemplateDao = tempDatabase.databaseTemplateDao(),
+                calendarEventExceptionDao = tempDatabase.calendarEventExceptionDao(),
+                selfHostDeletedNoteDao = tempDatabase.selfHostDeletedNoteDao(),
                 settingsManager = settingsManager
             )
             val backupData = importedRepository.createBackupData()
@@ -86,7 +95,9 @@ class DesktopManualBackupImporter(
                 }
             }
 
+            spaceRepository.moveActiveSpaceIfItNoLongerExists()
             noteRepository.clearCaches()
+            VaultMirrorTrigger.requestFullRefresh()
             delay(100.milliseconds)
             SyncEventBus.emitSyncCompleted("import_complete")
         } finally {
