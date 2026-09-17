@@ -1,12 +1,5 @@
 package com.emberr.presentation.shared.editor.blockViews.databaseBlockView
 
-/**
- * Every options panel a database block can open. Mobile shows these as stacked bottom sheets and
- * desktop as one anchored dropdown that swaps its body, but both drive off this single list.
- *
- * Each entry's title lives in `sheetTitleFor` and its body in `OptionSheetBody`, both in
- * OptionSheetBody.kt.
- */
 enum class DatabaseSheet {
     NONE,
 

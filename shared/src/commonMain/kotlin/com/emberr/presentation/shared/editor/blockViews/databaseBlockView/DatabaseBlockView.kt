@@ -45,11 +45,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.milliseconds
 
-/**
- * Host for one database block: owns the derived row/column projection, the shared option-sheet
- * state, and the platform-specific sheet presentation, then delegates the actual grid to whichever
- * of [TableView]/[KanbanView]/[GalleryView] the active view calls for.
- */
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun DatabaseBlockView(
@@ -69,7 +64,6 @@ fun DatabaseBlockView(
 
     val visibleColumns = remember(block.columns) { block.columns.filter { !it.isDeleted } }
 
-    // fall back to an empty Table view so nothing downstream has to null-check
     val activeView = remember(block.views, block.activeViewId) {
         block.views.find { it.id == block.activeViewId }
             ?: block.views.firstOrNull()
@@ -192,7 +186,6 @@ fun DatabaseBlockView(
             onDismiss = { showDatePicker = false },
             onConfirm = { millis ->
                 showDatePicker = false
-                // let the dialog finish dismissing before the grid recomposes underneath it
                 coroutineScope.launch {
                     try {
                         delay(150.milliseconds)
@@ -205,10 +198,6 @@ fun DatabaseBlockView(
     }
 }
 
-/**
- * Desktop keeps a single anchored dropdown and swaps its body in place, so drilling into a
- * sub-sheet slides forward and backing out slides back rather than stacking new surfaces.
- */
 @Composable
 private fun DesktopOptionMenu(context: DatabaseSheetContext) {
     EmberrDesktopMenu(expanded = true, onDismissRequest = { context.state.close() }) {
@@ -239,10 +228,6 @@ private fun DesktopOptionMenu(context: DatabaseSheetContext) {
     }
 }
 
-/**
- * Mobile gives every entry in the stack its own [EmberrBottomSheet], so opening a sub-sheet slides a
- * fresh surface in on top and a back press pops exactly one level instead of dismissing everything.
- */
 private val SHEET_TYPES_WITH_OWN_DISMISS_BUTTON = setOf(
     DatabaseSheet.RENAME,
     DatabaseSheet.FORMULA,
@@ -270,7 +255,7 @@ private fun MobileSheetStack(context: DatabaseSheetContext) {
                             text = "Close",
                             onClick = { context.state.pop() },
                             modifier = Modifier.fillMaxWidth()
-                                .padding(vertical = 12.dp, horizontal = 20.dp)
+                                .padding(vertical = 12.dp)
                         )
                     }
                 }

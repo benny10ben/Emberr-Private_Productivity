@@ -26,11 +26,6 @@ import emberr.shared.generated.resources.Res
 import emberr.shared.generated.resources.chevron_left
 import org.jetbrains.compose.resources.painterResource
 
-/**
- * Everything a database option sheet needs to render and act. Bundled instead of passed one
- * argument at a time because all eighteen sheets draw from the same handful of sources, and
- * [DatabaseSheetState] already carries the mutable half.
- */
 @Stable
 class DatabaseSheetContext(
     val block: DatabaseBlock,
@@ -76,7 +71,6 @@ private fun parentSheetOnDesktop(sheet: DatabaseSheet): DatabaseSheet? = when (s
     else -> null
 }
 
-/** Cancel/confirm pair shared by every sheet that edits a scratch value before committing it. */
 @Composable
 internal fun SheetCancelAndConfirmButtons(
     confirmText: String,
@@ -93,11 +87,6 @@ internal fun SheetCancelAndConfirmButtons(
     }
 }
 
-/**
- * Renders one sheet's body. On mobile each entry in the stack gets its own `EmberrBottomSheet`
- * with a native title bar and back-press handling, so the manual back row and title below only
- * apply to the single anchored desktop dropdown, which swaps its content in place instead.
- */
 @Composable
 internal fun OptionSheetBody(context: DatabaseSheetContext, targetSheet: DatabaseSheet) {
     MuteRippleOnMobile {

@@ -85,11 +85,6 @@ import kotlin.time.Duration.Companion.milliseconds
 
 private val NOTE_LINK_BEFORE_CURSOR = """\[([^\]]+)\]\(emberr://note/([^)]+)\)$""".toRegex()
 
-/**
- * A cell editor that owns its own [TextFieldValue] rather than hoisting it, so typing never waits on
- * the block round trip and the caret survives the debounced write-back. It also drives the "@" note
- * mention popup, since the query is derived from the same local caret position.
- */
 @Composable
 fun TableCellTextEditor(
     modifier: Modifier = Modifier,
@@ -127,7 +122,6 @@ fun TableCellTextEditor(
         }
     }
 
-    // an open mention popup commits immediately - debouncing there would let the picker act on stale text
     LaunchedEffect(tfv.text) {
         if (tfv.text != initialText) {
             if (mentionQuery == null) delay(400L.milliseconds)
@@ -136,8 +130,6 @@ fun TableCellTextEditor(
         }
     }
 
-    // noteId is resolved lazily so a "create note" click that no longer has an "@" to replace
-    // cannot persist an orphan note before the guard rejects it
     fun replaceMentionWithLink(title: String, noteId: () -> String) {
         val cursor = tfv.selection.start.coerceIn(0, tfv.text.length)
         val lastAt = tfv.text.substring(0, cursor).lastIndexOf('@')
@@ -231,8 +223,6 @@ fun TableCellTextEditor(
                         GlobalEditorState.currentlyFocusedTableCellKey = null
                     }
                 }
-                // a whole note link is one unit, so backspace deletes it entirely rather than
-                // leaving the user editing raw markdown one character at a time
                 .onPreviewKeyEvent { event ->
                     if (event.key == Key.Backspace && event.type == KeyEventType.KeyDown) {
                         val cursor = tfv.selection.start
@@ -254,7 +244,6 @@ fun TableCellTextEditor(
                 }
         )
 
-        // transparent overlay so tapping a rendered "@Title" link navigates instead of placing a caret
         if (columnType == ColumnType.TEXT && !isFocused && !inSelectionMode) {
             Box(
                 modifier = Modifier
@@ -330,10 +319,6 @@ fun TableCellTextEditor(
 private fun ColumnType.rendersAsLink() =
     this == ColumnType.EMAIL || this == ColumnType.PHONE || this == ColumnType.URL
 
-/**
- * Anchored to a zero-width box placed at the caret rect so the popup tracks the "@" as the user
- * types, and flips above the line when it would otherwise run off the bottom of the window.
- */
 @Composable
 private fun NoteMentionPopup(
     query: String,

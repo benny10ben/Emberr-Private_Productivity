@@ -61,7 +61,6 @@ internal fun SheetDivider(verticalPadding: Dp = 12.dp) {
     )
 }
 
-/** Falls back to the theme accent whenever a stored hex is malformed, so a bad tag never crashes a row. */
 @Composable
 internal fun parseTagColor(colorHex: String): Color = try {
     Color(colorHex.removePrefix("#").toLong(16) or 0xFF000000)
@@ -95,7 +94,7 @@ fun SheetMenuRow(
             .clip(RoundedCornerShape(12.dp))
             .background(if (selected) SelectedOptionBackground else Color.Transparent)
             .clickable { onClick() }
-            .padding(vertical = 10.dp).padding(horizontal = 12.dp),
+            .padding(vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(icon, null, tint = color, modifier = Modifier.size(20.dp))

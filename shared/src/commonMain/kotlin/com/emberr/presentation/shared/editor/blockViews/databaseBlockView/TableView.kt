@@ -144,7 +144,6 @@ fun TableView(
                 border = BorderStroke(0.6.dp, borderColor1)
             ) {
                 Column {
-                    // Header row
                     Row(
                         modifier = Modifier
                             .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.3f))
@@ -321,7 +320,6 @@ fun TableView(
                         }
                     }
 
-                    // Data rows
                     visibleRows.forEach { row ->
                         Row(modifier = Modifier.height(IntrinsicSize.Max).defaultMinSize(minHeight = 44.dp)) {
                             orderedColumns.forEach { col ->
@@ -467,7 +465,6 @@ fun TableView(
                                 }
                             }
 
-                            // Trailing spacer — bottom edge only
                             Box(
                                 modifier = Modifier
                                     .width(44.dp)
@@ -483,7 +480,6 @@ fun TableView(
                 }
             }
 
-            // Aggregation row
             Row(modifier = Modifier.height(IntrinsicSize.Max).defaultMinSize(minHeight = 36.dp)) {
                 orderedColumns.forEach { col ->
                     val aggType = col.aggregationType
@@ -547,7 +543,6 @@ fun TableView(
                 Box(modifier = Modifier.width(44.dp).fillMaxHeight().defaultMinSize(minHeight = 36.dp))
             }
 
-            // Add row button
             Row(
                 modifier = Modifier
                     .padding(top = 6.dp)

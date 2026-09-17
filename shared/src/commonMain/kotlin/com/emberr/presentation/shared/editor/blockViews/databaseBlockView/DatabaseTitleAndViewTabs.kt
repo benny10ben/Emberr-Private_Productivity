@@ -65,11 +65,6 @@ import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
 import kotlin.time.Duration.Companion.milliseconds
 
-/**
- * Debounced title editor. The field owns a local [TextFieldValue] so the caret never jumps while
- * typing, and only pushes upstream after 400ms of quiet; `lastSentTitle` guards the mirror-back
- * effect so our own echo can't clobber a caret position the user has since moved.
- */
 @Composable
 internal fun DatabaseTitleField(block: DatabaseBlock, inSelectionMode: Boolean, actions: EditorActions) {
     Row(
@@ -126,10 +121,6 @@ internal fun DatabaseTitleField(block: DatabaseBlock, inSelectionMode: Boolean, 
     }
 }
 
-/**
- * View tabs plus the sort/settings toolbar. Tab order is dragged locally in `orderedViews` and
- * committed once on drop, so the reorder animates at pointer speed instead of per-event round trips.
- */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun DatabaseViewTabsRow(

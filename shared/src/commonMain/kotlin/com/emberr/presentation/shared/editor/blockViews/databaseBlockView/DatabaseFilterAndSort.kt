@@ -8,12 +8,6 @@ import com.emberr.domain.model.DatabaseView
 import com.emberr.domain.model.FilterConfig
 import com.emberr.domain.model.displayText
 
-/**
- * Fixed accent colors for the four PRIORITY values, same reasoning as [statusAccentColor] in
- * KanbanView.kt: this app's theme makes `outline`/`primary` shades of gray/black/white (see
- * Theme.kt), so "Low" and "Medium" used to render as two different grays instead of a real
- * severity scale. Plain hardcoded hex rather than theme colors, same as Status/Tags.
- */
 private val PRIORITY_ACCENT_COLORS = mapOf(
     "Low" to Color(0xFF7FB3D5),
     "Medium" to Color(0xFFF2C14E),
@@ -76,10 +70,6 @@ private fun compareByColumnType(type: ColumnType, first: String, second: String)
     else -> first.lowercase().compareTo(second.lowercase())
 }
 
-/**
- * Applies the view's filter chain then its multi-layer sort. Layers are evaluated top-down and the
- * first non-zero comparison wins, so lower layers only break ties left by the ones above them.
- */
 internal fun applyFiltersAndSorts(
     rows: List<DatabaseRow>,
     columns: List<DatabaseColumn>,

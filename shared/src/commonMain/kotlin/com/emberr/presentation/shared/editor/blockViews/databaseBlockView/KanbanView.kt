@@ -76,7 +76,6 @@ import org.jetbrains.compose.resources.painterResource
 import com.emberr.presentation.shared.components.EmberrHorizontalScrollbar
 import com.emberr.presentation.shared.components.smoothWheelScroll
 
-/** Bucket key/label for rows whose STATUS cell is blank or holds an unrecognized value. */
 const val NO_STATUS_BUCKET = "No Status"
 
 fun bucketKeysFor(groupColumn: DatabaseColumn): List<String> = when (groupColumn.type) {

@@ -151,7 +151,6 @@ private fun EditableTextCell(
     val keyboardController = LocalSoftwareKeyboardController.current
 
     val isNumeric = columnType == ColumnType.NUMBER || columnType == ColumnType.MONEY
-    // Number/Money is a Double? under the hood but renders as plain text either way
     val value = if (isNumeric) {
         (cell as? CellData.Number)?.value
             ?.let { if (it == it.toLong().toDouble()) it.toLong().toString() else it.toString() }
@@ -433,11 +432,6 @@ private fun ColoredChipCell(
     }
 }
 
-/**
- * The model allows several linked notes per cell but the grid only has room for one, so this shows
- * the first and prefers the reactive [NoteMetadataEntity] over the suspending title lookup whenever
- * the note is already in the in-memory list.
- */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun NoteRelationCell(

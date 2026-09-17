@@ -310,7 +310,6 @@ internal fun PickPrioritySheet(context: DatabaseSheetContext) {
     ColoredValuePickerSheet(context, PRIORITY_LEVELS) { priorityAccentColor(it) }
 }
 
-/** Status uses the same fixed option set KanbanView.kt buckets on, so the two stay in step. */
 @Composable
 internal fun PickStatusSheet(context: DatabaseSheetContext) {
     ColoredValuePickerSheet(context, DEFAULT_STATUS_OPTIONS) { statusAccentColor(it) }
