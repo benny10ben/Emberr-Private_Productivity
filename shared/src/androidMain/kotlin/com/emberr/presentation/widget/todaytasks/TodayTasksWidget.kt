@@ -55,6 +55,7 @@ import com.emberr.presentation.widget.taskBlockIdExtra
 import com.emberr.presentation.widget.taskIsCheckedExtra
 import com.emberr.presentation.widget.widgetDailyDateExtra
 import com.emberr.presentation.widget.widgetDailyScreenExtra
+import com.emberr.presentation.widget.readWidgetSpaceId
 import kotlin.time.Clock
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.todayIn
@@ -97,7 +98,8 @@ class TodayTasksWidget : GlanceAppWidget(), KoinComponent {
         id: GlanceId
     ): TodayTasksWidgetContent? {
         val contentReader = runCatching { get<TodayTasksWidgetContentReader>() }.getOrNull() ?: return null
-        val freshContent = contentReader.readContentOnce() ?: return null
+        val spaceId = readWidgetSpaceId(context, id)
+        val freshContent = contentReader.readContentOnce(spaceId) ?: return null
 
         if (freshContent != readCachedTodayTasks(context, id)) {
             writeCachedTodayTasks(context, id, freshContent)

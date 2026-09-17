@@ -13,6 +13,7 @@ import androidx.glance.appwidget.state.getAppWidgetState
 import androidx.glance.appwidget.state.updateAppWidgetState
 import androidx.glance.state.PreferencesGlanceStateDefinition
 import com.emberr.presentation.widget.WidgetLog
+import com.emberr.presentation.widget.readWidgetSpaceId
 import kotlinx.serialization.json.Json
 import org.koin.core.context.GlobalContext
 
@@ -90,20 +91,26 @@ suspend fun pushRenderedTodayTasks(
     }
 }
 
+suspend fun refreshTodayTasksWidget(context: Context, glanceId: GlanceId) {
+    try {
+        val contentReader = GlobalContext.get().get<TodayTasksWidgetContentReader>()
+        val spaceId = readWidgetSpaceId(context, glanceId)
+        val freshContent = contentReader.readContentOnce(spaceId) ?: return
+
+        if (freshContent == readCachedTodayTasks(context, glanceId)) return
+
+        writeCachedTodayTasks(context, glanceId, freshContent)
+        pushRenderedTodayTasks(context, glanceId, freshContent)
+    } catch (cause: Exception) {
+        WidgetLog.e("Could not refresh a today tasks widget", cause)
+    }
+}
+
 suspend fun refreshTodayTasksWidgets(context: Context) {
     try {
-        val glanceIds = GlanceAppWidgetManager(context).getGlanceIds(TodayTasksWidget::class.java)
-        if (glanceIds.isEmpty()) return
-
-        val contentReader = GlobalContext.get().get<TodayTasksWidgetContentReader>()
-        val freshContent = contentReader.readContentOnce() ?: return
-
-        glanceIds.forEach { glanceId ->
-            if (freshContent != readCachedTodayTasks(context, glanceId)) {
-                writeCachedTodayTasks(context, glanceId, freshContent)
-                pushRenderedTodayTasks(context, glanceId, freshContent)
-            }
-        }
+        GlanceAppWidgetManager(context)
+            .getGlanceIds(TodayTasksWidget::class.java)
+            .forEach { glanceId -> refreshTodayTasksWidget(context, glanceId) }
     } catch (cause: Exception) {
         WidgetLog.e("Could not refresh the today tasks widgets", cause)
     }

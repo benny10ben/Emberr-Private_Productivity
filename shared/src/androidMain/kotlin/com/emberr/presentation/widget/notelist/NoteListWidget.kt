@@ -42,6 +42,7 @@ import com.emberr.presentation.widget.surfaceColor
 import com.emberr.presentation.widget.widgetHomeScreenExtra
 import com.emberr.presentation.widget.widgetNewNoteExtra
 import com.emberr.presentation.widget.widgetNoteIdExtra
+import com.emberr.presentation.widget.readWidgetSpaceId
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.get
 
@@ -63,7 +64,8 @@ class NoteListWidget : GlanceAppWidget(), KoinComponent {
 
     private suspend fun loadAndCacheNoteList(context: Context, id: GlanceId): NoteListWidgetContent? {
         val contentReader = runCatching { get<NoteListWidgetContentReader>() }.getOrNull() ?: return null
-        val freshContent = contentReader.readContentOnce() ?: return null
+        val spaceId = readWidgetSpaceId(context, id)
+        val freshContent = contentReader.readContentOnce(spaceId) ?: return null
 
         if (freshContent != readCachedNoteList(context, id)) {
             writeCachedNoteList(context, id, freshContent)

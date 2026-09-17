@@ -26,7 +26,7 @@ class NoteListWidgetCoordinator(
                 contentReader.observeNotes()
                     .distinctUntilChanged()
                     .debounce(noteListSettleDelayMillis)
-                    .collect { notes -> pushNoteListToWidgets(context, contentReader.buildContent(notes)) }
+                    .collect { notes -> pushNoteListToWidgets(context, notes) }
             } catch (cause: Exception) {
                 WidgetLog.e("Stopped watching the note list", cause)
             }

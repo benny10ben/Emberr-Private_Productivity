@@ -50,6 +50,7 @@ import com.emberr.presentation.widget.taskBlockIdExtra
 import com.emberr.presentation.widget.taskIsCheckedExtra
 import com.emberr.presentation.widget.widgetNewTaskExtra
 import com.emberr.presentation.widget.widgetTasksScreenExtra
+import com.emberr.presentation.widget.readWidgetSpaceId
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.get
 
@@ -85,7 +86,8 @@ class TasksWidget : GlanceAppWidget(), KoinComponent {
         isShowingCompleted: Boolean
     ): TasksWidgetContent? {
         val contentReader = runCatching { get<TasksWidgetContentReader>() }.getOrNull() ?: return null
-        val freshContent = contentReader.readContentOnce(isShowingCompleted) ?: return null
+        val spaceId = readWidgetSpaceId(context, id)
+        val freshContent = contentReader.readContentOnce(spaceId, isShowingCompleted) ?: return null
 
         if (freshContent != readCachedTasks(context, id)) {
             writeCachedTasks(context, id, freshContent)

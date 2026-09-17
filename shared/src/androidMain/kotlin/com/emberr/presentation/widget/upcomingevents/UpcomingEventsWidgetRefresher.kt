@@ -13,6 +13,7 @@ import androidx.glance.appwidget.state.getAppWidgetState
 import androidx.glance.appwidget.state.updateAppWidgetState
 import androidx.glance.state.PreferencesGlanceStateDefinition
 import com.emberr.presentation.widget.WidgetLog
+import com.emberr.presentation.widget.readWidgetSpaceId
 import kotlinx.serialization.json.Json
 import org.koin.core.context.GlobalContext
 
@@ -86,20 +87,26 @@ suspend fun pushRenderedUpcomingEvents(
     }
 }
 
+suspend fun refreshUpcomingEventsWidget(context: Context, glanceId: GlanceId) {
+    try {
+        val contentReader = GlobalContext.get().get<UpcomingEventsWidgetContentReader>()
+        val spaceId = readWidgetSpaceId(context, glanceId)
+        val freshContent = contentReader.readContentOnce(spaceId) ?: return
+
+        if (freshContent == readCachedUpcomingEvents(context, glanceId)) return
+
+        writeCachedUpcomingEvents(context, glanceId, freshContent)
+        pushRenderedUpcomingEvents(context, glanceId, freshContent)
+    } catch (cause: Exception) {
+        WidgetLog.e("Could not refresh an upcoming events widget", cause)
+    }
+}
+
 suspend fun refreshUpcomingEventsWidgets(context: Context) {
     try {
-        val glanceIds = GlanceAppWidgetManager(context).getGlanceIds(UpcomingEventsWidget::class.java)
-        if (glanceIds.isEmpty()) return
-
-        val contentReader = GlobalContext.get().get<UpcomingEventsWidgetContentReader>()
-        val freshContent = contentReader.readContentOnce() ?: return
-
-        glanceIds.forEach { glanceId ->
-            if (freshContent != readCachedUpcomingEvents(context, glanceId)) {
-                writeCachedUpcomingEvents(context, glanceId, freshContent)
-                pushRenderedUpcomingEvents(context, glanceId, freshContent)
-            }
-        }
+        GlanceAppWidgetManager(context)
+            .getGlanceIds(UpcomingEventsWidget::class.java)
+            .forEach { glanceId -> refreshUpcomingEventsWidget(context, glanceId) }
     } catch (cause: Exception) {
         WidgetLog.e("Could not refresh the upcoming events widgets", cause)
     }

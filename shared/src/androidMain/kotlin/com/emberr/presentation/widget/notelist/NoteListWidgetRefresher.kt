@@ -12,7 +12,9 @@ import androidx.glance.appwidget.GlanceRemoteViews
 import androidx.glance.appwidget.state.getAppWidgetState
 import androidx.glance.appwidget.state.updateAppWidgetState
 import androidx.glance.state.PreferencesGlanceStateDefinition
+import com.emberr.data.local.room.NoteMetadataEntity
 import com.emberr.presentation.widget.WidgetLog
+import com.emberr.presentation.widget.readWidgetSpaceId
 import kotlinx.serialization.json.Json
 import org.koin.core.context.GlobalContext
 
@@ -77,11 +79,15 @@ suspend fun pushRenderedNoteList(context: Context, glanceId: GlanceId, content: 
     }
 }
 
-suspend fun pushNoteListToWidgets(context: Context, content: NoteListWidgetContent) {
+suspend fun pushNoteListToWidgets(context: Context, notes: List<NoteMetadataEntity>) {
     try {
+        val contentReader = GlobalContext.get().get<NoteListWidgetContentReader>()
+
         GlanceAppWidgetManager(context)
             .getGlanceIds(NoteListWidget::class.java)
             .forEach { glanceId ->
+                val spaceId = readWidgetSpaceId(context, glanceId)
+                val content = contentReader.buildContent(spaceId, notes)
                 if (content != readCachedNoteList(context, glanceId)) {
                     writeCachedNoteList(context, glanceId, content)
                     pushRenderedNoteList(context, glanceId, content)
@@ -92,14 +98,26 @@ suspend fun pushNoteListToWidgets(context: Context, content: NoteListWidgetConte
     }
 }
 
+suspend fun refreshNoteListWidget(context: Context, glanceId: GlanceId) {
+    try {
+        val contentReader = GlobalContext.get().get<NoteListWidgetContentReader>()
+        val spaceId = readWidgetSpaceId(context, glanceId)
+        val freshContent = contentReader.readContentOnce(spaceId) ?: return
+
+        if (freshContent == readCachedNoteList(context, glanceId)) return
+
+        writeCachedNoteList(context, glanceId, freshContent)
+        pushRenderedNoteList(context, glanceId, freshContent)
+    } catch (cause: Exception) {
+        WidgetLog.e("Could not refresh a note list widget", cause)
+    }
+}
+
 suspend fun refreshNoteListWidgets(context: Context) {
     try {
-        val glanceIds = GlanceAppWidgetManager(context).getGlanceIds(NoteListWidget::class.java)
-        if (glanceIds.isEmpty()) return
-
-        val contentReader = GlobalContext.get().get<NoteListWidgetContentReader>()
-        val freshContent = contentReader.readContentOnce() ?: return
-        pushNoteListToWidgets(context, freshContent)
+        GlanceAppWidgetManager(context)
+            .getGlanceIds(NoteListWidget::class.java)
+            .forEach { glanceId -> refreshNoteListWidget(context, glanceId) }
     } catch (cause: Exception) {
         WidgetLog.e("Could not refresh the note list widgets", cause)
     }

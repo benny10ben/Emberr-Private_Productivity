@@ -14,27 +14,29 @@ private const val maximumNotesShown = 30
 private const val maximumCharactersPerTitle = 120
 private const val maximumCharactersPerSnippet = 120
 
-class NoteListWidgetContentReader(private val noteDao: NoteDao) {
+class NoteListWidgetContentReader(
+    private val noteDao: NoteDao
+) {
 
     fun observeNotes(): Flow<List<NoteMetadataEntity>> =
-        noteDao.getAllNotes()
+        noteDao.getAllNotesAcrossSpacesFlow()
             .flowOn(Dispatchers.IO)
             .catch { cause -> WidgetLog.e("Stopped observing the note list", cause) }
 
-    suspend fun readContentOnce(): NoteListWidgetContent? =
+    suspend fun readContentOnce(spaceId: String): NoteListWidgetContent? =
         withContext(Dispatchers.IO) {
             val notes = try {
-                noteDao.getRecentNotes(maximumNotesShown)
+                noteDao.getRecentNotes(spaceId, maximumNotesShown)
             } catch (cause: Exception) {
                 WidgetLog.e("Could not read the note list", cause)
                 return@withContext null
             }
-            buildContent(notes)
+            buildContent(spaceId, notes)
         }
 
-    fun buildContent(notes: List<NoteMetadataEntity>): NoteListWidgetContent =
+    fun buildContent(spaceId: String, notes: List<NoteMetadataEntity>): NoteListWidgetContent =
         NoteListWidgetContent(
-            notes = notes.take(maximumNotesShown).map { note ->
+            notes = notes.filter { note -> note.spaceId == spaceId }.take(maximumNotesShown).map { note ->
                 NoteListWidgetRow(
                     noteId = note.noteId,
                     title = note.title.trim().take(maximumCharactersPerTitle).ifBlank { "Untitled" },

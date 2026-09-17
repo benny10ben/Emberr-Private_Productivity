@@ -53,6 +53,7 @@ import com.emberr.presentation.widget.onHighlightColor
 import com.emberr.presentation.widget.primaryTextColor
 import com.emberr.presentation.widget.secondaryTextColor
 import com.emberr.presentation.widget.surfaceColor
+import com.emberr.presentation.widget.readWidgetSpaceId
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.get
 import androidx.core.graphics.toColorInt
@@ -88,7 +89,8 @@ class CalendarAgendaWidget : GlanceAppWidget(), KoinComponent {
         shownMonth: String?
     ): CalendarAgendaWidgetContent? {
         val contentReader = runCatching { get<CalendarAgendaWidgetContentReader>() }.getOrNull() ?: return null
-        val freshContent = contentReader.readContentOnce(shownMonth) ?: return null
+        val spaceId = readWidgetSpaceId(context, id)
+        val freshContent = contentReader.readContentOnce(spaceId, shownMonth) ?: return null
 
         if (freshContent != readCachedAgenda(context, id)) {
             writeCachedAgenda(context, id, freshContent)

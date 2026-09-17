@@ -22,23 +22,23 @@ private const val neutralDotColorHex = "#848484"
 
 class CalendarWidgetContentReader(
     private val calendarTaskDao: CalendarTaskDao,
-    private val categoryDao: CategoryDao
+    private val categoryDao: CategoryDao,
 ) {
-    suspend fun readContentOnce(shownMonth: String?): CalendarWidgetContent? =
+    suspend fun readContentOnce(spaceId: String, shownMonth: String?): CalendarWidgetContent? =
         withContext(Dispatchers.IO) {
             val today = Clock.System.todayIn(TimeZone.currentSystemDefault())
             val firstOfMonth = parseFirstOfMonth(shownMonth) ?: firstOfMonthFor(today)
             val monthKey = monthKeyOf(firstOfMonth)
 
             val tasks = try {
-                calendarTaskDao.getTasksInMonth(monthKey)
+                calendarTaskDao.getTasksInMonth(spaceId, monthKey)
             } catch (cause: Exception) {
                 WidgetLog.e("Could not read tasks for $monthKey", cause)
                 return@withContext null
             }
 
             val colorsByCategoryId = try {
-                categoryDao.getAllCategoriesOnce().associate { it.categoryId to it.colorHex }
+                categoryDao.getAllCategoriesOnce(spaceId).associate { it.categoryId to it.colorHex }
             } catch (cause: Exception) {
                 WidgetLog.e("Could not read the task categories", cause)
                 emptyMap()

@@ -13,6 +13,7 @@ import androidx.glance.appwidget.state.getAppWidgetState
 import androidx.glance.appwidget.state.updateAppWidgetState
 import androidx.glance.state.PreferencesGlanceStateDefinition
 import com.emberr.presentation.widget.WidgetLog
+import com.emberr.presentation.widget.readWidgetSpaceId
 import kotlinx.serialization.json.Json
 import org.koin.core.context.GlobalContext
 
@@ -112,7 +113,8 @@ suspend fun refreshCalendarAgendaWidget(context: Context, glanceId: GlanceId) {
     try {
         val contentReader = GlobalContext.get().get<CalendarAgendaWidgetContentReader>()
         val shownMonth = readAgendaShownMonth(context, glanceId)
-        val freshContent = contentReader.readContentOnce(shownMonth) ?: return
+        val spaceId = readWidgetSpaceId(context, glanceId)
+        val freshContent = contentReader.readContentOnce(spaceId, shownMonth) ?: return
 
         if (freshContent == readCachedAgenda(context, glanceId)) return
 

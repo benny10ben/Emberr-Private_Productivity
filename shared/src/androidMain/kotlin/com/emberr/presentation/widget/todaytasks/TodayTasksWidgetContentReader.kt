@@ -18,13 +18,15 @@ import kotlinx.datetime.number
 private const val maximumTasksShown = 12
 private const val maximumCharactersPerTitle = 120
 
-class TodayTasksWidgetContentReader(private val calendarTaskDao: CalendarTaskDao) {
+class TodayTasksWidgetContentReader(
+    private val calendarTaskDao: CalendarTaskDao
+) {
 
-    suspend fun readContentOnce(): TodayTasksWidgetContent? = withContext(Dispatchers.IO) {
+    suspend fun readContentOnce(spaceId: String): TodayTasksWidgetContent? = withContext(Dispatchers.IO) {
         val today = Clock.System.todayIn(TimeZone.currentSystemDefault())
 
         val tasks = try {
-            calendarTaskDao.getTasksOnDate(today.toString())
+            calendarTaskDao.getTasksOnDate(spaceId, today.toString())
         } catch (cause: Exception) {
             WidgetLog.e("Could not read today's tasks", cause)
             return@withContext null

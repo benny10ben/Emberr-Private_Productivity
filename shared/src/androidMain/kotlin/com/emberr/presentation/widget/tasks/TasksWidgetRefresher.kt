@@ -14,6 +14,7 @@ import androidx.glance.appwidget.state.getAppWidgetState
 import androidx.glance.appwidget.state.updateAppWidgetState
 import androidx.glance.state.PreferencesGlanceStateDefinition
 import com.emberr.presentation.widget.WidgetLog
+import com.emberr.presentation.widget.readWidgetSpaceId
 import kotlinx.serialization.json.Json
 import org.koin.core.context.GlobalContext
 
@@ -100,7 +101,8 @@ suspend fun refreshTaskWidget(context: Context, glanceId: GlanceId) {
     try {
         val contentReader = GlobalContext.get().get<TasksWidgetContentReader>()
         val isShowingCompleted = readShowingCompleted(context, glanceId)
-        val freshContent = contentReader.readContentOnce(isShowingCompleted) ?: return
+        val spaceId = readWidgetSpaceId(context, glanceId)
+        val freshContent = contentReader.readContentOnce(spaceId, isShowingCompleted) ?: return
 
         if (freshContent == readCachedTasks(context, glanceId)) return
 
@@ -127,7 +129,8 @@ suspend fun pushTasksToWidgets(context: Context, tasks: List<CalendarTaskEntity>
 
         glanceIds.forEach { glanceId ->
             val isShowingCompleted = readShowingCompleted(context, glanceId)
-            val freshContent = contentReader.buildContent(tasks, isShowingCompleted)
+            val spaceId = readWidgetSpaceId(context, glanceId)
+            val freshContent = contentReader.buildContent(spaceId, tasks, isShowingCompleted)
             if (freshContent != readCachedTasks(context, glanceId)) {
                 writeCachedTasks(context, glanceId, freshContent)
                 pushRenderedTasks(context, glanceId, freshContent)

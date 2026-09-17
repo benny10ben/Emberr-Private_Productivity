@@ -30,26 +30,29 @@ class TasksWidgetContentReader(
     private val noteDao: NoteDao
 ) {
     fun observeTasks(): Flow<List<CalendarTaskEntity>> =
-        calendarTaskDao.getAllTasksFlow()
+        calendarTaskDao.getAllTasksAcrossSpacesFlow()
             .flowOn(Dispatchers.IO)
             .catch { cause -> WidgetLog.e("Stopped observing the task list", cause) }
 
-    suspend fun readContentOnce(isShowingCompleted: Boolean): TasksWidgetContent? =
+    suspend fun readContentOnce(spaceId: String, isShowingCompleted: Boolean): TasksWidgetContent? =
         withContext(Dispatchers.IO) {
             val tasks = try {
-                calendarTaskDao.getAllTasks()
+                calendarTaskDao.getAllTasks(spaceId)
             } catch (cause: Exception) {
                 WidgetLog.e("Could not read the task list", cause)
                 return@withContext null
             }
-            buildContent(tasks, isShowingCompleted)
+            buildContent(spaceId, tasks, isShowingCompleted)
         }
 
     suspend fun buildContent(
+        spaceId: String,
         tasks: List<CalendarTaskEntity>,
         isShowingCompleted: Boolean
     ): TasksWidgetContent = withContext(Dispatchers.Default) {
-        val matchingTasks = tasks.filter { task -> task.isChecked == isShowingCompleted }
+        val matchingTasks = tasks.filter { task ->
+            task.spaceId == spaceId && task.isChecked == isShowingCompleted
+        }
         TasksWidgetContent(
             isShowingCompleted = isShowingCompleted,
             rows = buildRows(matchingTasks)

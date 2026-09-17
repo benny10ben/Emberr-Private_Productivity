@@ -47,6 +47,7 @@ import com.emberr.presentation.widget.secondaryTextColor
 import com.emberr.presentation.widget.surfaceColor
 import com.emberr.presentation.widget.widgetCalendarScreenExtra
 import com.emberr.presentation.widget.widgetNewEventExtra
+import com.emberr.presentation.widget.readWidgetSpaceId
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.get
 
@@ -72,7 +73,8 @@ class UpcomingEventsWidget : GlanceAppWidget(), KoinComponent {
         id: GlanceId
     ): UpcomingEventsWidgetContent? {
         val contentReader = runCatching { get<UpcomingEventsWidgetContentReader>() }.getOrNull() ?: return null
-        val freshContent = contentReader.readContentOnce() ?: return null
+        val spaceId = readWidgetSpaceId(context, id)
+        val freshContent = contentReader.readContentOnce(spaceId) ?: return null
 
         if (freshContent != readCachedUpcomingEvents(context, id)) {
             writeCachedUpcomingEvents(context, id, freshContent)

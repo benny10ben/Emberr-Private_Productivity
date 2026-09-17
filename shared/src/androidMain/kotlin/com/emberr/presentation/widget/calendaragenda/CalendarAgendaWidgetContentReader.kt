@@ -26,23 +26,23 @@ private const val maximumCharactersPerTitle = 80
 
 class CalendarAgendaWidgetContentReader(
     private val calendarTaskDao: CalendarTaskDao,
-    private val categoryDao: CategoryDao
+    private val categoryDao: CategoryDao,
 ) {
-    suspend fun readContentOnce(shownMonth: String?): CalendarAgendaWidgetContent? =
+    suspend fun readContentOnce(spaceId: String, shownMonth: String?): CalendarAgendaWidgetContent? =
         withContext(Dispatchers.IO) {
             val today = Clock.System.todayIn(TimeZone.currentSystemDefault())
             val firstOfMonth = parseFirstOfMonth(shownMonth) ?: firstOfMonthFor(today)
             val monthKey = monthKeyOf(firstOfMonth)
 
             val tasks = try {
-                calendarTaskDao.getTasksInMonth(monthKey)
+                calendarTaskDao.getTasksInMonth(spaceId, monthKey)
             } catch (cause: Exception) {
                 WidgetLog.e("Could not read events for $monthKey", cause)
                 return@withContext null
             }
 
             val colorsByCategoryId = try {
-                categoryDao.getAllCategoriesOnce().associate { it.categoryId to it.colorHex }
+                categoryDao.getAllCategoriesOnce(spaceId).associate { it.categoryId to it.colorHex }
             } catch (cause: Exception) {
                 WidgetLog.e("Could not read the event categories", cause)
                 emptyMap()

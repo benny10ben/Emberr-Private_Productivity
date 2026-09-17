@@ -23,20 +23,20 @@ private const val maximumCharactersPerTitle = 100
 
 class UpcomingEventsWidgetContentReader(
     private val calendarTaskDao: CalendarTaskDao,
-    private val categoryDao: CategoryDao
+    private val categoryDao: CategoryDao,
 ) {
-    suspend fun readContentOnce(): UpcomingEventsWidgetContent? = withContext(Dispatchers.IO) {
+    suspend fun readContentOnce(spaceId: String): UpcomingEventsWidgetContent? = withContext(Dispatchers.IO) {
         val today = Clock.System.todayIn(TimeZone.currentSystemDefault())
 
         val tasks = try {
-            calendarTaskDao.getUpcomingTasks(today.toString())
+            calendarTaskDao.getUpcomingTasks(spaceId, today.toString())
         } catch (cause: Exception) {
             WidgetLog.e("Could not read upcoming events", cause)
             return@withContext null
         }
 
         val colorsByCategoryId = try {
-            categoryDao.getAllCategoriesOnce().associate { category -> category.categoryId to category.colorHex }
+            categoryDao.getAllCategoriesOnce(spaceId).associate { category -> category.categoryId to category.colorHex }
         } catch (cause: Exception) {
             WidgetLog.e("Could not read the event categories", cause)
             emptyMap()

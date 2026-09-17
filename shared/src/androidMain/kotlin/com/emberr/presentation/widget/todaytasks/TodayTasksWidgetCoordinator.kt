@@ -24,7 +24,7 @@ class TodayTasksWidgetCoordinator(
     fun start() {
         coordinatorScope.launch {
             try {
-                calendarTaskDao.getAllTasksFlow()
+                calendarTaskDao.getAllTasksAcrossSpacesFlow()
                     .distinctUntilChanged()
                     .debounce(todayTasksSettleDelayMillis)
                     .collect { refreshTodayTasksWidgets(context) }
