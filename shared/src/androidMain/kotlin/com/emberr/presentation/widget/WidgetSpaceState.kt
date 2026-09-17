@@ -1,5 +1,3 @@
-// Which space a single widget instance shows, remembered per instance and falling back to the
-// space the app itself is currently in.
 package com.emberr.presentation.widget
 
 import android.content.Context

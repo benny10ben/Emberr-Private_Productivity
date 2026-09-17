@@ -1,5 +1,3 @@
-// Resolves which directory inside the vault belongs to which space.
-
 package com.emberr.domain.vault
 
 import com.emberr.data.local.room.SpaceDao
