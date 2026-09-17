@@ -5,6 +5,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.BringIntoViewSpec
 import androidx.compose.foundation.gestures.LocalBringIntoViewSpec
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.rememberScrollableState
+import androidx.compose.foundation.gestures.scrollable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -16,8 +19,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -58,6 +64,11 @@ private object SheetBringIntoViewSpec : BringIntoViewSpec {
             else -> bottomDelta
         }
     }
+}
+
+private val KeepLeftoverUpwardFlingAwayFromSheet = object : NestedScrollConnection {
+    override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity =
+        if (available.y < 0f) available else Velocity.Zero
 }
 
 @Composable
@@ -235,6 +246,7 @@ private fun EmberrModalBottomSheet(
 ) {
     val coroutineScope = rememberCoroutineScope()
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val nonScrollingAreaDragRelay = rememberScrollableState { 0f }
 
     fun closeAnd(action: () -> Unit) {
         coroutineScope.launch {
@@ -276,6 +288,11 @@ private fun EmberrModalBottomSheet(
         // card
         Box(
             modifier = Modifier
+                .nestedScroll(KeepLeftoverUpwardFlingAwayFromSheet)
+                .scrollable(
+                    state = nonScrollingAreaDragRelay,
+                    orientation = Orientation.Vertical
+                )
                 .stableStatusBarsPadding()
                 .fillMaxWidth()
                 .clip(BottomSheetShape)
