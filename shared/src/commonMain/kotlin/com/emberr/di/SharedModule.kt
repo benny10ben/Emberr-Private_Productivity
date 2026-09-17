@@ -23,6 +23,17 @@ val sharedModule = module {
 
     single<CoroutineScope>(named("AppScope")) { CoroutineScope(SupervisorJob() + Dispatchers.Default) }
 
+    single { com.emberr.domain.space.ActiveSpaceStore(settingsManager = get()) }
+
+    single {
+        com.emberr.domain.space.SpaceRepository(
+            spaceDao = get(),
+            activeSpaceStore = get(),
+            noteRepository = get(),
+            chatSessionRepository = get()
+        )
+    }
+
     single {
         NoteIndexer(
             database = get(),
@@ -44,8 +55,18 @@ val sharedModule = module {
 
     single { com.emberr.domain.ai.models.ModelDownloadManager() }
 
-    single { com.emberr.domain.repository.BookmarkCategoryOrderStore(settingsManager = get()) }
-    single { com.emberr.domain.repository.FavoriteNoteOrderStore(settingsManager = get()) }
+    single {
+        com.emberr.domain.repository.BookmarkCategoryOrderStore(
+            settingsManager = get(),
+            activeSpaceStore = get()
+        )
+    }
+    single {
+        com.emberr.domain.repository.FavoriteNoteOrderStore(
+            settingsManager = get(),
+            activeSpaceStore = get()
+        )
+    }
 
     single {
         com.emberr.domain.ai.ReindexAllNotesUseCase(
@@ -55,6 +76,7 @@ val sharedModule = module {
 
     single<NoteRepository> {
         NoteRepositoryImpl(
+            activeSpaceStore = get(),
             noteDao = get(),
             folderDao = get(),
             tagDao = get(),
@@ -73,7 +95,10 @@ val sharedModule = module {
     }
 
     single {
-        com.emberr.domain.template.DefaultTemplateSeeder(repository = get())
+        com.emberr.domain.template.DefaultTemplateSeeder(
+            repository = get(),
+            activeSpaceStore = get()
+        )
     }
 
     single {
@@ -135,7 +160,8 @@ val sharedModule = module {
 
     single<com.emberr.domain.ai.chat.ChatSessionRepository> {
         com.emberr.domain.ai.chat.ChatSessionRepositoryImpl(
-            chatSessionDao = get()
+            chatSessionDao = get(),
+            activeSpaceStore = get()
         )
     }
 
@@ -146,10 +172,16 @@ val sharedModule = module {
             tagDao = get(),
             blockDao = get(),
             calendarTaskDao = get(),
+            categoryDao = get(),
             imageBlockDao = get(),
             documentBlockDao = get(),
             bookmarkBlockDao = get(),
             mediaReferenceDao = get(),
+            spaceDao = get(),
+            chatSessionDao = get(),
+            databaseTemplateDao = get(),
+            calendarEventExceptionDao = get(),
+            selfHostDeletedNoteDao = get(),
             settingsManager = get()
         )
     }
@@ -181,13 +213,15 @@ val sharedModule = module {
             templateSeeder = get(),
             sampleNotesSeeder = get(),
             localMediaGarbageCollector = get(),
-            favoriteNoteOrderStore = get()
+            favoriteNoteOrderStore = get(),
+            activeSpaceStore = get()
         )
     }
     viewModel {
         com.emberr.presentation.mobile.home.overview.tasks.TasksViewModel(
             repository = get(),
-            reminderScheduler = get()
+            reminderScheduler = get(),
+            activeSpaceStore = get()
         )
     }
     viewModel {
@@ -231,16 +265,18 @@ val sharedModule = module {
             reminderScheduler = get(),
             audioRecorder = get(),
             appScope = get(named("AppScope")),
-            sampleDailyNoteSeeder = get()
+            sampleDailyNoteSeeder = get(),
+            activeSpaceStore = get()
         )
     }
     viewModel { TrashViewModel(repository = get()) }
-    viewModel { SearchViewModel(repository = get()) }
+    viewModel { SearchViewModel(repository = get(), activeSpaceStore = get()) }
     viewModel {
         com.emberr.presentation.calendar.CalendarViewModel(
             repository = get(),
             reminderScheduler = get(),
-            settingsManager = get()
+            settingsManager = get(),
+            activeSpaceStore = get()
         )
     }
     single<TaskExtractor> { HeuristicTaskExtractor() }
@@ -262,6 +298,9 @@ val sharedModule = module {
             folderDao = get(),
             tagDao = get(),
             categoryDao = get(),
+            calendarEventExceptionDao = get(),
+            spaceDao = get(),
+            spaceRepository = get(),
             settingsManager = get(),
             mediaStorageHelper = get(),
             noteRepository = get(),

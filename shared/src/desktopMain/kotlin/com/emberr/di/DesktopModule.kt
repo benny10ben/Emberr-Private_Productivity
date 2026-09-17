@@ -70,6 +70,7 @@ val desktopModule = module {
         builder.fallbackToDestructiveMigration(dropAllTables = true)
         com.emberr.data.local.room.getRoomDatabase(builder)
     }
+    single<com.emberr.data.local.room.SpaceDao> { get<AppDatabase>().spaceDao() }
     single<NoteDao> { get<AppDatabase>().noteDao() }
     single<FolderDao> { get<AppDatabase>().folderDao() }
     single<TagDao> { get<AppDatabase>().tagDao() }
@@ -93,13 +94,13 @@ val desktopModule = module {
 
     // AI
     single { LocalAiEngine(aiSettingsRepository = get()) }
-    single { RagRepository(get(), get(), get(), get()) }
+    single { RagRepository(get(), get(), get(), get(), get()) }
     single<com.emberr.domain.ai.external.SecureAiKeyStorage> {
         com.emberr.domain.ai.external.SecureAiKeyStorage(get())
     }
     single { com.emberr.domain.ai.models.LocalModelUploadManager() }
     single { com.emberr.domain.ai.models.ModelDownloadScheduler(modelDownloadManager = get()) }
-    factory { RagViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get()) }
+    factory { RagViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get(), get()) }
 
     // Secret storage
     single { SecretBackendProbe() }
@@ -125,7 +126,7 @@ val desktopModule = module {
     single<SyncDiscoveryManager> { DesktopDiscoveryManager() }
     single { com.emberr.domain.sync.SyncServerAvailability() }
     single<com.emberr.domain.sync.SyncClient> { com.emberr.domain.sync.SyncClient(get(), get(), get()) }
-    single<SyncRepository> { SyncRepositoryImpl(get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get()) }
+    single<SyncRepository> { SyncRepositoryImpl(get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get()) }
     factory { SyncViewModel(get(), get(), get(), get(), get(), get<com.emberr.domain.sync.SyncServerAvailability>().status) }
 
     // Automatic Backup
@@ -139,24 +140,38 @@ val desktopModule = module {
             vaultRootDirectory = java.io.File(emberrDirectory, "vault"),
             noteDao = get(),
             folderDao = get(),
+            spaceDao = get(),
+            categoryDao = get(),
             noteRepository = get(),
             fileLedger = get(),
             pathMemory = get()
         )
     }
     single {
+        com.emberr.domain.vault.VaultSpaceDirectories(
+            vaultRootDirectory = get<VaultExporter>().vaultRootDirectory,
+            spaceDao = get(),
+            activeSpaceStore = get()
+        )
+    }
+    single {
         VaultImporter(
             noteDao = get(),
             folderDao = get(),
+            categoryDao = get(),
             noteRepository = get(),
+            spaceRepository = get(),
+            activeSpaceStore = get(),
+            spaceDirectories = get(),
             fileLedger = get(),
             vaultExporter = get()
         )
     }
     single { VaultFolderWatcher(vaultRootDirectory = get<VaultExporter>().vaultRootDirectory) }
     single<VaultToolRunner> {
+        val spaceDirectories = get<com.emberr.domain.vault.VaultSpaceDirectories>()
         VaultToolExecutor(
-            vaultRootDirectory = get<VaultExporter>().vaultRootDirectory,
+            activeSpace = { spaceDirectories.activeSpace() },
             vaultImporter = get<VaultImporter>(),
             pendingWriteEvents = get(),
             toolCallEvents = get()
@@ -187,6 +202,7 @@ val desktopModule = module {
             settingsManager = get(),
             backupRepository = get(),
             noteRepository = get(),
+            spaceRepository = get(),
             backupRescheduler = get()
         )
     }

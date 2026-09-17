@@ -84,6 +84,12 @@ fun main() = application {
 
     LaunchedEffect(Unit) {
         withContext(Dispatchers.IO) {
+            GlobalContext.get().get<com.emberr.domain.space.SpaceRepository>().prepareSpacesForLaunch()
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        withContext(Dispatchers.IO) {
             GlobalContext.get().get<DesktopSecretStore>().initialise()
         }
     }

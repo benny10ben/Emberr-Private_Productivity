@@ -113,6 +113,7 @@ val androidModule = module {
         com.emberr.data.local.room.getRoomDatabase(builder)
     }
 
+    single<com.emberr.data.local.room.SpaceDao> { get<AppDatabase>().spaceDao() }
     single<NoteDao> { get<AppDatabase>().noteDao() }
     single<FolderDao> { get<AppDatabase>().folderDao() }
     single<TagDao> { get<AppDatabase>().tagDao() }
@@ -126,7 +127,7 @@ val androidModule = module {
         )
     }
 
-    single { com.emberr.presentation.widget.WidgetNoteSource(noteDao = get()) }
+    single { com.emberr.presentation.widget.WidgetNoteSource(noteDao = get(), activeSpaceStore = get()) }
 
     single {
         com.emberr.presentation.widget.calendaragenda.CalendarAgendaWidgetContentReader(
@@ -245,7 +246,8 @@ val androidModule = module {
             database = get(),
             localAiEngine = get(),
             externalAiEngine = get(),
-            aiSettingsRepository = get()
+            aiSettingsRepository = get(),
+            activeSpaceStore = get()
         )
     }
     single<com.emberr.domain.ai.external.SecureAiKeyStorage> {
@@ -270,7 +272,8 @@ val androidModule = module {
             localModelUploadManager = get(),
             vaultToolRunner = get(),
             vaultPendingWriteEvents = get(),
-            vaultToolCallEvents = get()
+            vaultToolCallEvents = get(),
+            activeSpaceStore = get()
         )
     }
 
@@ -291,7 +294,7 @@ val androidModule = module {
     single<com.emberr.core.security.SyncHmacSigner> { com.emberr.core.security.HmacSha256Signer() }
     single<SyncDiscoveryManager> { AndroidDiscoveryManager(androidContext()) }
     single<com.emberr.domain.sync.SyncClient> { com.emberr.domain.sync.SyncClient(get(), get(), get()) }
-    single<SyncRepository> { SyncRepositoryImpl(get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get()) }
+    single<SyncRepository> { SyncRepositoryImpl(get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get()) }
     viewModel { SyncViewModel(get(), get(), get(), get(), get()) }
 
     // Manual export/import (unrelated to automatic backups below)
@@ -308,6 +311,7 @@ val androidModule = module {
             settingsManager = get(),
             backupRepository = get(),
             noteRepository = get(),
+            spaceRepository = get(),
             backupRescheduler = get()
         )
     }
@@ -337,24 +341,38 @@ val androidModule = module {
             vaultRootDirectory = java.io.File(androidContext().filesDir, VAULT_FOLDER_NAME),
             noteDao = get(),
             folderDao = get(),
+            spaceDao = get(),
+            categoryDao = get(),
             noteRepository = get(),
             fileLedger = get(),
             pathMemory = get()
         )
     }
     single {
+        com.emberr.domain.vault.VaultSpaceDirectories(
+            vaultRootDirectory = get<VaultExporter>().vaultRootDirectory,
+            spaceDao = get(),
+            activeSpaceStore = get()
+        )
+    }
+    single {
         VaultImporter(
             noteDao = get(),
             folderDao = get(),
+            categoryDao = get(),
             noteRepository = get(),
+            spaceRepository = get(),
+            activeSpaceStore = get(),
+            spaceDirectories = get(),
             fileLedger = get(),
             vaultExporter = get()
         )
     }
     single { VaultFolderWatcher(vaultRootDirectory = get<VaultExporter>().vaultRootDirectory) }
     single<VaultToolRunner> {
+        val spaceDirectories = get<com.emberr.domain.vault.VaultSpaceDirectories>()
         VaultToolExecutor(
-            vaultRootDirectory = get<VaultExporter>().vaultRootDirectory,
+            activeSpace = { spaceDirectories.activeSpace() },
             vaultImporter = get<VaultImporter>(),
             pendingWriteEvents = get(),
             toolCallEvents = get()

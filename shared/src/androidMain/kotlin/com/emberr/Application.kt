@@ -43,6 +43,7 @@ class EmberrApplication : Application() {
         CoroutineScope(Dispatchers.IO).launch {
             getKoin().get<AppDatabase>()
             getKoin().get<SharedPreferences>()
+            getKoin().get<com.emberr.domain.space.SpaceRepository>().prepareSpacesForLaunch()
             isReady = true
             getKoin().get<com.emberr.presentation.widget.note.NoteWidgetCoordinator>().start()
             getKoin().get<com.emberr.presentation.widget.tasks.TasksWidgetCoordinator>().start()
