@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:configure="com.emberr.presentation.widget.notelist.NoteListWidgetPickerActivity"
     android:description="@string/note_list_widget_description"
     android:initialLayout="@layout/glance_default_loading_layout"
     android:minHeight="110dp"

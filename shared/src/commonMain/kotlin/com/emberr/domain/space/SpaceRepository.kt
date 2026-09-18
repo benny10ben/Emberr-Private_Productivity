@@ -138,6 +138,7 @@ class SpaceRepository(
         chatSessionRepository.deleteSessionsInSpace(spaceId)
         spaceDao.markSpaceDeleted(spaceId, System.currentTimeMillis())
 
+        DeletedSpaceTrigger.spaceWasDeleted(spaceId)
         AutoSyncTrigger.requestSync()
         VaultMirrorTrigger.requestFullRefresh()
     }

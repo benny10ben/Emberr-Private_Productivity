@@ -126,6 +126,16 @@
                 android:resource="@xml/tasks_widget_info" />
         </receiver>
 
+        <activity
+            android:name=".presentation.widget.tasks.TasksWidgetPickerActivity"
+            android:exported="true"
+            android:label="@string/tasks_widget_label"
+            android:theme="@style/Theme.Emberr">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
+
         <receiver
             android:name=".presentation.widget.notelist.NoteListWidgetReceiver"
             android:enabled="true"
@@ -138,6 +148,16 @@
                 android:name="android.appwidget.provider"
                 android:resource="@xml/note_list_widget_info" />
         </receiver>
+
+        <activity
+            android:name=".presentation.widget.notelist.NoteListWidgetPickerActivity"
+            android:exported="true"
+            android:label="@string/note_list_widget_label"
+            android:theme="@style/Theme.Emberr">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
 
         <receiver
             android:name=".presentation.widget.noteshortcut.NoteShortcutWidgetReceiver"
@@ -175,6 +195,16 @@
                 android:resource="@xml/today_tasks_widget_info" />
         </receiver>
 
+        <activity
+            android:name=".presentation.widget.todaytasks.TodayTasksWidgetPickerActivity"
+            android:exported="true"
+            android:label="@string/today_tasks_widget_label"
+            android:theme="@style/Theme.Emberr">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
+
         <receiver
             android:name=".presentation.widget.calendaragenda.CalendarAgendaWidgetReceiver"
             android:enabled="true"
@@ -187,6 +217,16 @@
                 android:name="android.appwidget.provider"
                 android:resource="@xml/calendar_agenda_widget_info" />
         </receiver>
+
+        <activity
+            android:name=".presentation.widget.calendaragenda.CalendarAgendaWidgetPickerActivity"
+            android:exported="true"
+            android:label="@string/calendar_agenda_widget_label"
+            android:theme="@style/Theme.Emberr">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
 
         <receiver
             android:name=".presentation.widget.calendaragenda.CalendarAgendaWidgetActionReceiver"
@@ -211,6 +251,16 @@
                 android:resource="@xml/upcoming_events_widget_info" />
         </receiver>
 
+        <activity
+            android:name=".presentation.widget.upcomingevents.UpcomingEventsWidgetPickerActivity"
+            android:exported="true"
+            android:label="@string/upcoming_events_widget_label"
+            android:theme="@style/Theme.Emberr">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
+
         <receiver
             android:name=".presentation.widget.calendar.CalendarWidgetReceiver"
             android:enabled="true"
@@ -223,6 +273,16 @@
                 android:name="android.appwidget.provider"
                 android:resource="@xml/calendar_widget_info" />
         </receiver>
+
+        <activity
+            android:name=".presentation.widget.calendar.CalendarWidgetPickerActivity"
+            android:exported="true"
+            android:label="@string/calendar_widget_label"
+            android:theme="@style/Theme.Emberr">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
 
         <receiver
             android:name=".presentation.widget.calendar.CalendarWidgetActionReceiver"
