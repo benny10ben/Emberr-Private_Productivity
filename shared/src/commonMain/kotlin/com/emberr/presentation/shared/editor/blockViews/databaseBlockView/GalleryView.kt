@@ -45,7 +45,7 @@ private fun metricsFor(size: GalleryCardSize): CardMetrics = when (size) {
 private val GalleryCardSpacing = 12.dp
 
 @Composable
-fun GalleryView(
+internal fun GalleryView(
     blockId: String,
     cardSize: GalleryCardSize,
     visibleColumns: List<DatabaseColumn>,

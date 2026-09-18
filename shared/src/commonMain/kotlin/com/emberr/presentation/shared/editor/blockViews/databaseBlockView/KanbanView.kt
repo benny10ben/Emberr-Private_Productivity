@@ -3,7 +3,6 @@ package com.emberr.presentation.shared.editor.blockViews.databaseBlockView
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -18,16 +17,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.CheckboxDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
@@ -36,7 +29,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
@@ -45,46 +37,35 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.TextLayoutResult
-import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
-import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import com.emberr.data.local.room.entity.NoteMetadataEntity
 import com.emberr.data.local.room.entity.TagEntity
 import com.emberr.domain.model.CellData
 import com.emberr.domain.model.ColumnType
+import com.emberr.domain.model.DEFAULT_STATUS_OPTIONS
 import com.emberr.domain.model.DatabaseColumn
 import com.emberr.domain.model.DatabaseRow
 import com.emberr.domain.model.DatabaseView
-import com.emberr.domain.model.DEFAULT_STATUS_OPTIONS
-import com.emberr.domain.model.displayText
-import com.emberr.domain.util.system.triggerHapticFeedback
-import com.emberr.presentation.shared.editor.EditorActions
-import emberr.shared.generated.resources.Res
-import emberr.shared.generated.resources.file_text
-import kotlin.math.roundToInt
-import org.jetbrains.compose.resources.painterResource
 import com.emberr.presentation.shared.components.EmberrHorizontalScrollbar
 import com.emberr.presentation.shared.components.smoothWheelScroll
+import com.emberr.presentation.shared.editor.EditorActions
+import kotlin.math.roundToInt
 
-const val NO_STATUS_BUCKET = "No Status"
 
-fun bucketKeysFor(groupColumn: DatabaseColumn): List<String> = when (groupColumn.type) {
+private const val NO_STATUS_BUCKET = "No Status"
+
+internal fun bucketKeysFor(groupColumn: DatabaseColumn): List<String> = when (groupColumn.type) {
     ColumnType.CHECKBOX -> listOf("Unchecked", "Checked")
     ColumnType.STATUS -> listOf(NO_STATUS_BUCKET) + DEFAULT_STATUS_OPTIONS
     else -> emptyList()
 }
 
-fun orderedBucketKeys(defaultKeys: List<String>, order: List<String>): List<String> {
+internal fun orderedBucketKeys(defaultKeys: List<String>, order: List<String>): List<String> {
     val known = order.filter { it in defaultKeys }
     val missing = defaultKeys.filter { it !in order }
     return known + missing
@@ -96,14 +77,14 @@ private val STATUS_ACCENT_COLORS = mapOf(
     "Done" to Color(0xFF6FCF97)
 )
 
-fun statusAccentColor(status: String): Color? = STATUS_ACCENT_COLORS[status]
+internal fun statusAccentColor(status: String): Color? = STATUS_ACCENT_COLORS[status]
 
 private val CHECKBOX_ACCENT_COLORS = mapOf(
     "Unchecked" to Color(0xFFB39DDB),
     "Checked" to Color(0xFF81C995)
 )
 
-fun checkboxAccentColor(bucket: String): Color? = CHECKBOX_ACCENT_COLORS[bucket]
+private fun checkboxAccentColor(bucket: String): Color? = CHECKBOX_ACCENT_COLORS[bucket]
 
 private fun bucketKeyForRow(row: DatabaseRow, groupColumn: DatabaseColumn): String = when (groupColumn.type) {
     ColumnType.CHECKBOX -> if ((row.cells[groupColumn.id] as? CellData.Boolean)?.value == true) "Checked" else "Unchecked"
@@ -120,149 +101,6 @@ private fun cellDataForBucket(groupColumn: DatabaseColumn, bucketKey: String): C
     else -> CellData.Text(bucketKey)
 }
 
-fun cardCellText(
-    cell: CellData?,
-    columnType: ColumnType,
-    globalTags: List<TagEntity>,
-    allLinkableNotes: List<NoteMetadataEntity>
-): String = when (columnType) {
-    ColumnType.TAGS -> (cell as? CellData.TagList)?.tagIds
-        ?.mapNotNull { id -> globalTags.find { it.tagId == id }?.name }
-        ?.joinToString(", ")
-        .orEmpty()
-    ColumnType.NOTES -> (cell as? CellData.NoteRelation)?.noteIds?.firstOrNull()
-        ?.let { noteId -> allLinkableNotes.find { it.noteId == noteId }?.title }
-        .orEmpty()
-    else -> cell.displayText()
-}
-
-val NOTE_LINK_REGEX = """\[([^\]]+)\]\(emberr://note/([^)]+)\)""".toRegex()
-private const val NOTE_LINK_TAG = "NOTE_LINK"
-
-fun buildNoteLinkAnnotatedString(text: String, linkColor: Color): AnnotatedString = buildAnnotatedString {
-    var lastIndex = 0
-    for (match in NOTE_LINK_REGEX.findAll(text)) {
-        append(text.substring(lastIndex, match.range.first))
-        val (title, noteId) = match.destructured
-        pushStringAnnotation(NOTE_LINK_TAG, noteId)
-        withStyle(SpanStyle(color = linkColor, fontWeight = FontWeight.SemiBold)) {
-            append("@$title")
-        }
-        pop()
-        lastIndex = match.range.last + 1
-    }
-    append(text.substring(lastIndex))
-}
-
-@Composable
-fun NoteLinkText(
-    text: String,
-    fontSize: TextUnit,
-    fontWeight: FontWeight?,
-    color: Color,
-    maxLines: Int,
-    onNoteLinkClick: (String) -> Unit,
-    modifier: Modifier = Modifier,
-    textDecoration: TextDecoration? = null
-) {
-    val linkColor = MaterialTheme.colorScheme.primary
-    val annotated = remember(text, linkColor) { buildNoteLinkAnnotatedString(text, linkColor) }
-    var layoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
-
-    Text(
-        text = annotated,
-        style = MaterialTheme.typography.bodyLarge.copy(fontSize = fontSize, fontWeight = fontWeight),
-        color = color,
-        maxLines = maxLines,
-        overflow = TextOverflow.Ellipsis,
-        textDecoration = textDecoration,
-        onTextLayout = { layoutResult = it },
-        modifier = modifier.pointerInput(text) {
-            detectTapGestures { tapOffset ->
-                val result = layoutResult ?: return@detectTapGestures
-                val charOffset = result.getOffsetForPosition(tapOffset)
-                result.layoutInput.text
-                    .getStringAnnotations(NOTE_LINK_TAG, charOffset, charOffset)
-                    .firstOrNull()
-                    ?.let { onNoteLinkClick(it.item) }
-            }
-        }
-    )
-}
-
-@Composable
-fun NoteRelationChip(
-    noteId: String,
-    allLinkableNotes: List<NoteMetadataEntity>,
-    getNoteTitle: suspend (String) -> String,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val reactiveNote = allLinkableNotes.find { it.noteId == noteId }
-    var noteTitle by remember(noteId, reactiveNote) {
-        mutableStateOf(reactiveNote?.title?.ifBlank { "Untitled Note" } ?: "Loading...")
-    }
-
-    LaunchedEffect(noteId, reactiveNote) {
-        if (reactiveNote == null) {
-            noteTitle = getNoteTitle(noteId).ifBlank { "Untitled Note" }
-        }
-    }
-
-    Surface(
-        shape = RoundedCornerShape(4.dp),
-        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
-        modifier = modifier.clip(RoundedCornerShape(4.dp)).clickable(onClick = onClick)
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-        ) {
-            Icon(
-                painter = painterResource(Res.drawable.file_text),
-                contentDescription = null,
-                modifier = Modifier.size(13.dp),
-                tint = MaterialTheme.colorScheme.primary
-            )
-            Spacer(Modifier.width(6.dp))
-            Text(
-                text = noteTitle,
-                style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colorScheme.primary,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-    }
-}
-
-@Composable
-fun CheckboxCellValue(
-    checked: Boolean,
-    inSelectionMode: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
-        Checkbox(
-            checked = checked,
-            onCheckedChange = {
-                if (!inSelectionMode) {
-                    triggerHapticFeedback()
-                    onCheckedChange(it)
-                }
-            },
-            modifier = modifier.scale(0.9f).size(18.dp),
-            colors = CheckboxDefaults.colors(
-                checkedColor = MaterialTheme.colorScheme.surface,
-                checkmarkColor = MaterialTheme.colorScheme.primary,
-                uncheckedColor = MaterialTheme.colorScheme.outline
-            )
-        )
-    }
-}
-
 private data class KanbanDragState(
     val isDragging: Boolean = false,
     val draggedRowId: String? = null,
@@ -274,7 +112,7 @@ private data class KanbanDragState(
 )
 
 @Composable
-fun KanbanView(
+internal fun KanbanView(
     blockId: String,
     activeView: DatabaseView,
     visibleColumns: List<DatabaseColumn>,
