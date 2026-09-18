@@ -84,7 +84,7 @@ fun SpaceOptionsSheets(
     val activeSpaceName = spaces.firstOrNull { it.spaceId == activeSpaceId }?.displayName.orEmpty()
 
     EmberrBottomSheet(expanded = expanded, onDismiss = onDismiss, title = "Spaces") { closeAnd ->
-        Column(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)) {
+        Column(modifier = Modifier.fillMaxWidth().padding(bottom = 30.dp)) {
 
             EmberrBottomSheetItem(
                 text = "Create Space",

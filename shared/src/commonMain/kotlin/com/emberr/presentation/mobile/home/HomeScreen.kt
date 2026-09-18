@@ -79,6 +79,7 @@ import com.emberr.presentation.shared.components.EmberrButtonSecondary
 import com.emberr.presentation.shared.components.EmberrTextField
 import com.emberr.presentation.shared.components.customEmberrShadow
 import com.emberr.presentation.shared.components.emberrBlur
+import com.emberr.presentation.space.SpaceOptionsSheets
 import emberr.shared.generated.resources.Res
 import emberr.shared.generated.resources.arrow_up_down
 import emberr.shared.generated.resources.calendar
@@ -1025,7 +1026,7 @@ fun HomeScreen(
 
             homeGridContent()
 
-            com.emberr.presentation.space.SpaceOptionsSheets(
+            SpaceOptionsSheets(
                 expanded = showSpaceOptions,
                 spaces = spaces,
                 activeSpaceId = activeSpaceId,
