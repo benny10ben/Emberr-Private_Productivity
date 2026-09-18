@@ -149,10 +149,16 @@ fun HomeScreen(
     onToggleSidebar: () -> Unit = {},
     onNavigateToSettings: () -> Unit = {},
     syncViewModel: SyncViewModel = koinViewModel(),
+    spaceViewModel: com.emberr.presentation.space.SpaceViewModel = koinViewModel(),
 ) {
     val hazeState = remember { HazeState() }
 
     var showUserSettingsMenu by remember { mutableStateOf(false) }
+    var showSpaceOptions by remember { mutableStateOf(false) }
+
+    val spaces by spaceViewModel.spaces.collectAsState()
+    val activeSpaceId by spaceViewModel.activeSpaceId.collectAsState()
+    val activeSpace = spaces.firstOrNull { it.spaceId == activeSpaceId }
 
     val isLoading by viewModel.isLoading.collectAsState()
     val foldersByParent by viewModel.foldersByParent.collectAsState()
@@ -935,10 +941,23 @@ fun HomeScreen(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
                     .pointerInput(Unit) { detectTapGestures {} },
-                title = if (isSelectionMode) "" else "Home",
+                title = if (isSelectionMode) "" else activeSpace?.displayName.orEmpty(),
                 titlePlacement = TopHeaderTitlePlacement.Start,
                 titleStyle = MaterialTheme.typography.titleLarge,
                 titleColor = MaterialTheme.colorScheme.onBackground,
+                titleTrailingIcon = if (isSelectionMode) null else {
+                    {
+                        Icon(
+                            imageVector = Icons.Default.KeyboardArrowDown,
+                            contentDescription = "Switch space",
+                            tint = MaterialTheme.colorScheme.onBackground,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+                },
+                onTitleClick = if (isSelectionMode) null else {
+                    { showSpaceOptions = true }
+                },
                 showBackButton = false,
                 reserveBackButtonSpace = false,
                 hazeState = hazeState,
@@ -1005,6 +1024,18 @@ fun HomeScreen(
         ) {
 
             homeGridContent()
+
+            com.emberr.presentation.space.SpaceOptionsSheets(
+                expanded = showSpaceOptions,
+                spaces = spaces,
+                activeSpaceId = activeSpaceId,
+                onDismiss = { showSpaceOptions = false },
+                onOpenSpace = { spaceId -> spaceViewModel.openSpace(spaceId) },
+                onReorderSpaces = { orderedIds -> spaceViewModel.reorderSpaces(orderedIds) },
+                onCreateSpace = { name -> spaceViewModel.createSpaceAndOpenIt(name) },
+                onRenameSpace = { name -> spaceViewModel.renameSpace(activeSpaceId, name) },
+                onDeleteSpace = { spaceViewModel.deleteSpace(activeSpaceId) }
+            )
 
             NotesSelectionPill(
                 isVisible = isSelectionMode,
@@ -1402,20 +1433,24 @@ fun RenameBottomSheet(
     expanded: Boolean,
     currentName: String,
     onDismiss: () -> Unit,
-    onRename: (String) -> Unit
+    onRename: (String) -> Unit,
+    title: String = "Rename",
+    subtitle: String = "Pick a new name.",
+    confirmLabel: String = "Save",
+    placeholder: String = "Name..."
 ) {
     var newName by remember(currentName) { mutableStateOf(currentName) }
     EmberrBottomSheet(
         expanded = expanded,
         onDismiss = onDismiss,
-        title = "Rename",
-        subtitle = "Pick a new name."
+        title = title,
+        subtitle = subtitle
     ) { closeAnd ->
         Column(modifier = Modifier.fillMaxWidth().padding(top = 10.dp, bottom = 16.dp)) {
             EmberrTextField(
                 value = newName,
                 onValueChange = { newName = it },
-                placeholder = "Name...",
+                placeholder = placeholder,
                 modifier = Modifier.fillMaxWidth(),
                 onSubmit = { if (newName.isNotBlank()) closeAnd { onRename(newName.trim()) } }
             )
@@ -1429,7 +1464,7 @@ fun RenameBottomSheet(
                     modifier = Modifier.weight(1f)
                 )
                 EmberrButtonPrimary(
-                    text = "Save",
+                    text = confirmLabel,
                     onClick = { if (newName.isNotBlank()) closeAnd { onRename(newName.trim()) } },
                     modifier = Modifier.weight(1f)
                 )
