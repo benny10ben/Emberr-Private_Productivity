@@ -7,6 +7,7 @@ import com.emberr.domain.model.ImageBlock
 import com.emberr.domain.model.NoteContent
 import com.emberr.domain.model.markDeleted
 import com.emberr.domain.repository.NoteRepository
+import com.emberr.domain.space.ActiveSpaceStore
 import com.emberr.domain.util.media.MediaStorageHelper
 import com.emberr.domain.util.sync.SyncCoordinator
 import com.emberr.presentation.shared.editor.FocusRequest
@@ -16,6 +17,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.withLock
@@ -33,7 +36,8 @@ data class ImageGroup(
 
 class ImagesViewModel(
     private val repository: NoteRepository,
-    private val mediaStorageHelper: MediaStorageHelper
+    private val mediaStorageHelper: MediaStorageHelper,
+    private val activeSpaceStore: ActiveSpaceStore
 ) : ViewModel() {
 
     private val _isLoading = MutableStateFlow(true)
@@ -50,41 +54,59 @@ class ImagesViewModel(
 
     private val blockSourceMap = mutableMapOf<String, String>()
 
+    private var loadedSpaceId: String? = null
+
     fun loadAllImages() {
         viewModelScope.launch {
-            repository.getAllImagesFlow().collectLatest { allImages ->
-                _isLoading.value = true
-                blockSourceMap.clear()
+            activeSpaceStore.activeSpaceId
+                .onEach { spaceId -> startSessionForSpace(spaceId) }
+                .flatMapLatest { repository.getAllImagesFlow() }
+                .collectLatest { allImages ->
+                    blockSourceMap.clear()
 
-                val months = arrayOf("", "January", "February", "March", "April", "May",
-                    "June", "July", "August", "September", "October", "November", "December")
+                    val months = arrayOf("", "January", "February", "March", "April", "May",
+                        "June", "July", "August", "September", "October", "November", "December")
 
-                val monthGroups    = mutableMapOf<String, MutableList<ImageBlock>>()
-                val monthTimestamp = mutableMapOf<String, Long>()
+                    val monthGroups    = mutableMapOf<String, MutableList<ImageBlock>>()
+                    val monthTimestamp = mutableMapOf<String, Long>()
 
-                for (entity in allImages) {
-                    blockSourceMap[entity.blockId] = entity.noteId
+                    for (entity in allImages) {
+                        blockSourceMap[entity.blockId] = entity.noteId
 
-                    val instant   = Instant.fromEpochMilliseconds(entity.noteCreatedAt)
-                    val localDate = instant.toLocalDateTime(TimeZone.currentSystemDefault()).date
-                    val key       = "${months[localDate.month.number]} ${localDate.year}"
+                        val instant   = Instant.fromEpochMilliseconds(entity.noteCreatedAt)
+                        val localDate = instant.toLocalDateTime(TimeZone.currentSystemDefault()).date
+                        val key       = "${months[localDate.month.number]} ${localDate.year}"
 
-                    monthGroups.getOrPut(key) { mutableListOf() }.add(
-                        ImageBlock(id = entity.blockId, localFilePath = entity.localFilePath)
-                    )
-                    monthTimestamp[key] = entity.noteCreatedAt
+                        monthGroups.getOrPut(key) { mutableListOf() }.add(
+                            ImageBlock(id = entity.blockId, localFilePath = entity.localFilePath)
+                        )
+                        monthTimestamp[key] = entity.noteCreatedAt
+                    }
+
+                    _groupedBlocks.value = monthGroups.map { (month, blocks) ->
+                        ImageGroup(
+                            monthYear = month,
+                            timestamp = monthTimestamp[month] ?: 0L,
+                            blocks    = blocks
+                        )
+                    }.sortedByDescending { it.timestamp }
+
+                    _isLoading.value = false
                 }
+        }
+    }
 
-                _groupedBlocks.value = monthGroups.map { (month, blocks) ->
-                    ImageGroup(
-                        monthYear = month,
-                        timestamp = monthTimestamp[month] ?: 0L,
-                        blocks    = blocks
-                    )
-                }.sortedByDescending { it.timestamp }
+    private fun startSessionForSpace(spaceId: String) {
+        if (loadedSpaceId == spaceId) return
+        val isSwitchingSpaces = loadedSpaceId != null
+        loadedSpaceId = spaceId
 
-                _isLoading.value = false
-            }
+        _isLoading.value = true
+        if (isSwitchingSpaces) {
+            blockSourceMap.clear()
+            _groupedBlocks.value = emptyList()
+            _selectedBlockIds.value = emptySet()
+            _focusRequest.value = null
         }
     }
 

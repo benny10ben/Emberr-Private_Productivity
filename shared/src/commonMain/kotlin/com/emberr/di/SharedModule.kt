@@ -227,19 +227,22 @@ val sharedModule = module {
     viewModel {
         com.emberr.presentation.mobile.home.overview.images.ImagesViewModel(
             repository = get(),
-            mediaStorageHelper = get()
+            mediaStorageHelper = get(),
+            activeSpaceStore = get()
         )
     }
     viewModel {
         com.emberr.presentation.mobile.home.overview.documents.DocumentsViewModel(
             repository = get(),
-            mediaStorageHelper = get()
+            mediaStorageHelper = get(),
+            activeSpaceStore = get()
         )
     }
     viewModel {
         com.emberr.presentation.mobile.home.overview.bookmarks.BookmarksViewModel(
             repository = get(),
-            bookmarkCategoryOrderStore = get()
+            bookmarkCategoryOrderStore = get(),
+            activeSpaceStore = get()
         )
     }
     viewModel {

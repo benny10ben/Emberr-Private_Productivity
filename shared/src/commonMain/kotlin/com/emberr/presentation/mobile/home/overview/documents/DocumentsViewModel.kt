@@ -7,6 +7,7 @@ import com.emberr.domain.model.DocumentBlock
 import com.emberr.domain.model.NoteContent
 import com.emberr.domain.model.markDeleted
 import com.emberr.domain.repository.NoteRepository
+import com.emberr.domain.space.ActiveSpaceStore
 import com.emberr.domain.util.media.MediaStorageHelper
 import com.emberr.domain.util.sync.SyncCoordinator
 import com.emberr.presentation.shared.editor.FocusRequest
@@ -16,6 +17,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.withLock
@@ -31,13 +34,10 @@ data class DocumentGroup(
     val blocks: List<DocumentBlock>
 )
 
-/**
- * Backs the Documents screen.
- * Extracts document blocks from all saved notes and groups them chronologically.
- */
 class DocumentsViewModel(
     private val repository: NoteRepository,
-    private val mediaStorageHelper: MediaStorageHelper
+    private val mediaStorageHelper: MediaStorageHelper,
+    private val activeSpaceStore: ActiveSpaceStore
 ) : ViewModel() {
 
     private val _isLoading = MutableStateFlow(true)
@@ -53,59 +53,66 @@ class DocumentsViewModel(
     val focusRequest: StateFlow<FocusRequest?> = _focusRequest.asStateFlow()
 
     private val blockSourceMap = mutableMapOf<String, String>()
-    private var initialLoad = true
 
-    /**
-     * Loops through every note, finds DocumentBlocks,
-     * and sorts them into date-based groups for the UI.
-     */
+    private var loadedSpaceId: String? = null
+
     fun loadAllDocuments() {
         viewModelScope.launch {
-            repository.getAllNotes().collectLatest { allNotes ->
-                if (initialLoad) _isLoading.value = true
+            activeSpaceStore.activeSpaceId
+                .onEach { spaceId -> startSessionForSpace(spaceId) }
+                .flatMapLatest { repository.getAllDocumentsFlow() }
+                .collectLatest { allDocuments ->
+                    blockSourceMap.clear()
 
-                val monthGroups = mutableMapOf<String, MutableList<DocumentBlock>>()
-                val monthTimestamps = mutableMapOf<String, Long>()
-                val months = arrayOf("", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December")
+                    val months = arrayOf("", "January", "February", "March", "April", "May",
+                        "June", "July", "August", "September", "October", "November", "December")
 
-                blockSourceMap.clear()
+                    val monthGroups    = mutableMapOf<String, MutableList<DocumentBlock>>()
+                    val monthTimestamp = mutableMapOf<String, Long>()
 
-                for (note in allNotes) {
-                    val content = repository.getNoteContent(note.noteId)
-                    val isInbox = note.title.equals("Inbox", ignoreCase = true)
+                    for (entity in allDocuments) {
+                        blockSourceMap[entity.blockId] = entity.noteId
 
-                    val instant = Instant.fromEpochMilliseconds(note.createdAt)
-                    val localDate = instant.toLocalDateTime(TimeZone.currentSystemDefault()).date
-                    val monthYearString = "${months[localDate.month.number]} ${localDate.year}"
+                        val instant   = Instant.fromEpochMilliseconds(entity.noteCreatedAt)
+                        val localDate = instant.toLocalDateTime(TimeZone.currentSystemDefault()).date
+                        val key       = "${months[localDate.month.number]} ${localDate.year}"
 
-                    content?.blocks?.forEach { block ->
-                        if (block is DocumentBlock && !block.isDeleted) {
-                            if (block.localFilePath != null || isInbox) {
-                                monthGroups.getOrPut(monthYearString) { mutableListOf() }
-                                    .add(block.copy(indentationLevel = 0))
-
-                                blockSourceMap[block.id] = note.noteId
-                                monthTimestamps[monthYearString] = note.createdAt
-                            }
-                        }
+                        monthGroups.getOrPut(key) { mutableListOf() }.add(
+                            DocumentBlock(
+                                id             = entity.blockId,
+                                localFilePath  = entity.localFilePath,
+                                fileName       = entity.fileName,
+                                mimeType       = entity.mimeType,
+                                fileSizeString = entity.fileSizeString
+                            )
+                        )
+                        monthTimestamp[key] = entity.noteCreatedAt
                     }
-                }
 
-                val sortedGroups = monthGroups.map { (month, blocks) ->
-                    DocumentGroup(
-                        monthYear = month,
-                        timestamp = monthTimestamps[month] ?: 0L,
-                        blocks = blocks.reversed()
-                    )
-                }.sortedByDescending { it.timestamp }
+                    _groupedBlocks.value = monthGroups.map { (month, blocks) ->
+                        DocumentGroup(
+                            monthYear = month,
+                            timestamp = monthTimestamp[month] ?: 0L,
+                            blocks    = blocks
+                        )
+                    }.sortedByDescending { it.timestamp }
 
-                _groupedBlocks.value = sortedGroups
-
-                if (initialLoad) {
                     _isLoading.value = false
-                    initialLoad = false
                 }
-            }
+        }
+    }
+
+    private fun startSessionForSpace(spaceId: String) {
+        if (loadedSpaceId == spaceId) return
+        val isSwitchingSpaces = loadedSpaceId != null
+        loadedSpaceId = spaceId
+
+        _isLoading.value = true
+        if (isSwitchingSpaces) {
+            blockSourceMap.clear()
+            _groupedBlocks.value = emptyList()
+            _selectedBlockIds.value = emptySet()
+            _focusRequest.value = null
         }
     }
 

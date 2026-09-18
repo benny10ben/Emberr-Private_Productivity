@@ -9,6 +9,7 @@ import com.emberr.domain.model.NoteContent
 import com.emberr.domain.model.markDeleted
 import com.emberr.domain.repository.BookmarkCategoryOrderStore
 import com.emberr.domain.repository.NoteRepository
+import com.emberr.domain.space.ActiveSpaceStore
 import com.emberr.domain.util.network.HtmlMetadataFetcher
 import com.emberr.domain.sync.AutoSyncTrigger
 import com.emberr.domain.util.sync.SyncCoordinator
@@ -21,6 +22,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -41,7 +44,8 @@ data class BookmarkGroup(
 
 class BookmarksViewModel constructor(
     private val repository: NoteRepository,
-    private val bookmarkCategoryOrderStore: BookmarkCategoryOrderStore
+    private val bookmarkCategoryOrderStore: BookmarkCategoryOrderStore,
+    private val activeSpaceStore: ActiveSpaceStore
 ) : ViewModel() {
 
     val categoryOrder: StateFlow<List<String>> = bookmarkCategoryOrderStore.orderFlow
@@ -67,48 +71,67 @@ class BookmarksViewModel constructor(
 
     private val blockSourceMap = mutableMapOf<String, String>()
 
+    private var loadedSpaceId: String? = null
+
     fun loadAllBookmarks() {
         viewModelScope.launch {
-            repository.getAllBookmarksFlow().collectLatest { allBookmarks ->
-                blockSourceMap.clear()
+            activeSpaceStore.activeSpaceId
+                .onEach { spaceId -> startSessionForSpace(spaceId) }
+                .flatMapLatest { repository.getAllBookmarksFlow() }
+                .collectLatest { allBookmarks ->
+                    blockSourceMap.clear()
 
-                val months = arrayOf("", "January", "February", "March", "April", "May",
-                    "June", "July", "August", "September", "October", "November", "December")
+                    val months = arrayOf("", "January", "February", "March", "April", "May",
+                        "June", "July", "August", "September", "October", "November", "December")
 
-                val grouped = allBookmarks
-                    .onEach { blockSourceMap[it.blockId] = it.noteId }
-                    .groupBy {
-                        val localDate = Instant.fromEpochMilliseconds(it.noteUpdatedAt)
-                            .toLocalDateTime(TimeZone.currentSystemDefault()).date
-                        "${months[localDate.month.number]} ${localDate.year}"
-                    }
-                    .map { (monthYear, entities) ->
-                        BookmarkGroup(
-                            monthYear = monthYear,
-                            timestamp = entities.first().noteUpdatedAt,
-                            blocks    = entities.map { e ->
-                                BookmarkBlock(
-                                    id              = e.blockId,
-                                    url             = e.url,
-                                    title           = e.title,
-                                    description     = e.description,
-                                    previewImageUrl = e.previewImageUrl
-                                )
-                            }
-                        )
-                    }
+                    val grouped = allBookmarks
+                        .onEach { blockSourceMap[it.blockId] = it.noteId }
+                        .groupBy {
+                            val localDate = Instant.fromEpochMilliseconds(it.noteUpdatedAt)
+                                .toLocalDateTime(TimeZone.currentSystemDefault()).date
+                            "${months[localDate.month.number]} ${localDate.year}"
+                        }
+                        .map { (monthYear, entities) ->
+                            BookmarkGroup(
+                                monthYear = monthYear,
+                                timestamp = entities.first().noteUpdatedAt,
+                                blocks    = entities.map { e ->
+                                    BookmarkBlock(
+                                        id              = e.blockId,
+                                        url             = e.url,
+                                        title           = e.title,
+                                        description     = e.description,
+                                        previewImageUrl = e.previewImageUrl
+                                    )
+                                }
+                            )
+                        }
 
-                _groupedBlocks.value = grouped
-                _isLoading.value = false
+                    _groupedBlocks.value = grouped
+                    _isLoading.value = false
 
-                allBookmarks.forEach { entity ->
-                    if (entity.title.isNullOrBlank() ||
-                        entity.title == "Loading preview..." ||
-                        entity.title == "Loading...") {
-                        fetchMissingMetadata(entity.blockId, entity.url, entity.noteId)
+                    allBookmarks.forEach { entity ->
+                        if (entity.title.isNullOrBlank() ||
+                            entity.title == "Loading preview..." ||
+                            entity.title == "Loading...") {
+                            fetchMissingMetadata(entity.blockId, entity.url, entity.noteId)
+                        }
                     }
                 }
-            }
+        }
+    }
+
+    private fun startSessionForSpace(spaceId: String) {
+        if (loadedSpaceId == spaceId) return
+        val isSwitchingSpaces = loadedSpaceId != null
+        loadedSpaceId = spaceId
+
+        _isLoading.value = true
+        if (isSwitchingSpaces) {
+            blockSourceMap.clear()
+            _groupedBlocks.value = emptyList()
+            _selectedBlockIds.value = emptySet()
+            _focusRequest.value = null
         }
     }
 
