@@ -30,6 +30,7 @@ object SecretServiceProviderName {
     }
 
     private fun friendlyNameFor(processName: String): String = when {
+        processName.startsWith("oo7") -> "oo7 Keyring"
         processName.startsWith("gnome-keyring") -> "GNOME Keyring"
         processName.startsWith("kwalletd") || processName.startsWith("ksecretd") -> "KWallet"
         processName.contains("keepassxc") -> "KeePassXC"
