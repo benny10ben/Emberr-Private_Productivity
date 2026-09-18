@@ -25,6 +25,14 @@ interface BlockDao {
     )
     suspend fun findNoteIdsMatchingContent(spaceId: String, query: String): List<String>
 
+    // Lets SQLite do the "which blocks could possibly match" filtering so cross-note search
+    // only ever JSON-decodes blocks that already contain the query text.
+    @Query(
+        "SELECT * FROM note_blocks WHERE noteId = :noteId AND isDeleted = 0 " +
+            "AND blockDataJson LIKE '%' || :query || '%' ORDER BY displayOrder ASC"
+    )
+    suspend fun findMatchingBlocksForNote(noteId: String, query: String): List<NoteBlockEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertOrUpdateBlock(block: NoteBlockEntity)
 

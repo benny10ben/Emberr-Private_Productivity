@@ -157,7 +157,9 @@ interface NoteRepository {
     suspend fun getNotesModifiedSince(timestamp: Long): List<NoteMetadataEntity>
     fun searchDailyNotes(query: String): Flow<List<NoteMetadataEntity>>
 
-    // Cross-note search
+    // Cross-note search. searchNoteTitlesAndSnippets is the cheap metadata-only pass the UI
+    // shows first; searchNotes adds the slower block-content matches on top of it.
+    suspend fun searchNoteTitlesAndSnippets(query: String): List<NoteSearchResult>
     suspend fun searchNotes(query: String): List<NoteSearchResult>
 
     suspend fun indexNote(metadata: NoteMetadataEntity, content: NoteContent)

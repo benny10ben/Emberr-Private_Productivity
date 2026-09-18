@@ -429,6 +429,19 @@ class NoteRepositoryImpl(
     override fun searchDailyNotes(query: String): Flow<List<NoteMetadataEntity>> =
         inActiveSpace { noteDao.searchDailyNotes(it, query) }
 
+    // The fast half of cross-note search: one indexed-ish LIKE over note_metadata only. No block
+    // JSON is touched, so the sidebar can paint these hits while the content scan is still running.
+    override suspend fun searchNoteTitlesAndSnippets(query: String): List<NoteSearchResult> =
+        withContext(Dispatchers.IO) {
+            if (query.isBlank()) return@withContext emptyList()
+            noteDao.searchNotesByTitleOrSnippet(activeSpaceId(), query).map { metadata ->
+                NoteSearchResult(
+                    note = metadata,
+                    matchedText = metadata.snippet.ifBlank { metadata.title }
+                )
+            }
+        }
+
     // Cross-note search. Runs the two DAO queries added for this feature:
     // 1) a title/snippet LIKE match (cheap, covers most everyday searches), and
     // 2) a content LIKE match over the raw block JSON, which only tells us *which* notes
@@ -440,8 +453,8 @@ class NoteRepositoryImpl(
             if (query.isBlank()) return@withContext emptyList()
 
             val spaceId = activeSpaceId()
-            val titleOrSnippetMatches = noteDao.searchNotesByTitleOrSnippet(spaceId, query).first()
-            val matchedIds = titleOrSnippetMatches.mapTo(mutableSetOf()) { it.noteId }
+            val metadataResults = searchNoteTitlesAndSnippets(query)
+            val matchedIds = metadataResults.mapTo(mutableSetOf()) { it.note.noteId }
 
             val contentMatchIds = blockDao.findNoteIdsMatchingContent(spaceId, query)
                 .filterNot { it in matchedIds }
@@ -449,26 +462,20 @@ class NoteRepositoryImpl(
             val contentMatches = if (contentMatchIds.isEmpty()) {
                 emptyList()
             } else {
-                noteDao.getNotesByIds(contentMatchIds).mapNotNull { metadata ->
+                noteDao.getSearchableNotesByIds(contentMatchIds).mapNotNull { metadata ->
                     val matchedText = findMatchingBlockText(metadata.noteId, query) ?: return@mapNotNull null
                     NoteSearchResult(note = metadata, matchedText = matchedText)
                 }
             }
 
-            val metadataResults = titleOrSnippetMatches.map { metadata ->
-                NoteSearchResult(
-                    note = metadata,
-                    matchedText = metadata.snippet.ifBlank { metadata.title }
-                )
-            }
-
             (metadataResults + contentMatches).sortedByDescending { it.note.updatedAt }
         }
 
-    // Decodes a single note's blocks and returns the flattened text of the first
-    // non-deleted block whose text contains the query (case-insensitive).
+    // Returns the flattened text of the first live block whose text contains the query
+    // (case-insensitive). SQLite has already narrowed this to blocks whose raw JSON holds the
+    // query, so only a handful of rows ever reach the decoder.
     private suspend fun findMatchingBlockText(noteId: String, query: String): String? {
-        val entities = blockDao.getAllBlocksForNoteIncludingDeleted(noteId)
+        val entities = blockDao.findMatchingBlocksForNote(noteId, query)
         val lowerQuery = query.lowercase()
         for (entity in entities) {
             val block = decodeBlockOrNull(entity.blockDataJson) ?: continue

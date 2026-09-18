@@ -61,13 +61,23 @@ interface NoteDao {
         ORDER BY updatedAt DESC
         """
     )
-    fun searchNotesByTitleOrSnippet(spaceId: String, query: String): Flow<List<NoteMetadataEntity>>
+    suspend fun searchNotesByTitleOrSnippet(spaceId: String, query: String): List<NoteMetadataEntity>
 
-    // isTemplate = 0 here too: this is also used to resolve cross-note *content* search hits
-    // (NoteRepositoryImpl.searchNotes), and that content match comes from a raw block-JSON scan
-    // that has no idea what a template is, so the filter has to be enforced on this side instead.
+    // isTemplate = 0 here too: callers like the tasks widget and the reminder rescheduler look up
+    // titles by id and must never resolve a template row.
     @Query("SELECT * FROM notes_metadata WHERE noteId IN (:ids) AND isTemplate = 0")
     suspend fun getNotesByIds(ids: List<String>): List<NoteMetadataEntity>
+
+    // Resolves cross-note *content* search hits (NoteRepositoryImpl.searchNotes). The block-JSON
+    // scan that produces those ids has no idea what a trashed note, sub-note or template is, so
+    // this repeats searchNotesByTitleOrSnippet's filters to keep both halves of one search in sync.
+    @Query(
+        """
+        SELECT * FROM notes_metadata
+        WHERE noteId IN (:ids) AND trashedAt IS NULL AND isSubNote = 0 AND isTemplate = 0
+        """
+    )
+    suspend fun getSearchableNotesByIds(ids: List<String>): List<NoteMetadataEntity>
 
     @Query("SELECT * FROM notes_metadata WHERE spaceId = :spaceId AND isFavorite = 1 AND trashedAt IS NULL AND isTemplate = 0 ORDER BY updatedAt DESC")
     fun getFavoriteNotes(spaceId: String): Flow<List<NoteMetadataEntity>>
