@@ -127,7 +127,7 @@ val androidModule = module {
         )
     }
 
-    single { com.emberr.presentation.widget.WidgetNoteSource(noteDao = get(), activeSpaceStore = get()) }
+    single { com.emberr.presentation.widget.WidgetNoteSource(noteDao = get(), spaceDao = get()) }
 
     single {
         com.emberr.presentation.widget.calendaragenda.CalendarAgendaWidgetContentReader(

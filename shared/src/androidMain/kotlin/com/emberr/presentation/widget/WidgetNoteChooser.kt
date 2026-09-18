@@ -26,7 +26,7 @@ import com.emberr.data.local.room.NoteMetadataEntity
 
 @Composable
 fun WidgetNoteChooser(
-    notes: List<NoteMetadataEntity>,
+    notes: List<SelectableWidgetNote>,
     onNoteChosen: (String) -> Unit
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
@@ -42,8 +42,12 @@ fun WidgetNoteChooser(
             WidgetSetupNotice("You have no notes yet")
         } else {
             LazyColumn(modifier = Modifier.fillMaxSize()) {
-                items(items = notes, key = { note -> note.noteId }) { note ->
-                    NoteChooserRow(note = note, onClick = { onNoteChosen(note.noteId) })
+                items(items = notes, key = { entry -> entry.note.noteId }) { entry ->
+                    NoteChooserRow(
+                        note = entry.note,
+                        spaceName = entry.spaceName,
+                        onClick = { onNoteChosen(entry.note.noteId) }
+                    )
                     HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
                 }
             }
@@ -67,7 +71,7 @@ fun WidgetSetupNotice(message: String) {
 }
 
 @Composable
-private fun NoteChooserRow(note: NoteMetadataEntity, onClick: () -> Unit) {
+private fun NoteChooserRow(note: NoteMetadataEntity, spaceName: String, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -90,10 +94,14 @@ private fun NoteChooserRow(note: NoteMetadataEntity, onClick: () -> Unit) {
             )
 
             val snippet = note.snippet.trim()
-            if (snippet.isNotBlank()) {
+            val subtitle = listOf(spaceName.trim(), snippet)
+                .filter { part -> part.isNotBlank() }
+                .joinToString(separator = "  ·  ")
+
+            if (subtitle.isNotBlank()) {
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = snippet,
+                    text = subtitle,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.outline,
                     maxLines = 1,
