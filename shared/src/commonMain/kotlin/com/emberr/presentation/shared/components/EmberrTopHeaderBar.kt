@@ -63,6 +63,7 @@ fun EmberrTopHeaderBar(
     titleSideInset: Dp = DefaultTitleSideInset,
     titlePadding: PaddingValues = PaddingValues(0.dp),
     titleLeadingIcon: (@Composable () -> Unit)? = null,
+    titleTrailingIcon: (@Composable () -> Unit)? = null,
     onTitleClick: (() -> Unit)? = null,
     showBackButton: Boolean = true,
     reserveBackButtonSpace: Boolean = true,
@@ -122,6 +123,7 @@ fun EmberrTopHeaderBar(
                     visibility = titleVisibility,
                     padding = titlePadding,
                     leadingIcon = titleLeadingIcon,
+                    trailingIcon = titleTrailingIcon,
                     onClick = onTitleClick
                 )
             }
@@ -144,6 +146,7 @@ fun EmberrTopHeaderBar(
                 visibility = titleVisibility,
                 padding = titlePadding,
                 leadingIcon = titleLeadingIcon,
+                trailingIcon = titleTrailingIcon,
                 onClick = onTitleClick,
                 modifier = Modifier
                     .align(Alignment.Center)
@@ -165,10 +168,11 @@ private fun TopHeaderBarTitle(
     visibility: Float,
     padding: PaddingValues,
     leadingIcon: (@Composable () -> Unit)?,
+    trailingIcon: (@Composable () -> Unit)? = null,
     onClick: (() -> Unit)?,
     modifier: Modifier = Modifier
 ) {
-    if (text.isEmpty() && leadingIcon == null) return
+    if (text.isEmpty() && leadingIcon == null && trailingIcon == null) return
 
     val interactionSource = remember { MutableInteractionSource() }
 
@@ -199,5 +203,10 @@ private fun TopHeaderBarTitle(
             overflow = TextOverflow.Ellipsis,
             textAlign = TextAlign.Center
         )
+
+        if (trailingIcon != null) {
+            Spacer(Modifier.width(4.dp))
+            trailingIcon()
+        }
     }
 }
