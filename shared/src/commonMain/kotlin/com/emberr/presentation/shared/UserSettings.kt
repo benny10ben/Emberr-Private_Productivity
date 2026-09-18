@@ -1,15 +1,13 @@
 package com.emberr.presentation.shared
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.unit.dp
 import com.emberr.domain.util.system.isDesktopPlatform
 import com.emberr.presentation.shared.components.EmberrBottomSheet
+import com.emberr.presentation.shared.components.EmberrBottomSheetItem
 import com.emberr.presentation.shared.components.EmberrButtonPrimary
 import com.emberr.presentation.shared.components.EmberrDesktopMenu
 import com.emberr.presentation.shared.components.EmberrDesktopMenuItem
@@ -88,14 +86,14 @@ private fun UserSettingsBottomSheet(
     EmberrBottomSheet(expanded = expanded, onDismiss = onDismiss, title = "More") { closeAnd ->
 
         Column(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)) {
-            BottomSheetItem(
-                "Settings",
-                painterResource(Res.drawable.cog)
+            EmberrBottomSheetItem(
+                text = "Settings",
+                icon = painterResource(Res.drawable.cog)
             ) { closeAnd { onNavigateToSettings() } }
 
-            BottomSheetItem(
-                "Trash",
-                painterResource(Res.drawable.trash)
+            EmberrBottomSheetItem(
+                text = "Trash",
+                icon = painterResource(Res.drawable.trash)
             ) { closeAnd { onNavigateToTrash() } }
 
             EmberrButtonPrimary(
@@ -104,17 +102,5 @@ private fun UserSettingsBottomSheet(
                 modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp)
             )
         }
-    }
-}
-
-@Composable
-private fun BottomSheetItem(text: String, icon: Painter, onClick: () -> Unit) {
-    Row(
-        modifier = Modifier.fillMaxWidth().clickable { onClick() }.padding(vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(icon, null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(20.dp))
-        Spacer(Modifier.width(12.dp))
-        Text(text, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
     }
 }
