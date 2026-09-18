@@ -1,19 +1,19 @@
 package com.emberr.domain.backup.manual
 
-import com.emberr.data.local.room.BookmarkBlockEntity
-import com.emberr.data.local.room.CalendarEventExceptionEntity
-import com.emberr.data.local.room.CalendarTaskEntity
-import com.emberr.data.local.room.CategoryEntity
-import com.emberr.data.local.room.ChatSessionEntity
-import com.emberr.data.local.room.DatabaseTemplateEntity
-import com.emberr.data.local.room.DocumentBlockEntity
-import com.emberr.data.local.room.FolderEntity
-import com.emberr.data.local.room.ImageBlockEntity
-import com.emberr.data.local.room.NoteBlockEntity
-import com.emberr.data.local.room.NoteMetadataEntity
-import com.emberr.data.local.room.SelfHostDeletedNoteEntity
-import com.emberr.data.local.room.SpaceEntity
-import com.emberr.data.local.room.TagEntity
+import com.emberr.data.local.room.entity.BookmarkBlockEntity
+import com.emberr.data.local.room.entity.CalendarEventExceptionEntity
+import com.emberr.data.local.room.entity.CalendarTaskEntity
+import com.emberr.data.local.room.entity.CategoryEntity
+import com.emberr.data.local.room.entity.ChatSessionEntity
+import com.emberr.data.local.room.entity.DatabaseTemplateEntity
+import com.emberr.data.local.room.entity.DocumentBlockEntity
+import com.emberr.data.local.room.entity.FolderEntity
+import com.emberr.data.local.room.entity.ImageBlockEntity
+import com.emberr.data.local.room.entity.NoteBlockEntity
+import com.emberr.data.local.room.entity.NoteMetadataEntity
+import com.emberr.data.local.room.entity.SelfHostDeletedNoteEntity
+import com.emberr.data.local.room.entity.SpaceEntity
+import com.emberr.data.local.room.entity.TagEntity
 import kotlinx.serialization.Serializable
 
 @Serializable

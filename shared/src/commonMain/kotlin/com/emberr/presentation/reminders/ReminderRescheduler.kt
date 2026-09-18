@@ -1,12 +1,12 @@
 package com.emberr.presentation.reminders
 
-import com.emberr.data.local.room.CalendarEventExceptionDao
-import com.emberr.data.local.room.CalendarEventExceptionEntity
-import com.emberr.data.local.room.CalendarTaskDao
-import com.emberr.data.local.room.CalendarTaskEntity
-import com.emberr.data.local.room.NoteDao
-import com.emberr.data.local.room.NoteMetadataEntity
-import com.emberr.data.local.room.toRecurrenceRule
+import com.emberr.data.local.room.dao.CalendarEventExceptionDao
+import com.emberr.data.local.room.dao.CalendarTaskDao
+import com.emberr.data.local.room.dao.NoteDao
+import com.emberr.data.local.room.entity.CalendarEventExceptionEntity
+import com.emberr.data.local.room.entity.CalendarTaskEntity
+import com.emberr.data.local.room.entity.NoteMetadataEntity
+import com.emberr.data.local.room.entity.toRecurrenceRule
 import com.emberr.domain.model.RecurrenceEngine
 import kotlinx.coroutines.flow.first
 import kotlin.time.Clock

@@ -2,7 +2,7 @@ package com.emberr.presentation.mobile.home.overview.images
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.emberr.data.local.room.NoteMetadataEntity
+import com.emberr.data.local.room.entity.NoteMetadataEntity
 import com.emberr.domain.model.ImageBlock
 import com.emberr.domain.model.NoteContent
 import com.emberr.domain.model.markDeleted

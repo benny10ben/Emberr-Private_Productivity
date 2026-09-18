@@ -25,7 +25,7 @@ import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.emberr.data.local.room.NoteMetadataEntity
+import com.emberr.data.local.room.entity.NoteMetadataEntity
 import com.emberr.domain.model.PendingShare
 import com.emberr.presentation.shared.components.EmberrBottomSheet
 import com.emberr.presentation.shared.components.EmberrButtonPrimary

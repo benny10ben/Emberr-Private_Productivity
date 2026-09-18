@@ -80,8 +80,8 @@ import com.emberr.domain.model.TableBlock
 import com.emberr.domain.model.TextBlock
 import com.emberr.domain.model.ToggleBlock
 import com.emberr.domain.model.VoiceBlock
-import com.emberr.data.local.room.NoteMetadataEntity
-import com.emberr.data.local.room.TagEntity
+import com.emberr.data.local.room.entity.NoteMetadataEntity
+import com.emberr.data.local.room.entity.TagEntity
 import com.emberr.domain.model.inlineSpansOrEmpty
 import com.emberr.domain.util.system.isDesktopPlatform
 import com.emberr.presentation.LocalImageOverlay

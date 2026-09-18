@@ -14,7 +14,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import com.emberr.data.local.room.TagEntity
+import com.emberr.data.local.room.entity.TagEntity
 import com.emberr.domain.model.DatabaseBlock
 import com.emberr.domain.model.DatabaseColumn
 import com.emberr.domain.model.DatabaseView

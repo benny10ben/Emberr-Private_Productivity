@@ -55,8 +55,8 @@ import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
-import com.emberr.data.local.room.FolderEntity
-import com.emberr.data.local.room.NoteMetadataEntity
+import com.emberr.data.local.room.entity.FolderEntity
+import com.emberr.data.local.room.entity.NoteMetadataEntity
 import com.emberr.presentation.mobile.home.DropInsertPosition
 import com.emberr.presentation.mobile.home.HomeItemKey
 import com.emberr.presentation.mobile.home.ROOT_TREE_GUIDE_LINES

@@ -12,17 +12,17 @@ import com.emberr.core.security.SyncEncryptionManager
 import com.emberr.data.local.prefs.AndroidSettingsManager
 import com.emberr.data.local.prefs.SettingsManager
 import com.emberr.data.local.room.AppDatabase
-import com.emberr.data.local.room.BlockDao
-import com.emberr.data.local.room.BookmarkBlockDao
-import com.emberr.data.local.room.CalendarTaskDao
-import com.emberr.data.local.room.CategoryDao
-import com.emberr.data.local.room.DatabaseTemplateDao
-import com.emberr.data.local.room.DocumentBlockDao
-import com.emberr.data.local.room.FolderDao
-import com.emberr.data.local.room.ImageBlockDao
-import com.emberr.data.local.room.NoteDao
-import com.emberr.data.local.room.SelfHostDeletedNoteDao
-import com.emberr.data.local.room.TagDao
+import com.emberr.data.local.room.dao.BlockDao
+import com.emberr.data.local.room.dao.BookmarkBlockDao
+import com.emberr.data.local.room.dao.CalendarTaskDao
+import com.emberr.data.local.room.dao.CategoryDao
+import com.emberr.data.local.room.dao.DatabaseTemplateDao
+import com.emberr.data.local.room.dao.DocumentBlockDao
+import com.emberr.data.local.room.dao.FolderDao
+import com.emberr.data.local.room.dao.ImageBlockDao
+import com.emberr.data.local.room.dao.NoteDao
+import com.emberr.data.local.room.dao.SelfHostDeletedNoteDao
+import com.emberr.data.local.room.dao.TagDao
 import com.emberr.domain.sync.SyncRepositoryImpl
 import com.emberr.domain.backup.automatic.AndroidBackupRescheduler
 import com.emberr.domain.backup.automatic.BackupNotifier
@@ -113,7 +113,7 @@ val androidModule = module {
         com.emberr.data.local.room.getRoomDatabase(builder)
     }
 
-    single<com.emberr.data.local.room.SpaceDao> { get<AppDatabase>().spaceDao() }
+    single<com.emberr.data.local.room.dao.SpaceDao> { get<AppDatabase>().spaceDao() }
     single<NoteDao> { get<AppDatabase>().noteDao() }
     single<FolderDao> { get<AppDatabase>().folderDao() }
     single<TagDao> { get<AppDatabase>().tagDao() }
@@ -224,16 +224,16 @@ val androidModule = module {
         )
     }
     single<CalendarTaskDao> { get<AppDatabase>().calendarTaskDao() }
-    single<com.emberr.data.local.room.CalendarEventExceptionDao> { get<AppDatabase>().calendarEventExceptionDao() }
+    single<com.emberr.data.local.room.dao.CalendarEventExceptionDao> { get<AppDatabase>().calendarEventExceptionDao() }
     single<ImageBlockDao> { get<AppDatabase>().imageBlockDao() }
     single<DocumentBlockDao> { get<AppDatabase>().documentBlockDao() }
     single<BookmarkBlockDao> { get<AppDatabase>().bookmarkBlockDao() }
     single<DatabaseTemplateDao> { get<AppDatabase>().databaseTemplateDao() }
     single<CategoryDao> { get<AppDatabase>().categoryDao() }
     single<SelfHostDeletedNoteDao> { get<AppDatabase>().selfHostDeletedNoteDao() }
-    single<com.emberr.data.local.room.ChatSessionDao> { get<AppDatabase>().chatSessionDao() }
-    single<com.emberr.data.local.room.SelfHostDeletedApiConfigDao> { get<AppDatabase>().selfHostDeletedApiConfigDao() }
-    single<com.emberr.data.local.room.MediaReferenceDao> { get<AppDatabase>().mediaReferenceDao() }
+    single<com.emberr.data.local.room.dao.ChatSessionDao> { get<AppDatabase>().chatSessionDao() }
+    single<com.emberr.data.local.room.dao.SelfHostDeletedApiConfigDao> { get<AppDatabase>().selfHostDeletedApiConfigDao() }
+    single<com.emberr.data.local.room.dao.MediaReferenceDao> { get<AppDatabase>().mediaReferenceDao() }
 
     // SQLDelight
     single<SqlDriver> { DatabaseDriverFactory(androidContext(), get<ByteArray>()).createDriver() }

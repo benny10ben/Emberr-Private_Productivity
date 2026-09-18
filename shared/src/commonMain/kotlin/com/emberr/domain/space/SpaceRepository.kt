@@ -1,10 +1,10 @@
 package com.emberr.domain.space
 
-import com.emberr.data.local.room.DEFAULT_SPACE_ID
-import com.emberr.data.local.room.DEFAULT_SPACE_NAME
-import com.emberr.data.local.room.PLACEHOLDER_SPACE_UPDATED_AT
-import com.emberr.data.local.room.SpaceDao
-import com.emberr.data.local.room.SpaceEntity
+import com.emberr.data.local.room.dao.SpaceDao
+import com.emberr.data.local.room.entity.DEFAULT_SPACE_ID
+import com.emberr.data.local.room.entity.DEFAULT_SPACE_NAME
+import com.emberr.data.local.room.entity.PLACEHOLDER_SPACE_UPDATED_AT
+import com.emberr.data.local.room.entity.SpaceEntity
 import com.emberr.domain.ai.chat.ChatSessionRepository
 import com.emberr.domain.repository.NoteRepository
 import com.emberr.domain.sync.AutoSyncTrigger

@@ -4,10 +4,10 @@ import androidx.compose.runtime.Stable
 import androidx.compose.ui.text.TextRange
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.emberr.data.local.room.DatabaseTemplateEntity
-import com.emberr.data.local.room.FolderEntity
-import com.emberr.data.local.room.NoteMetadataEntity
-import com.emberr.data.local.room.TagEntity
+import com.emberr.data.local.room.entity.DatabaseTemplateEntity
+import com.emberr.data.local.room.entity.FolderEntity
+import com.emberr.data.local.room.entity.NoteMetadataEntity
+import com.emberr.data.local.room.entity.TagEntity
 import com.emberr.domain.model.*
 import com.emberr.domain.repository.NoteRepository
 import com.emberr.domain.util.eventbus.AiEventBus

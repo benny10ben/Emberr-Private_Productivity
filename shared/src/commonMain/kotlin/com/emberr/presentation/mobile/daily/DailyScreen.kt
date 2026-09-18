@@ -54,7 +54,7 @@ import com.emberr.presentation.shared.editor.EditorToolbar
 import com.emberr.presentation.shared.editor.GlobalEditorState
 import kotlinx.datetime.LocalDate
 import kotlin.math.abs
-import com.emberr.data.local.room.CalendarTaskEntity
+import com.emberr.data.local.room.entity.CalendarTaskEntity
 import com.emberr.domain.util.system.isDesktopPlatform
 import com.emberr.presentation.calendar.CalendarViewModel
 import com.emberr.presentation.calendar.EventEditorSheetHost

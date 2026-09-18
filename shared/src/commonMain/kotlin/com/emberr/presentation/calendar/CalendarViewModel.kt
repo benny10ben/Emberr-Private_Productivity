@@ -3,8 +3,8 @@ package com.emberr.presentation.calendar
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.emberr.data.local.prefs.SettingsManager
-import com.emberr.data.local.room.CategoryEntity
-import com.emberr.data.local.room.TaskSource
+import com.emberr.data.local.room.entity.CategoryEntity
+import com.emberr.data.local.room.entity.TaskSource
 import com.emberr.domain.model.CheckboxBlock
 import com.emberr.domain.model.NoteContent
 import com.emberr.domain.model.RecurrenceEditScope

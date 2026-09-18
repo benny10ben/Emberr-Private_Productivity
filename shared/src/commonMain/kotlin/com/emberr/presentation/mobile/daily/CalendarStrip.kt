@@ -33,7 +33,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.emberr.data.local.room.CalendarTaskEntity
+import com.emberr.data.local.room.entity.CalendarTaskEntity
 import com.emberr.domain.util.system.isDesktopPlatform
 import com.emberr.presentation.shared.components.EmberrBlur
 import com.emberr.presentation.shared.components.NoRippleIndicationNodeFactory

@@ -2,7 +2,7 @@ package com.emberr.data.local.prefs
 
 import android.content.SharedPreferences
 import com.emberr.core.security.TinkSecretStore
-import com.emberr.data.local.room.DEFAULT_SPACE_ID
+import com.emberr.data.local.room.entity.DEFAULT_SPACE_ID
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow

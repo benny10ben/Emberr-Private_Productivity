@@ -1,9 +1,10 @@
-package com.emberr.data.local.room
+package com.emberr.data.local.room.dao
 
 import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import com.emberr.data.local.room.entity.SelfHostDeletedApiConfigEntity
 
 @Dao
 interface SelfHostDeletedApiConfigDao {

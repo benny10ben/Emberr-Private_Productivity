@@ -47,7 +47,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
-import com.emberr.data.local.room.NoteMetadataEntity
+import com.emberr.data.local.room.entity.NoteMetadataEntity
 import com.emberr.domain.model.NoteSearchResult
 import com.emberr.domain.util.system.isDesktopPlatform
 import com.emberr.presentation.shared.components.EmberrBlur

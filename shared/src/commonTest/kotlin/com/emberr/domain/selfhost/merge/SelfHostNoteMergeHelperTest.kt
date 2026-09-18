@@ -1,6 +1,6 @@
 package com.emberr.domain.selfhost.merge
 
-import com.emberr.data.local.room.NoteBlockEntity
+import com.emberr.data.local.room.entity.NoteBlockEntity
 import com.emberr.domain.model.NoteBlock
 import com.emberr.domain.model.TextBlock
 import com.emberr.domain.selfhost.translation.BlockTombstone

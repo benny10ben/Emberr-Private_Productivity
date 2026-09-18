@@ -2,7 +2,7 @@
 package com.emberr.presentation.widget.todaytasks
 
 import android.content.Context
-import com.emberr.data.local.room.CalendarTaskDao
+import com.emberr.data.local.room.dao.CalendarTaskDao
 import com.emberr.presentation.widget.WidgetLog
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers

@@ -1,7 +1,7 @@
 package com.emberr.domain.ai.chat
 
-import com.emberr.data.local.room.ChatSessionDao
-import com.emberr.data.local.room.ChatSessionEntity
+import com.emberr.data.local.room.dao.ChatSessionDao
+import com.emberr.data.local.room.entity.ChatSessionEntity
 import com.emberr.domain.sync.AutoSyncTrigger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow

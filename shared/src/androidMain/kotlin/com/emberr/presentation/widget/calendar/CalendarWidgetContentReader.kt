@@ -1,8 +1,8 @@
 // Builds the month grid, marking today and adding a coloured dot for each task on a day.
 package com.emberr.presentation.widget.calendar
 
-import com.emberr.data.local.room.CalendarTaskDao
-import com.emberr.data.local.room.CategoryDao
+import com.emberr.data.local.room.dao.CalendarTaskDao
+import com.emberr.data.local.room.dao.CategoryDao
 import com.emberr.presentation.widget.WidgetLog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext

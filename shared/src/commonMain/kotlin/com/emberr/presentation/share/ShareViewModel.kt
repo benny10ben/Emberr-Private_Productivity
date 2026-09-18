@@ -2,7 +2,7 @@ package com.emberr.presentation.share
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.emberr.data.local.room.NoteMetadataEntity
+import com.emberr.data.local.room.entity.NoteMetadataEntity
 import com.emberr.domain.model.BookmarkBlock
 import com.emberr.domain.model.DocumentBlock
 import com.emberr.domain.model.ImageBlock

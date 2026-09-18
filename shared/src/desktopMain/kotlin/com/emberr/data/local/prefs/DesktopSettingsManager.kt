@@ -2,7 +2,7 @@ package com.emberr.data.local.prefs
 
 import com.emberr.core.security.secrets.DesktopSecretStore
 import com.emberr.core.security.secrets.SecretNamespace
-import com.emberr.data.local.room.DEFAULT_SPACE_ID
+import com.emberr.data.local.room.entity.DEFAULT_SPACE_ID
 import java.io.File
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow

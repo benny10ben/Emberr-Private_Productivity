@@ -3,7 +3,7 @@ package com.emberr.presentation.widget.tasks
 
 import android.appwidget.AppWidgetManager
 import android.content.Context
-import com.emberr.data.local.room.CalendarTaskEntity
+import com.emberr.data.local.room.entity.CalendarTaskEntity
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.glance.GlanceId

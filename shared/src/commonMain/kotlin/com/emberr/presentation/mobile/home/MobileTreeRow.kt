@@ -45,8 +45,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
-import com.emberr.data.local.room.FolderEntity
-import com.emberr.data.local.room.NoteMetadataEntity
+import com.emberr.data.local.room.entity.FolderEntity
+import com.emberr.data.local.room.entity.NoteMetadataEntity
 import com.emberr.presentation.shared.components.AnimatedFolderIcon
 import emberr.shared.generated.resources.Res
 import emberr.shared.generated.resources.file_text

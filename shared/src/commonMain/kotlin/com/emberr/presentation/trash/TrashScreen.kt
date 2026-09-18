@@ -22,7 +22,7 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
-import com.emberr.data.local.room.NoteMetadataEntity
+import com.emberr.data.local.room.entity.NoteMetadataEntity
 import com.emberr.domain.util.system.isDesktopPlatform
 import com.emberr.presentation.shared.components.EmberrBottomSheet
 import com.emberr.presentation.shared.components.EmberrButtonPrimary

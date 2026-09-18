@@ -1,7 +1,7 @@
 package com.emberr.presentation.reminders
 
-import com.emberr.data.local.room.CalendarTaskDao
-import com.emberr.data.local.room.NoteDao
+import com.emberr.data.local.room.dao.CalendarTaskDao
+import com.emberr.data.local.room.dao.NoteDao
 
 data class ReminderTarget(
     val spaceId: String,

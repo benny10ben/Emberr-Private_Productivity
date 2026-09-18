@@ -2,8 +2,8 @@ package com.emberr.presentation.mobile.home.overview.tasks
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.emberr.data.local.room.NoteMetadataEntity
-import com.emberr.data.local.room.TaskSource
+import com.emberr.data.local.room.entity.NoteMetadataEntity
+import com.emberr.data.local.room.entity.TaskSource
 import com.emberr.domain.model.CheckboxBlock
 import com.emberr.domain.model.NoteBlock
 import com.emberr.domain.model.NoteContent

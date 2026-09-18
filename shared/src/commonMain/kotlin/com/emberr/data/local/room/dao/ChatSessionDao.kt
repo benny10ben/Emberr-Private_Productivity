@@ -1,8 +1,9 @@
-package com.emberr.data.local.room
+package com.emberr.data.local.room.dao
 
 import androidx.room.Dao
 import androidx.room.Query
 import androidx.room.Upsert
+import com.emberr.data.local.room.entity.ChatSessionEntity
 import kotlinx.coroutines.flow.Flow
 
 @Dao

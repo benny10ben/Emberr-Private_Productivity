@@ -1,8 +1,8 @@
 package com.emberr.domain.selfhost.translation
 
-import com.emberr.data.local.room.DEFAULT_SPACE_ID
-import com.emberr.data.local.room.NoteBlockEntity
-import com.emberr.data.local.room.NoteMetadataEntity
+import com.emberr.data.local.room.entity.DEFAULT_SPACE_ID
+import com.emberr.data.local.room.entity.NoteBlockEntity
+import com.emberr.data.local.room.entity.NoteMetadataEntity
 import com.emberr.domain.model.NoteBlock
 import com.emberr.domain.model.TestNoteBlocks
 import kotlinx.serialization.json.Json

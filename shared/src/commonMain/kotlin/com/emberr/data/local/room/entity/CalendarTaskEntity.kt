@@ -1,4 +1,4 @@
-package com.emberr.data.local.room
+package com.emberr.data.local.room.entity
 
 import androidx.room.ColumnInfo
 import androidx.room.Entity
@@ -9,11 +9,6 @@ import com.emberr.domain.model.RecurrenceRule
 import com.emberr.domain.model.isoDayNumberToDayOfWeek
 import com.emberr.domain.model.toIsoDayNumberCsv
 import kotlinx.serialization.Serializable
-
-enum class TaskSource {
-    DAILY,
-    NOTE
-}
 
 @Serializable
 @Entity(

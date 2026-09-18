@@ -1,8 +1,8 @@
 // Loads a note from storage and turns its blocks into content the widget can draw.
 package com.emberr.presentation.widget.note
 
-import com.emberr.data.local.room.BlockDao
-import com.emberr.data.local.room.NoteDao
+import com.emberr.data.local.room.dao.BlockDao
+import com.emberr.data.local.room.dao.NoteDao
 import com.emberr.domain.model.LinkedNoteBlock
 import com.emberr.domain.model.NoteBlock
 import com.emberr.domain.repository.NoteRepository

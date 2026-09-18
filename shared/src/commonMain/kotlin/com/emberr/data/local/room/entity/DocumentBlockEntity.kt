@@ -1,4 +1,4 @@
-package com.emberr.data.local.room
+package com.emberr.data.local.room.entity
 
 import androidx.room.Entity
 import androidx.room.Index
@@ -7,19 +7,19 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 @Entity(
-    tableName = "bookmark_blocks",
+    tableName = "document_blocks",
     indices = [
         Index("noteId"),
-        Index("noteUpdatedAt")
+        Index("noteCreatedAt")
     ]
 )
-data class BookmarkBlockEntity(
+data class DocumentBlockEntity(
     @PrimaryKey val blockId: String,
     val noteId: String,
-    val url: String,
-    val title: String?,
-    val description: String?,
-    val previewImageUrl: String?,
-    val noteUpdatedAt: Long,
+    val localFilePath: String,
+    val fileName: String,
+    val mimeType: String,
+    val fileSizeString: String,
+    val noteCreatedAt: Long,
     val sourceType: TaskSource
 )

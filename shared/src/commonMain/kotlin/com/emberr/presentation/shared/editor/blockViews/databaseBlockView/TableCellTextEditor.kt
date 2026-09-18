@@ -64,7 +64,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
-import com.emberr.data.local.room.NoteMetadataEntity
+import com.emberr.data.local.room.entity.NoteMetadataEntity
 import com.emberr.domain.model.TableCellStyle
 import com.emberr.presentation.shared.editor.GlobalEditorState
 import com.emberr.domain.model.ColumnType

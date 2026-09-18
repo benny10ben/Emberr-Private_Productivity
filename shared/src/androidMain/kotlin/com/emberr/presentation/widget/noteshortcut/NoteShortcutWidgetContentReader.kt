@@ -1,8 +1,8 @@
 // Loads one note's name and icon for the widget to draw.
 package com.emberr.presentation.widget.noteshortcut
 
-import com.emberr.data.local.room.NoteDao
-import com.emberr.data.local.room.NoteMetadataEntity
+import com.emberr.data.local.room.dao.NoteDao
+import com.emberr.data.local.room.entity.NoteMetadataEntity
 import com.emberr.presentation.widget.WidgetLog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext

@@ -1,8 +1,8 @@
 package com.emberr.presentation.calendar
 
-import com.emberr.data.local.room.CalendarTaskEntity
-import com.emberr.data.local.room.TaskSource
-import com.emberr.data.local.room.toRecurrenceRule
+import com.emberr.data.local.room.entity.CalendarTaskEntity
+import com.emberr.data.local.room.entity.TaskSource
+import com.emberr.data.local.room.entity.toRecurrenceRule
 import com.emberr.domain.model.RecurrenceRule
 
 data class CalendarEvent(

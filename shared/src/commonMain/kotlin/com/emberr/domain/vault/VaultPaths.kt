@@ -2,8 +2,8 @@
 
 package com.emberr.domain.vault
 
-import com.emberr.data.local.room.FolderEntity
-import com.emberr.data.local.room.SpaceEntity
+import com.emberr.data.local.room.entity.FolderEntity
+import com.emberr.data.local.room.entity.SpaceEntity
 
 private const val MAX_FILE_NAME_LENGTH = 80
 private val illegalFileNameCharacters = setOf('/', '\\', ':', '*', '?', '"', '<', '>', '|')

@@ -1,4 +1,4 @@
-package com.emberr.data.local.room
+package com.emberr.data.local.room.entity
 
 import com.emberr.domain.model.RecurrenceFrequency
 import com.emberr.domain.model.RecurrenceRule

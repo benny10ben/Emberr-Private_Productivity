@@ -1,8 +1,8 @@
 package com.emberr.domain.sample
 
 import com.emberr.data.local.prefs.SettingsManager
-import com.emberr.data.local.room.FolderEntity
-import com.emberr.data.local.room.NoteMetadataEntity
+import com.emberr.data.local.room.entity.FolderEntity
+import com.emberr.data.local.room.entity.NoteMetadataEntity
 import com.emberr.domain.model.NoteContent
 import com.emberr.domain.repository.NoteRepository
 import kotlinx.coroutines.CancellationException

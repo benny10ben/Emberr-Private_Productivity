@@ -1,6 +1,6 @@
 package com.emberr.domain.template
 
-import com.emberr.data.local.room.NoteMetadataEntity
+import com.emberr.data.local.room.entity.NoteMetadataEntity
 import com.emberr.domain.repository.NoteRepository
 import com.emberr.domain.space.ActiveSpaceStore
 

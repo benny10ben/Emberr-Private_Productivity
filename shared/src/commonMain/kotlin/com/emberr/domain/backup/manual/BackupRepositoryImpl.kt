@@ -1,25 +1,25 @@
 package com.emberr.domain.backup.manual
 
 import com.emberr.data.local.prefs.SettingsManager
-import com.emberr.data.local.room.BlockDao
-import com.emberr.data.local.room.BookmarkBlockDao
-import com.emberr.data.local.room.CalendarEventExceptionDao
-import com.emberr.data.local.room.CalendarEventExceptionEntity
-import com.emberr.data.local.room.CalendarTaskDao
-import com.emberr.data.local.room.CategoryDao
-import com.emberr.data.local.room.ChatSessionDao
-import com.emberr.data.local.room.ChatSessionEntity
-import com.emberr.data.local.room.DatabaseTemplateDao
-import com.emberr.data.local.room.DatabaseTemplateEntity
-import com.emberr.data.local.room.DocumentBlockDao
-import com.emberr.data.local.room.FolderDao
-import com.emberr.data.local.room.ImageBlockDao
-import com.emberr.data.local.room.MediaReferenceDao
-import com.emberr.data.local.room.NoteDao
-import com.emberr.data.local.room.SelfHostDeletedNoteDao
-import com.emberr.data.local.room.SelfHostDeletedNoteEntity
-import com.emberr.data.local.room.SpaceDao
-import com.emberr.data.local.room.TagDao
+import com.emberr.data.local.room.dao.BlockDao
+import com.emberr.data.local.room.dao.BookmarkBlockDao
+import com.emberr.data.local.room.dao.CalendarEventExceptionDao
+import com.emberr.data.local.room.dao.CalendarTaskDao
+import com.emberr.data.local.room.dao.CategoryDao
+import com.emberr.data.local.room.dao.ChatSessionDao
+import com.emberr.data.local.room.dao.DatabaseTemplateDao
+import com.emberr.data.local.room.dao.DocumentBlockDao
+import com.emberr.data.local.room.dao.FolderDao
+import com.emberr.data.local.room.dao.ImageBlockDao
+import com.emberr.data.local.room.dao.MediaReferenceDao
+import com.emberr.data.local.room.dao.NoteDao
+import com.emberr.data.local.room.dao.SelfHostDeletedNoteDao
+import com.emberr.data.local.room.dao.SpaceDao
+import com.emberr.data.local.room.dao.TagDao
+import com.emberr.data.local.room.entity.CalendarEventExceptionEntity
+import com.emberr.data.local.room.entity.ChatSessionEntity
+import com.emberr.data.local.room.entity.DatabaseTemplateEntity
+import com.emberr.data.local.room.entity.SelfHostDeletedNoteEntity
 import kotlinx.coroutines.flow.first
 
 class BackupRepositoryImpl(
@@ -57,7 +57,7 @@ class BackupRepositoryImpl(
         val allEventExceptions = calendarEventExceptionDao.getAllExceptionsFlow().first()
         val allNoteTombstones = selfHostDeletedNoteDao.getAllTombstones()
 
-        val allBlocks = mutableListOf<com.emberr.data.local.room.NoteBlockEntity>()
+        val allBlocks = mutableListOf<com.emberr.data.local.room.entity.NoteBlockEntity>()
         for (note in allNotes) {
             val blocksForNote = blockDao.getAllBlocksForNoteIncludingDeleted(note.noteId)
             allBlocks.addAll(blocksForNote)
@@ -125,7 +125,7 @@ class BackupRepositoryImpl(
             val localBlocksMap = blockDao.getAllBlocksForNoteIncludingDeleted(targetNoteId).associateBy { it.blockId }
             var maxDisplayOrder = localBlocksMap.values.maxOfOrNull { it.displayOrder } ?: -1
 
-            val blocksToSave = mutableListOf<com.emberr.data.local.room.NoteBlockEntity>()
+            val blocksToSave = mutableListOf<com.emberr.data.local.room.entity.NoteBlockEntity>()
 
             for (backupBlock in backupBlocks) {
                 val localBlock = localBlocksMap[backupBlock.blockId]

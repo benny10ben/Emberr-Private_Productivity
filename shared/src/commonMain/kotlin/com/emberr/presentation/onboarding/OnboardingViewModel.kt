@@ -4,7 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.emberr.data.local.prefs.SettingsManager
 import com.emberr.data.local.prefs.SyncConstants
-import com.emberr.data.local.room.NoteMetadataEntity
+import com.emberr.data.local.room.entity.NoteMetadataEntity
 import com.emberr.domain.model.NoteContent
 import com.emberr.domain.repository.NoteRepository
 import com.emberr.domain.util.media.MediaStorageHelper

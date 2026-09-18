@@ -12,7 +12,7 @@ import androidx.glance.appwidget.GlanceRemoteViews
 import androidx.glance.appwidget.state.getAppWidgetState
 import androidx.glance.appwidget.state.updateAppWidgetState
 import androidx.glance.state.PreferencesGlanceStateDefinition
-import com.emberr.data.local.room.NoteMetadataEntity
+import com.emberr.data.local.room.entity.NoteMetadataEntity
 import com.emberr.presentation.widget.WidgetLog
 import com.emberr.presentation.widget.readWidgetSpaceId
 import kotlinx.serialization.json.Json

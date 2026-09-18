@@ -52,7 +52,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.PopupProperties
-import com.emberr.data.local.room.TagEntity
+import com.emberr.data.local.room.entity.TagEntity
 import com.emberr.domain.model.BookmarkBlock
 import com.emberr.domain.model.BulletedListBlock
 import com.emberr.domain.model.CellData
@@ -85,7 +85,7 @@ import androidx.compose.foundation.gestures.animateScrollBy
 import kotlin.time.Duration.Companion.milliseconds
 import androidx.compose.ui.platform.LocalDensity
 import kotlinx.coroutines.flow.MutableSharedFlow
-import com.emberr.data.local.room.NoteMetadataEntity
+import com.emberr.data.local.room.entity.NoteMetadataEntity
 import com.emberr.presentation.shared.components.EmberrBlur
 import com.emberr.presentation.shared.components.emberrBlur
 import com.emberr.presentation.shared.components.EmberrVerticalScrollbar

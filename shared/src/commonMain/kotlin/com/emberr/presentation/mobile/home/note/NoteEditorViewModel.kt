@@ -1,7 +1,7 @@
 package com.emberr.presentation.mobile.home.note
 
 import androidx.lifecycle.viewModelScope
-import com.emberr.data.local.room.NoteMetadataEntity
+import com.emberr.data.local.room.entity.NoteMetadataEntity
 import com.emberr.domain.model.*
 import com.emberr.domain.repository.NoteRepository
 import com.emberr.domain.util.voice.AudioRecorder

@@ -1,6 +1,6 @@
 package com.emberr.domain.vault
 
-import com.emberr.data.local.room.SpaceDao
+import com.emberr.data.local.room.dao.SpaceDao
 import com.emberr.domain.space.ActiveSpaceStore
 import java.io.File
 

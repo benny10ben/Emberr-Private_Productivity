@@ -1,10 +1,10 @@
 // Loads the task list from storage and groups it into rows the widget can draw.
 package com.emberr.presentation.widget.tasks
 
-import com.emberr.data.local.room.CalendarTaskDao
-import com.emberr.data.local.room.CalendarTaskEntity
-import com.emberr.data.local.room.NoteDao
-import com.emberr.data.local.room.TaskSource
+import com.emberr.data.local.room.dao.CalendarTaskDao
+import com.emberr.data.local.room.dao.NoteDao
+import com.emberr.data.local.room.entity.CalendarTaskEntity
+import com.emberr.data.local.room.entity.TaskSource
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch

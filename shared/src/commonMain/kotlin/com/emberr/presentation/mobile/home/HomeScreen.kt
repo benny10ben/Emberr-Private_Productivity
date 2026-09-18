@@ -46,8 +46,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.emberr.data.local.prefs.SyncConstants
-import com.emberr.data.local.room.FolderEntity
-import com.emberr.data.local.room.NoteMetadataEntity
+import com.emberr.data.local.room.entity.FolderEntity
+import com.emberr.data.local.room.entity.NoteMetadataEntity
 import com.emberr.domain.model.NoteContent
 import com.emberr.domain.util.eventbus.WidgetComposeRequest
 import com.emberr.domain.util.eventbus.WidgetComposeRequestBus

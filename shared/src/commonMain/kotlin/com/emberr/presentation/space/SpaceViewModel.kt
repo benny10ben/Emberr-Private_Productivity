@@ -2,7 +2,7 @@ package com.emberr.presentation.space
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.emberr.data.local.room.SpaceEntity
+import com.emberr.data.local.room.entity.SpaceEntity
 import com.emberr.domain.space.ActiveSpaceStore
 import com.emberr.domain.space.SpaceRepository
 import kotlinx.coroutines.flow.SharingStarted

@@ -1,7 +1,7 @@
 package com.emberr.domain.ai
 
 import com.emberr.data.local.prefs.SettingsManager
-import com.emberr.data.local.room.NoteMetadataEntity
+import com.emberr.data.local.room.entity.NoteMetadataEntity
 import com.emberr.domain.model.*
 import com.emberr.database.EmberrDatabase
 import java.text.SimpleDateFormat

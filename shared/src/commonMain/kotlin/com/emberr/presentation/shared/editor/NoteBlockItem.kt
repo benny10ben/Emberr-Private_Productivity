@@ -58,7 +58,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.emberr.data.local.room.TagEntity
+import com.emberr.data.local.room.entity.TagEntity
 import com.emberr.domain.model.BookmarkBlock
 import com.emberr.domain.model.BulletedListBlock
 import com.emberr.domain.model.CheckboxBlock
@@ -87,7 +87,7 @@ import kotlinx.datetime.toLocalDateTime
 import kotlinx.datetime.number
 import androidx.compose.ui.window.PopupProperties
 import androidx.compose.animation.core.animateFloatAsState
-import com.emberr.data.local.room.NoteMetadataEntity
+import com.emberr.data.local.room.entity.NoteMetadataEntity
 import com.emberr.domain.model.SolidDividerBlock
 import com.emberr.domain.model.TableBlock
 import com.emberr.domain.model.InlineSpan

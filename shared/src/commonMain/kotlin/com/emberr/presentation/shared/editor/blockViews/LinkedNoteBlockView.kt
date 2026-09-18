@@ -41,7 +41,7 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import coil3.compose.LocalPlatformContext
 import coil3.request.ImageRequest
-import com.emberr.data.local.room.NoteMetadataEntity
+import com.emberr.data.local.room.entity.NoteMetadataEntity
 import com.emberr.domain.model.LinkedNoteBlock
 import com.emberr.domain.util.media.MediaStorageHelper
 import com.emberr.presentation.shared.editor.DefaultBlockShape

@@ -1,8 +1,8 @@
 package com.emberr.domain.ai.external
 
 import com.emberr.data.local.prefs.SettingsManager
-import com.emberr.data.local.room.SelfHostDeletedApiConfigDao
-import com.emberr.data.local.room.SelfHostDeletedApiConfigEntity
+import com.emberr.data.local.room.dao.SelfHostDeletedApiConfigDao
+import com.emberr.data.local.room.entity.SelfHostDeletedApiConfigEntity
 import com.emberr.domain.ai.AiGenerationMode
 import com.emberr.domain.ai.models.InstalledLocalModel
 import com.emberr.domain.ai.KnowledgeMode

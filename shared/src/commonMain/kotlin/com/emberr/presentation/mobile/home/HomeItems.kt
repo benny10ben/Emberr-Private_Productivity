@@ -1,7 +1,7 @@
 package com.emberr.presentation.mobile.home
 
-import com.emberr.data.local.room.FolderEntity
-import com.emberr.data.local.room.NoteMetadataEntity
+import com.emberr.data.local.room.entity.FolderEntity
+import com.emberr.data.local.room.entity.NoteMetadataEntity
 
 /*
  * Shared between the mobile home grid and the desktop sidebar tree.

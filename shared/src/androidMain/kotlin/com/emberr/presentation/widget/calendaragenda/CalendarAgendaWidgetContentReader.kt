@@ -1,9 +1,9 @@
 // Builds the compact month grid and the ordered list of that month's events.
 package com.emberr.presentation.widget.calendaragenda
 
-import com.emberr.data.local.room.CalendarTaskDao
-import com.emberr.data.local.room.CalendarTaskEntity
-import com.emberr.data.local.room.CategoryDao
+import com.emberr.data.local.room.dao.CalendarTaskDao
+import com.emberr.data.local.room.dao.CategoryDao
+import com.emberr.data.local.room.entity.CalendarTaskEntity
 import com.emberr.presentation.widget.WidgetLog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext

@@ -1,9 +1,9 @@
 package com.emberr.presentation.mobile.daily
 
 import androidx.lifecycle.viewModelScope
-import com.emberr.data.local.room.CalendarTaskEntity
-import com.emberr.data.local.room.TaskSource
-import com.emberr.data.local.room.toRecurrenceRule
+import com.emberr.data.local.room.entity.CalendarTaskEntity
+import com.emberr.data.local.room.entity.TaskSource
+import com.emberr.data.local.room.entity.toRecurrenceRule
 import com.emberr.domain.model.*
 import com.emberr.domain.repository.NoteRepository
 import com.emberr.domain.sample.SampleDailyNoteSeeder

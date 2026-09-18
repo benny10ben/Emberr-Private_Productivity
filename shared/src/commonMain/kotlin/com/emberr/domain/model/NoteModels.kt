@@ -1,7 +1,7 @@
 package com.emberr.domain.model
 
 import androidx.compose.runtime.Immutable
-import com.emberr.data.local.room.NoteMetadataEntity
+import com.emberr.data.local.room.entity.NoteMetadataEntity
 import kotlin.time.Instant
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime

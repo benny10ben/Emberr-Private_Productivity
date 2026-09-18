@@ -2,7 +2,7 @@
 package com.emberr.presentation.widget
 
 import android.content.Context
-import com.emberr.data.local.room.CalendarTaskDao
+import com.emberr.data.local.room.dao.CalendarTaskDao
 import com.emberr.domain.repository.NoteRepository
 import com.emberr.presentation.widget.tasks.refreshTaskWidgets
 import com.emberr.presentation.widget.todaytasks.refreshTodayTasksWidgets

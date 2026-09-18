@@ -2,12 +2,12 @@
 
 package com.emberr.domain.vault
 
-import com.emberr.data.local.room.CategoryDao
-import com.emberr.data.local.room.FolderDao
-import com.emberr.data.local.room.FolderEntity
-import com.emberr.data.local.room.NoteDao
-import com.emberr.data.local.room.NoteMetadataEntity
-import com.emberr.data.local.room.SpaceDao
+import com.emberr.data.local.room.dao.CategoryDao
+import com.emberr.data.local.room.dao.FolderDao
+import com.emberr.data.local.room.dao.NoteDao
+import com.emberr.data.local.room.dao.SpaceDao
+import com.emberr.data.local.room.entity.FolderEntity
+import com.emberr.data.local.room.entity.NoteMetadataEntity
 import com.emberr.domain.repository.NoteRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers

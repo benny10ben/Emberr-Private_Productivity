@@ -1,6 +1,6 @@
 package com.emberr.domain.sync
 
-import com.emberr.data.local.room.DEFAULT_SPACE_ID
+import com.emberr.data.local.room.entity.DEFAULT_SPACE_ID
 import kotlinx.serialization.Serializable
 
 @Serializable

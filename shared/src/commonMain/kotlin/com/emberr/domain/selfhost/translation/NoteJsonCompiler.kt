@@ -1,7 +1,7 @@
 package com.emberr.domain.selfhost.translation
 
-import com.emberr.data.local.room.NoteBlockEntity
-import com.emberr.data.local.room.NoteMetadataEntity
+import com.emberr.data.local.room.entity.NoteBlockEntity
+import com.emberr.data.local.room.entity.NoteMetadataEntity
 import com.emberr.domain.selfhost.sync.SelfHostSyncLog
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json

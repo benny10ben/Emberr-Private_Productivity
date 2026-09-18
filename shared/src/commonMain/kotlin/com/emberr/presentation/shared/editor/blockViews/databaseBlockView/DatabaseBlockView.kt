@@ -28,8 +28,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.unit.dp
-import com.emberr.data.local.room.NoteMetadataEntity
-import com.emberr.data.local.room.TagEntity
+import com.emberr.data.local.room.entity.NoteMetadataEntity
+import com.emberr.data.local.room.entity.TagEntity
 import com.emberr.domain.model.CellData
 import com.emberr.domain.model.DatabaseBlock
 import com.emberr.domain.model.DatabaseView

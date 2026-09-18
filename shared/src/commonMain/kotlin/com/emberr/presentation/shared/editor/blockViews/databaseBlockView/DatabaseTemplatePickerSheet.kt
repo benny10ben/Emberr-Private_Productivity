@@ -7,7 +7,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.emberr.data.local.room.DatabaseTemplateEntity
+import com.emberr.data.local.room.entity.DatabaseTemplateEntity
 import com.emberr.presentation.shared.components.EmberrBottomSheet
 import com.emberr.presentation.shared.components.EmberrButtonPrimary
 import com.emberr.presentation.shared.components.rememberShowAfterKeyboardCloses

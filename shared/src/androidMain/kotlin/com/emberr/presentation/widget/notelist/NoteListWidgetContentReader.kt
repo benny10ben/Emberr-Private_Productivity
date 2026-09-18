@@ -1,8 +1,8 @@
 // Loads the note list from storage and turns it into rows the widget can draw.
 package com.emberr.presentation.widget.notelist
 
-import com.emberr.data.local.room.NoteDao
-import com.emberr.data.local.room.NoteMetadataEntity
+import com.emberr.data.local.room.dao.NoteDao
+import com.emberr.data.local.room.entity.NoteMetadataEntity
 import com.emberr.presentation.widget.WidgetLog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow

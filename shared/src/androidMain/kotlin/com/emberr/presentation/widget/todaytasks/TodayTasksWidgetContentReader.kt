@@ -1,8 +1,8 @@
 // Loads today's tasks and turns them into the date heading and rows the widget draws.
 package com.emberr.presentation.widget.todaytasks
 
-import com.emberr.data.local.room.CalendarTaskDao
-import com.emberr.data.local.room.CalendarTaskEntity
+import com.emberr.data.local.room.dao.CalendarTaskDao
+import com.emberr.data.local.room.entity.CalendarTaskEntity
 import com.emberr.presentation.widget.WidgetLog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext

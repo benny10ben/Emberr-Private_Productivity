@@ -20,8 +20,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.emberr.data.local.room.NoteMetadataEntity
-import com.emberr.data.local.room.TagEntity
+import com.emberr.data.local.room.entity.NoteMetadataEntity
+import com.emberr.data.local.room.entity.TagEntity
 import com.emberr.domain.model.CellData
 import com.emberr.domain.model.ColumnType
 import com.emberr.domain.model.DatabaseColumn

@@ -2,7 +2,7 @@
 
 package com.emberr.domain.vault
 
-import com.emberr.data.local.room.NoteDao
+import com.emberr.data.local.room.dao.NoteDao
 import com.emberr.domain.repository.NoteRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers

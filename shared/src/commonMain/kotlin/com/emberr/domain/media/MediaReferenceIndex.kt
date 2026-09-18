@@ -1,9 +1,9 @@
 package com.emberr.domain.media
 
 import com.emberr.data.local.prefs.SettingsManager
-import com.emberr.data.local.room.MediaReferenceDao
-import com.emberr.data.local.room.MediaReferenceEntity
-import com.emberr.data.local.room.NoteDao
+import com.emberr.data.local.room.dao.MediaReferenceDao
+import com.emberr.data.local.room.dao.NoteDao
+import com.emberr.data.local.room.entity.MediaReferenceEntity
 import com.emberr.domain.repository.NoteRepository
 import com.emberr.domain.selfhost.media.MediaReferenceScanner
 import kotlinx.coroutines.Dispatchers

@@ -2,7 +2,7 @@
 
 package com.emberr.domain.vault
 
-import com.emberr.data.local.room.NoteMetadataEntity
+import com.emberr.data.local.room.entity.NoteMetadataEntity
 import com.emberr.domain.model.CellData
 import com.emberr.domain.model.CheckboxBlock
 import com.emberr.domain.model.CodeBlock

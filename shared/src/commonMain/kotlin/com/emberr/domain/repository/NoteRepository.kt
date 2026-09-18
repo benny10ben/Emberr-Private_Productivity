@@ -1,15 +1,15 @@
 package com.emberr.domain.repository
 
-import com.emberr.data.local.room.BookmarkBlockEntity
-import com.emberr.data.local.room.CalendarEventExceptionEntity
-import com.emberr.data.local.room.CalendarTaskEntity
-import com.emberr.data.local.room.CategoryEntity
-import com.emberr.data.local.room.DatabaseTemplateEntity
-import com.emberr.data.local.room.DocumentBlockEntity
-import com.emberr.data.local.room.FolderEntity
-import com.emberr.data.local.room.ImageBlockEntity
-import com.emberr.data.local.room.NoteMetadataEntity
-import com.emberr.data.local.room.TagEntity
+import com.emberr.data.local.room.entity.BookmarkBlockEntity
+import com.emberr.data.local.room.entity.CalendarEventExceptionEntity
+import com.emberr.data.local.room.entity.CalendarTaskEntity
+import com.emberr.data.local.room.entity.CategoryEntity
+import com.emberr.data.local.room.entity.DatabaseTemplateEntity
+import com.emberr.data.local.room.entity.DocumentBlockEntity
+import com.emberr.data.local.room.entity.FolderEntity
+import com.emberr.data.local.room.entity.ImageBlockEntity
+import com.emberr.data.local.room.entity.NoteMetadataEntity
+import com.emberr.data.local.room.entity.TagEntity
 import com.emberr.domain.model.NoteBlock
 import com.emberr.domain.model.NoteContent
 import com.emberr.domain.model.NoteSearchResult
@@ -91,9 +91,9 @@ interface NoteRepository {
     // Tombstones for notes permanently deleted from this device - shared by both sync engines.
     // entityId is matched against noteId first, then dateString (daily notes are addressed by
     // dateString in LAN sync envelopes, which don't carry a noteId).
-    suspend fun getNoteTombstonesModifiedSince(timestamp: Long): List<com.emberr.data.local.room.SelfHostDeletedNoteEntity>
-    suspend fun getNoteTombstone(entityId: String): com.emberr.data.local.room.SelfHostDeletedNoteEntity?
-    suspend fun getNoteTombstoneInSpace(spaceId: String, entityId: String): com.emberr.data.local.room.SelfHostDeletedNoteEntity?
+    suspend fun getNoteTombstonesModifiedSince(timestamp: Long): List<com.emberr.data.local.room.entity.SelfHostDeletedNoteEntity>
+    suspend fun getNoteTombstone(entityId: String): com.emberr.data.local.room.entity.SelfHostDeletedNoteEntity?
+    suspend fun getNoteTombstoneInSpace(spaceId: String, entityId: String): com.emberr.data.local.room.entity.SelfHostDeletedNoteEntity?
 
     // Applies a tombstone received from a peer: hard-deletes the local copy unless it was genuinely
     // edited after the deletion (last-write-wins), and records the tombstone locally regardless so

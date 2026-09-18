@@ -1,9 +1,9 @@
 // Supplies the list of notes a widget's setup screen offers for selection.
 package com.emberr.presentation.widget
 
-import com.emberr.data.local.room.NoteDao
-import com.emberr.data.local.room.NoteMetadataEntity
-import com.emberr.data.local.room.SpaceDao
+import com.emberr.data.local.room.dao.NoteDao
+import com.emberr.data.local.room.dao.SpaceDao
+import com.emberr.data.local.room.entity.NoteMetadataEntity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
