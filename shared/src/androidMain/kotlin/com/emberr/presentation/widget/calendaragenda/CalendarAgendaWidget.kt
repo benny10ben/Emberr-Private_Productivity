@@ -48,6 +48,7 @@ import com.emberr.MainActivity
 import com.emberr.R
 import com.emberr.presentation.widget.WidgetLog
 import com.emberr.presentation.widget.calendarEventUriScheme
+import com.emberr.presentation.widget.widgetSpaceIdExtra
 import com.emberr.presentation.widget.highlightColor
 import com.emberr.presentation.widget.onHighlightColor
 import com.emberr.presentation.widget.primaryTextColor
@@ -73,11 +74,13 @@ class CalendarAgendaWidget : GlanceAppWidget(), KoinComponent {
         val shownMonth = readAgendaShownMonth(context, id)
         val content = loadAndCacheAgenda(context, id, shownMonth) ?: readCachedAgenda(context, id)
         val appWidgetId = resolveAppWidgetId(context, id)
+        val spaceId = readWidgetSpaceId(context, id)
 
         provideContent {
             CalendarAgendaWidgetBody(
                 context = context,
                 appWidgetId = appWidgetId,
+                spaceId = spaceId,
                 content = content
             )
         }
@@ -111,6 +114,7 @@ class CalendarAgendaWidget : GlanceAppWidget(), KoinComponent {
 internal fun CalendarAgendaWidgetBody(
     context: Context,
     appWidgetId: Int,
+    spaceId: String,
     content: CalendarAgendaWidgetContent?
 ) {
     Row(
@@ -169,7 +173,7 @@ internal fun CalendarAgendaWidgetBody(
 
             Spacer(modifier = GlanceModifier.height(8.dp))
 
-            EventList(context = context, content = content)
+            EventList(context = context, spaceId = spaceId, content = content)
         }
     }
 }
@@ -247,7 +251,7 @@ private fun DayCell(cell: AgendaDayCell) {
 }
 
 @Composable
-private fun EventList(context: Context, content: CalendarAgendaWidgetContent?) {
+private fun EventList(context: Context, spaceId: String, content: CalendarAgendaWidgetContent?) {
     val events = content?.events.orEmpty()
 
     if (events.isEmpty()) {
@@ -267,18 +271,18 @@ private fun EventList(context: Context, content: CalendarAgendaWidgetContent?) {
 
     LazyColumn(modifier = GlanceModifier.fillMaxSize()) {
         items(items = events, itemId = { event -> event.blockId.hashCode().toLong() }) { event ->
-            EventRow(context = context, event = event)
+            EventRow(context = context, spaceId = spaceId, event = event)
         }
     }
 }
 
 @Composable
-private fun EventRow(context: Context, event: AgendaEvent) {
+private fun EventRow(context: Context, spaceId: String, event: AgendaEvent) {
     Row(
         modifier = GlanceModifier
             .fillMaxWidth()
             .padding(bottom = 7.dp)
-            .clickable(actionStartActivity(openEventIntent(context, event.blockId)))
+            .clickable(actionStartActivity(openEventIntent(context, event.blockId, spaceId)))
     ) {
         Box(
             modifier = GlanceModifier
@@ -329,7 +333,8 @@ private fun agendaMonthStepIntent(context: Context, appWidgetId: Int, isForward:
         putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
     }
 
-private fun openEventIntent(context: Context, blockId: String): Intent =
+private fun openEventIntent(context: Context, blockId: String, spaceId: String): Intent =
     Intent(context, MainActivity::class.java)
         .setData("$calendarEventUriScheme://event/$blockId".toUri())
+        .putExtra(widgetSpaceIdExtra, spaceId)
         .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK)

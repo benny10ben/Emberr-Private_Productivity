@@ -42,6 +42,7 @@ import com.emberr.presentation.widget.surfaceColor
 import com.emberr.presentation.widget.widgetHomeScreenExtra
 import com.emberr.presentation.widget.widgetNewNoteExtra
 import com.emberr.presentation.widget.widgetNoteIdExtra
+import com.emberr.presentation.widget.widgetSpaceIdExtra
 import com.emberr.presentation.widget.readWidgetSpaceId
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.get
@@ -56,9 +57,10 @@ class NoteListWidget : GlanceAppWidget(), KoinComponent {
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val content = loadAndCacheNoteList(context, id) ?: readCachedNoteList(context, id)
+        val spaceId = readWidgetSpaceId(context, id)
 
         provideContent {
-            NoteListWidgetBody(context = context, content = content)
+            NoteListWidgetBody(context = context, spaceId = spaceId, content = content)
         }
     }
 
@@ -75,7 +77,7 @@ class NoteListWidget : GlanceAppWidget(), KoinComponent {
 }
 
 @Composable
-internal fun NoteListWidgetBody(context: Context, content: NoteListWidgetContent?) {
+internal fun NoteListWidgetBody(context: Context, spaceId: String, content: NoteListWidgetContent?) {
     Column(
         modifier = GlanceModifier
             .fillMaxSize()
@@ -97,7 +99,7 @@ internal fun NoteListWidgetBody(context: Context, content: NoteListWidgetContent
                 ),
                 modifier = GlanceModifier
                     .defaultWeight()
-                    .clickable(actionStartActivity(openHomeScreenIntent(context)))
+                    .clickable(actionStartActivity(openHomeScreenIntent(context, spaceId)))
             )
 
             Image(
@@ -106,7 +108,7 @@ internal fun NoteListWidgetBody(context: Context, content: NoteListWidgetContent
                 colorFilter = ColorFilter.tint(primaryTextColor),
                 modifier = GlanceModifier
                     .size(topBarIconSize)
-                    .clickable(actionStartActivity(newNoteIntent(context)))
+                    .clickable(actionStartActivity(newNoteIntent(context, spaceId)))
             )
         }
 
@@ -117,7 +119,7 @@ internal fun NoteListWidgetBody(context: Context, content: NoteListWidgetContent
             Column(
                 modifier = GlanceModifier
                     .fillMaxSize()
-                    .clickable(actionStartActivity(openHomeScreenIntent(context))),
+                    .clickable(actionStartActivity(openHomeScreenIntent(context, spaceId))),
                 verticalAlignment = Alignment.Vertical.CenterVertically,
                 horizontalAlignment = Alignment.Horizontal.CenterHorizontally
             ) {
@@ -164,17 +166,19 @@ private fun NoteRow(context: Context, note: NoteListWidgetRow) {
     }
 }
 
-private fun openHomeScreenIntent(context: Context): Intent =
+private fun openHomeScreenIntent(context: Context, spaceId: String): Intent =
     Intent(context, MainActivity::class.java)
         .setData("emberr://notes".toUri())
         .putExtra(widgetHomeScreenExtra, true)
+        .putExtra(widgetSpaceIdExtra, spaceId)
         .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
 
-private fun newNoteIntent(context: Context): Intent =
+private fun newNoteIntent(context: Context, spaceId: String): Intent =
     Intent(context, MainActivity::class.java)
         .setData("emberr://notes/new".toUri())
         .putExtra(widgetHomeScreenExtra, true)
         .putExtra(widgetNewNoteExtra, true)
+        .putExtra(widgetSpaceIdExtra, spaceId)
         .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
 
 private fun openNoteIntent(context: Context, noteId: String): Intent =

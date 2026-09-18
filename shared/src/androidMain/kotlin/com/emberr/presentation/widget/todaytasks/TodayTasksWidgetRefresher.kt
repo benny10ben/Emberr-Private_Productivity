@@ -74,6 +74,8 @@ suspend fun pushRenderedTodayTasks(
         val heightDp = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT)
             .takeIf { it > 0 } ?: fallbackWidgetHeightDp
 
+        val pinnedSpaceId = readWidgetSpaceId(context, glanceId)
+
         val rendered = GlanceRemoteViews().compose(
             context = context,
             size = DpSize(widthDp.dp, heightDp.dp)
@@ -81,6 +83,7 @@ suspend fun pushRenderedTodayTasks(
             TodayTasksWidgetBody(
                 context = context,
                 appWidgetId = appWidgetId,
+                spaceId = pinnedSpaceId,
                 content = content
             )
         }

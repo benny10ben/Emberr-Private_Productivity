@@ -42,6 +42,7 @@ import androidx.glance.text.TextStyle
 import com.emberr.MainActivity
 import com.emberr.R
 import com.emberr.presentation.widget.calendarEventUriScheme
+import com.emberr.presentation.widget.widgetSpaceIdExtra
 import com.emberr.presentation.widget.primaryTextColor
 import com.emberr.presentation.widget.secondaryTextColor
 import com.emberr.presentation.widget.surfaceColor
@@ -62,9 +63,10 @@ class UpcomingEventsWidget : GlanceAppWidget(), KoinComponent {
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val content = loadAndCacheUpcomingEvents(context, id) ?: readCachedUpcomingEvents(context, id)
+        val spaceId = readWidgetSpaceId(context, id)
 
         provideContent {
-            UpcomingEventsWidgetBody(context = context, content = content)
+            UpcomingEventsWidgetBody(context = context, spaceId = spaceId, content = content)
         }
     }
 
@@ -86,6 +88,7 @@ class UpcomingEventsWidget : GlanceAppWidget(), KoinComponent {
 @Composable
 internal fun UpcomingEventsWidgetBody(
     context: Context,
+    spaceId: String,
     content: UpcomingEventsWidgetContent?
 ) {
     Column(
@@ -109,7 +112,7 @@ internal fun UpcomingEventsWidgetBody(
                 ),
                 modifier = GlanceModifier
                     .defaultWeight()
-                    .clickable(actionStartActivity(openCalendarScreenIntent(context)))
+                    .clickable(actionStartActivity(openCalendarScreenIntent(context, spaceId)))
             )
 
             Image(
@@ -118,18 +121,18 @@ internal fun UpcomingEventsWidgetBody(
                 colorFilter = ColorFilter.tint(primaryTextColor),
                 modifier = GlanceModifier
                     .size(topBarIconSize)
-                    .clickable(actionStartActivity(newEventIntent(context)))
+                    .clickable(actionStartActivity(newEventIntent(context, spaceId)))
             )
         }
 
         Spacer(modifier = GlanceModifier.height(10.dp))
 
-        EventList(context = context, content = content)
+        EventList(context = context, spaceId = spaceId, content = content)
     }
 }
 
 @Composable
-private fun EventList(context: Context, content: UpcomingEventsWidgetContent?) {
+private fun EventList(context: Context, spaceId: String, content: UpcomingEventsWidgetContent?) {
     val events = content?.events.orEmpty()
 
     if (events.isEmpty()) {
@@ -156,7 +159,7 @@ private fun EventList(context: Context, content: UpcomingEventsWidgetContent?) {
             }
 
             items(items = eventsOnDate, itemId = { event -> event.blockId.hashCode().toLong() }) { event ->
-                EventRow(context = context, event = event)
+                EventRow(context = context, spaceId = spaceId, event = event)
             }
         }
     }
@@ -177,12 +180,12 @@ private fun DateHeader(label: String) {
 }
 
 @Composable
-private fun EventRow(context: Context, event: UpcomingEvent) {
+private fun EventRow(context: Context, spaceId: String, event: UpcomingEvent) {
     Row(
         modifier = GlanceModifier
             .fillMaxWidth()
             .padding(bottom = 8.dp)
-            .clickable(actionStartActivity(openEventIntent(context, event.blockId)))
+            .clickable(actionStartActivity(openEventIntent(context, event.blockId, spaceId)))
     ) {
         Box(
             modifier = GlanceModifier
@@ -231,20 +234,23 @@ private fun accentColorFrom(colorHex: String?): Color {
     return parsed ?: Color(0xFF848484)
 }
 
-private fun openEventIntent(context: Context, blockId: String): Intent =
+private fun openEventIntent(context: Context, blockId: String, spaceId: String): Intent =
     Intent(context, MainActivity::class.java)
         .setData("$calendarEventUriScheme://event/$blockId".toUri())
+        .putExtra(widgetSpaceIdExtra, spaceId)
         .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
 
-private fun openCalendarScreenIntent(context: Context): Intent =
+private fun openCalendarScreenIntent(context: Context, spaceId: String): Intent =
     Intent(context, MainActivity::class.java)
         .setData("emberr://calendar".toUri())
         .putExtra(widgetCalendarScreenExtra, true)
+        .putExtra(widgetSpaceIdExtra, spaceId)
         .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
 
-private fun newEventIntent(context: Context): Intent =
+private fun newEventIntent(context: Context, spaceId: String): Intent =
     Intent(context, MainActivity::class.java)
         .setData("emberr://calendar/new".toUri())
         .putExtra(widgetCalendarScreenExtra, true)
         .putExtra(widgetNewEventExtra, true)
+        .putExtra(widgetSpaceIdExtra, spaceId)
         .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK)

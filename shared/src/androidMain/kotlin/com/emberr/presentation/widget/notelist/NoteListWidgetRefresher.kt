@@ -66,11 +66,17 @@ suspend fun pushRenderedNoteList(context: Context, glanceId: GlanceId, content: 
         val heightDp = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT)
             .takeIf { it > 0 } ?: fallbackWidgetSideDp
 
+        val pinnedSpaceId = readWidgetSpaceId(context, glanceId)
+
         val rendered = GlanceRemoteViews().compose(
             context = context,
             size = DpSize(widthDp.dp, heightDp.dp)
         ) {
-            NoteListWidgetBody(context = context, content = content)
+            NoteListWidgetBody(
+                context = context,
+                spaceId = pinnedSpaceId,
+                content = content
+            )
         }
 
         widgetManager.updateAppWidget(appWidgetId, rendered.remoteViews)

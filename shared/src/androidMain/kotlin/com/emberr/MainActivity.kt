@@ -48,6 +48,7 @@ import com.emberr.presentation.widget.widgetNewEventExtra
 import com.emberr.presentation.widget.widgetNewNoteExtra
 import com.emberr.presentation.widget.widgetNewTaskExtra
 import com.emberr.presentation.widget.widgetNoteIdExtra
+import com.emberr.presentation.widget.widgetSpaceIdExtra
 import com.emberr.presentation.widget.widgetTasksScreenExtra
 import com.emberr.presentation.EmberrApp
 import com.emberr.ui.theme.EmberrTheme
@@ -63,7 +64,9 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.emberr.domain.media.LocalMediaGarbageCollector
 import com.emberr.domain.media.LocalMediaGcTrigger
+import com.emberr.domain.space.DeletedSpaceTrigger
 import com.emberr.domain.sync.AutoSyncTrigger
+import com.emberr.presentation.widget.clearWidgetPinsForSpace
 import com.emberr.domain.sync.discovery.SyncDiscoveryManager
 import com.emberr.presentation.sync.SyncViewModel
 import kotlinx.coroutines.FlowPreview
@@ -119,6 +122,7 @@ class MainActivity : ComponentActivity() {
 
     private val settingsViewModel: com.emberr.presentation.settings.SettingsViewModel by inject()
     private val settingsManager: SettingsManager by inject()
+    private val activeSpaceStore: com.emberr.domain.space.ActiveSpaceStore by inject()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         val splashScreen = installSplashScreen()
@@ -178,6 +182,12 @@ class MainActivity : ComponentActivity() {
                 .collect {
                     syncViewModel.triggerFastSync()
                 }
+        }
+
+        lifecycleScope.launch {
+            DeletedSpaceTrigger.deletedSpaceIds.collect { deletedSpaceId ->
+                clearWidgetPinsForSpace(this@MainActivity, deletedSpaceId)
+            }
         }
 
         val localMediaGarbageCollector: LocalMediaGarbageCollector by inject()
@@ -409,6 +419,13 @@ class MainActivity : ComponentActivity() {
         handleIntent(intent)
     }
 
+    private fun switchToWidgetSpaceIfRequested(intent: Intent) {
+        val pinnedSpaceId = intent.getStringExtra(widgetSpaceIdExtra)?.takeIf { it.isNotBlank() }
+            ?: return
+        intent.removeExtra(widgetSpaceIdExtra)
+        runCatching { activeSpaceStore.setActiveSpace(pinnedSpaceId) }
+    }
+
     private fun consumeWidgetRoute(intent: Intent?): String? {
         intent ?: return null
 
@@ -417,6 +434,8 @@ class MainActivity : ComponentActivity() {
             intent.removeExtra(widgetNoteIdExtra)
             return Screen.Note.createRoute(noteId)
         }
+
+        switchToWidgetSpaceIfRequested(intent)
 
         if (intent.getBooleanExtra(widgetTasksScreenExtra, false)) {
             intent.removeExtra(widgetTasksScreenExtra)

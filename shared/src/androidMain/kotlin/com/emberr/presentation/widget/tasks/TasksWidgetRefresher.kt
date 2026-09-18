@@ -84,11 +84,18 @@ suspend fun pushRenderedTasks(context: Context, glanceId: GlanceId, content: Tas
         val heightDp = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT)
             .takeIf { it > 0 } ?: fallbackWidgetSideDp
 
+        val pinnedSpaceId = readWidgetSpaceId(context, glanceId)
+
         val rendered = GlanceRemoteViews().compose(
             context = context,
             size = DpSize(widthDp.dp, heightDp.dp)
         ) {
-            TasksWidgetBody(context = context, appWidgetId = appWidgetId, content = content)
+            TasksWidgetBody(
+                context = context,
+                appWidgetId = appWidgetId,
+                spaceId = pinnedSpaceId,
+                content = content
+            )
         }
 
         widgetManager.updateAppWidget(appWidgetId, rendered.remoteViews)

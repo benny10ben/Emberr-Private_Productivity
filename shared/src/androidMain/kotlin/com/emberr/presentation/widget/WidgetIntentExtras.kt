@@ -2,6 +2,7 @@
 package com.emberr.presentation.widget
 
 const val widgetNoteIdExtra = "widget_note_id"
+const val widgetSpaceIdExtra = "widget_space_id"
 const val widgetTasksScreenExtra = "widget_tasks_screen"
 const val widgetHomeScreenExtra = "widget_home_screen"
 const val widgetDailyScreenExtra = "widget_daily_screen"

@@ -74,11 +74,17 @@ suspend fun pushRenderedUpcomingEvents(
         val heightDp = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT)
             .takeIf { it > 0 } ?: fallbackWidgetHeightDp
 
+        val pinnedSpaceId = readWidgetSpaceId(context, glanceId)
+
         val rendered = GlanceRemoteViews().compose(
             context = context,
             size = DpSize(widthDp.dp, heightDp.dp)
         ) {
-            UpcomingEventsWidgetBody(context = context, content = content)
+            UpcomingEventsWidgetBody(
+                context = context,
+                spaceId = pinnedSpaceId,
+                content = content
+            )
         }
 
         widgetManager.updateAppWidget(appWidgetId, rendered.remoteViews)
