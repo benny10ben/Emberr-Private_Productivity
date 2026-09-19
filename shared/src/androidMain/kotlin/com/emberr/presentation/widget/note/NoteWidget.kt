@@ -23,6 +23,7 @@ import androidx.glance.appwidget.provideContent
 import androidx.glance.background
 import androidx.glance.state.PreferencesGlanceStateDefinition
 import androidx.glance.layout.Alignment
+import androidx.glance.layout.Box
 import androidx.glance.layout.Column
 import androidx.glance.layout.Row
 import androidx.glance.layout.Spacer
@@ -42,6 +43,7 @@ import org.koin.core.component.KoinComponent
 import org.koin.core.component.get
 import androidx.core.net.toUri
 import com.emberr.presentation.widget.WidgetLog
+import com.emberr.presentation.widget.highlightedTextBackgroundColor
 import com.emberr.presentation.widget.primaryTextColor
 import com.emberr.presentation.widget.secondaryTextColor
 import com.emberr.presentation.widget.separatorColor
@@ -225,16 +227,42 @@ private fun ContentElement(element: WidgetElement, openNoteAction: Action?) {
             )
         }
 
-        is WidgetElement.TextLine -> Text(
-            text = element.text,
-            style = resolveTextStyle(element),
-            modifier = GlanceModifier
-                .fillMaxWidth()
-                .padding(start = startPaddingFor(element.indentationLevel), top = 4.dp, bottom = 4.dp)
-                .thenClickable(openNoteAction)
-        )
+        is WidgetElement.TextLine ->
+            if (element.isHighlighted) {
+                HighlightedTextLine(line = element, openNoteAction = openNoteAction)
+            } else {
+                Text(
+                    text = element.text,
+                    style = resolveTextStyle(element),
+                    modifier = GlanceModifier
+                        .fillMaxWidth()
+                        .padding(start = startPaddingFor(element.indentationLevel), top = 4.dp, bottom = 4.dp)
+                        .thenClickable(openNoteAction)
+                )
+            }
 
         is WidgetElement.Record -> RecordElement(record = element, openNoteAction = openNoteAction)
+    }
+}
+
+@Composable
+private fun HighlightedTextLine(line: WidgetElement.TextLine, openNoteAction: Action?) {
+    Box(
+        modifier = GlanceModifier
+            .fillMaxWidth()
+            .padding(start = startPaddingFor(line.indentationLevel), top = 4.dp, bottom = 4.dp)
+            .thenClickable(openNoteAction),
+        contentAlignment = Alignment.CenterStart
+    ) {
+        Box(
+            modifier = GlanceModifier
+                .background(highlightedTextBackgroundColor)
+                .cornerRadius(4.dp)
+                .padding(horizontal = 4.dp, vertical = 1.dp),
+            contentAlignment = Alignment.CenterStart
+        ) {
+            Text(text = line.text, style = resolveTextStyle(line))
+        }
     }
 }
 

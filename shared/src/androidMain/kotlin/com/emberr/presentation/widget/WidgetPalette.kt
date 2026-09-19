@@ -5,6 +5,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.glance.color.ColorProvider
 import com.emberr.ui.theme.CharcoalNoir
 import com.emberr.ui.theme.CloudVeil
+import com.emberr.ui.theme.HighlightLime
+import com.emberr.ui.theme.HighlightLimeDark
 import com.emberr.ui.theme.IroncladGrey
 import com.emberr.ui.theme.UrbanFog
 
@@ -15,3 +17,4 @@ internal val separatorColor = ColorProvider(day = Color(0xFFD4D4D4), night = Col
 internal val elevatedSurfaceColor = ColorProvider(day = CloudVeil, night = IroncladGrey)
 internal val highlightColor = ColorProvider(day = CharcoalNoir, night = CloudVeil)
 internal val onHighlightColor = ColorProvider(day = CloudVeil, night = CharcoalNoir)
+internal val highlightedTextBackgroundColor = ColorProvider(day = HighlightLime, night = HighlightLimeDark)

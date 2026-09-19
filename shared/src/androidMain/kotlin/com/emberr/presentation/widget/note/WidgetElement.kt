@@ -20,6 +20,7 @@ import com.emberr.domain.model.ThreeDotDividerBlock
 import com.emberr.domain.model.ToggleBlock
 import com.emberr.domain.model.VoiceBlock
 import com.emberr.domain.model.displayText
+import com.emberr.domain.model.inlineSpansOrEmpty
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -37,7 +38,8 @@ sealed interface WidgetElement {
         val text: String,
         val style: WidgetTextStyleName,
         val indentationLevel: Int,
-        val isStruckThrough: Boolean
+        val isStruckThrough: Boolean,
+        val isHighlighted: Boolean = false
     ) : WidgetElement
 
     @Serializable
@@ -119,7 +121,8 @@ private fun convertBlockToElements(
             text = "${if (block.isChecked) "☑" else "☐"}  ${block.text}".take(maximumCharactersPerLine),
             style = WidgetTextStyleName.BODY,
             indentationLevel = block.indentationLevel,
-            isStruckThrough = block.isChecked || block.isStrikeThrough
+            isStruckThrough = block.isChecked || block.isStrikeThrough,
+            isHighlighted = block.showsHighlightedText()
         )
     )
 
@@ -176,10 +179,14 @@ private fun textLine(
             text = trimmedText.take(maximumCharactersPerLine),
             style = style,
             indentationLevel = block.indentationLevel,
-            isStruckThrough = block.isStrikeThrough
+            isStruckThrough = block.isStrikeThrough,
+            isHighlighted = block.showsHighlightedText()
         )
     )
 }
+
+private fun NoteBlock.showsHighlightedText(): Boolean =
+    isHighlighted || inlineSpansOrEmpty().any { span -> span.highlight }
 
 private fun convertTableToElements(block: TableBlock): List<WidgetElement> {
     val records = buildRecords(
