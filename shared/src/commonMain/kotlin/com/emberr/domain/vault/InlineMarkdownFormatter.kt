@@ -3,6 +3,7 @@
 package com.emberr.domain.vault
 
 import com.emberr.domain.model.InlineSpan
+import com.emberr.domain.model.defaultHighlightColorName
 
 private const val BOLD_MARKER = "**"
 private const val ITALIC_MARKER = "*"
@@ -10,13 +11,17 @@ private const val STRIKE_THROUGH_MARKER = "~~"
 private const val UNDERLINE_OPENING_TAG = "<u>"
 private const val UNDERLINE_CLOSING_TAG = "</u>"
 private const val HIGHLIGHT_MARKER = "=="
+private const val COLORED_HIGHLIGHT_OPENING_PREFIX = "<mark class=\""
+private const val COLORED_HIGHLIGHT_OPENING_SUFFIX = "\">"
+private const val COLORED_HIGHLIGHT_CLOSING_TAG = "</mark>"
 
 private data class CharacterStyle(
     val isBold: Boolean,
     val isItalic: Boolean,
     val isStrikeThrough: Boolean,
     val isUnderlined: Boolean,
-    val isHighlighted: Boolean
+    val isHighlighted: Boolean,
+    val highlightColorName: String?
 ) {
     val hasNoFormatting: Boolean
         get() = !isBold && !isItalic && !isStrikeThrough && !isUnderlined && !isHighlighted
@@ -33,7 +38,8 @@ object InlineMarkdownFormatter {
         isWholeBlockItalic: Boolean = false,
         isWholeBlockStrikeThrough: Boolean = false,
         isWholeBlockUnderlined: Boolean = false,
-        isWholeBlockHighlighted: Boolean = false
+        isWholeBlockHighlighted: Boolean = false,
+        wholeBlockHighlightColorName: String? = null
     ): String {
         if (text.isEmpty()) return ""
 
@@ -44,7 +50,8 @@ object InlineMarkdownFormatter {
             isWholeBlockItalic = isWholeBlockItalic,
             isWholeBlockStrikeThrough = isWholeBlockStrikeThrough,
             isWholeBlockUnderlined = isWholeBlockUnderlined,
-            isWholeBlockHighlighted = isWholeBlockHighlighted
+            isWholeBlockHighlighted = isWholeBlockHighlighted,
+            wholeBlockHighlightColorName = wholeBlockHighlightColorName
         )
         return renderStyledRuns(text, stylePerCharacter)
     }
@@ -67,14 +74,16 @@ object InlineMarkdownFormatter {
         isWholeBlockItalic: Boolean,
         isWholeBlockStrikeThrough: Boolean,
         isWholeBlockUnderlined: Boolean,
-        isWholeBlockHighlighted: Boolean
+        isWholeBlockHighlighted: Boolean,
+        wholeBlockHighlightColorName: String?
     ): Array<CharacterStyle> {
         val blockWideStyle = CharacterStyle(
             isBold = isWholeBlockBold,
             isItalic = isWholeBlockItalic,
             isStrikeThrough = isWholeBlockStrikeThrough,
             isUnderlined = isWholeBlockUnderlined,
-            isHighlighted = isWholeBlockHighlighted
+            isHighlighted = isWholeBlockHighlighted,
+            highlightColorName = wholeBlockHighlightColorName
         )
         val stylePerCharacter = Array(textLength) { blockWideStyle }
 
@@ -88,7 +97,9 @@ object InlineMarkdownFormatter {
                     isItalic = existing.isItalic || span.italic,
                     isStrikeThrough = existing.isStrikeThrough || span.strikeThrough,
                     isUnderlined = existing.isUnderlined || span.underline,
-                    isHighlighted = existing.isHighlighted || span.highlight
+                    isHighlighted = existing.isHighlighted || span.highlight,
+                    highlightColorName =
+                        if (span.highlight) span.highlightColorName else existing.highlightColorName
                 )
             }
         }
@@ -121,6 +132,17 @@ object InlineMarkdownFormatter {
         return output.toString()
     }
 
+    private fun usesDefaultHighlightColor(highlightColorName: String?): Boolean =
+        highlightColorName == null || highlightColorName == defaultHighlightColorName
+
+    private fun highlightOpeningMarkerFor(highlightColorName: String?): String =
+        if (usesDefaultHighlightColor(highlightColorName)) HIGHLIGHT_MARKER
+        else COLORED_HIGHLIGHT_OPENING_PREFIX + highlightColorName + COLORED_HIGHLIGHT_OPENING_SUFFIX
+
+    private fun highlightClosingMarkerFor(highlightColorName: String?): String =
+        if (usesDefaultHighlightColor(highlightColorName)) HIGHLIGHT_MARKER
+        else COLORED_HIGHLIGHT_CLOSING_TAG
+
     private fun appendStyledSegment(output: StringBuilder, segment: String, style: CharacterStyle) {
         if (style.hasNoFormatting) {
             output.append(escapeMarkdown(segment))
@@ -139,9 +161,9 @@ object InlineMarkdownFormatter {
         if (style.isItalic) output.append(ITALIC_MARKER)
         if (style.isStrikeThrough) output.append(STRIKE_THROUGH_MARKER)
         if (style.isUnderlined) output.append(UNDERLINE_OPENING_TAG)
-        if (style.isHighlighted) output.append(HIGHLIGHT_MARKER)
+        if (style.isHighlighted) output.append(highlightOpeningMarkerFor(style.highlightColorName))
         output.append(escapeMarkdown(segment.substring(firstVisibleIndex, afterLastVisibleIndex)))
-        if (style.isHighlighted) output.append(HIGHLIGHT_MARKER)
+        if (style.isHighlighted) output.append(highlightClosingMarkerFor(style.highlightColorName))
         if (style.isUnderlined) output.append(UNDERLINE_CLOSING_TAG)
         if (style.isStrikeThrough) output.append(STRIKE_THROUGH_MARKER)
         if (style.isItalic) output.append(ITALIC_MARKER)

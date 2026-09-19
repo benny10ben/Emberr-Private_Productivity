@@ -24,6 +24,7 @@ import com.emberr.domain.model.ToggleBlock
 import com.emberr.domain.model.VoiceBlock
 import com.emberr.domain.model.displayText
 import kotlinx.datetime.TimeZone
+import com.emberr.domain.model.highlightColorNameOrNull
 import com.emberr.domain.model.inlineSpansOrEmpty
 
 enum class VaultMarkdownProfile { VAULT, SHARED }
@@ -383,7 +384,8 @@ object NoteMarkdownWriter {
             isWholeBlockItalic = block.isItalic,
             isWholeBlockStrikeThrough = block.isStrikeThrough,
             isWholeBlockUnderlined = block.isUnderlined,
-            isWholeBlockHighlighted = block.isHighlighted
+            isWholeBlockHighlighted = block.isHighlighted,
+            wholeBlockHighlightColorName = block.highlightColorNameOrNull()
         )
 
     private fun withInlineTag(content: String, tag: String?): String = when {

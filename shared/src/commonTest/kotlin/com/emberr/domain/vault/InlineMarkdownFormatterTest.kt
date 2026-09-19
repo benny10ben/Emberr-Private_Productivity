@@ -47,6 +47,38 @@ class InlineMarkdownFormatterTest {
     }
 
     @Test
+    fun colouredHighlightSpanBecomesAMarkTag() {
+        val result = InlineMarkdownFormatter.toMarkdown(
+            text = "call the plumber, urgent",
+            spans = listOf(
+                InlineSpan(start = 18, end = 24, highlight = true, highlightColorName = "red")
+            )
+        )
+        assertEquals("call the plumber, <mark class=\"red\">urgent</mark>", result)
+    }
+
+    @Test
+    fun yellowHighlightStillUsesDoubleEquals() {
+        val result = InlineMarkdownFormatter.toMarkdown(
+            text = "abc",
+            spans = listOf(
+                InlineSpan(start = 0, end = 3, highlight = true, highlightColorName = "yellow")
+            )
+        )
+        assertEquals("==abc==", result)
+    }
+
+    @Test
+    fun wholeBlockColouredHighlightWrapsEveryCharacter() {
+        val result = InlineMarkdownFormatter.toMarkdown(
+            text = "abc",
+            isWholeBlockHighlighted = true,
+            wholeBlockHighlightColorName = "blue"
+        )
+        assertEquals("<mark class=\"blue\">abc</mark>", result)
+    }
+
+    @Test
     fun literalDoubledEqualsIsEscaped() {
         assertEquals("2 \\=\\= 3", InlineMarkdownFormatter.toMarkdown("2 == 3"))
     }

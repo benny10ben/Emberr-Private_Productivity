@@ -137,7 +137,8 @@ object NoteMarkdownReader {
                 isItalic = parsed.isWholeTextItalic,
                 isStrikeThrough = parsed.isWholeTextStrikeThrough,
                 isUnderlined = parsed.isWholeTextUnderlined,
-                isHighlighted = parsed.isWholeTextHighlighted
+                isHighlighted = parsed.isWholeTextHighlighted,
+                highlightColorName = parsed.wholeTextHighlightColorName
             ),
             existing,
             request.timestamp
@@ -164,7 +165,8 @@ object NoteMarkdownReader {
                 isItalic = parsed.isWholeTextItalic,
                 isStrikeThrough = parsed.isWholeTextStrikeThrough,
                 isUnderlined = parsed.isWholeTextUnderlined,
-                isHighlighted = parsed.isWholeTextHighlighted
+                isHighlighted = parsed.isWholeTextHighlighted,
+                highlightColorName = parsed.wholeTextHighlightColorName
             ),
             existing,
             request.timestamp
@@ -221,7 +223,8 @@ object NoteMarkdownReader {
                     isItalic = parsed.isWholeTextItalic,
                     isStrikeThrough = parsed.isWholeTextStrikeThrough,
                     isUnderlined = parsed.isWholeTextUnderlined,
-                    isHighlighted = parsed.isWholeTextHighlighted
+                    isHighlighted = parsed.isWholeTextHighlighted,
+                    highlightColorName = parsed.wholeTextHighlightColorName
                 ),
                 existing,
                 request.timestamp
@@ -241,7 +244,8 @@ object NoteMarkdownReader {
                     isItalic = parsed.isWholeTextItalic,
                     isStrikeThrough = parsed.isWholeTextStrikeThrough,
                     isUnderlined = parsed.isWholeTextUnderlined,
-                    isHighlighted = parsed.isWholeTextHighlighted
+                    isHighlighted = parsed.isWholeTextHighlighted,
+                    highlightColorName = parsed.wholeTextHighlightColorName
                 ),
                 existing,
                 request.timestamp
@@ -264,7 +268,8 @@ object NoteMarkdownReader {
                     isItalic = parsed.isWholeTextItalic,
                     isStrikeThrough = parsed.isWholeTextStrikeThrough,
                     isUnderlined = parsed.isWholeTextUnderlined,
-                    isHighlighted = parsed.isWholeTextHighlighted
+                    isHighlighted = parsed.isWholeTextHighlighted,
+                    highlightColorName = parsed.wholeTextHighlightColorName
                 ),
                 existing,
                 request.timestamp
@@ -284,7 +289,8 @@ object NoteMarkdownReader {
                     isItalic = parsed.isWholeTextItalic,
                     isStrikeThrough = parsed.isWholeTextStrikeThrough,
                     isUnderlined = parsed.isWholeTextUnderlined,
-                    isHighlighted = parsed.isWholeTextHighlighted
+                    isHighlighted = parsed.isWholeTextHighlighted,
+                    highlightColorName = parsed.wholeTextHighlightColorName
                 ),
                 existing,
                 request.timestamp
@@ -331,7 +337,8 @@ object NoteMarkdownReader {
                 isItalic = parsed.isWholeTextItalic,
                 isStrikeThrough = parsed.isWholeTextStrikeThrough,
                 isUnderlined = parsed.isWholeTextUnderlined,
-                isHighlighted = parsed.isWholeTextHighlighted
+                isHighlighted = parsed.isWholeTextHighlighted,
+                highlightColorName = parsed.wholeTextHighlightColorName
             ),
             existing,
             request.timestamp
