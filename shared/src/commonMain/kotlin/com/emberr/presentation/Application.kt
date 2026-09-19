@@ -4,6 +4,8 @@ import androidx.compose.animation.*
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -31,6 +33,7 @@ import com.emberr.domain.util.system.isDesktopPlatform
 import com.emberr.presentation.mobile.daily.DailyScreen
 import com.emberr.presentation.navigation.Screen
 import com.emberr.presentation.onboarding.OnboardingScreen
+import com.emberr.presentation.shared.components.KmpBackHandler
 import com.emberr.presentation.shared.components.LocalEmberrBlurSource
 import com.emberr.presentation.trash.TrashScreen
 import dev.chrisbanes.haze.HazeState
@@ -44,7 +47,8 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import com.emberr.presentation.mobile.home.HomeScreen
-import com.emberr.presentation.search.SearchDialog
+import com.emberr.presentation.search.SearchResultsList
+import com.emberr.presentation.search.SearchViewModel
 import com.emberr.presentation.share.ShareReceiverSheet
 import com.emberr.presentation.share.ShareViewModel
 import dev.chrisbanes.haze.hazeSource
@@ -53,6 +57,7 @@ import kotlinx.coroutines.withContext
 import kotlin.time.Duration.Companion.milliseconds
 
 private val DESKTOP_SIDEBAR_WIDTH = 340.dp
+private val SEARCH_BAR_RESERVED_HEIGHT = 64.dp
 
 val LocalImageOverlay = staticCompositionLocalOf<( (@Composable () -> Unit)? ) -> Unit> { {} }
 
@@ -150,7 +155,19 @@ fun EmberrApp(
 
     var activeTab by remember { mutableStateOf(Screen.Daily.route) }
     var isBottomBarCompact by remember { mutableStateOf(false) }
-    var showSearchDialog by remember { mutableStateOf(false) }
+
+    // Mobile search: the bottom bar turns into the search field, and the moment there is a query
+    // the results take over the screen above it.
+    val searchViewModel: SearchViewModel = koinViewModel()
+    val searchQuery by searchViewModel.query.collectAsState()
+    val searchResults by searchViewModel.results.collectAsState()
+    var isSearchBarOpen by remember { mutableStateOf(false) }
+    val areSearchResultsVisible = isSearchBarOpen && searchQuery.isNotBlank()
+    val closeSearchBar: () -> Unit = {
+        isSearchBarOpen = false
+        isBottomBarCompact = false
+        searchViewModel.onQueryChange("")
+    }
 
     LaunchedEffect(currentRoute) {
         if (currentRoute == Screen.Daily.route || currentRoute == Screen.Home.route) {
@@ -401,7 +418,7 @@ fun EmberrApp(
                                 onNavigateToCalendar = { navController.navigate(Screen.Calendar.route) },
                                 onNavigateToSettings = { navController.navigate(Screen.Settings.route) },
                                 onNavigateToTrash = { navController.navigate("trash_route") },
-                                isSearchDialogOpen = showSearchDialog,
+                                isSearchActive = isSearchBarOpen,
                                 dateArg = backStackEntry.savedStateHandle.get<String>("date")
                             )
                         }
@@ -507,7 +524,7 @@ fun EmberrApp(
                                 onOpenFile = onOpenFile,
                                 onExportMarkdown = onExportMarkdown,
                                 onExportPdf = onExportPdf,
-                                isSearchDialogOpen = showSearchDialog
+                                isSearchActive = isSearchBarOpen
                             )
                         }
 
@@ -818,6 +835,49 @@ fun EmberrApp(
                             )
                         }
                     }
+                    // Search results sit above the screen content but below the bottom bar, so
+                    // the bar stays usable while everything behind it is covered. The no-op
+                    // clickable is what stops taps falling through to the hidden screen.
+                    AnimatedVisibility(
+                        visible = areSearchResultsVisible,
+                        enter = fadeIn(tween(150)),
+                        exit = fadeOut(tween(150)),
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(MaterialTheme.colorScheme.background)
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null
+                                ) { }
+                                .statusBarsPadding()
+                                .imePadding()
+                                .navigationBarsPadding()
+                                .padding(bottom = SEARCH_BAR_RESERVED_HEIGHT)
+                        ) {
+                            SearchResultsList(
+                                query = searchQuery,
+                                results = searchResults,
+                                onNoteClick = { noteId ->
+                                    closeSearchBar()
+                                    navController.navigate(Screen.Note.createRoute(noteId))
+                                },
+                                onDailyNoteClick = { dateString ->
+                                    closeSearchBar()
+                                    navController.navigate(Screen.Daily.createRoute(dateString)) {
+                                        popUpTo(navController.graph.id) { inclusive = true }
+                                        launchSingleTop = true
+                                    }
+                                },
+                                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 24.dp)
+                            )
+                        }
+                    }
+
+                    KmpBackHandler(enabled = isSearchBarOpen) { closeSearchBar() }
+
                     if (!isDesktopPlatform) {
                         AnimatedVisibility(
                             visible = isBottomBarVisible,
@@ -855,7 +915,11 @@ fun EmberrApp(
                                 activeTab = activeTab,
                                 onAiIconTap = openAiChat,
                                 isAiEnabled = !isAiDisabled,
-                                onSearchClick = { showSearchDialog = true },
+                                onSearchClick = { isSearchBarOpen = true },
+                                isSearchMode = isSearchBarOpen,
+                                searchQuery = searchQuery,
+                                onSearchQueryChange = searchViewModel::onQueryChange,
+                                onCloseSearch = closeSearchBar,
                                 onMicClick = {
                                     if (isVoiceTaskListening) {
                                         HomeViewModel.stopVoiceTaskListening()
@@ -872,22 +936,6 @@ fun EmberrApp(
                         }
                     }
 
-                    if (showSearchDialog) {
-                        SearchDialog(
-                            onDismiss = { showSearchDialog = false },
-                            onNoteClick = { noteId ->
-                                showSearchDialog = false
-                                navController.navigate(Screen.Note.createRoute(noteId))
-                            },
-                            onDailyNoteClick = { dateString ->
-                                showSearchDialog = false
-                                navController.navigate(Screen.Daily.createRoute(dateString)) {
-                                    popUpTo(navController.graph.id) { inclusive = true }
-                                    launchSingleTop = true
-                                }
-                            }
-                        )
-                    }
 
                     ShareReceiverSheet(
                         share = currentShare,

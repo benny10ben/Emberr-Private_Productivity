@@ -153,7 +153,7 @@ fun NoteScreen(
     topBarBgColor: Color? = null,
     topBarContentColor: Color? = null,
     desktopTopMargin: Dp = 0.dp,
-    isSearchDialogOpen: Boolean = false,
+    isSearchActive: Boolean = false,
     viewModel: NoteEditorViewModel = koinViewModel(key = noteId)
 ) {
 
@@ -258,7 +258,7 @@ fun NoteScreen(
         previousImeBottom = imeBottom
     }
 
-    val showToolbar = !isSelectionMode && !isSearchDialogOpen &&
+    val showToolbar = !isSelectionMode && !isSearchActive &&
         (isKeyboardOpen || isDesktopPlatform || mobileMenuState != MobileMenuState.MAIN)
 
     SelectionModeObserver(isSelectionMode, onSelectionModeChange)

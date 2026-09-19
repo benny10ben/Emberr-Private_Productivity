@@ -103,7 +103,7 @@ fun DailyScreen(
     onNavigateToSettings: () -> Unit = {},
     onNavigateToTrash: () -> Unit = {},
     showAddNoteDialog: Boolean = false,
-    isSearchDialogOpen: Boolean = false,
+    isSearchActive: Boolean = false,
     dateArg: String? = null,
     viewModel: DailyEditorViewModel = koinViewModel(),
     syncViewModel: SyncViewModel = koinViewModel(),
@@ -184,7 +184,7 @@ fun DailyScreen(
     }
 
     val showToolbar = !isSelectionMode && !showAddNoteDialog && !showTimelineDialog &&
-        !isSearchDialogOpen && isKeyboardOpen
+        !isSearchActive && isKeyboardOpen
 
     val globalTags by viewModel.globalTags.collectAsState()
     val calendarTaskMap by viewModel.calendarTaskMap.collectAsState()
