@@ -560,36 +560,38 @@ fun NoteBlockItem(
                     ) {
                         CompositionLocalProvider(LocalTextSelectionColors provides customTextSelectionColors) {
 
-                            IsolatedEditorTextField(
-                                initialText = text,
-                                placeholderText = placeholderText,
-                                blockId = block.id,
-                                isCodeBlock = block is CodeBlock,
-                                textStyle = textStyle,
-                                inSelectionMode = inSelectionMode,
-                                focusRequester = focusRequester,
-                                onUpdateText = { id, newText -> actions.onUpdateText(id, newText) },
-                                onEnterPressed = { id, before, after -> actions.onEnterPressed(id, before, after) },
-                                onBackspaceOnEmpty = { id -> actions.onBackspaceOnEmpty(id) },
-                                allLinkableNotes = allLinkableNotes,
-                                onCreateLinkedNote = { actions.onCreateLinkedNote(it) },
-                                onOpenNote = { actions.onNoteLinkClick(it) },
-                                visualTransformation = richTextTransformation,
-                                selectionRequest = selectionRequest,
-                                focusRequest = focusRequest,
-                                onTextLayout = { textLayoutResult = it },
-                                isSlashMenuOpen = isSlashMenuActiveHere,
-                                onSlashMenuNavigate = { delta ->
-                                    val count = slashMenuFilteredItems.size
-                                    if (count > 0) {
-                                        slashMenuSelectedIndex = ((slashMenuSelectedIndex + delta) % count + count) % count
-                                    }
-                                },
-                                onSlashMenuConfirm = {
-                                    slashMenuFilteredItems.getOrNull(slashMenuSelectedIndex)?.action?.invoke()
-                                },
-                                onSlashMenuDismiss = onDismissSlashMenu
-                            )
+                            TextFormatContextMenu(onToggleFormat = { actions.onToggleFormat(it) }) {
+                                IsolatedEditorTextField(
+                                    initialText = text,
+                                    placeholderText = placeholderText,
+                                    blockId = block.id,
+                                    isCodeBlock = block is CodeBlock,
+                                    textStyle = textStyle,
+                                    inSelectionMode = inSelectionMode,
+                                    focusRequester = focusRequester,
+                                    onUpdateText = { id, newText -> actions.onUpdateText(id, newText) },
+                                    onEnterPressed = { id, before, after -> actions.onEnterPressed(id, before, after) },
+                                    onBackspaceOnEmpty = { id -> actions.onBackspaceOnEmpty(id) },
+                                    allLinkableNotes = allLinkableNotes,
+                                    onCreateLinkedNote = { actions.onCreateLinkedNote(it) },
+                                    onOpenNote = { actions.onNoteLinkClick(it) },
+                                    visualTransformation = richTextTransformation,
+                                    selectionRequest = selectionRequest,
+                                    focusRequest = focusRequest,
+                                    onTextLayout = { textLayoutResult = it },
+                                    isSlashMenuOpen = isSlashMenuActiveHere,
+                                    onSlashMenuNavigate = { delta ->
+                                        val count = slashMenuFilteredItems.size
+                                        if (count > 0) {
+                                            slashMenuSelectedIndex = ((slashMenuSelectedIndex + delta) % count + count) % count
+                                        }
+                                    },
+                                    onSlashMenuConfirm = {
+                                        slashMenuFilteredItems.getOrNull(slashMenuSelectedIndex)?.action?.invoke()
+                                    },
+                                    onSlashMenuDismiss = onDismissSlashMenu
+                                )
+                            }
 
                         }
 
@@ -811,39 +813,43 @@ fun NoteBlockItem(
                                 onRequestPicker = { actions.onRequestDocumentPicker(block.id) },
                                 onOpenFile = { filePath, mimeType -> actions.onOpenFile(filePath, mimeType) }
                             )
-                            is DatabaseBlock -> Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .pointerInput(Unit) {
-                                        awaitPointerEventScope {
-                                            while (true) {
-                                                val event = awaitPointerEvent(PointerEventPass.Initial)
-                                                if (event.type == PointerEventType.Press) {
-                                                    lastTappedYInBlock = event.changes.firstOrNull()?.position?.y ?: 0f
+                            is DatabaseBlock -> TextFormatContextMenu(onToggleFormat = { actions.onToggleFormat(it) }) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .pointerInput(Unit) {
+                                            awaitPointerEventScope {
+                                                while (true) {
+                                                    val event = awaitPointerEvent(PointerEventPass.Initial)
+                                                    if (event.type == PointerEventType.Press) {
+                                                        lastTappedYInBlock = event.changes.firstOrNull()?.position?.y ?: 0f
+                                                    }
                                                 }
                                             }
                                         }
-                                    }
-                            ) {
-                                DatabaseBlockView(
+                                ) {
+                                    DatabaseBlockView(
+                                        block = block,
+                                        inSelectionMode = inSelectionMode,
+                                        globalTags = globalTags,
+                                        actions = actions,
+                                        allLinkableNotes = allLinkableNotes,
+                                    )
+                                }
+                            }
+                            is TableBlock -> TextFormatContextMenu(onToggleFormat = { actions.onToggleFormat(it) }) {
+                                TableBlockView(
                                     block = block,
                                     inSelectionMode = inSelectionMode,
-                                    globalTags = globalTags,
-                                    actions = actions,
-                                    allLinkableNotes = allLinkableNotes,
+                                    onUpdateTable = { actions.onUpdateTable(block.id, it) },
+                                    onUpdateTableStyle = { cellStyles, rowStyles, columnStyles ->
+                                        actions.onUpdateTableStyle(block.id, cellStyles, rowStyles, columnStyles)
+                                    },
+                                    onUpdateColumnWidth = { columnIndex, width ->
+                                        actions.onUpdateTableColumnWidth(block.id, columnIndex, width)
+                                    }
                                 )
                             }
-                            is TableBlock -> TableBlockView(
-                                block = block,
-                                inSelectionMode = inSelectionMode,
-                                onUpdateTable = { actions.onUpdateTable(block.id, it) },
-                                onUpdateTableStyle = { cellStyles, rowStyles, columnStyles ->
-                                    actions.onUpdateTableStyle(block.id, cellStyles, rowStyles, columnStyles)
-                                },
-                                onUpdateColumnWidth = { columnIndex, width ->
-                                    actions.onUpdateTableColumnWidth(block.id, columnIndex, width)
-                                }
-                            )
                             is VoiceBlock -> AudioBlockView(
                                 block = block,
                                 inSelectionMode = inSelectionMode,
