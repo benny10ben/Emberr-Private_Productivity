@@ -62,6 +62,8 @@ enum class TextAlignment { LEFT, RIGHT, CENTER, JUSTIFY }
  * own `text` (end-exclusive) - see NoteBlockItem's RichTextVisualTransformation for how these get
  * rendered, and BaseEditorViewModel.shiftSpansForEdit for how they stay valid as the text is edited.
  */
+const val defaultHighlightColorName = "yellow"
+
 @Immutable
 @Serializable
 data class InlineSpan(
@@ -71,7 +73,8 @@ data class InlineSpan(
     val italic: Boolean = false,
     val strikeThrough: Boolean = false,
     val underline: Boolean = false,
-    val highlight: Boolean = false
+    val highlight: Boolean = false,
+    val highlightColorName: String? = null
 )
 
 @Immutable
@@ -88,6 +91,7 @@ data class TextBlock(
     override val isStrikeThrough: Boolean = false,
     override val isUnderlined: Boolean = false,
     override val isHighlighted: Boolean = false,
+    val highlightColorName: String? = null,
     override val isDeleted: Boolean = false,
     override val isPinned: Boolean = false,
     override val updatedAt: Long = 0L
@@ -108,6 +112,7 @@ data class HeadingBlock(
     override val isStrikeThrough: Boolean = false,
     override val isUnderlined: Boolean = false,
     override val isHighlighted: Boolean = false,
+    val highlightColorName: String? = null,
     override val isDeleted: Boolean = false,
     override val isPinned: Boolean = false,
     override val updatedAt: Long = 0L
@@ -127,6 +132,7 @@ data class QuoteBlock(
     override val isStrikeThrough: Boolean = false,
     override val isUnderlined: Boolean = false,
     override val isHighlighted: Boolean = false,
+    val highlightColorName: String? = null,
     override val isDeleted: Boolean = false,
     override val isPinned: Boolean = false,
     override val updatedAt: Long = 0L
@@ -147,6 +153,7 @@ data class CheckboxBlock(
     override val isStrikeThrough: Boolean = false,
     override val isUnderlined: Boolean = false,
     override val isHighlighted: Boolean = false,
+    val highlightColorName: String? = null,
     val reminderTimestamp: Long? = null,
     val completedAt: Long? = null,
     val categoryId: String? = null,
@@ -173,6 +180,7 @@ data class BulletedListBlock(
     override val isStrikeThrough: Boolean = false,
     override val isUnderlined: Boolean = false,
     override val isHighlighted: Boolean = false,
+    val highlightColorName: String? = null,
     override val isDeleted: Boolean = false,
     override val isPinned: Boolean = false,
     override val updatedAt: Long = 0L
@@ -193,6 +201,7 @@ data class NumberedListBlock(
     override val isStrikeThrough: Boolean = false,
     override val isUnderlined: Boolean = false,
     override val isHighlighted: Boolean = false,
+    val highlightColorName: String? = null,
     override val isDeleted: Boolean = false,
     override val isPinned: Boolean = false,
     override val updatedAt: Long = 0L
@@ -213,6 +222,7 @@ data class ToggleBlock(
     override val isStrikeThrough: Boolean = false,
     override val isUnderlined: Boolean = false,
     override val isHighlighted: Boolean = false,
+    val highlightColorName: String? = null,
     override val isDeleted: Boolean = false,
     override val isPinned: Boolean = false,
     override val updatedAt: Long = 0L
@@ -630,6 +640,28 @@ fun NoteBlock.inlineSpansOrEmpty(): List<InlineSpan> = when (this) {
     is NumberedListBlock -> inlineSpans
     is ToggleBlock -> inlineSpans
     else -> emptyList()
+}
+
+fun NoteBlock.highlightColorNameOrNull(): String? = when (this) {
+    is TextBlock -> highlightColorName
+    is HeadingBlock -> highlightColorName
+    is QuoteBlock -> highlightColorName
+    is CheckboxBlock -> highlightColorName
+    is BulletedListBlock -> highlightColorName
+    is NumberedListBlock -> highlightColorName
+    is ToggleBlock -> highlightColorName
+    else -> null
+}
+
+fun NoteBlock.withHighlight(isHighlighted: Boolean, colorName: String?, now: Long): NoteBlock = when (this) {
+    is TextBlock -> copy(isHighlighted = isHighlighted, highlightColorName = colorName, updatedAt = now)
+    is HeadingBlock -> copy(isHighlighted = isHighlighted, highlightColorName = colorName, updatedAt = now)
+    is QuoteBlock -> copy(isHighlighted = isHighlighted, highlightColorName = colorName, updatedAt = now)
+    is CheckboxBlock -> copy(isHighlighted = isHighlighted, highlightColorName = colorName, updatedAt = now)
+    is BulletedListBlock -> copy(isHighlighted = isHighlighted, highlightColorName = colorName, updatedAt = now)
+    is NumberedListBlock -> copy(isHighlighted = isHighlighted, highlightColorName = colorName, updatedAt = now)
+    is ToggleBlock -> copy(isHighlighted = isHighlighted, highlightColorName = colorName, updatedAt = now)
+    else -> this
 }
 
 fun NoteBlock.withInlineSpans(spans: List<InlineSpan>, now: Long): NoteBlock = when (this) {
