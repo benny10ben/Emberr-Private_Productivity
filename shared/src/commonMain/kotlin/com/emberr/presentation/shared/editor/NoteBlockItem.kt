@@ -93,6 +93,7 @@ import com.emberr.domain.model.TableBlock
 import com.emberr.domain.model.InlineSpan
 import com.emberr.domain.model.TextAlignment
 import com.emberr.domain.model.ThreeDotDividerBlock
+import com.emberr.domain.model.highlightColorNameOrNull
 import com.emberr.domain.model.inlineSpansOrEmpty
 import com.emberr.domain.model.textAlignmentOrNull
 import com.emberr.presentation.shared.components.MinimalDatePickerDialog
@@ -115,7 +116,8 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.AnnotatedString
 import com.emberr.presentation.shared.components.EmberrDesktopMenu
 import com.emberr.ui.theme.LocalEmberrFontStyle
-import com.emberr.ui.theme.highlightBackgroundColor
+import com.emberr.ui.theme.LocalAppIsDark
+import com.emberr.ui.theme.highlightBackgroundFor
 import com.emberr.ui.theme.fontFamilyFor
 import emberr.shared.generated.resources.Res
 import emberr.shared.generated.resources.calendar_add
@@ -302,7 +304,7 @@ fun NoteBlockItem(
 
     val isCheckboxChecked = block is CheckboxBlock && block.isChecked
     val applyStrikeThrough = block.isStrikeThrough || isCheckboxChecked
-    val highlightColor = highlightBackgroundColor
+    val isDarkTheme = LocalAppIsDark.current
 
     val textStyle = baseStyle.copy(
         fontWeight = if (block.isBold) FontWeight.Bold else baseStyle.fontWeight,
@@ -315,7 +317,9 @@ fun NoteBlockItem(
         },
         textAlign = block.textAlignmentOrNull()?.toComposeTextAlign() ?: TextAlign.Unspecified,
         color = if (isCheckboxChecked) MaterialTheme.colorScheme.outline else baseStyle.color,
-        background = if (block.isHighlighted) highlightColor else Color.Unspecified
+        background = if (block.isHighlighted) {
+            highlightBackgroundFor(block.highlightColorNameOrNull(), isDarkTheme)
+        } else Color.Unspecified
     )
 
     val internalVerticalPadding = when (block) {
@@ -345,12 +349,21 @@ fun NoteBlockItem(
     val isSlashMenuActiveHere = isDesktopPlatform && isActiveBlock && showSlashMenu
     val isNoteLinkMenuActiveHere = isDesktopPlatform && isActiveBlock && showNoteLinkMenu
 
+    var isChoosingHighlightColor by remember { mutableStateOf(false) }
+
     val slashMenuSections = remember(slashQuery, isSlashMenuActiveHere) {
         if (isSlashMenuActiveHere) {
             filteredSlashMenuSections(
                 query = slashQuery,
                 onChangeBlockType = { actions.onChangeBlockType(it) },
-                onToggleFormat = { actions.onToggleFormat(it) },
+                onToggleFormat = { format ->
+                    if (format == "highlight") {
+                        onDismissSlashMenu()
+                        isChoosingHighlightColor = true
+                    } else {
+                        actions.onToggleFormat(format)
+                    }
+                },
                 onAdjustIndentation = { actions.onAdjustIndentation(it) },
                 onSetAlignment = { actions.onSetBlockAlignment(it) },
                 onInsertMediaBlock = { actions.onInsertMediaBlock(it) }
@@ -428,6 +441,19 @@ fun NoteBlockItem(
                 SlashMenuList(
                     sections = slashMenuSections,
                     selectedIndex = slashMenuSelectedIndex
+                )
+            }
+        }
+
+        if (isChoosingHighlightColor) {
+            EmberrDesktopMenu(
+                expanded = true,
+                onDismissRequest = { isChoosingHighlightColor = false },
+                modifier = Modifier.width(HighlightColorMenuWidth)
+            ) {
+                HighlightColorCircles(
+                    onColorChosen = { formatWithColor -> actions.onToggleFormat(formatWithColor) },
+                    onClose = { isChoosingHighlightColor = false }
                 )
             }
         }
@@ -536,10 +562,10 @@ fun NoteBlockItem(
             val inlineSpans = block.inlineSpansOrEmpty()
             val noteTitlesById = remember(allLinkableNotes) { allLinkableNotes.associate { it.noteId to it.title } }
             val richTextTransformation: VisualTransformation = remember(
-                block is CodeBlock, linkColor, fadedLinkColor, highlightColor, validNoteIds, inlineSpans, linkHoverState.hoveredLink, noteTitlesById
+                block is CodeBlock, linkColor, fadedLinkColor, isDarkTheme, validNoteIds, inlineSpans, linkHoverState.hoveredLink, noteTitlesById
             ) {
                 if (block is CodeBlock) VisualTransformation.None
-                else RichTextVisualTransformation(linkColor, fadedLinkColor, highlightColor, validNoteIds, inlineSpans, linkHoverState.hoveredLink, noteTitlesById)
+                else RichTextVisualTransformation(linkColor, fadedLinkColor, isDarkTheme, validNoteIds, inlineSpans, linkHoverState.hoveredLink, noteTitlesById)
             }
 
             Column(modifier = textFieldWrapperModifier) {
@@ -1302,7 +1328,7 @@ fun IsolatedEditorTextField(
 data class RichTextVisualTransformation(
     private val linkColor: Color,
     private val fadedColor: Color,
-    private val highlightColor: Color,
+    private val isDarkTheme: Boolean,
     private val validNoteIds: Set<String>,
     private val inlineSpans: List<InlineSpan> = emptyList(),
     private val hoveredLink: HoveredLink? = null,
@@ -1397,7 +1423,9 @@ data class RichTextVisualTransformation(
                     fontWeight = if (span.bold) FontWeight.Bold else null,
                     fontStyle = if (span.italic) FontStyle.Italic else null,
                     textDecoration = decoration,
-                    background = if (span.highlight) highlightColor else Color.Unspecified
+                    background = if (span.highlight) {
+                        highlightBackgroundFor(span.highlightColorName, isDarkTheme)
+                    } else Color.Unspecified
                 ),
                 transformedStart,
                 transformedEnd

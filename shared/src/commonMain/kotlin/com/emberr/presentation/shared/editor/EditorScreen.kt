@@ -22,6 +22,8 @@ import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import com.emberr.ui.theme.HighlightColor
+import com.emberr.ui.theme.LocalAppIsDark
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -1002,257 +1004,279 @@ fun EditorToolbar(
     val tint = MaterialTheme.colorScheme.primary
     val iconSize = 19.dp
     val customIconSize = 18.dp
+    var isChoosingHighlightColor by remember { mutableStateOf(false) }
+
+    LaunchedEffect(mobileMenuState) { isChoosingHighlightColor = false }
 
     KmpBackHandler(enabled = mobileMenuState != MobileMenuState.MAIN) {
         onMenuStateChange(MobileMenuState.MAIN)
     }
 
-    Surface(
-        shape = DefaultCornerShape,
-        color = Color.Transparent,
-        modifier = modifier
-            .fillMaxWidth()
-            .customEmberrShadow(DefaultCornerShape)
-            .clip(DefaultCornerShape)
-            .emberrBlur(hazeState, EmberrBlur.Regular)
-            .border(
-                width = 0.5.dp,
-                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
-                shape = DefaultCornerShape
+    Column(modifier = modifier.fillMaxWidth()) {
+        if (isChoosingHighlightColor) {
+            FloatingHighlightColors(
+                onColorChosen = onToggleFormat,
+                onClose = { isChoosingHighlightColor = false }
             )
-    ) {
-        CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 36.dp) {
-            Column(modifier = Modifier.fillMaxWidth().animateContentSize()) {
-                when (mobileMenuState) {
-                    MobileMenuState.MAIN -> if (GlobalEditorState.hasTextSelection) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 8.dp, vertical = 2.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceEvenly
-                        ) {
-                            InlineFormatButtons(tint = tint, iconSize = customIconSize, onToggleFormat = onToggleFormat)
-                            ToolbarButton(onClick = { keyboardController?.hide() }) {
-                                Icon(painterResource(Res.drawable.keyboard), "Close Keyboard", tint = tint, modifier = Modifier.size(customIconSize))
-                            }
-                        }
-                    } else {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 8.dp, vertical = 2.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
+        }
+
+        Surface(
+            shape = DefaultCornerShape,
+            color = Color.Transparent,
+            modifier = Modifier
+                .fillMaxWidth()
+                .customEmberrShadow(DefaultCornerShape)
+                .clip(DefaultCornerShape)
+                .emberrBlur(hazeState, EmberrBlur.Regular)
+                .border(
+                    width = 0.5.dp,
+                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
+                    shape = DefaultCornerShape
+                )
+        ) {
+            CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 36.dp) {
+                Column(modifier = Modifier.fillMaxWidth().animateContentSize()) {
+                    when (mobileMenuState) {
+                        MobileMenuState.MAIN -> if (GlobalEditorState.hasTextSelection) {
                             Row(
                                 modifier = Modifier
-                                    .weight(1f)
-                                    .horizontalScroll(rememberScrollState()),
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 8.dp, vertical = 2.dp),
                                 verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(2.dp)
+                                horizontalArrangement = Arrangement.SpaceEvenly
                             ) {
-                                if (showHistory) {
-                                    ToolbarButton(enabled = canUndo, onClick = onUndo) {
-                                        Icon(painterResource(Res.drawable.undo_circle), "Undo", tint = if (canUndo) tint else tint.copy(alpha = 0.3f), modifier = Modifier.size(customIconSize))
-                                    }
-                                    ToolbarButton(enabled = canRedo, onClick = onRedo) {
-                                        Icon(painterResource(Res.drawable.redo_circle), "Redo", tint = if (canRedo) tint else tint.copy(alpha = 0.3f), modifier = Modifier.size(customIconSize))
-                                    }
-                                    ToolbarDivider(tint)
-                                }
-
-                                ToolbarButton(onClick = {
-                                    GlobalEditorState.currentlyFocusedBlockId?.let {
-                                        EditorEventBus.requestInsertMention(it)
-                                    }
-                                }) {
-                                    Icon(painterResource(Res.drawable.at), "Link to note", tint = tint, modifier = Modifier.size(customIconSize))
-                                }
-
-                                ToolbarButton(onClick = {
-                                    keyboardController?.hide()
-                                    onSelectCurrentBlock()
-                                }) {
-                                    Icon(painterResource(Res.drawable.mouse_square2), "Select Block", tint = tint, modifier = Modifier.size(customIconSize - 2.dp))
-                                }
-
-                                ToolbarDivider(tint)
-
-                                ToolbarButton(onClick = { onChangeBlockType("text") }) {
-                                    Icon(Icons.AutoMirrored.Filled.Subject, "Text", tint = tint, modifier = Modifier.size(iconSize))
-                                }
-                                ToolbarLabel("H1", tint) { onChangeBlockType("h1") }
-                                ToolbarLabel("H2", tint) { onChangeBlockType("h2") }
-                                ToolbarButton(onClick = { onChangeBlockType("checkbox") }) {
-                                    Icon(painterResource(Res.drawable.check_square), "Checkbox", tint = tint, modifier = Modifier.size(customIconSize - 2.dp))
-                                }
-                                ToolbarButton(onClick = { onChangeBlockType("bullet") }) {
-                                    Icon(painterResource(Res.drawable.unordered_list), "Bulleted list", tint = tint, modifier = Modifier.size(customIconSize - 2.dp))
-                                }
-                                ToolbarButton(onClick = { onChangeBlockType("number") }) {
-                                    Icon(painterResource(Res.drawable.ordered_list), "Numbered list", tint = tint, modifier = Modifier.size(customIconSize - 3.dp))
-                                }
-                                ToolbarButton(onClick = { onChangeBlockType("toggle") }) {
-                                    Icon(painterResource(Res.drawable.arrow_right2), "Toggle list", tint = tint, modifier = Modifier.size(customIconSize))
-                                }
-                                ToolbarButton(onClick = { onChangeBlockType("quote") }) {
-                                    Icon(painterResource(Res.drawable.quote_down2), "Quote", tint = tint, modifier = Modifier.size(customIconSize - 3.dp))
-                                }
-                                ToolbarButton(onClick = { onChangeBlockType("code") }) {
-                                    Icon(painterResource(Res.drawable.code), "Code", tint = tint, modifier = Modifier.size(customIconSize))
-                                }
-
-                                ToolbarDivider(tint)
-
-                                InlineFormatButtons(tint = tint, iconSize = customIconSize, onToggleFormat = onToggleFormat)
-
-                                ToolbarDivider(tint)
-
-                                ToolbarButton(onClick = { onSetAlignment(TextAlignment.LEFT) }) {
-                                    Icon(painterResource(Res.drawable.textalign_left2), "Align left", tint = tint, modifier = Modifier.size(customIconSize))
-                                }
-                                ToolbarButton(onClick = { onSetAlignment(TextAlignment.RIGHT) }) {
-                                    Icon(painterResource(Res.drawable.textalign_right2), "Align right", tint = tint, modifier = Modifier.size(customIconSize))
-                                }
-                                ToolbarButton(onClick = { onSetAlignment(TextAlignment.CENTER) }) {
-                                    Icon(painterResource(Res.drawable.textalign_center2), "Align center", tint = tint, modifier = Modifier.size(customIconSize))
-                                }
-                                ToolbarButton(onClick = { onSetAlignment(TextAlignment.JUSTIFY) }) {
-                                    Icon(painterResource(Res.drawable.textalign_justifycenter2), "Justify", tint = tint, modifier = Modifier.size(customIconSize))
-                                }
-
-                                ToolbarDivider(tint)
-
-                                ToolbarButton(onClick = { EditorEventBus.insertSlashEvent.tryEmit(Unit) }) {
-                                    Icon(painterResource(Res.drawable.plus), "More blocks", tint = tint, modifier = Modifier.size(customIconSize - 1.dp))
-                                }
-                            }
-
-                            ToolbarDivider(tint)
-                            ToolbarButton(onClick = { keyboardController?.hide() }) {
-                                Icon(painterResource(Res.drawable.keyboard), "Close Keyboard", tint = tint, modifier = Modifier.size(customIconSize))
-                            }
-                        }
-                    }
-                    MobileMenuState.SLASH -> {
-                        Column(modifier = Modifier.fillMaxWidth()) {
-                            MenuDragHandle(onClose = { onMenuStateChange(MobileMenuState.MAIN) })
-                            Box(modifier = Modifier.fillMaxWidth().heightIn(max = 240.dp).verticalScroll(rememberScrollState())) {
-                                DesktopSlashMenuContent(
-                                    query = query,
-                                    onChangeBlockType = {
-                                        onClearSlashQuery()
-                                        onChangeBlockType(it)
-                                        onMenuStateChange(MobileMenuState.MAIN)
-                                    },
-                                    onToggleFormat = {
-                                        onClearSlashQuery()
-                                        onToggleFormat(it)
-                                        onMenuStateChange(MobileMenuState.MAIN)
-                                    },
-                                    onAdjustIndentation = {
-                                        onClearSlashQuery()
-                                        onAdjustIndentation(it)
-                                        onMenuStateChange(MobileMenuState.MAIN)
-                                    },
-                                    onSetAlignment = {
-                                        onClearSlashQuery()
-                                        onSetAlignment(it)
-                                        onMenuStateChange(MobileMenuState.MAIN)
-                                    },
-                                    onInsertMediaBlock = {
-                                        onClearSlashQuery()
-                                        onInsertMediaBlock(it)
-                                        onMenuStateChange(
-                                            if (it == "linked_note") MobileMenuState.LINK_TO_NOTE else MobileMenuState.MAIN
-                                        )
-                                    }
+                                InlineFormatButtons(
+                                    tint = tint,
+                                    iconSize = customIconSize,
+                                    onToggleFormat = onToggleFormat,
+                                    onHighlightClick = { isChoosingHighlightColor = !isChoosingHighlightColor }
                                 )
-                            }
-                        }
-                    }
-                    MobileMenuState.MENU -> {
-                        Column(modifier = Modifier.fillMaxWidth()) {
-                            MenuDragHandle(onClose = { onMenuStateChange(MobileMenuState.MAIN) })
-                            Box(modifier = Modifier.fillMaxWidth().heightIn(max = 360.dp).verticalScroll(rememberScrollState())) {
-                                DesktopSlashMenuContent(
-                                    query = "",
-                                    onChangeBlockType = {
-                                        onChangeBlockType(it)
-                                        onMenuStateChange(MobileMenuState.MAIN)
-                                    },
-                                    onToggleFormat = {
-                                        onToggleFormat(it)
-                                        onMenuStateChange(MobileMenuState.MAIN)
-                                    },
-                                    onAdjustIndentation = {
-                                        onAdjustIndentation(it)
-                                        onMenuStateChange(MobileMenuState.MAIN)
-                                    },
-                                    onSetAlignment = {
-                                        onSetAlignment(it)
-                                        onMenuStateChange(MobileMenuState.MAIN)
-                                    },
-                                    onInsertMediaBlock = {
-                                        onInsertMediaBlock(it)
-                                        onMenuStateChange(
-                                            if (it == "linked_note") MobileMenuState.LINK_TO_NOTE else MobileMenuState.MAIN
-                                        )
-                                    }
-                                )
-                            }
-                        }
-                    }
-                    MobileMenuState.MENTION -> {
-                        Column(modifier = Modifier.fillMaxWidth()) {
-                            MenuDragHandle(onClose = { onMenuStateChange(MobileMenuState.MAIN) })
-                            Box(modifier = Modifier.fillMaxWidth().heightIn(max = 240.dp).verticalScroll(rememberScrollState())) {
-                                val filteredNotes = remember(mentionQuery, allLinkableNotes) {
-                                    allLinkableNotes.filter { it.title.contains(mentionQuery, ignoreCase = true) }
+                                ToolbarButton(onClick = { keyboardController?.hide() }) {
+                                    Icon(painterResource(Res.drawable.keyboard), "Close Keyboard", tint = tint, modifier = Modifier.size(customIconSize))
                                 }
-                                val entries = remember(mentionQuery, filteredNotes) {
-                                    buildList {
-                                        add(
-                                            SlashMenuItemData("Create new note", SlashMenuIcon.Vector(Icons.AutoMirrored.Filled.NoteAdd)) {
-                                                onMentionCreateBlank()
-                                            }
-                                        )
-                                        filteredNotes.forEach { note ->
-                                            val icon = note.icon?.let { SlashMenuIcon.Label(it) } ?: SlashMenuIcon.Vector(Icons.Default.Description)
-                                            add(SlashMenuItemData(note.title.ifEmpty { "Untitled" }, icon) { onMentionNoteSelected(note.noteId) })
+                            }
+                        } else {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 8.dp, vertical = 2.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .horizontalScroll(rememberScrollState()),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(2.dp)
+                                ) {
+                                    if (showHistory) {
+                                        ToolbarButton(enabled = canUndo, onClick = onUndo) {
+                                            Icon(painterResource(Res.drawable.undo_circle), "Undo", tint = if (canUndo) tint else tint.copy(alpha = 0.3f), modifier = Modifier.size(customIconSize))
                                         }
-                                        if (mentionQuery.isNotBlank()) {
-                                            add(
-                                                SlashMenuItemData("New \"$mentionQuery\" note", SlashMenuIcon.Vector(Icons.Default.Add)) {
-                                                    onMentionCreateNote(mentionQuery)
-                                                }
+                                        ToolbarButton(enabled = canRedo, onClick = onRedo) {
+                                            Icon(painterResource(Res.drawable.redo_circle), "Redo", tint = if (canRedo) tint else tint.copy(alpha = 0.3f), modifier = Modifier.size(customIconSize))
+                                        }
+                                        ToolbarDivider(tint)
+                                    }
+
+                                    ToolbarButton(onClick = {
+                                        GlobalEditorState.currentlyFocusedBlockId?.let {
+                                            EditorEventBus.requestInsertMention(it)
+                                        }
+                                    }) {
+                                        Icon(painterResource(Res.drawable.at), "Link to note", tint = tint, modifier = Modifier.size(customIconSize))
+                                    }
+
+                                    ToolbarButton(onClick = {
+                                        keyboardController?.hide()
+                                        onSelectCurrentBlock()
+                                    }) {
+                                        Icon(painterResource(Res.drawable.mouse_square2), "Select Block", tint = tint, modifier = Modifier.size(customIconSize - 2.dp))
+                                    }
+
+                                    ToolbarDivider(tint)
+
+                                    ToolbarButton(onClick = { onChangeBlockType("text") }) {
+                                        Icon(Icons.AutoMirrored.Filled.Subject, "Text", tint = tint, modifier = Modifier.size(iconSize))
+                                    }
+                                    ToolbarLabel("H1", tint) { onChangeBlockType("h1") }
+                                    ToolbarLabel("H2", tint) { onChangeBlockType("h2") }
+                                    ToolbarButton(onClick = { onChangeBlockType("checkbox") }) {
+                                        Icon(painterResource(Res.drawable.check_square), "Checkbox", tint = tint, modifier = Modifier.size(customIconSize - 2.dp))
+                                    }
+                                    ToolbarButton(onClick = { onChangeBlockType("bullet") }) {
+                                        Icon(painterResource(Res.drawable.unordered_list), "Bulleted list", tint = tint, modifier = Modifier.size(customIconSize - 2.dp))
+                                    }
+                                    ToolbarButton(onClick = { onChangeBlockType("number") }) {
+                                        Icon(painterResource(Res.drawable.ordered_list), "Numbered list", tint = tint, modifier = Modifier.size(customIconSize - 3.dp))
+                                    }
+                                    ToolbarButton(onClick = { onChangeBlockType("toggle") }) {
+                                        Icon(painterResource(Res.drawable.arrow_right2), "Toggle list", tint = tint, modifier = Modifier.size(customIconSize))
+                                    }
+                                    ToolbarButton(onClick = { onChangeBlockType("quote") }) {
+                                        Icon(painterResource(Res.drawable.quote_down2), "Quote", tint = tint, modifier = Modifier.size(customIconSize - 3.dp))
+                                    }
+                                    ToolbarButton(onClick = { onChangeBlockType("code") }) {
+                                        Icon(painterResource(Res.drawable.code), "Code", tint = tint, modifier = Modifier.size(customIconSize))
+                                    }
+
+                                    ToolbarDivider(tint)
+
+                                    InlineFormatButtons(
+                                        tint = tint,
+                                        iconSize = customIconSize,
+                                        onToggleFormat = onToggleFormat,
+                                        onHighlightClick = { isChoosingHighlightColor = !isChoosingHighlightColor }
+                                    )
+
+                                    ToolbarDivider(tint)
+
+                                    ToolbarButton(onClick = { onSetAlignment(TextAlignment.LEFT) }) {
+                                        Icon(painterResource(Res.drawable.textalign_left2), "Align left", tint = tint, modifier = Modifier.size(customIconSize))
+                                    }
+                                    ToolbarButton(onClick = { onSetAlignment(TextAlignment.RIGHT) }) {
+                                        Icon(painterResource(Res.drawable.textalign_right2), "Align right", tint = tint, modifier = Modifier.size(customIconSize))
+                                    }
+                                    ToolbarButton(onClick = { onSetAlignment(TextAlignment.CENTER) }) {
+                                        Icon(painterResource(Res.drawable.textalign_center2), "Align center", tint = tint, modifier = Modifier.size(customIconSize))
+                                    }
+                                    ToolbarButton(onClick = { onSetAlignment(TextAlignment.JUSTIFY) }) {
+                                        Icon(painterResource(Res.drawable.textalign_justifycenter2), "Justify", tint = tint, modifier = Modifier.size(customIconSize))
+                                    }
+
+                                    ToolbarDivider(tint)
+
+                                    ToolbarButton(onClick = { EditorEventBus.insertSlashEvent.tryEmit(Unit) }) {
+                                        Icon(painterResource(Res.drawable.plus), "More blocks", tint = tint, modifier = Modifier.size(customIconSize - 1.dp))
+                                    }
+                                }
+
+                                ToolbarDivider(tint)
+                                ToolbarButton(onClick = { keyboardController?.hide() }) {
+                                    Icon(painterResource(Res.drawable.keyboard), "Close Keyboard", tint = tint, modifier = Modifier.size(customIconSize))
+                                }
+                            }
+                        }
+                        MobileMenuState.SLASH -> {
+                            Column(modifier = Modifier.fillMaxWidth()) {
+                                MenuDragHandle(onClose = { onMenuStateChange(MobileMenuState.MAIN) })
+                                Box(modifier = Modifier.fillMaxWidth().heightIn(max = 240.dp).verticalScroll(rememberScrollState())) {
+                                    DesktopSlashMenuContent(
+                                        query = query,
+                                        onChangeBlockType = {
+                                            onClearSlashQuery()
+                                            onChangeBlockType(it)
+                                            onMenuStateChange(MobileMenuState.MAIN)
+                                        },
+                                        onToggleFormat = {
+                                            onClearSlashQuery()
+                                            onToggleFormat(it)
+                                            onMenuStateChange(MobileMenuState.MAIN)
+                                        },
+                                        onAdjustIndentation = {
+                                            onClearSlashQuery()
+                                            onAdjustIndentation(it)
+                                            onMenuStateChange(MobileMenuState.MAIN)
+                                        },
+                                        onSetAlignment = {
+                                            onClearSlashQuery()
+                                            onSetAlignment(it)
+                                            onMenuStateChange(MobileMenuState.MAIN)
+                                        },
+                                        onInsertMediaBlock = {
+                                            onClearSlashQuery()
+                                            onInsertMediaBlock(it)
+                                            onMenuStateChange(
+                                                if (it == "linked_note") MobileMenuState.LINK_TO_NOTE else MobileMenuState.MAIN
                                             )
                                         }
-                                    }
+                                    )
                                 }
-                                SlashMenuList(sections = listOf(SlashMenuSectionData("Link to Note", entries)))
                             }
                         }
-                    }
-                    MobileMenuState.LINK_TO_NOTE -> {
-                        Column(modifier = Modifier.fillMaxWidth()) {
-                            MenuDragHandle(onClose = { onMenuStateChange(MobileMenuState.MAIN) })
-                            NoteLinkMenuContent(
-                                allLinkableNotes = allLinkableNotes,
-                                onNoteSelected = {
-                                    onNoteLinkSelected(it)
-                                    onMenuStateChange(MobileMenuState.MAIN)
-                                },
-                                onCreateNote = {
-                                    onNoteLinkCreateNote(it)
-                                    onMenuStateChange(MobileMenuState.MAIN)
-                                },
-                                onCreateBlankNote = {
-                                    onNoteLinkCreateBlank()
-                                    onMenuStateChange(MobileMenuState.MAIN)
-                                },
-                                autoFocusSearch = false
-                            )
+                        MobileMenuState.MENU -> {
+                            Column(modifier = Modifier.fillMaxWidth()) {
+                                MenuDragHandle(onClose = { onMenuStateChange(MobileMenuState.MAIN) })
+                                Box(modifier = Modifier.fillMaxWidth().heightIn(max = 360.dp).verticalScroll(rememberScrollState())) {
+                                    DesktopSlashMenuContent(
+                                        query = "",
+                                        onChangeBlockType = {
+                                            onChangeBlockType(it)
+                                            onMenuStateChange(MobileMenuState.MAIN)
+                                        },
+                                        onToggleFormat = {
+                                            onToggleFormat(it)
+                                            onMenuStateChange(MobileMenuState.MAIN)
+                                        },
+                                        onAdjustIndentation = {
+                                            onAdjustIndentation(it)
+                                            onMenuStateChange(MobileMenuState.MAIN)
+                                        },
+                                        onSetAlignment = {
+                                            onSetAlignment(it)
+                                            onMenuStateChange(MobileMenuState.MAIN)
+                                        },
+                                        onInsertMediaBlock = {
+                                            onInsertMediaBlock(it)
+                                            onMenuStateChange(
+                                                if (it == "linked_note") MobileMenuState.LINK_TO_NOTE else MobileMenuState.MAIN
+                                            )
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                        MobileMenuState.MENTION -> {
+                            Column(modifier = Modifier.fillMaxWidth()) {
+                                MenuDragHandle(onClose = { onMenuStateChange(MobileMenuState.MAIN) })
+                                Box(modifier = Modifier.fillMaxWidth().heightIn(max = 240.dp).verticalScroll(rememberScrollState())) {
+                                    val filteredNotes = remember(mentionQuery, allLinkableNotes) {
+                                        allLinkableNotes.filter { it.title.contains(mentionQuery, ignoreCase = true) }
+                                    }
+                                    val entries = remember(mentionQuery, filteredNotes) {
+                                        buildList {
+                                            add(
+                                                SlashMenuItemData("Create new note", SlashMenuIcon.Vector(Icons.AutoMirrored.Filled.NoteAdd)) {
+                                                    onMentionCreateBlank()
+                                                }
+                                            )
+                                            filteredNotes.forEach { note ->
+                                                val icon = note.icon?.let { SlashMenuIcon.Label(it) } ?: SlashMenuIcon.Vector(Icons.Default.Description)
+                                                add(SlashMenuItemData(note.title.ifEmpty { "Untitled" }, icon) { onMentionNoteSelected(note.noteId) })
+                                            }
+                                            if (mentionQuery.isNotBlank()) {
+                                                add(
+                                                    SlashMenuItemData("New \"$mentionQuery\" note", SlashMenuIcon.Vector(Icons.Default.Add)) {
+                                                        onMentionCreateNote(mentionQuery)
+                                                    }
+                                                )
+                                            }
+                                        }
+                                    }
+                                    SlashMenuList(sections = listOf(SlashMenuSectionData("Link to Note", entries)))
+                                }
+                            }
+                        }
+                        MobileMenuState.LINK_TO_NOTE -> {
+                            Column(modifier = Modifier.fillMaxWidth()) {
+                                MenuDragHandle(onClose = { onMenuStateChange(MobileMenuState.MAIN) })
+                                NoteLinkMenuContent(
+                                    allLinkableNotes = allLinkableNotes,
+                                    onNoteSelected = {
+                                        onNoteLinkSelected(it)
+                                        onMenuStateChange(MobileMenuState.MAIN)
+                                    },
+                                    onCreateNote = {
+                                        onNoteLinkCreateNote(it)
+                                        onMenuStateChange(MobileMenuState.MAIN)
+                                    },
+                                    onCreateBlankNote = {
+                                        onNoteLinkCreateBlank()
+                                        onMenuStateChange(MobileMenuState.MAIN)
+                                    },
+                                    autoFocusSearch = false
+                                )
+                            }
                         }
                     }
                 }
@@ -1262,7 +1286,12 @@ fun EditorToolbar(
 }
 
 @Composable
-private fun InlineFormatButtons(tint: Color, iconSize: Dp, onToggleFormat: (String) -> Unit) {
+private fun InlineFormatButtons(
+    tint: Color,
+    iconSize: Dp,
+    onToggleFormat: (String) -> Unit,
+    onHighlightClick: () -> Unit
+) {
     ToolbarButton(onClick = { onToggleFormat("bold") }) {
         Icon(painterResource(Res.drawable.format_bold), "Bold", tint = tint, modifier = Modifier.size(iconSize - 4.dp))
     }
@@ -1275,12 +1304,74 @@ private fun InlineFormatButtons(tint: Color, iconSize: Dp, onToggleFormat: (Stri
     ToolbarButton(onClick = { onToggleFormat("underline") }) {
         Icon(painterResource(Res.drawable.underline), "Underline", tint = tint, modifier = Modifier.size(iconSize - 2.dp))
     }
-    ToolbarButton(onClick = { onToggleFormat("highlight") }) {
+    ToolbarButton(onClick = onHighlightClick) {
         Icon(painterResource(Res.drawable.highlight), "Highlight", tint = tint, modifier = Modifier.size(iconSize - 2.dp))
     }
 }
 
+@Composable
+private fun FloatingHighlightColors(onColorChosen: (String) -> Unit, onClose: () -> Unit) {
+    val isDarkTheme = LocalAppIsDark.current
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState())
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        FloatingSwatch(
+            fillColor = MaterialTheme.colorScheme.background,
+            onClick = onClose
+        ) {
+            Icon(
+                Icons.Default.Close,
+                "Close colours",
+                tint = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.size(FloatingSwatchSize / 2)
+            )
+        }
+
+        FloatingSwatch(
+            fillColor = Color.Transparent,
+            showsRemoveMark = true,
+            onClick = { onColorChosen("highlight:none") }
+        )
+
+        HighlightColor.entries.forEach { highlightColor ->
+            FloatingSwatch(
+                fillColor = highlightColor.backgroundFor(isDarkTheme),
+                onClick = { onColorChosen("highlight:${highlightColor.storageName}") }
+            )
+        }
+    }
+}
+
+@Composable
+private fun FloatingSwatch(
+    fillColor: Color,
+    onClick: () -> Unit,
+    showsRemoveMark: Boolean = false,
+    content: @Composable () -> Unit = {}
+) {
+    Box(
+        modifier = Modifier
+            .size(FloatingSwatchSize)
+            .shadow(elevation = 6.dp, shape = CircleShape, spotColor = Color.Black.copy(alpha = 0.25f))
+            .clip(CircleShape)
+            .background(fillColor)
+            .then(if (showsRemoveMark) Modifier.removeHighlightMark() else Modifier)
+            .border(0.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.35f), CircleShape)
+            .clickable { onClick() },
+        contentAlignment = Alignment.Center
+    ) {
+        content()
+    }
+}
+
 private val ToolbarButtonSize = 34.dp
+private val FloatingSwatchSize = 30.dp
 
 @Composable
 private fun ToolbarButton(
@@ -1848,6 +1939,7 @@ fun BlockStyleBar(
     val tint = MaterialTheme.colorScheme.primary
     val iconSize = 19.dp
     val customIconSize = 18.dp
+    var isChoosingHighlightColor by remember { mutableStateOf(false) }
 
     AnimatedVisibility(
         visible = isVisible,
@@ -1855,78 +1947,92 @@ fun BlockStyleBar(
         exit = slideOutVertically(targetOffsetY = { it }) + fadeOut(),
         modifier = modifier.padding(horizontal = 24.dp)
     ) {
-        Surface(
-            shape = DefaultCornerShape,
-            color = Color.Transparent,
-            modifier = Modifier
-                .padding(bottom = 8.dp)
-                .customEmberrShadow(DefaultCornerShape)
-                .clip(DefaultCornerShape)
-                .emberrBlur(hazeState, EmberrBlur.Regular)
-                .border(
-                    width = 0.5.dp,
-                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
-                    shape = DefaultCornerShape
+        Column {
+            if (isChoosingHighlightColor) {
+                FloatingHighlightColors(
+                    onColorChosen = onToggleFormat,
+                    onClose = { isChoosingHighlightColor = false }
                 )
-        ) {
-            CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 36.dp) {
-                Row(
-                    modifier = Modifier
-                        .horizontalScroll(rememberScrollState())
-                        .padding(horizontal = 12.dp, vertical = 2.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(2.dp)
-                ) {
-                    ToolbarButton(onClick = { onChangeBlockType("text") }) {
-                        Icon(Icons.AutoMirrored.Filled.Subject, "Text", tint = tint, modifier = Modifier.size(iconSize))
-                    }
-                    ToolbarLabel("H1", tint) { onChangeBlockType("h1") }
-                    ToolbarLabel("H2", tint) { onChangeBlockType("h2") }
-                    ToolbarButton(onClick = { onChangeBlockType("checkbox") }) {
-                        Icon(painterResource(Res.drawable.check_square), "Checkbox", tint = tint, modifier = Modifier.size(customIconSize - 2.dp))
-                    }
-                    ToolbarButton(onClick = { onChangeBlockType("bullet") }) {
-                        Icon(painterResource(Res.drawable.unordered_list), "Bulleted list", tint = tint, modifier = Modifier.size(customIconSize - 2.dp))
-                    }
-                    ToolbarButton(onClick = { onChangeBlockType("number") }) {
-                        Icon(painterResource(Res.drawable.ordered_list), "Numbered list", tint = tint, modifier = Modifier.size(customIconSize - 3.dp))
-                    }
-                    ToolbarButton(onClick = { onChangeBlockType("toggle") }) {
-                        Icon(painterResource(Res.drawable.arrow_right2), "Toggle list", tint = tint, modifier = Modifier.size(customIconSize))
-                    }
-                    ToolbarButton(onClick = { onChangeBlockType("quote") }) {
-                        Icon(painterResource(Res.drawable.quote_down2), "Quote", tint = tint, modifier = Modifier.size(customIconSize - 3.dp))
-                    }
-                    ToolbarButton(onClick = { onChangeBlockType("code") }) {
-                        Icon(painterResource(Res.drawable.code), "Code", tint = tint, modifier = Modifier.size(customIconSize))
-                    }
+            }
 
-                    ToolbarDivider(tint)
+            Surface(
+                shape = DefaultCornerShape,
+                color = Color.Transparent,
+                modifier = Modifier
+                    .padding(bottom = 8.dp)
+                    .customEmberrShadow(DefaultCornerShape)
+                    .clip(DefaultCornerShape)
+                    .emberrBlur(hazeState, EmberrBlur.Regular)
+                    .border(
+                        width = 0.5.dp,
+                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
+                        shape = DefaultCornerShape
+                    )
+            ) {
+                CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 36.dp) {
+                    Row(
+                        modifier = Modifier
+                            .horizontalScroll(rememberScrollState())
+                            .padding(horizontal = 12.dp, vertical = 2.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(2.dp)
+                    ) {
+                        ToolbarButton(onClick = { onChangeBlockType("text") }) {
+                            Icon(Icons.AutoMirrored.Filled.Subject, "Text", tint = tint, modifier = Modifier.size(iconSize))
+                        }
+                        ToolbarLabel("H1", tint) { onChangeBlockType("h1") }
+                        ToolbarLabel("H2", tint) { onChangeBlockType("h2") }
+                        ToolbarButton(onClick = { onChangeBlockType("checkbox") }) {
+                            Icon(painterResource(Res.drawable.check_square), "Checkbox", tint = tint, modifier = Modifier.size(customIconSize - 2.dp))
+                        }
+                        ToolbarButton(onClick = { onChangeBlockType("bullet") }) {
+                            Icon(painterResource(Res.drawable.unordered_list), "Bulleted list", tint = tint, modifier = Modifier.size(customIconSize - 2.dp))
+                        }
+                        ToolbarButton(onClick = { onChangeBlockType("number") }) {
+                            Icon(painterResource(Res.drawable.ordered_list), "Numbered list", tint = tint, modifier = Modifier.size(customIconSize - 3.dp))
+                        }
+                        ToolbarButton(onClick = { onChangeBlockType("toggle") }) {
+                            Icon(painterResource(Res.drawable.arrow_right2), "Toggle list", tint = tint, modifier = Modifier.size(customIconSize))
+                        }
+                        ToolbarButton(onClick = { onChangeBlockType("quote") }) {
+                            Icon(painterResource(Res.drawable.quote_down2), "Quote", tint = tint, modifier = Modifier.size(customIconSize - 3.dp))
+                        }
+                        ToolbarButton(onClick = { onChangeBlockType("code") }) {
+                            Icon(painterResource(Res.drawable.code), "Code", tint = tint, modifier = Modifier.size(customIconSize))
+                        }
 
-                    InlineFormatButtons(tint = tint, iconSize = customIconSize, onToggleFormat = onToggleFormat)
+                        ToolbarDivider(tint)
 
-                    ToolbarDivider(tint)
+                        InlineFormatButtons(
+                            tint = tint,
+                            iconSize = customIconSize,
+                            onToggleFormat = onToggleFormat,
+                            onHighlightClick = { isChoosingHighlightColor = !isChoosingHighlightColor }
+                        )
 
-                    ToolbarButton(onClick = { onSetAlignment(TextAlignment.LEFT) }) {
-                        Icon(painterResource(Res.drawable.textalign_left2), "Align left", tint = tint, modifier = Modifier.size(customIconSize))
-                    }
-                    ToolbarButton(onClick = { onSetAlignment(TextAlignment.RIGHT) }) {
-                        Icon(painterResource(Res.drawable.textalign_right2), "Align right", tint = tint, modifier = Modifier.size(customIconSize))
-                    }
-                    ToolbarButton(onClick = { onSetAlignment(TextAlignment.CENTER) }) {
-                        Icon(painterResource(Res.drawable.textalign_center2), "Align center", tint = tint, modifier = Modifier.size(customIconSize))
-                    }
-                    ToolbarButton(onClick = { onSetAlignment(TextAlignment.JUSTIFY) }) {
-                        Icon(painterResource(Res.drawable.textalign_justifycenter2), "Justify", tint = tint, modifier = Modifier.size(customIconSize))
-                    }
+                        ToolbarDivider(tint)
 
-                    ToolbarDivider(tint)
+                        ToolbarButton(onClick = { onSetAlignment(TextAlignment.LEFT) }) {
+                            Icon(painterResource(Res.drawable.textalign_left2), "Align left", tint = tint, modifier = Modifier.size(customIconSize))
+                        }
+                        ToolbarButton(onClick = { onSetAlignment(TextAlignment.RIGHT) }) {
+                            Icon(painterResource(Res.drawable.textalign_right2), "Align right", tint = tint, modifier = Modifier.size(customIconSize))
+                        }
+                        ToolbarButton(onClick = { onSetAlignment(TextAlignment.CENTER) }) {
+                            Icon(painterResource(Res.drawable.textalign_center2), "Align center", tint = tint, modifier = Modifier.size(customIconSize))
+                        }
+                        ToolbarButton(onClick = { onSetAlignment(TextAlignment.JUSTIFY) }) {
+                            Icon(painterResource(Res.drawable.textalign_justifycenter2), "Justify", tint = tint, modifier = Modifier.size(customIconSize))
+                        }
 
-                    ToolbarButton(onClick = { onAdjustIndentation(false) }) {
-                        Icon(painterResource(Res.drawable.indent_right), "Decrease indent", tint = tint, modifier = Modifier.size(customIconSize))
-                    }
-                    ToolbarButton(onClick = { onAdjustIndentation(true) }) {
-                        Icon(painterResource(Res.drawable.indent_left), "Increase indent", tint = tint, modifier = Modifier.size(customIconSize))
+                        ToolbarDivider(tint)
+
+                        ToolbarButton(onClick = { onAdjustIndentation(false) }) {
+                            Icon(painterResource(Res.drawable.indent_right), "Decrease indent", tint = tint, modifier = Modifier.size(customIconSize))
+                        }
+                        ToolbarButton(onClick = { onAdjustIndentation(true) }) {
+                            Icon(painterResource(Res.drawable.indent_left), "Increase indent", tint = tint, modifier = Modifier.size(customIconSize))
+                        }
                     }
                 }
             }

@@ -134,7 +134,7 @@ import com.emberr.presentation.shared.editor.openLinksOnPress
 import com.emberr.presentation.shared.editor.rememberLinkHoverState
 import com.emberr.presentation.shared.editor.rememberWebLinkActions
 import com.emberr.presentation.shared.editor.webLinkAtPosition
-import com.emberr.ui.theme.highlightBackgroundColor
+import com.emberr.ui.theme.LocalAppIsDark
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
 import emberr.shared.generated.resources.Res
@@ -751,7 +751,7 @@ private fun EditableTextCell(
                     RichTextVisualTransformation(
                         linkColor = MaterialTheme.colorScheme.primary,
                         fadedColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
-                        highlightColor = highlightBackgroundColor,
+                        isDarkTheme = LocalAppIsDark.current,
                         validNoteIds = validNoteIds,
                         inlineSpans = cellSpans
                     )

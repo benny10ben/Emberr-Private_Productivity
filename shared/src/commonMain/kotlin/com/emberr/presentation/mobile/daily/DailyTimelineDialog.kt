@@ -82,6 +82,7 @@ import com.emberr.domain.model.ToggleBlock
 import com.emberr.domain.model.VoiceBlock
 import com.emberr.data.local.room.entity.NoteMetadataEntity
 import com.emberr.data.local.room.entity.TagEntity
+import com.emberr.domain.model.highlightColorNameOrNull
 import com.emberr.domain.model.inlineSpansOrEmpty
 import com.emberr.domain.util.system.isDesktopPlatform
 import com.emberr.presentation.LocalImageOverlay
@@ -99,7 +100,8 @@ import com.emberr.presentation.shared.editor.blockViews.TableBlockView
 import com.emberr.presentation.shared.editor.blockViews.databaseBlockView.DatabaseBlockView
 import com.emberr.presentation.shared.editor.blockViews.databaseBlockView.buildNoteLinkAnnotatedString
 import com.emberr.ui.theme.LocalAppIsDark
-import com.emberr.ui.theme.highlightBackgroundColor
+import com.emberr.ui.theme.LocalAppIsDark
+import com.emberr.ui.theme.highlightBackgroundFor
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
 import emberr.shared.generated.resources.Res
@@ -775,16 +777,18 @@ private fun TimelineText(
     isSearchMatch: Boolean = false
 ) {
     val linkColor = MaterialTheme.colorScheme.primary
-    val highlightColor = highlightBackgroundColor
+    val isDarkTheme = LocalAppIsDark.current
     val inlineSpans = block.inlineSpansOrEmpty()
-    val annotatedText = remember(text, inlineSpans, linkColor, highlightColor) {
-        buildTimelineAnnotatedString(text, inlineSpans, linkColor, highlightColor)
+    val annotatedText = remember(text, inlineSpans, linkColor, isDarkTheme) {
+        buildTimelineAnnotatedString(text, inlineSpans, linkColor, isDarkTheme)
     }
 
     Text(
         text = annotatedText,
         style = MaterialTheme.typography.bodyLarge.copy(
-            background = if (block.isHighlighted) highlightColor else Color.Unspecified
+            background = if (block.isHighlighted) {
+                highlightBackgroundFor(block.highlightColorNameOrNull(), isDarkTheme)
+            } else Color.Unspecified
         ),
         color = color,
         fontWeight = if (block.isBold || isSearchMatch) FontWeight.Bold else baseWeight,
@@ -797,7 +801,7 @@ private fun buildTimelineAnnotatedString(
     text: String,
     inlineSpans: List<InlineSpan>,
     linkColor: Color,
-    highlightColor: Color
+    isDarkTheme: Boolean
 ): AnnotatedString {
     if (text.contains(NoteLinkPrefix)) return buildNoteLinkAnnotatedString(text, linkColor)
     if (inlineSpans.isEmpty()) return AnnotatedString(text)
@@ -813,7 +817,9 @@ private fun buildTimelineAnnotatedString(
                     fontWeight = if (span.bold) FontWeight.Bold else null,
                     fontStyle = if (span.italic) FontStyle.Italic else null,
                     textDecoration = combineDecorations(span.underline, span.strikeThrough),
-                    background = if (span.highlight) highlightColor else Color.Unspecified
+                    background = if (span.highlight) {
+                        highlightBackgroundFor(span.highlightColorName, isDarkTheme)
+                    } else Color.Unspecified
                 ),
                 start = start,
                 end = end

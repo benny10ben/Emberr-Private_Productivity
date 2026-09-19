@@ -17,7 +17,7 @@ import com.emberr.domain.util.network.HtmlMetadataFetcher
 import com.emberr.domain.util.media.MediaStorageHelper
 import com.emberr.domain.util.sync.SyncCoordinator
 import com.emberr.presentation.reminders.ReminderScheduler
-import com.emberr.ui.theme.HighlightCellBackgroundHex
+import com.emberr.ui.theme.HighlightColor
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -60,6 +60,14 @@ data class RecurringDeletionTarget(val blockId: String, val occurrenceDate: Stri
 data class PendingRecurringDeletion(
     val recurringTargets: List<RecurringDeletionTarget>,
     val plainBlockIds: Set<String> = emptySet()
+)
+
+private const val removeHighlightKeyword = "none"
+
+private data class FormatRequest(
+    val name: String,
+    val highlightColorName: String?,
+    val removesHighlight: Boolean
 )
 
 abstract class BaseEditorViewModel(
@@ -804,39 +812,78 @@ abstract class BaseEditorViewModel(
     // to the whole block.
     fun toggleFormat(format: String) {
         val id = currentlyFocusedBlockId ?: return
+        val request = parseFormatRequest(format)
         val selection = GlobalEditorState.currentSelection
         val focusedCellKey = GlobalEditorState.currentlyFocusedTableCellKey
         if (focusedCellKey != null) {
             when (_blocks.value.firstOrNull { it.id == id }) {
                 is TableBlock -> {
-                    toggleTableCellFormat(id, focusedCellKey, format, selection)
+                    toggleTableCellFormat(id, focusedCellKey, request, selection)
                     return
                 }
                 is DatabaseBlock -> {
-                    toggleDatabaseCellFormat(id, focusedCellKey, format, selection)
+                    toggleDatabaseCellFormat(id, focusedCellKey, request, selection)
                     return
                 }
                 else -> Unit
             }
         }
         if (!selection.collapsed) {
-            toggleInlineFormat(id, format, selection)
+            toggleInlineFormat(id, request, selection)
             return
         }
         val now = System.currentTimeMillis()
         modifyBlocks { list ->
             mapBlockById(list, id) { b ->
-                when (format) {
+                when (request.name) {
                     "bold" -> updateFormat(b, !b.isBold, b.isItalic, b.isStrikeThrough, b.isUnderlined, b.isHighlighted, now)
                     "italic" -> updateFormat(b, b.isBold, !b.isItalic, b.isStrikeThrough, b.isUnderlined, b.isHighlighted, now)
                     "strike" -> updateFormat(b, b.isBold, b.isItalic, !b.isStrikeThrough, b.isUnderlined, b.isHighlighted, now)
                     "underline" -> updateFormat(b, b.isBold, b.isItalic, b.isStrikeThrough, !b.isUnderlined, b.isHighlighted, now)
-                    "highlight" -> updateFormat(b, b.isBold, b.isItalic, b.isStrikeThrough, b.isUnderlined, !b.isHighlighted, now)
+                    "highlight" -> withHighlightRequestApplied(b, request, now)
                     else -> b
                 }
             }
         }
         scheduleAutosave()
+    }
+
+    private fun parseFormatRequest(format: String): FormatRequest {
+        val chosenColorName = format.substringAfter(':', "")
+        return FormatRequest(
+            name = format.substringBefore(':'),
+            highlightColorName = chosenColorName.takeIf { name ->
+                name.isNotEmpty() && name != removeHighlightKeyword
+            },
+            removesHighlight = chosenColorName == removeHighlightKeyword
+        )
+    }
+
+    private fun withHighlightRequestApplied(b: NoteBlock, request: FormatRequest, now: Long): NoteBlock {
+        val plainBlock = withHighlightClearedFromSpans(b, now)
+        if (request.removesHighlight) return plainBlock.withHighlight(false, null, now)
+
+        val requestedColorName = request.highlightColorName
+        if (requestedColorName == null) {
+            if (b.isHighlighted) return plainBlock.withHighlight(false, null, now)
+            return plainBlock.withHighlight(true, defaultHighlightColorName, now)
+        }
+
+        val currentColorName = b.highlightColorNameOrNull() ?: defaultHighlightColorName
+        if (b.isHighlighted && currentColorName == requestedColorName) {
+            return plainBlock.withHighlight(false, null, now)
+        }
+        return plainBlock.withHighlight(true, requestedColorName, now)
+    }
+
+    private fun withHighlightClearedFromSpans(b: NoteBlock, now: Long): NoteBlock {
+        val spans = b.inlineSpansOrEmpty()
+        if (spans.none { span -> span.highlight }) return b
+
+        val spansKeepingOtherFormats = spans
+            .map { span -> span.copy(highlight = false, highlightColorName = null) }
+            .filter { span -> span.bold || span.italic || span.strikeThrough || span.underline }
+        return b.withInlineSpans(spansKeepingOtherFormats, now)
     }
 
     private fun updateFormat(b: NoteBlock, bld: Boolean, itl: Boolean, stk: Boolean, und: Boolean, hlt: Boolean, now: Long) = when (b) {
@@ -865,17 +912,18 @@ abstract class BaseEditorViewModel(
     fun toggleFormatForSelectedBlocks(format: String) {
         val ids = _selectedBlockIds.value
         if (ids.isEmpty()) return
+        val request = parseFormatRequest(format)
         val now = System.currentTimeMillis()
-        val turnOn = _blocks.value.any { it.id in ids && !isFormatApplied(it, format) }
+        val turnOn = _blocks.value.any { it.id in ids && !isFormatApplied(it, request.name) }
         modifyBlocks { list ->
             list.map { b ->
                 if (b.id !in ids) return@map b
-                when (format) {
+                when (request.name) {
                     "bold" -> updateFormat(b, turnOn, b.isItalic, b.isStrikeThrough, b.isUnderlined, b.isHighlighted, now)
                     "italic" -> updateFormat(b, b.isBold, turnOn, b.isStrikeThrough, b.isUnderlined, b.isHighlighted, now)
                     "strike" -> updateFormat(b, b.isBold, b.isItalic, turnOn, b.isUnderlined, b.isHighlighted, now)
                     "underline" -> updateFormat(b, b.isBold, b.isItalic, b.isStrikeThrough, turnOn, b.isHighlighted, now)
-                    "highlight" -> updateFormat(b, b.isBold, b.isItalic, b.isStrikeThrough, b.isUnderlined, turnOn, now)
+                    "highlight" -> withSelectedBlockHighlight(b, request, turnOn, now)
                     else -> b
                 }
             }
@@ -883,11 +931,28 @@ abstract class BaseEditorViewModel(
         scheduleAutosave()
     }
 
+    private fun withSelectedBlockHighlight(
+        b: NoteBlock,
+        request: FormatRequest,
+        turnOn: Boolean,
+        now: Long
+    ): NoteBlock {
+        val plainBlock = withHighlightClearedFromSpans(b, now)
+        if (request.removesHighlight) return plainBlock.withHighlight(false, null, now)
+
+        val requestedColorName = request.highlightColorName
+        return when {
+            turnOn -> plainBlock.withHighlight(true, requestedColorName ?: defaultHighlightColorName, now)
+            requestedColorName != null -> plainBlock.withHighlight(true, requestedColorName, now)
+            else -> plainBlock.withHighlight(false, null, now)
+        }
+    }
+
     // Applies [format] to exactly [start, end) of one block's text, leaving the rest of the block
     // untouched. Delegates to toggleInlineSpanFormat, which expands the existing spans + this range
     // into a flat per-character flag array, flips the target flag, and re-derives minimal spans from
     // that - simpler to get right than manually splitting/merging overlapping InlineSpan ranges.
-    private fun toggleInlineFormat(blockId: String, format: String, selection: TextRange) {
+    private fun toggleInlineFormat(blockId: String, request: FormatRequest, selection: TextRange) {
         val now = System.currentTimeMillis()
         var newSelection: TextRange? = null
         modifyBlocks { list ->
@@ -897,8 +962,10 @@ abstract class BaseEditorViewModel(
                 val end = selection.max.coerceIn(0, text.length)
                 if (start >= end) return@mapBlockById b
                 newSelection = TextRange(start, end)
-                val spanBased = withWholeBlockFormatMovedIntoSpans(b, format, text.length, now)
-                val newSpans = toggleInlineSpanFormat(spanBased.inlineSpansOrEmpty(), text.length, start, end, format)
+                val spanBased = withWholeBlockFormatMovedIntoSpans(b, request.name, text.length, now)
+                val newSpans = toggleInlineSpanFormat(
+                    spanBased.inlineSpansOrEmpty(), text.length, start, end, request
+                )
                 spanBased.withInlineSpans(newSpans, now)
             }
         }
@@ -906,7 +973,7 @@ abstract class BaseEditorViewModel(
         scheduleAutosave()
     }
 
-    private fun toggleTableCellFormat(blockId: String, cellKey: String, format: String, selection: TextRange) {
+    private fun toggleTableCellFormat(blockId: String, cellKey: String, request: FormatRequest, selection: TextRange) {
         val now = System.currentTimeMillis()
         modifyBlocks { list ->
             mapBlockById(list, blockId) { b ->
@@ -917,25 +984,29 @@ abstract class BaseEditorViewModel(
 
                 if (start < end) {
                     val spansBefore = spansWithCellStyleMovedIn(
-                        b.cellSpans[cellKey].orEmpty(), b.cellStyles[cellKey], format, cellText.length
+                        b.cellSpans[cellKey].orEmpty(), b.cellStyles[cellKey], request.name, cellText.length
                     )
-                    val newSpans = toggleInlineSpanFormat(spansBefore, cellText.length, start, end, format)
+                    val newSpans = toggleInlineSpanFormat(spansBefore, cellText.length, start, end, request)
                     b.copy(
                         cellSpans = b.cellSpans + (cellKey to newSpans),
-                        cellStyles = withCellFormatCleared(b.cellStyles, cellKey, format),
+                        cellStyles = withCellFormatCleared(b.cellStyles, cellKey, request.name),
                         updatedAt = now
                     )
                 } else {
-                    val newStyle = withFormatToggled(b.cellStyles[cellKey] ?: TableCellStyle(), format)
+                    val newStyle = withFormatToggled(b.cellStyles[cellKey] ?: TableCellStyle(), request)
                         ?: return@mapBlockById b
-                    b.copy(cellStyles = b.cellStyles + (cellKey to newStyle), updatedAt = now)
+                    b.copy(
+                        cellStyles = b.cellStyles + (cellKey to newStyle),
+                        cellSpans = withHighlightClearedFromCellSpans(b.cellSpans, cellKey, request.name),
+                        updatedAt = now
+                    )
                 }
             }
         }
         scheduleAutosave()
     }
 
-    private fun toggleDatabaseCellFormat(blockId: String, cellKey: String, format: String, selection: TextRange) {
+    private fun toggleDatabaseCellFormat(blockId: String, cellKey: String, request: FormatRequest, selection: TextRange) {
         val now = System.currentTimeMillis()
         modifyBlocks { list ->
             mapBlockById(list, blockId) { b ->
@@ -946,18 +1017,22 @@ abstract class BaseEditorViewModel(
 
                 if (start < end) {
                     val spansBefore = spansWithCellStyleMovedIn(
-                        b.cellSpans[cellKey].orEmpty(), b.cellStyles[cellKey], format, cellText.length
+                        b.cellSpans[cellKey].orEmpty(), b.cellStyles[cellKey], request.name, cellText.length
                     )
-                    val newSpans = toggleInlineSpanFormat(spansBefore, cellText.length, start, end, format)
+                    val newSpans = toggleInlineSpanFormat(spansBefore, cellText.length, start, end, request)
                     b.copy(
                         cellSpans = b.cellSpans + (cellKey to newSpans),
-                        cellStyles = withCellFormatCleared(b.cellStyles, cellKey, format),
+                        cellStyles = withCellFormatCleared(b.cellStyles, cellKey, request.name),
                         updatedAt = now
                     )
                 } else {
-                    val newStyle = withFormatToggled(b.cellStyles[cellKey] ?: TableCellStyle(), format)
+                    val newStyle = withFormatToggled(b.cellStyles[cellKey] ?: TableCellStyle(), request)
                         ?: return@mapBlockById b
-                    b.copy(cellStyles = b.cellStyles + (cellKey to newStyle), updatedAt = now)
+                    b.copy(
+                        cellStyles = b.cellStyles + (cellKey to newStyle),
+                        cellSpans = withHighlightClearedFromCellSpans(b.cellSpans, cellKey, request.name),
+                        updatedAt = now
+                    )
                 }
             }
         }
@@ -971,8 +1046,15 @@ abstract class BaseEditorViewModel(
         now: Long
     ): NoteBlock {
         if (textLength <= 0 || !isFormatApplied(b, format)) return b
-        val spansCoveringEverything =
-            setInlineSpanFormat(b.inlineSpansOrEmpty(), textLength, 0, textLength, format, isOn = true)
+        val spansCoveringEverything = setInlineSpanFormat(
+            b.inlineSpansOrEmpty(),
+            textLength,
+            0,
+            textLength,
+            format,
+            isOn = true,
+            chosenHighlightColorName = b.highlightColorNameOrNull()
+        )
         return withBlockFormatCleared(b, format, now).withInlineSpans(spansCoveringEverything, now)
     }
 
@@ -983,7 +1065,15 @@ abstract class BaseEditorViewModel(
         textLength: Int
     ): List<InlineSpan> {
         if (style == null || textLength <= 0 || !isFormatApplied(style, format)) return spans
-        return setInlineSpanFormat(spans, textLength, 0, textLength, format, isOn = true)
+        return setInlineSpanFormat(
+            spans,
+            textLength,
+            0,
+            textLength,
+            format,
+            isOn = true,
+            chosenHighlightColorName = highlightColorNameForCellHex(style.backgroundColorHex)
+        )
     }
 
     private fun withCellFormatCleared(
@@ -1001,7 +1091,7 @@ abstract class BaseEditorViewModel(
         "italic" -> updateFormat(b, b.isBold, false, b.isStrikeThrough, b.isUnderlined, b.isHighlighted, now)
         "strike" -> updateFormat(b, b.isBold, b.isItalic, false, b.isUnderlined, b.isHighlighted, now)
         "underline" -> updateFormat(b, b.isBold, b.isItalic, b.isStrikeThrough, false, b.isHighlighted, now)
-        "highlight" -> updateFormat(b, b.isBold, b.isItalic, b.isStrikeThrough, b.isUnderlined, false, now)
+        "highlight" -> b.withHighlight(false, null, now)
         else -> b
     }
 
@@ -1010,7 +1100,8 @@ abstract class BaseEditorViewModel(
         "italic" -> style.isItalic
         "strike" -> style.isStrikeThrough
         "underline" -> style.isUnderlined
-        "highlight" -> style.backgroundColorHex == HighlightCellBackgroundHex
+        "highlight" -> style.backgroundColorHex != null &&
+                highlightColorNameForCellHex(style.backgroundColorHex) != null
         else -> false
     }
 
@@ -1023,16 +1114,46 @@ abstract class BaseEditorViewModel(
         else -> style
     }
 
-    private fun withFormatToggled(style: TableCellStyle, format: String): TableCellStyle? = when (format) {
+    private fun withFormatToggled(style: TableCellStyle, request: FormatRequest): TableCellStyle? = when (request.name) {
         "bold" -> style.copy(isBold = !style.isBold)
         "italic" -> style.copy(isItalic = !style.isItalic)
         "strike" -> style.copy(isStrikeThrough = !style.isStrikeThrough)
         "underline" -> style.copy(isUnderlined = !style.isUnderlined)
-        "highlight" -> style.copy(
-            backgroundColorHex = if (style.backgroundColorHex == HighlightCellBackgroundHex) null else HighlightCellBackgroundHex
-        )
+        "highlight" -> style.copy(backgroundColorHex = nextCellHighlightHex(style.backgroundColorHex, request))
         else -> null
     }
+
+    private fun withHighlightClearedFromCellSpans(
+        cellSpans: Map<String, List<InlineSpan>>,
+        cellKey: String,
+        format: String
+    ): Map<String, List<InlineSpan>> {
+        if (format != "highlight") return cellSpans
+
+        val spans = cellSpans[cellKey].orEmpty()
+        if (spans.none { span -> span.highlight }) return cellSpans
+
+        val spansKeepingOtherFormats = spans
+            .map { span -> span.copy(highlight = false, highlightColorName = null) }
+            .filter { span -> span.bold || span.italic || span.strikeThrough || span.underline }
+        return cellSpans + (cellKey to spansKeepingOtherFormats)
+    }
+
+    private fun nextCellHighlightHex(currentHex: String?, request: FormatRequest): String? {
+        if (request.removesHighlight) return null
+
+        val requestedColorName = request.highlightColorName
+        if (requestedColorName == null) {
+            val cellIsAlreadyHighlighted = highlightColorNameForCellHex(currentHex) != null
+            return if (cellIsAlreadyHighlighted) null else HighlightColor.defaultColor.cellBackgroundHex
+        }
+
+        val requestedHex = HighlightColor.named(requestedColorName).cellBackgroundHex
+        return if (currentHex == requestedHex) null else requestedHex
+    }
+
+    private fun highlightColorNameForCellHex(cellHex: String?): String? =
+        HighlightColor.entries.firstOrNull { color -> color.cellBackgroundHex == cellHex }?.storageName
 
     private fun databaseCellTextAt(block: DatabaseBlock, cellKey: String): String {
         val rowId = cellKey.substringBefore(':')
@@ -1063,7 +1184,8 @@ abstract class BaseEditorViewModel(
         var italic: Boolean = false,
         var strike: Boolean = false,
         var underline: Boolean = false,
-        var highlight: Boolean = false
+        var highlight: Boolean = false,
+        var highlightColorName: String? = null
     )
 
     private fun CharFormatFlags.hasFormat(format: String): Boolean = when (format) {
@@ -1075,13 +1197,21 @@ abstract class BaseEditorViewModel(
         else -> false
     }
 
-    private fun CharFormatFlags.setFormat(format: String, isOn: Boolean) {
+    private fun CharFormatFlags.setFormat(
+        format: String,
+        isOn: Boolean,
+        chosenHighlightColorName: String? = null
+    ) {
         when (format) {
             "bold" -> bold = isOn
             "italic" -> italic = isOn
             "strike" -> strike = isOn
             "underline" -> underline = isOn
-            "highlight" -> highlight = isOn
+            "highlight" -> {
+                highlight = isOn
+                highlightColorName =
+                    if (isOn) chosenHighlightColorName ?: highlightColorName else null
+            }
         }
     }
 
@@ -1095,7 +1225,10 @@ abstract class BaseEditorViewModel(
                 if (span.italic) flags[i].italic = true
                 if (span.strikeThrough) flags[i].strike = true
                 if (span.underline) flags[i].underline = true
-                if (span.highlight) flags[i].highlight = true
+                if (span.highlight) {
+                    flags[i].highlight = true
+                    flags[i].highlightColorName = span.highlightColorName
+                }
             }
         }
         return flags
@@ -1120,7 +1253,8 @@ abstract class BaseEditorViewModel(
                     italic = f.italic,
                     strikeThrough = f.strike,
                     underline = f.underline,
-                    highlight = f.highlight
+                    highlight = f.highlight,
+                    highlightColorName = f.highlightColorName
                 )
             )
             i = j
@@ -1128,12 +1262,37 @@ abstract class BaseEditorViewModel(
         return result
     }
 
-    private fun toggleInlineSpanFormat(spans: List<InlineSpan>, textLength: Int, start: Int, end: Int, format: String): List<InlineSpan> {
+    private fun toggleInlineSpanFormat(
+        spans: List<InlineSpan>,
+        textLength: Int,
+        start: Int,
+        end: Int,
+        request: FormatRequest
+    ): List<InlineSpan> {
         if (start >= end || textLength <= 0) return spans
+        if (request.removesHighlight) {
+            return setInlineSpanFormat(spans, textLength, start, end, request.name, isOn = false)
+        }
+
         val flags = spans.toFlagsArray(textLength)
-        val isFullyOn = (start until end).all { i -> flags[i].hasFormat(format) }
-        return setInlineSpanFormat(spans, textLength, start, end, format, isOn = !isFullyOn)
+        val requestedColorName = request.highlightColorName
+        val isFullyOn = (start until end).all { i ->
+            flags[i].hasFormat(request.name) &&
+                    (requestedColorName == null || effectiveColorNameOf(flags[i]) == requestedColorName)
+        }
+        return setInlineSpanFormat(
+            spans,
+            textLength,
+            start,
+            end,
+            request.name,
+            isOn = !isFullyOn,
+            chosenHighlightColorName = requestedColorName
+        )
     }
+
+    private fun effectiveColorNameOf(flags: CharFormatFlags): String =
+        flags.highlightColorName ?: defaultHighlightColorName
 
     private fun setInlineSpanFormat(
         spans: List<InlineSpan>,
@@ -1141,11 +1300,12 @@ abstract class BaseEditorViewModel(
         start: Int,
         end: Int,
         format: String,
-        isOn: Boolean
+        isOn: Boolean,
+        chosenHighlightColorName: String? = null
     ): List<InlineSpan> {
         if (start >= end || textLength <= 0) return spans
         val flags = spans.toFlagsArray(textLength)
-        for (i in start until end) flags[i].setFormat(format, isOn)
+        for (i in start until end) flags[i].setFormat(format, isOn, chosenHighlightColorName)
         return flags.toSpans()
     }
 

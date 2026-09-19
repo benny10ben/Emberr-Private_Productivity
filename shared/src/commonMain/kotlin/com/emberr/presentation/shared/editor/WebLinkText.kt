@@ -35,6 +35,7 @@ import com.emberr.domain.util.system.triggerHapticFeedback
 import com.emberr.presentation.shared.editor.components.DesktopCursor
 import com.emberr.presentation.shared.editor.components.desktopPointerCursor
 import com.emberr.ui.theme.LocalAppIsDark
+import com.emberr.ui.theme.highlightBackgroundFor
 
 const val WEB_LINK_TAG = "WEB_LINK"
 const val NOTE_LINK_TAG = "NOTE_LINK"
@@ -431,7 +432,7 @@ fun rememberWebLinkActions(): WebLinkActions {
 data class WebLinkVisualTransformation(
     private val inlineSpans: List<InlineSpan> = emptyList(),
     private val hoveredLink: HoveredLink? = null,
-    private val highlightColor: Color = Color.Unspecified
+    private val isDarkTheme: Boolean = false
 ) : VisualTransformation {
     override fun filter(text: AnnotatedString): TransformedText {
         val highlighted = text.withInteractiveLinksHighlighted(hoveredLink)
@@ -453,7 +454,9 @@ data class WebLinkVisualTransformation(
                     fontWeight = if (span.bold) FontWeight.Bold else null,
                     fontStyle = if (span.italic) FontStyle.Italic else null,
                     textDecoration = decoration,
-                    background = if (span.highlight) highlightColor else Color.Unspecified
+                    background = if (span.highlight) {
+                        highlightBackgroundFor(span.highlightColorName, isDarkTheme)
+                    } else Color.Unspecified
                 ),
                 start,
                 end
