@@ -20,6 +20,7 @@ import com.emberr.domain.ai.AiGenerationMode
 import com.emberr.domain.ai.KnowledgeMode
 import com.emberr.presentation.rag.RagViewModel
 import com.emberr.presentation.rag.components.RagDesktopMenuItem
+import com.emberr.presentation.shared.components.EmberrDesktopMenuOption
 import emberr.shared.generated.resources.Res
 import emberr.shared.generated.resources.chevron_left
 import org.jetbrains.compose.resources.painterResource
@@ -78,18 +79,18 @@ internal fun AiSettingsMenuContent(
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
                 )
-                RagDesktopMenuItem(
-                    text = "Default",
+                EmberrDesktopMenuOption(
+                    label = "Default",
                     isSelected = knowledgeMode == KnowledgeMode.DEFAULT,
                     onClick = { onDismiss(); viewModel.selectKnowledgeMode(KnowledgeMode.DEFAULT) }
                 )
-                RagDesktopMenuItem(
-                    text = "Only notes knowledge",
+                EmberrDesktopMenuOption(
+                    label = "Only notes knowledge",
                     isSelected = knowledgeMode == KnowledgeMode.NOTES_ONLY,
                     onClick = { onDismiss(); viewModel.selectKnowledgeMode(KnowledgeMode.NOTES_ONLY) }
                 )
-                RagDesktopMenuItem(
-                    text = "Only real-world knowledge",
+                EmberrDesktopMenuOption(
+                    label = "Only real-world knowledge",
                     isSelected = knowledgeMode == KnowledgeMode.WORLD_ONLY,
                     onClick = { onDismiss(); viewModel.selectKnowledgeMode(KnowledgeMode.WORLD_ONLY) }
                 )
@@ -104,8 +105,8 @@ internal fun AiSettingsMenuContent(
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
                 )
                 responseLengthOptions.forEach { option ->
-                    RagDesktopMenuItem(
-                        text = option.label,
+                    EmberrDesktopMenuOption(
+                        label = option.label,
                         isSelected = selectedMaxOutputTokens == option.tokens,
                         onClick = { onDismiss(); viewModel.selectMaxOutputTokens(option.tokens) }
                     )
