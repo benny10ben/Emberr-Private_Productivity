@@ -897,8 +897,9 @@ abstract class BaseEditorViewModel(
                 val end = selection.max.coerceIn(0, text.length)
                 if (start >= end) return@mapBlockById b
                 newSelection = TextRange(start, end)
-                val newSpans = toggleInlineSpanFormat(b.inlineSpansOrEmpty(), text.length, start, end, format)
-                b.withInlineSpans(newSpans, now)
+                val spanBased = withWholeBlockFormatMovedIntoSpans(b, format, text.length, now)
+                val newSpans = toggleInlineSpanFormat(spanBased.inlineSpansOrEmpty(), text.length, start, end, format)
+                spanBased.withInlineSpans(newSpans, now)
             }
         }
         newSelection?.let { _selectionRequest.value = SelectionRequest(blockId, it) }
@@ -915,8 +916,15 @@ abstract class BaseEditorViewModel(
                 val end = selection.max.coerceIn(0, cellText.length)
 
                 if (start < end) {
-                    val newSpans = toggleInlineSpanFormat(b.cellSpans[cellKey].orEmpty(), cellText.length, start, end, format)
-                    b.copy(cellSpans = b.cellSpans + (cellKey to newSpans), updatedAt = now)
+                    val spansBefore = spansWithCellStyleMovedIn(
+                        b.cellSpans[cellKey].orEmpty(), b.cellStyles[cellKey], format, cellText.length
+                    )
+                    val newSpans = toggleInlineSpanFormat(spansBefore, cellText.length, start, end, format)
+                    b.copy(
+                        cellSpans = b.cellSpans + (cellKey to newSpans),
+                        cellStyles = withCellFormatCleared(b.cellStyles, cellKey, format),
+                        updatedAt = now
+                    )
                 } else {
                     val newStyle = withFormatToggled(b.cellStyles[cellKey] ?: TableCellStyle(), format)
                         ?: return@mapBlockById b
@@ -937,8 +945,15 @@ abstract class BaseEditorViewModel(
                 val end = selection.max.coerceIn(0, cellText.length)
 
                 if (start < end) {
-                    val newSpans = toggleInlineSpanFormat(b.cellSpans[cellKey].orEmpty(), cellText.length, start, end, format)
-                    b.copy(cellSpans = b.cellSpans + (cellKey to newSpans), updatedAt = now)
+                    val spansBefore = spansWithCellStyleMovedIn(
+                        b.cellSpans[cellKey].orEmpty(), b.cellStyles[cellKey], format, cellText.length
+                    )
+                    val newSpans = toggleInlineSpanFormat(spansBefore, cellText.length, start, end, format)
+                    b.copy(
+                        cellSpans = b.cellSpans + (cellKey to newSpans),
+                        cellStyles = withCellFormatCleared(b.cellStyles, cellKey, format),
+                        updatedAt = now
+                    )
                 } else {
                     val newStyle = withFormatToggled(b.cellStyles[cellKey] ?: TableCellStyle(), format)
                         ?: return@mapBlockById b
@@ -947,6 +962,65 @@ abstract class BaseEditorViewModel(
             }
         }
         scheduleAutosave()
+    }
+
+    private fun withWholeBlockFormatMovedIntoSpans(
+        b: NoteBlock,
+        format: String,
+        textLength: Int,
+        now: Long
+    ): NoteBlock {
+        if (textLength <= 0 || !isFormatApplied(b, format)) return b
+        val spansCoveringEverything =
+            setInlineSpanFormat(b.inlineSpansOrEmpty(), textLength, 0, textLength, format, isOn = true)
+        return withBlockFormatCleared(b, format, now).withInlineSpans(spansCoveringEverything, now)
+    }
+
+    private fun spansWithCellStyleMovedIn(
+        spans: List<InlineSpan>,
+        style: TableCellStyle?,
+        format: String,
+        textLength: Int
+    ): List<InlineSpan> {
+        if (style == null || textLength <= 0 || !isFormatApplied(style, format)) return spans
+        return setInlineSpanFormat(spans, textLength, 0, textLength, format, isOn = true)
+    }
+
+    private fun withCellFormatCleared(
+        styles: Map<String, TableCellStyle>,
+        cellKey: String,
+        format: String
+    ): Map<String, TableCellStyle> {
+        val style = styles[cellKey] ?: return styles
+        if (!isFormatApplied(style, format)) return styles
+        return styles + (cellKey to withFormatCleared(style, format))
+    }
+
+    private fun withBlockFormatCleared(b: NoteBlock, format: String, now: Long): NoteBlock = when (format) {
+        "bold" -> updateFormat(b, false, b.isItalic, b.isStrikeThrough, b.isUnderlined, b.isHighlighted, now)
+        "italic" -> updateFormat(b, b.isBold, false, b.isStrikeThrough, b.isUnderlined, b.isHighlighted, now)
+        "strike" -> updateFormat(b, b.isBold, b.isItalic, false, b.isUnderlined, b.isHighlighted, now)
+        "underline" -> updateFormat(b, b.isBold, b.isItalic, b.isStrikeThrough, false, b.isHighlighted, now)
+        "highlight" -> updateFormat(b, b.isBold, b.isItalic, b.isStrikeThrough, b.isUnderlined, false, now)
+        else -> b
+    }
+
+    private fun isFormatApplied(style: TableCellStyle, format: String): Boolean = when (format) {
+        "bold" -> style.isBold
+        "italic" -> style.isItalic
+        "strike" -> style.isStrikeThrough
+        "underline" -> style.isUnderlined
+        "highlight" -> style.backgroundColorHex == HighlightCellBackgroundHex
+        else -> false
+    }
+
+    private fun withFormatCleared(style: TableCellStyle, format: String): TableCellStyle = when (format) {
+        "bold" -> style.copy(isBold = false)
+        "italic" -> style.copy(isItalic = false)
+        "strike" -> style.copy(isStrikeThrough = false)
+        "underline" -> style.copy(isUnderlined = false)
+        "highlight" -> style.copy(backgroundColorHex = null)
+        else -> style
     }
 
     private fun withFormatToggled(style: TableCellStyle, format: String): TableCellStyle? = when (format) {
