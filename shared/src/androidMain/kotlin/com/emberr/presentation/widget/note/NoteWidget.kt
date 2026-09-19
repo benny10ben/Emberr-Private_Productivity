@@ -5,11 +5,15 @@ import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetManager.INVALID_APPWIDGET_ID
 import android.content.Context
 import android.content.Intent
+import android.content.res.Configuration
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
+import androidx.glance.LocalContext
+import androidx.glance.LocalSize
 import androidx.glance.action.Action
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
@@ -53,12 +57,15 @@ import com.emberr.presentation.widget.widgetNoteIdExtra
 private const val maximumIndentationLevels = 4
 private const val indentationStepInDp = 12
 private val recordLabelWidth = 92.dp
+private val surfaceHorizontalPadding = 14.dp
+private val highlightHorizontalPadding = 2.dp
+private const val safeRowWidthFraction = 0.94f
 
 class NoteWidget : GlanceAppWidget(), KoinComponent {
 
     override val stateDefinition = PreferencesGlanceStateDefinition
 
-    override val sizeMode = SizeMode.Single
+    override val sizeMode = SizeMode.Exact
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val storedNoteId = readSelectedNoteId(context, id)?.takeIf { it.isNotBlank() }
@@ -68,13 +75,15 @@ class NoteWidget : GlanceAppWidget(), KoinComponent {
         }
 
         val appWidgetId = resolveAppWidgetId(context, id)
+        val reportedWidgetWidth = readWidgetWidth(context, appWidgetId)
 
         provideContent {
             WidgetBody(
                 context = context,
                 chosenNoteId = storedNoteId,
                 content = content,
-                appWidgetId = appWidgetId
+                appWidgetId = appWidgetId,
+                reportedWidgetWidth = reportedWidgetWidth
             )
         }
     }
@@ -108,6 +117,26 @@ class NoteWidget : GlanceAppWidget(), KoinComponent {
         }
 }
 
+private fun readWidgetWidth(context: Context, appWidgetId: Int): Dp? {
+    if (appWidgetId == INVALID_APPWIDGET_ID) return null
+
+    return try {
+        val options = AppWidgetManager.getInstance(context).getAppWidgetOptions(appWidgetId)
+        val isLandscape =
+            context.resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+        val widthKey = if (isLandscape) {
+            AppWidgetManager.OPTION_APPWIDGET_MAX_WIDTH
+        } else {
+            AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH
+        }
+
+        options.getInt(widthKey, 0).takeIf { widthInDp -> widthInDp > 0 }?.dp
+    } catch (cause: Exception) {
+        WidgetLog.e("Could not read the widget width", cause)
+        null
+    }
+}
+
 private fun openPickerIntent(context: Context, appWidgetId: Int): Intent =
     Intent(context, NoteWidgetPickerActivity::class.java)
         .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
@@ -124,7 +153,8 @@ internal fun WidgetBody(
     context: Context,
     chosenNoteId: String?,
     content: WidgetNoteContent?,
-    appWidgetId: Int
+    appWidgetId: Int,
+    reportedWidgetWidth: Dp? = null
 ) {
     NoteSurface {
         when {
@@ -140,7 +170,8 @@ internal fun WidgetBody(
 
             else -> NoteContent(
                 content = content,
-                openNoteAction = actionStartActivity(openNoteIntent(context, chosenNoteId))
+                openNoteAction = actionStartActivity(openNoteIntent(context, chosenNoteId)),
+                reportedWidgetWidth = reportedWidgetWidth
             )
         }
     }
@@ -153,7 +184,7 @@ private fun NoteSurface(content: @Composable () -> Unit) {
             .fillMaxSize()
             .background(surfaceColor)
             .cornerRadius(20.dp)
-            .padding(horizontal = 14.dp, vertical = 12.dp)
+            .padding(horizontal = surfaceHorizontalPadding, vertical = 12.dp)
     ) {
         content()
     }
@@ -174,7 +205,11 @@ private fun CenteredMessage(message: String, tapAction: Action? = null) {
 }
 
 @Composable
-private fun NoteContent(content: WidgetNoteContent, openNoteAction: Action?) {
+private fun NoteContent(
+    content: WidgetNoteContent,
+    openNoteAction: Action?,
+    reportedWidgetWidth: Dp?
+) {
     Text(
         text = content.title,
         maxLines = 1,
@@ -205,13 +240,21 @@ private fun NoteContent(content: WidgetNoteContent, openNoteAction: Action?) {
             items = content.elements,
             itemId = { element -> element.key.hashCode().toLong() }
         ) { element ->
-            ContentElement(element = element, openNoteAction = openNoteAction)
+            ContentElement(
+                element = element,
+                openNoteAction = openNoteAction,
+                reportedWidgetWidth = reportedWidgetWidth
+            )
         }
     }
 }
 
 @Composable
-private fun ContentElement(element: WidgetElement, openNoteAction: Action?) {
+private fun ContentElement(
+    element: WidgetElement,
+    openNoteAction: Action?,
+    reportedWidgetWidth: Dp?
+) {
     when (element) {
         is WidgetElement.DividerLine -> Column(
             modifier = GlanceModifier
@@ -227,19 +270,24 @@ private fun ContentElement(element: WidgetElement, openNoteAction: Action?) {
             )
         }
 
-        is WidgetElement.TextLine ->
-            if (element.isHighlighted) {
-                HighlightedTextLine(line = element, openNoteAction = openNoteAction)
-            } else {
-                Text(
-                    text = element.text,
-                    style = resolveTextStyle(element),
-                    modifier = GlanceModifier
-                        .fillMaxWidth()
-                        .padding(start = startPaddingFor(element.indentationLevel), top = 4.dp, bottom = 4.dp)
-                        .thenClickable(openNoteAction)
-                )
-            }
+        is WidgetElement.TextLine -> when {
+            element.isHighlighted -> HighlightedTextLine(line = element, openNoteAction = openNoteAction)
+
+            element.highlightedRanges.isNotEmpty() -> PartlyHighlightedTextLine(
+                line = element,
+                openNoteAction = openNoteAction,
+                reportedWidgetWidth = reportedWidgetWidth
+            )
+
+            else -> Text(
+                text = element.text,
+                style = resolveTextStyle(element),
+                modifier = GlanceModifier
+                    .fillMaxWidth()
+                    .padding(start = startPaddingFor(element.indentationLevel), top = 4.dp, bottom = 4.dp)
+                    .thenClickable(openNoteAction)
+            )
+        }
 
         is WidgetElement.Record -> RecordElement(record = element, openNoteAction = openNoteAction)
     }
@@ -256,12 +304,73 @@ private fun HighlightedTextLine(line: WidgetElement.TextLine, openNoteAction: Ac
     ) {
         Box(
             modifier = GlanceModifier
-                .background(highlightedTextBackgroundColor)
+                .background(highlightedTextBackgroundColor(line.highlightColorName))
                 .cornerRadius(4.dp)
                 .padding(horizontal = 4.dp, vertical = 1.dp),
             contentAlignment = Alignment.CenterStart
         ) {
             Text(text = line.text, style = resolveTextStyle(line))
+        }
+    }
+}
+
+@Composable
+private fun PartlyHighlightedTextLine(
+    line: WidgetElement.TextLine,
+    openNoteAction: Action?,
+    reportedWidgetWidth: Dp?
+) {
+    val context = LocalContext.current
+    val pixelsPerDp = context.resources.displayMetrics.density
+    val sharedTextStyle = resolveTextStyle(line)
+    val indentation = startPaddingFor(line.indentationLevel)
+    val widgetWidth = reportedWidgetWidth ?: LocalSize.current.width
+    val availableWidth = widgetWidth - surfaceHorizontalPadding * 2 - indentation
+
+    val wrappedRows = wrapRunsIntoRows(
+        runs = splitIntoHighlightRuns(line),
+        availableWidthInPixels = availableWidth.value * pixelsPerDp * safeRowWidthFraction,
+        highlightPaddingInPixels = highlightHorizontalPadding.value * 2 * pixelsPerDp,
+        maximumRows = maximumWrappedRows,
+        measureTextWidth = buildTextWidthMeasurer(context, line.style)
+    )
+
+    Column(
+        modifier = GlanceModifier
+            .fillMaxWidth()
+            .padding(start = indentation, top = 4.dp, bottom = 4.dp)
+            .thenClickable(openNoteAction)
+    ) {
+        wrappedRows.chunked(maximumChildrenPerGlanceContainer).forEach { rowGroup ->
+            Column(modifier = GlanceModifier.fillMaxWidth()) {
+                rowGroup.forEach { runsInRow ->
+                    HighlightedRunsRow(runsInRow = runsInRow, textStyle = sharedTextStyle)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun HighlightedRunsRow(runsInRow: List<TextRun>, textStyle: TextStyle) {
+    Row(
+        modifier = GlanceModifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        runsInRow.forEach { run ->
+            if (run.isHighlighted) {
+                Box(
+                    modifier = GlanceModifier
+                        .background(highlightedTextBackgroundColor(run.highlightColorName))
+                        .cornerRadius(4.dp)
+                        .padding(horizontal = highlightHorizontalPadding, vertical = 1.dp),
+                    contentAlignment = Alignment.CenterStart
+                ) {
+                    Text(text = run.text, maxLines = 1, style = textStyle)
+                }
+            } else {
+                Text(text = run.text, maxLines = 1, style = textStyle)
+            }
         }
     }
 }
@@ -307,47 +416,25 @@ private fun startPaddingFor(indentationLevel: Int) =
     (minOf(indentationLevel, maximumIndentationLevels) * indentationStepInDp).dp
 
 private fun resolveTextStyle(line: WidgetElement.TextLine): TextStyle {
-    val decoration = if (line.isStruckThrough) TextDecoration.LineThrough else TextDecoration.None
+    val appearance = appearanceFor(line.style)
 
-    return when (line.style) {
-        WidgetTextStyleName.HEADING -> TextStyle(
-            color = primaryTextColor,
-            fontSize = 21.sp,
-            fontWeight = FontWeight.Bold,
-            textDecoration = decoration
-        )
+    return TextStyle(
+        color = textColorFor(line.style),
+        fontSize = appearance.fontSizeInSp.sp,
+        fontWeight = glanceFontWeightFor(appearance.fontWeight),
+        fontStyle = if (appearance.isItalic) FontStyle.Italic else FontStyle.Normal,
+        fontFamily = if (appearance.isMonospace) FontFamily.Monospace else null,
+        textDecoration = if (line.isStruckThrough) TextDecoration.LineThrough else TextDecoration.None
+    )
+}
 
-        WidgetTextStyleName.SUBHEADING -> TextStyle(
-            color = primaryTextColor,
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Medium,
-            textDecoration = decoration
-        )
+private fun textColorFor(style: WidgetTextStyleName) = when (style) {
+    WidgetTextStyleName.QUOTE, WidgetTextStyleName.SUBTLE -> secondaryTextColor
+    else -> primaryTextColor
+}
 
-        WidgetTextStyleName.BODY -> TextStyle(
-            color = primaryTextColor,
-            fontSize = 16.sp,
-            textDecoration = decoration
-        )
-
-        WidgetTextStyleName.QUOTE -> TextStyle(
-            color = secondaryTextColor,
-            fontSize = 16.sp,
-            fontStyle = FontStyle.Italic,
-            textDecoration = decoration
-        )
-
-        WidgetTextStyleName.CODE -> TextStyle(
-            color = primaryTextColor,
-            fontSize = 14.sp,
-            fontFamily = FontFamily.Monospace,
-            textDecoration = decoration
-        )
-
-        WidgetTextStyleName.SUBTLE -> TextStyle(
-            color = secondaryTextColor,
-            fontSize = 14.sp,
-            textDecoration = decoration
-        )
-    }
+private fun glanceFontWeightFor(fontWeight: Int): FontWeight = when {
+    fontWeight >= 700 -> FontWeight.Bold
+    fontWeight >= 500 -> FontWeight.Medium
+    else -> FontWeight.Normal
 }

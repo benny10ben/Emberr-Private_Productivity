@@ -106,7 +106,8 @@ suspend fun pushRenderedContent(
                 context = context,
                 chosenNoteId = chosenNoteId,
                 content = content,
-                appWidgetId = appWidgetId
+                appWidgetId = appWidgetId,
+                reportedWidgetWidth = widthDp.dp
             )
         }
 

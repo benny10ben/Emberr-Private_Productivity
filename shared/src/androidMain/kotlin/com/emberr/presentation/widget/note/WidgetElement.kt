@@ -20,6 +20,7 @@ import com.emberr.domain.model.ThreeDotDividerBlock
 import com.emberr.domain.model.ToggleBlock
 import com.emberr.domain.model.VoiceBlock
 import com.emberr.domain.model.displayText
+import com.emberr.domain.model.highlightColorNameOrNull
 import com.emberr.domain.model.inlineSpansOrEmpty
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -39,7 +40,9 @@ sealed interface WidgetElement {
         val style: WidgetTextStyleName,
         val indentationLevel: Int,
         val isStruckThrough: Boolean,
-        val isHighlighted: Boolean = false
+        val isHighlighted: Boolean = false,
+        val highlightColorName: String? = null,
+        val highlightedRanges: List<HighlightedRange> = emptyList()
     ) : WidgetElement
 
     @Serializable
@@ -59,6 +62,13 @@ sealed interface WidgetElement {
 data class RecordField(
     val label: String,
     val value: String
+)
+
+@Serializable
+data class HighlightedRange(
+    val start: Int,
+    val end: Int,
+    val colorName: String? = null
 )
 
 private const val maximumRenderCost = 120
@@ -90,7 +100,7 @@ fun buildElementsFromBlocks(
 }
 
 private fun estimateRenderCost(element: WidgetElement): Int = when (element) {
-    is WidgetElement.TextLine -> 1
+    is WidgetElement.TextLine -> 1 + element.highlightedRanges.size
     is WidgetElement.DividerLine -> 1
     is WidgetElement.Record -> element.fields.size * 2
 }
@@ -109,21 +119,18 @@ private fun convertBlockToElements(
 
     is QuoteBlock -> textLine(block, block.text, WidgetTextStyleName.QUOTE)
 
-    is BulletedListBlock -> textLine(block, "•  ${block.text}", WidgetTextStyleName.BODY)
+    is BulletedListBlock -> textLine(block, block.text, WidgetTextStyleName.BODY, prefix = "•  ")
 
-    is NumberedListBlock -> textLine(block, "${block.number}.  ${block.text}", WidgetTextStyleName.BODY)
+    is NumberedListBlock -> textLine(block, block.text, WidgetTextStyleName.BODY, prefix = "${block.number}.  ")
 
-    is ToggleBlock -> textLine(block, "▸  ${block.text}", WidgetTextStyleName.BODY)
+    is ToggleBlock -> textLine(block, block.text, WidgetTextStyleName.BODY, prefix = "▸  ")
 
-    is CheckboxBlock -> listOf(
-        WidgetElement.TextLine(
-            key = "${block.id}#0",
-            text = "${if (block.isChecked) "☑" else "☐"}  ${block.text}".take(maximumCharactersPerLine),
-            style = WidgetTextStyleName.BODY,
-            indentationLevel = block.indentationLevel,
-            isStruckThrough = block.isChecked || block.isStrikeThrough,
-            isHighlighted = block.showsHighlightedText()
-        )
+    is CheckboxBlock -> textLine(
+        block = block,
+        text = block.text,
+        style = WidgetTextStyleName.BODY,
+        prefix = if (block.isChecked) "☑  " else "☐  ",
+        isStruckThrough = block.isChecked || block.isStrikeThrough
     )
 
     is CodeBlock -> block.code.lines().mapIndexed { index, codeLine ->
@@ -169,24 +176,69 @@ private fun convertBlockToElements(
 private fun textLine(
     block: NoteBlock,
     text: String,
-    style: WidgetTextStyleName
+    style: WidgetTextStyleName,
+    prefix: String = "",
+    isStruckThrough: Boolean = block.isStrikeThrough
 ): List<WidgetElement> {
-    val trimmedText = text.trim()
-    if (trimmedText.isBlank()) return emptyList()
+    val trimmedLine = (prefix + text).trim()
+    if (trimmedLine.isBlank()) return emptyList()
+
+    val renderedText = trimmedLine.take(maximumCharactersPerLine)
     return listOf(
         WidgetElement.TextLine(
             key = "${block.id}#0",
-            text = trimmedText.take(maximumCharactersPerLine),
+            text = renderedText,
             style = style,
             indentationLevel = block.indentationLevel,
-            isStruckThrough = block.isStrikeThrough,
-            isHighlighted = block.showsHighlightedText()
+            isStruckThrough = isStruckThrough,
+            isHighlighted = block.isHighlighted,
+            highlightColorName = block.highlightColorNameOrNull(),
+            highlightedRanges = highlightedRangesIn(block, prefix, text, renderedText)
         )
     )
 }
 
-private fun NoteBlock.showsHighlightedText(): Boolean =
-    isHighlighted || inlineSpansOrEmpty().any { span -> span.highlight }
+private fun highlightedRangesIn(
+    block: NoteBlock,
+    prefix: String,
+    text: String,
+    renderedText: String
+): List<HighlightedRange> {
+    if (block.isHighlighted) return emptyList()
+
+    val highlightedSpans = block.inlineSpansOrEmpty().filter { span -> span.highlight }
+    if (highlightedSpans.isEmpty()) return emptyList()
+
+    val untrimmedLine = prefix + text
+    val charactersDroppedFromStart = untrimmedLine.length - untrimmedLine.trimStart().length
+    val shiftFromBlockTextToLine = prefix.length - charactersDroppedFromStart
+
+    val rangesInLine = highlightedSpans
+        .map { span ->
+            HighlightedRange(
+                start = (span.start + shiftFromBlockTextToLine).coerceIn(0, renderedText.length),
+                end = (span.end + shiftFromBlockTextToLine).coerceIn(0, renderedText.length),
+                colorName = span.highlightColorName
+            )
+        }
+        .filter { range -> range.end > range.start }
+        .sortedBy { range -> range.start }
+
+    return mergeTouchingRanges(rangesInLine)
+}
+
+private fun mergeTouchingRanges(sortedRanges: List<HighlightedRange>): List<HighlightedRange> {
+    val merged = mutableListOf<HighlightedRange>()
+    for (range in sortedRanges) {
+        val previous = merged.lastOrNull()
+        if (previous != null && range.start <= previous.end && previous.colorName == range.colorName) {
+            merged[merged.lastIndex] = previous.copy(end = maxOf(previous.end, range.end))
+        } else {
+            merged += range
+        }
+    }
+    return merged
+}
 
 private fun convertTableToElements(block: TableBlock): List<WidgetElement> {
     val records = buildRecords(
