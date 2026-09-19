@@ -4,6 +4,8 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Arrangement
@@ -34,6 +36,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.input.pointer.changedToUp
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
@@ -45,8 +48,8 @@ import com.emberr.data.local.room.entity.SpaceEntity
 import com.emberr.presentation.mobile.home.RenameBottomSheet
 import com.emberr.presentation.shared.components.EmberrAlertDialog
 import com.emberr.presentation.shared.components.EmberrBottomSheet
-import com.emberr.presentation.shared.components.EmberrBottomSheetItem
 import com.emberr.presentation.shared.components.EmberrButtonSecondary
+import com.emberr.presentation.shared.components.NoRippleIndicationNodeFactory
 import emberr.shared.generated.resources.Res
 import emberr.shared.generated.resources.pen_square
 import emberr.shared.generated.resources.plus
@@ -86,17 +89,17 @@ fun SpaceOptionsSheets(
     EmberrBottomSheet(expanded = expanded, onDismiss = onDismiss, title = "Spaces") { closeAnd ->
         Column(modifier = Modifier.fillMaxWidth().padding(bottom = 30.dp)) {
 
-            EmberrBottomSheetItem(
+            SpaceSheetRow(
                 text = "Create Space",
                 icon = painterResource(Res.drawable.plus)
             ) { closeAnd { showCreateSheet = true } }
 
-            EmberrBottomSheetItem(
+            SpaceSheetRow(
                 text = "Rename Space",
                 icon = painterResource(Res.drawable.pen_square)
             ) { closeAnd { showRenameSheet = true } }
 
-            EmberrBottomSheetItem(
+            SpaceSheetRow(
                 text = "Delete Space",
                 icon = painterResource(Res.drawable.trash),
                 isDestructive = true,
@@ -292,5 +295,39 @@ private fun SpaceRow(displayName: String, isActive: Boolean, isBeingMoved: Boole
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f).padding(end = 12.dp)
         )
+    }
+}
+
+@Composable
+private fun SpaceSheetRow(
+    text: String,
+    icon: Painter,
+    isDestructive: Boolean = false,
+    enabled: Boolean = true,
+    onClick: () -> Unit
+) {
+    val baseColor = if (isDestructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
+    val contentColor = if (enabled) baseColor else baseColor.copy(alpha = 0.38f)
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = NoRippleIndicationNodeFactory,
+                enabled = enabled,
+                onClick = onClick
+            )
+            .padding(vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            painter = icon,
+            contentDescription = null,
+            tint = contentColor,
+            modifier = Modifier.size(20.dp)
+        )
+        Spacer(modifier = Modifier.width(12.dp))
+        Text(text = text, style = MaterialTheme.typography.bodyLarge, color = contentColor)
     }
 }
