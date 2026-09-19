@@ -276,7 +276,7 @@ private fun TimelineHeader(
     ) {
         Text(
             text = "Timeline",
-            style = MaterialTheme.typography.titleMedium,
+            style = MaterialTheme.typography.bodyLarge,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.weight(1f)
