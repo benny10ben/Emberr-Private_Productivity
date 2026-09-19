@@ -37,6 +37,7 @@ import com.emberr.presentation.rag.components.ModelOptionCard
 import com.emberr.presentation.rag.components.UnsupportedHardwareNotice
 import com.emberr.presentation.shared.components.EmberrAlertDialog
 import com.emberr.presentation.shared.components.EmberrBottomSheet
+import com.emberr.presentation.shared.components.EmberrBottomSheetOption
 import com.emberr.presentation.shared.components.EmberrButtonPrimary
 import com.emberr.presentation.shared.components.EmberrButtonSecondary
 import com.emberr.presentation.shared.components.EmberrTextField
@@ -205,13 +206,15 @@ internal fun LocalAiSettingsSheet(
 
                 installedLocalModels.forEach { model ->
                     val isPendingDeletion = model.fileName in pendingDeletionFileNames
-                    ModelOptionCard(
-                        title = model.displayName,
-                        titleMaxLines = 1,
+                    EmberrBottomSheetOption(
+                        label = model.displayName,
+                        labelMaxLines = 1,
+                        isSelected = !isPendingDeletion && selectedLocalModelFileName == model.fileName,
                         subtitle = if (isPendingDeletion)
                             "Deleted — will be removed permanently on next app restart."
                         else
                             null,
+                        outerHorizontalPadding = 0.dp,
                         onClick = {
                             if (!isPendingDeletion) viewModel.selectLocalModel(model.fileName)
                         },

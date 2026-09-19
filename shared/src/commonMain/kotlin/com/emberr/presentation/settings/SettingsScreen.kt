@@ -44,6 +44,7 @@ import com.emberr.presentation.shared.components.EmberrButtonPrimary
 import com.emberr.presentation.shared.components.EmberrButtonSecondary
 import com.emberr.presentation.shared.components.EmberrTextField
 import com.emberr.presentation.shared.components.EmberrVerticalScrollbar
+import com.emberr.presentation.shared.components.EmberrBottomSheetOption
 import com.emberr.presentation.shared.components.SelectedOptionBackground
 import com.emberr.presentation.shared.components.EmberrTopHeaderBar
 import com.emberr.presentation.shared.components.topHeaderBarPadding
@@ -456,7 +457,7 @@ fun SettingsScreen(
 
             Column(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
                 ThemePreference.entries.forEach { option ->
-                    SettingsOptionRow(
+                    EmberrBottomSheetOption(
                         label = option.displayName,
                         isSelected = option == selectedTheme,
                         onClick = {
@@ -485,7 +486,7 @@ fun SettingsScreen(
         ) {
             Column(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
                 FontSizeOptions.forEach { (preferenceName, displayName) ->
-                    SettingsOptionRow(
+                    EmberrBottomSheetOption(
                         label = displayName,
                         isSelected = preferenceName == fontSizePreference,
                         onClick = {
@@ -517,7 +518,7 @@ fun SettingsScreen(
 
             Column(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
                 FontStylePreference.entries.forEach { option ->
-                    SettingsOptionRow(
+                    EmberrBottomSheetOption(
                         label = option.displayName,
                         isSelected = option == selectedFontStyle,
                         labelFontFamily = fontFamilyFor(option),
@@ -551,7 +552,7 @@ fun SettingsScreen(
 
             Column(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
                 SubNoteOpenMode.entries.forEach { option ->
-                    SettingsOptionRow(
+                    EmberrBottomSheetOption(
                         label = option.displayName,
                         isSelected = option == selectedMode,
                         onClick = {
@@ -1132,42 +1133,6 @@ private fun DangerZoneSettingsSection(onClearAllData: () -> Unit) {
         if (isDesktopPlatform) {
             SettingsFootnote(
                 text = "Deletes every note, reminder and attachment stored on this device. This cannot be undone."
-            )
-        }
-    }
-}
-
-@Composable
-private fun SettingsOptionRow(
-    label: String,
-    isSelected: Boolean,
-    labelFontFamily: FontFamily? = null,
-    onClick: () -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 2.dp)
-            .clip(RoundedCornerShape(14.dp))
-            .background(if (isSelected) SelectedOptionBackground else Color.Transparent)
-            .clickable { onClick() }
-            .padding(horizontal = 14.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            text = label,
-            fontFamily = labelFontFamily,
-            style = MaterialTheme.typography.bodyLarge,
-            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.weight(1f)
-        )
-
-        if (isSelected) {
-            Box(
-                modifier = Modifier
-                    .size(8.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primary)
             )
         }
     }
