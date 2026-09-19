@@ -7,6 +7,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -30,6 +31,7 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
@@ -67,8 +69,6 @@ import com.emberr.presentation.shared.components.AnimatedFolderIcon
 import com.emberr.presentation.shared.components.EmberrButtonPrimary
 import com.emberr.presentation.shared.components.EmberrButtonSecondary
 import com.emberr.presentation.shared.components.EmberrDesktopMenu
-import com.emberr.presentation.shared.components.EmberrDesktopMenuItem
-import com.emberr.presentation.shared.components.EmberrDesktopMenuItems
 import com.emberr.presentation.shared.components.EmberrTextField
 import emberr.shared.generated.resources.Res
 import emberr.shared.generated.resources.file_text
@@ -383,12 +383,12 @@ fun SidebarFolderRow(
                 onDismissRequest = { showContextMenu = false },
                 offset = DpOffset.Zero
             ) {
-                EmberrDesktopMenuItems {
+                SidebarMenuItems {
                     if (menu.showRename) {
-                        EmberrDesktopMenuItem("Add Subfolder", Icons.Default.CreateNewFolder) { showContextMenu = false; showAddSubfolderPopup = true }
-                        EmberrDesktopMenuItem("Rename", Icons.Default.Edit) { showContextMenu = false; showRenamePopup = true }
+                        SidebarMenuItem("Add Subfolder", Icons.Default.CreateNewFolder) { showContextMenu = false; showAddSubfolderPopup = true }
+                        SidebarMenuItem("Rename", Icons.Default.Edit) { showContextMenu = false; showRenamePopup = true }
                     }
-                    EmberrDesktopMenuItem(menu.deleteLabel, Icons.Default.Delete, isDestructive = true) { showContextMenu = false; onDelete() }
+                    SidebarMenuItem(menu.deleteLabel, Icons.Default.Delete, isDestructive = true) { showContextMenu = false; onDelete() }
                 }
             }
         }
@@ -574,14 +574,14 @@ fun SidebarNoteRow(
                 onDismissRequest = { showContextMenu = false },
                 offset = DpOffset.Zero
             ) {
-                EmberrDesktopMenuItems {
+                SidebarMenuItems {
                     if (menu.showRename) {
-                        EmberrDesktopMenuItem("Rename", Icons.Default.Edit) { showContextMenu = false; showRenamePopup = true }
+                        SidebarMenuItem("Rename", Icons.Default.Edit) { showContextMenu = false; showRenamePopup = true }
                     }
                     if (menu.showFavorite) {
-                        EmberrDesktopMenuItem(menu.favoriteLabel, Icons.Default.Star) { showContextMenu = false; onToggleFavorite() }
+                        SidebarMenuItem(menu.favoriteLabel, Icons.Default.Star) { showContextMenu = false; onToggleFavorite() }
                     }
-                    EmberrDesktopMenuItem(menu.deleteLabel, Icons.Default.Delete, isDestructive = true) { showContextMenu = false; onDelete() }
+                    SidebarMenuItem(menu.deleteLabel, Icons.Default.Delete, isDestructive = true) { showContextMenu = false; onDelete() }
                 }
             }
         }
@@ -746,5 +746,46 @@ private fun SidebarTrailingCheck() {
             tint = MaterialTheme.colorScheme.primary,
             modifier = Modifier.size(13.dp)
         )
+    }
+}
+
+private val SidebarMenuWidth = 220.dp
+
+@Composable
+private fun SidebarMenuItems(content: @Composable ColumnScope.() -> Unit) {
+    Column(
+        modifier = Modifier.width(SidebarMenuWidth).padding(vertical = 4.dp),
+        content = content
+    )
+}
+
+@Composable
+private fun SidebarMenuItem(
+    text: String,
+    icon: ImageVector,
+    isDestructive: Boolean = false,
+    enabled: Boolean = true,
+    onClick: () -> Unit
+) {
+    val baseColor = if (isDestructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
+    val contentColor = if (enabled) baseColor else baseColor.copy(alpha = 0.38f)
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp, vertical = 2.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .clickable(enabled = enabled) { onClick() }
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = contentColor,
+            modifier = Modifier.size(20.dp)
+        )
+        Spacer(modifier = Modifier.width(12.dp))
+        Text(text = text, style = MaterialTheme.typography.bodyLarge, color = contentColor)
     }
 }

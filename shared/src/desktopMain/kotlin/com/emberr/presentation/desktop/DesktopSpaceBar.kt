@@ -6,6 +6,7 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.hoverable
@@ -14,6 +15,7 @@ import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -44,6 +46,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.changedToUp
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
@@ -55,8 +58,6 @@ import androidx.compose.ui.unit.dp
 import com.emberr.data.local.room.entity.SpaceEntity
 import com.emberr.presentation.shared.components.EmberrButtonSecondary
 import com.emberr.presentation.shared.components.EmberrDesktopMenu
-import com.emberr.presentation.shared.components.EmberrDesktopMenuItem
-import com.emberr.presentation.shared.components.EmberrDesktopMenuItems
 import emberr.shared.generated.resources.Res
 import emberr.shared.generated.resources.plus
 import kotlin.math.abs
@@ -113,12 +114,12 @@ fun DesktopSpaceBar(
                 expanded = showAddMenu,
                 onDismissRequest = { showAddMenu = false }
             ) {
-                EmberrDesktopMenuItems {
-                    EmberrDesktopMenuItem(text = "Create Space", icon = Icons.Default.Add) {
+                SpaceMenuItems {
+                    SpaceMenuItem(text = "Create Space", icon = Icons.Default.Add) {
                         showAddMenu = false
                         showCreatePopup = true
                     }
-                    EmberrDesktopMenuItem(
+                    SpaceMenuItem(
                         text = "Split View",
                         icon = Icons.Default.Splitscreen,
                         enabled = false
@@ -333,12 +334,12 @@ fun SidebarSpaceHeader(
                 expanded = showMenu,
                 onDismissRequest = { showMenu = false }
             ) {
-                EmberrDesktopMenuItems {
-                    EmberrDesktopMenuItem(text = "Rename Space", icon = Icons.Default.Edit) {
+                SpaceMenuItems {
+                    SpaceMenuItem(text = "Rename Space", icon = Icons.Default.Edit) {
                         showMenu = false
                         showRenamePopup = true
                     }
-                    EmberrDesktopMenuItem(
+                    SpaceMenuItem(
                         text = "Delete Space",
                         icon = Icons.Default.Delete,
                         isDestructive = true,
@@ -443,5 +444,46 @@ private fun DeleteSpaceConfirmation(
                 Text(text = "Delete", style = MaterialTheme.typography.bodyLarge)
             }
         }
+    }
+}
+
+private val SpaceMenuWidth = 220.dp
+
+@Composable
+private fun SpaceMenuItems(content: @Composable ColumnScope.() -> Unit) {
+    Column(
+        modifier = Modifier.width(SpaceMenuWidth).padding(vertical = 4.dp),
+        content = content
+    )
+}
+
+@Composable
+private fun SpaceMenuItem(
+    text: String,
+    icon: ImageVector,
+    isDestructive: Boolean = false,
+    enabled: Boolean = true,
+    onClick: () -> Unit
+) {
+    val baseColor = if (isDestructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
+    val contentColor = if (enabled) baseColor else baseColor.copy(alpha = 0.38f)
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp, vertical = 2.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .clickable(enabled = enabled) { onClick() }
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = contentColor,
+            modifier = Modifier.size(20.dp)
+        )
+        Spacer(modifier = Modifier.width(12.dp))
+        Text(text = text, style = MaterialTheme.typography.bodyLarge, color = contentColor)
     }
 }
