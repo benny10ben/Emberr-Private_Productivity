@@ -236,6 +236,15 @@ compose.desktop {
         mainClass = desktopMainClass
         javaHome = desktopRuntimeJdk.get().metadata.installationPath.asFile.absolutePath
 
+        jvmArgs += listOf(
+            "-Xmx1g",
+            "-XX:MaxMetaspaceSize=256m",
+            "-XX:+UseG1GC",
+            "-XX:G1PeriodicGCInterval=30000",
+            "-XX:MaxHeapFreeRatio=30",
+            "-XX:MinHeapFreeRatio=10"
+        )
+
         nativeDistributions {
             targetFormats(
                 org.jetbrains.compose.desktop.application.dsl.TargetFormat.Rpm
