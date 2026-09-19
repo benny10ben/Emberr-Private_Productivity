@@ -382,7 +382,8 @@ object NoteMarkdownWriter {
             isWholeBlockBold = block.isBold,
             isWholeBlockItalic = block.isItalic,
             isWholeBlockStrikeThrough = block.isStrikeThrough,
-            isWholeBlockUnderlined = block.isUnderlined
+            isWholeBlockUnderlined = block.isUnderlined,
+            isWholeBlockHighlighted = block.isHighlighted
         )
 
     private fun withInlineTag(content: String, tag: String?): String = when {

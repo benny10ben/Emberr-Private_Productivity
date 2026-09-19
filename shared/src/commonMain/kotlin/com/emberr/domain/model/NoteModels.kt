@@ -46,6 +46,7 @@ sealed class NoteBlock {
     abstract val isItalic: Boolean
     abstract val isStrikeThrough: Boolean
     abstract val isUnderlined: Boolean
+    abstract val isHighlighted: Boolean
     abstract val isDeleted: Boolean
     abstract val isPinned: Boolean
     abstract val updatedAt: Long
@@ -69,7 +70,8 @@ data class InlineSpan(
     val bold: Boolean = false,
     val italic: Boolean = false,
     val strikeThrough: Boolean = false,
-    val underline: Boolean = false
+    val underline: Boolean = false,
+    val highlight: Boolean = false
 )
 
 @Immutable
@@ -85,6 +87,7 @@ data class TextBlock(
     override val isItalic: Boolean = false,
     override val isStrikeThrough: Boolean = false,
     override val isUnderlined: Boolean = false,
+    override val isHighlighted: Boolean = false,
     override val isDeleted: Boolean = false,
     override val isPinned: Boolean = false,
     override val updatedAt: Long = 0L
@@ -104,6 +107,7 @@ data class HeadingBlock(
     override val isItalic: Boolean = false,
     override val isStrikeThrough: Boolean = false,
     override val isUnderlined: Boolean = false,
+    override val isHighlighted: Boolean = false,
     override val isDeleted: Boolean = false,
     override val isPinned: Boolean = false,
     override val updatedAt: Long = 0L
@@ -122,6 +126,7 @@ data class QuoteBlock(
     override val isItalic: Boolean = false,
     override val isStrikeThrough: Boolean = false,
     override val isUnderlined: Boolean = false,
+    override val isHighlighted: Boolean = false,
     override val isDeleted: Boolean = false,
     override val isPinned: Boolean = false,
     override val updatedAt: Long = 0L
@@ -141,6 +146,7 @@ data class CheckboxBlock(
     override val isItalic: Boolean = false,
     override val isStrikeThrough: Boolean = false,
     override val isUnderlined: Boolean = false,
+    override val isHighlighted: Boolean = false,
     val reminderTimestamp: Long? = null,
     val completedAt: Long? = null,
     val categoryId: String? = null,
@@ -166,6 +172,7 @@ data class BulletedListBlock(
     override val isItalic: Boolean = false,
     override val isStrikeThrough: Boolean = false,
     override val isUnderlined: Boolean = false,
+    override val isHighlighted: Boolean = false,
     override val isDeleted: Boolean = false,
     override val isPinned: Boolean = false,
     override val updatedAt: Long = 0L
@@ -185,6 +192,7 @@ data class NumberedListBlock(
     override val isItalic: Boolean = false,
     override val isStrikeThrough: Boolean = false,
     override val isUnderlined: Boolean = false,
+    override val isHighlighted: Boolean = false,
     override val isDeleted: Boolean = false,
     override val isPinned: Boolean = false,
     override val updatedAt: Long = 0L
@@ -204,6 +212,7 @@ data class ToggleBlock(
     override val isItalic: Boolean = false,
     override val isStrikeThrough: Boolean = false,
     override val isUnderlined: Boolean = false,
+    override val isHighlighted: Boolean = false,
     override val isDeleted: Boolean = false,
     override val isPinned: Boolean = false,
     override val updatedAt: Long = 0L
@@ -222,6 +231,7 @@ data class CodeBlock(
     override val isItalic: Boolean = false,
     override val isStrikeThrough: Boolean = false,
     override val isUnderlined: Boolean = false,
+    override val isHighlighted: Boolean = false,
     override val isDeleted: Boolean = false,
     override val isPinned: Boolean = false,
     override val updatedAt: Long = 0L
@@ -241,6 +251,7 @@ data class BookmarkBlock(
     override val isItalic: Boolean = false,
     override val isStrikeThrough: Boolean = false,
     override val isUnderlined: Boolean = false,
+    override val isHighlighted: Boolean = false,
     override val isDeleted: Boolean = false,
     override val isPinned: Boolean = false,
     override val updatedAt: Long = 0L
@@ -259,6 +270,7 @@ data class LinkedNoteBlock(
     override val isItalic: Boolean = false,
     override val isStrikeThrough: Boolean = false,
     override val isUnderlined: Boolean = false,
+    override val isHighlighted: Boolean = false,
     override val isDeleted: Boolean = false,
     override val isPinned: Boolean = false,
     override val updatedAt: Long = 0L
@@ -275,6 +287,7 @@ data class ImageBlock(
     override val isItalic: Boolean = false,
     override val isStrikeThrough: Boolean = false,
     override val isUnderlined: Boolean = false,
+    override val isHighlighted: Boolean = false,
     override val isDeleted: Boolean = false,
     override val isPinned: Boolean = false,
     override val updatedAt: Long = 0L
@@ -294,6 +307,7 @@ data class DocumentBlock(
     override val isItalic: Boolean = false,
     override val isStrikeThrough: Boolean = false,
     override val isUnderlined: Boolean = false,
+    override val isHighlighted: Boolean = false,
     override val isDeleted: Boolean = false,
     override val isPinned: Boolean = false,
     override val updatedAt: Long = 0L
@@ -335,6 +349,7 @@ data class DatabaseBlock(
     override val isItalic: Boolean = false,
     override val isStrikeThrough: Boolean = false,
     override val isUnderlined: Boolean = false,
+    override val isHighlighted: Boolean = false,
     override val isDeleted: Boolean = false,
     override val isPinned: Boolean = false,
     override val updatedAt: Long = 0L
@@ -472,6 +487,7 @@ data class TableBlock(
     override val isItalic: Boolean = false,
     override val isStrikeThrough: Boolean = false,
     override val isUnderlined: Boolean = false,
+    override val isHighlighted: Boolean = false,
     override val isDeleted: Boolean = false,
     override val isPinned: Boolean = false,
     override val updatedAt: Long = 0L
@@ -489,6 +505,7 @@ data class VoiceBlock(
     override val isItalic: Boolean = false,
     override val isStrikeThrough: Boolean = false,
     override val isUnderlined: Boolean = false,
+    override val isHighlighted: Boolean = false,
     override val isDeleted: Boolean = false,
     override val isPinned: Boolean = false,
     override val updatedAt: Long = 0L
@@ -504,6 +521,7 @@ data class SolidDividerBlock(
     override val isItalic: Boolean = false,
     override val isStrikeThrough: Boolean = false,
     override val isUnderlined: Boolean = false,
+    override val isHighlighted: Boolean = false,
     override val isDeleted: Boolean = false,
     override val isPinned: Boolean = false,
     override val updatedAt: Long = 0L
@@ -519,6 +537,7 @@ data class ThreeDotDividerBlock(
     override val isItalic: Boolean = false,
     override val isStrikeThrough: Boolean = false,
     override val isUnderlined: Boolean = false,
+    override val isHighlighted: Boolean = false,
     override val isDeleted: Boolean = false,
     override val isPinned: Boolean = false,
     override val updatedAt: Long = 0L

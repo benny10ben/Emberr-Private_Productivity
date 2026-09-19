@@ -32,14 +32,47 @@ class InlineMarkdownFormatterTest {
     }
 
     @Test
+    fun highlightSpanBecomesDoubleEquals() {
+        val result = InlineMarkdownFormatter.toMarkdown(
+            text = "call the plumber, urgent",
+            spans = listOf(InlineSpan(start = 18, end = 24, highlight = true))
+        )
+        assertEquals("call the plumber, ==urgent==", result)
+    }
+
+    @Test
+    fun wholeBlockHighlightWrapsEveryCharacter() {
+        val result = InlineMarkdownFormatter.toMarkdown(text = "abc", isWholeBlockHighlighted = true)
+        assertEquals("==abc==", result)
+    }
+
+    @Test
+    fun literalDoubledEqualsIsEscaped() {
+        assertEquals("2 \\=\\= 3", InlineMarkdownFormatter.toMarkdown("2 == 3"))
+    }
+
+    @Test
+    fun aSingleEqualsSignIsLeftAlone() {
+        assertEquals("2 = 3", InlineMarkdownFormatter.toMarkdown("2 = 3"))
+    }
+
+    @Test
     fun combinedStylesOpenAndCloseInMirroredOrder() {
         val result = InlineMarkdownFormatter.toMarkdown(
             text = "abc",
             spans = listOf(
-                InlineSpan(start = 0, end = 3, bold = true, italic = true, strikeThrough = true, underline = true)
+                InlineSpan(
+                    start = 0,
+                    end = 3,
+                    bold = true,
+                    italic = true,
+                    strikeThrough = true,
+                    underline = true,
+                    highlight = true
+                )
             )
         )
-        assertEquals("***~~<u>abc</u>~~***", result)
+        assertEquals("***~~<u>==abc==</u>~~***", result)
     }
 
     @Test

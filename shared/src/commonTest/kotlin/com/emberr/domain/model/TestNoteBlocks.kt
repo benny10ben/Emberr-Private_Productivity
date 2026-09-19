@@ -10,7 +10,8 @@ object TestNoteBlocks {
         bold = true,
         italic = true,
         strikeThrough = true,
-        underline = true
+        underline = true,
+        highlight = true
     )
 
     fun textColumn(id: String, databaseId: String, name: String) = DatabaseColumn(

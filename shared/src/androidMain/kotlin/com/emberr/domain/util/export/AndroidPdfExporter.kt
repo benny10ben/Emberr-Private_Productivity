@@ -9,6 +9,8 @@ import androidx.core.graphics.toColorInt
 import androidx.core.graphics.withTranslation
 import androidx.core.graphics.withSave
 
+private val PdfHighlightColor = 0xFFFFF176.toInt()
+
 fun generateAndSaveAndroidPdf(
     context: Context,
     uri: Uri,
@@ -79,11 +81,13 @@ fun generateAndSaveAndroidPdf(
                     val isItalic = when (block) { is TextBlock -> block.isItalic; is CheckboxBlock -> block.isItalic; is BulletedListBlock -> block.isItalic; is NumberedListBlock -> block.isItalic; is QuoteBlock -> block.isItalic; else -> false }
                     val isStrike = when (block) { is TextBlock -> block.isStrikeThrough; is CheckboxBlock -> block.isStrikeThrough; is BulletedListBlock -> block.isStrikeThrough; is NumberedListBlock -> block.isStrikeThrough; is QuoteBlock -> block.isStrikeThrough; else -> false }
                     val isUnder = when (block) { is TextBlock -> block.isUnderlined; is CheckboxBlock -> block.isUnderlined; is BulletedListBlock -> block.isUnderlined; is NumberedListBlock -> block.isUnderlined; is QuoteBlock -> block.isUnderlined; else -> false }
+                    val isHighlighted = when (block) { is TextBlock -> block.isHighlighted; is CheckboxBlock -> block.isHighlighted; is BulletedListBlock -> block.isHighlighted; is NumberedListBlock -> block.isHighlighted; is QuoteBlock -> block.isHighlighted; else -> false }
 
                     textPaint.isFakeBoldText = isBold || block is HeadingBlock
                     textPaint.textSkewX = if (isItalic) -0.25f else 0f
                     textPaint.isStrikeThruText = isStrike
                     textPaint.isUnderlineText = isUnder
+                    textPaint.bgColor = if (isHighlighted) PdfHighlightColor else 0
                     textPaint.textSize = if (block is HeadingBlock) (if (block.level == 1) 18f else 14f) else 12f
 
                     val textStr = when (block) {

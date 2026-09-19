@@ -8,6 +8,7 @@ private const val BOLD_BIT = 1
 private const val ITALIC_BIT = 2
 private const val STRIKE_THROUGH_BIT = 4
 private const val UNDERLINE_BIT = 8
+private const val HIGHLIGHT_BIT = 16
 
 data class ParsedInlineText(
     val text: String,
@@ -15,10 +16,11 @@ data class ParsedInlineText(
     val isWholeTextBold: Boolean,
     val isWholeTextItalic: Boolean,
     val isWholeTextStrikeThrough: Boolean,
-    val isWholeTextUnderlined: Boolean
+    val isWholeTextUnderlined: Boolean,
+    val isWholeTextHighlighted: Boolean
 ) {
     companion object {
-        val empty = ParsedInlineText("", emptyList(), false, false, false, false)
+        val empty = ParsedInlineText("", emptyList(), false, false, false, false, false)
     }
 }
 
@@ -46,6 +48,10 @@ object InlineMarkdownParser {
                 }
                 markdown.startsWith("~~", index) -> {
                     activeStyle = activeStyle xor STRIKE_THROUGH_BIT
+                    index += 2
+                }
+                markdown.startsWith("==", index) -> {
+                    activeStyle = activeStyle xor HIGHLIGHT_BIT
                     index += 2
                 }
                 markdown.startsWith("</u>", index) -> {
@@ -83,12 +89,14 @@ object InlineMarkdownParser {
         val isWholeTextItalic = styleCoversEveryCharacter(text, stylePerCharacter, ITALIC_BIT)
         val isWholeTextStrikeThrough = styleCoversEveryCharacter(text, stylePerCharacter, STRIKE_THROUGH_BIT)
         val isWholeTextUnderlined = styleCoversEveryCharacter(text, stylePerCharacter, UNDERLINE_BIT)
+        val isWholeTextHighlighted = styleCoversEveryCharacter(text, stylePerCharacter, HIGHLIGHT_BIT)
 
         var bitsMovedToWholeText = 0
         if (isWholeTextBold) bitsMovedToWholeText = bitsMovedToWholeText or BOLD_BIT
         if (isWholeTextItalic) bitsMovedToWholeText = bitsMovedToWholeText or ITALIC_BIT
         if (isWholeTextStrikeThrough) bitsMovedToWholeText = bitsMovedToWholeText or STRIKE_THROUGH_BIT
         if (isWholeTextUnderlined) bitsMovedToWholeText = bitsMovedToWholeText or UNDERLINE_BIT
+        if (isWholeTextHighlighted) bitsMovedToWholeText = bitsMovedToWholeText or HIGHLIGHT_BIT
 
         val remainingStyles = stylePerCharacter.map { it and bitsMovedToWholeText.inv() }
 
@@ -98,7 +106,8 @@ object InlineMarkdownParser {
             isWholeTextBold = isWholeTextBold,
             isWholeTextItalic = isWholeTextItalic,
             isWholeTextStrikeThrough = isWholeTextStrikeThrough,
-            isWholeTextUnderlined = isWholeTextUnderlined
+            isWholeTextUnderlined = isWholeTextUnderlined,
+            isWholeTextHighlighted = isWholeTextHighlighted
         )
     }
 
@@ -163,7 +172,8 @@ object InlineMarkdownParser {
                     bold = style and BOLD_BIT != 0,
                     italic = style and ITALIC_BIT != 0,
                     strikeThrough = style and STRIKE_THROUGH_BIT != 0,
-                    underline = style and UNDERLINE_BIT != 0
+                    underline = style and UNDERLINE_BIT != 0,
+                    highlight = style and HIGHLIGHT_BIT != 0
                 )
             )
             index = runEnd

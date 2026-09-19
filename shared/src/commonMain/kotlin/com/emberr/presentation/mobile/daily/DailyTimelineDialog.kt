@@ -99,6 +99,7 @@ import com.emberr.presentation.shared.editor.blockViews.TableBlockView
 import com.emberr.presentation.shared.editor.blockViews.databaseBlockView.DatabaseBlockView
 import com.emberr.presentation.shared.editor.blockViews.databaseBlockView.buildNoteLinkAnnotatedString
 import com.emberr.ui.theme.LocalAppIsDark
+import com.emberr.ui.theme.highlightBackgroundColor
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
 import emberr.shared.generated.resources.Res
@@ -774,14 +775,17 @@ private fun TimelineText(
     isSearchMatch: Boolean = false
 ) {
     val linkColor = MaterialTheme.colorScheme.primary
+    val highlightColor = highlightBackgroundColor
     val inlineSpans = block.inlineSpansOrEmpty()
-    val annotatedText = remember(text, inlineSpans, linkColor) {
-        buildTimelineAnnotatedString(text, inlineSpans, linkColor)
+    val annotatedText = remember(text, inlineSpans, linkColor, highlightColor) {
+        buildTimelineAnnotatedString(text, inlineSpans, linkColor, highlightColor)
     }
 
     Text(
         text = annotatedText,
-        style = MaterialTheme.typography.bodyLarge,
+        style = MaterialTheme.typography.bodyLarge.copy(
+            background = if (block.isHighlighted) highlightColor else Color.Unspecified
+        ),
         color = color,
         fontWeight = if (block.isBold || isSearchMatch) FontWeight.Bold else baseWeight,
         fontStyle = if (block.isItalic) FontStyle.Italic else baseStyle,
@@ -792,7 +796,8 @@ private fun TimelineText(
 private fun buildTimelineAnnotatedString(
     text: String,
     inlineSpans: List<InlineSpan>,
-    linkColor: Color
+    linkColor: Color,
+    highlightColor: Color
 ): AnnotatedString {
     if (text.contains(NoteLinkPrefix)) return buildNoteLinkAnnotatedString(text, linkColor)
     if (inlineSpans.isEmpty()) return AnnotatedString(text)
@@ -807,7 +812,8 @@ private fun buildTimelineAnnotatedString(
                 style = SpanStyle(
                     fontWeight = if (span.bold) FontWeight.Bold else null,
                     fontStyle = if (span.italic) FontStyle.Italic else null,
-                    textDecoration = combineDecorations(span.underline, span.strikeThrough)
+                    textDecoration = combineDecorations(span.underline, span.strikeThrough),
+                    background = if (span.highlight) highlightColor else Color.Unspecified
                 ),
                 start = start,
                 end = end

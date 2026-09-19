@@ -103,6 +103,7 @@ import emberr.shared.generated.resources.ellipsis
 import emberr.shared.generated.resources.eye3
 import emberr.shared.generated.resources.file_text
 import emberr.shared.generated.resources.format_bold
+import emberr.shared.generated.resources.highlight
 import emberr.shared.generated.resources.image
 import emberr.shared.generated.resources.indent_left
 import emberr.shared.generated.resources.indent_right
@@ -1086,18 +1087,7 @@ fun EditorToolbar(
 
                                 ToolbarDivider(tint)
 
-                                ToolbarButton(onClick = { onToggleFormat("bold") }) {
-                                    Icon(painterResource(Res.drawable.format_bold), "Bold", tint = tint, modifier = Modifier.size(customIconSize - 4.dp))
-                                }
-                                ToolbarButton(onClick = { onToggleFormat("italic") }) {
-                                    Icon(painterResource(Res.drawable.italic), "Italic", tint = tint, modifier = Modifier.size(customIconSize - 4.dp))
-                                }
-                                ToolbarButton(onClick = { onToggleFormat("strike") }) {
-                                    Icon(painterResource(Res.drawable.text_x), "Strikethrough", tint = tint, modifier = Modifier.size(customIconSize - 2.dp))
-                                }
-                                ToolbarButton(onClick = { onToggleFormat("underline") }) {
-                                    Icon(painterResource(Res.drawable.underline), "Underline", tint = tint, modifier = Modifier.size(customIconSize - 2.dp))
-                                }
+                                InlineFormatButtons(tint = tint, iconSize = customIconSize, onToggleFormat = onToggleFormat)
 
                                 ToolbarDivider(tint)
 
@@ -1254,6 +1244,25 @@ fun EditorToolbar(
     }
 }
 
+@Composable
+private fun InlineFormatButtons(tint: Color, iconSize: Dp, onToggleFormat: (String) -> Unit) {
+    ToolbarButton(onClick = { onToggleFormat("bold") }) {
+        Icon(painterResource(Res.drawable.format_bold), "Bold", tint = tint, modifier = Modifier.size(iconSize - 4.dp))
+    }
+    ToolbarButton(onClick = { onToggleFormat("italic") }) {
+        Icon(painterResource(Res.drawable.italic), "Italic", tint = tint, modifier = Modifier.size(iconSize - 4.dp))
+    }
+    ToolbarButton(onClick = { onToggleFormat("strike") }) {
+        Icon(painterResource(Res.drawable.text_x), "Strikethrough", tint = tint, modifier = Modifier.size(iconSize - 2.dp))
+    }
+    ToolbarButton(onClick = { onToggleFormat("underline") }) {
+        Icon(painterResource(Res.drawable.underline), "Underline", tint = tint, modifier = Modifier.size(iconSize - 2.dp))
+    }
+    ToolbarButton(onClick = { onToggleFormat("highlight") }) {
+        Icon(painterResource(Res.drawable.highlight), "Highlight", tint = tint, modifier = Modifier.size(iconSize - 2.dp))
+    }
+}
+
 private val ToolbarButtonSize = 34.dp
 
 @Composable
@@ -1355,7 +1364,8 @@ fun buildSlashMenuSections(
         SlashMenuItemData("Bold Text", Res.drawable.format_bold, 13.dp) { onToggleFormat("bold") },
         SlashMenuItemData("Italic Text", Res.drawable.italic, 13.dp) { onToggleFormat("italic") },
         SlashMenuItemData("Underline Text", Res.drawable.underline, 15.dp) { onToggleFormat("underline") },
-        SlashMenuItemData("Strikethrough Text", Res.drawable.text_x, 15.dp) { onToggleFormat("strike") }
+        SlashMenuItemData("Strikethrough Text", Res.drawable.text_x, 15.dp) { onToggleFormat("strike") },
+        SlashMenuItemData("Highlight Text", Res.drawable.highlight, 15.dp) { onToggleFormat("highlight") }
     )),
     SlashMenuSectionData("Alignment", listOf(
         SlashMenuItemData("Align Left", Res.drawable.textalign_left2) { onSetAlignment(TextAlignment.LEFT) },
@@ -1876,18 +1886,7 @@ fun BlockStyleBar(
 
                     ToolbarDivider(tint)
 
-                    ToolbarButton(onClick = { onToggleFormat("bold") }) {
-                        Icon(painterResource(Res.drawable.format_bold), "Bold", tint = tint, modifier = Modifier.size(customIconSize - 4.dp))
-                    }
-                    ToolbarButton(onClick = { onToggleFormat("italic") }) {
-                        Icon(painterResource(Res.drawable.italic), "Italic", tint = tint, modifier = Modifier.size(customIconSize - 4.dp))
-                    }
-                    ToolbarButton(onClick = { onToggleFormat("strike") }) {
-                        Icon(painterResource(Res.drawable.text_x), "Strikethrough", tint = tint, modifier = Modifier.size(customIconSize - 2.dp))
-                    }
-                    ToolbarButton(onClick = { onToggleFormat("underline") }) {
-                        Icon(painterResource(Res.drawable.underline), "Underline", tint = tint, modifier = Modifier.size(customIconSize - 2.dp))
-                    }
+                    InlineFormatButtons(tint = tint, iconSize = customIconSize, onToggleFormat = onToggleFormat)
 
                     ToolbarDivider(tint)
 

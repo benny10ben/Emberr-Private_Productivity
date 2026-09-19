@@ -17,6 +17,7 @@ import emberr.shared.generated.resources.code
 import emberr.shared.generated.resources.copy
 import emberr.shared.generated.resources.eye3
 import emberr.shared.generated.resources.format_bold
+import emberr.shared.generated.resources.highlight
 import emberr.shared.generated.resources.indent_left
 import emberr.shared.generated.resources.indent_right
 import emberr.shared.generated.resources.italic
@@ -149,7 +150,8 @@ fun BlockSelectionMenuContent(
                         SlashMenuItemData("Bold", Res.drawable.format_bold, 13.dp, closeThen { onToggleFormat("bold") }),
                         SlashMenuItemData("Italic", Res.drawable.italic, 13.dp, closeThen { onToggleFormat("italic") }),
                         SlashMenuItemData("Underline", Res.drawable.underline, 15.dp, closeThen { onToggleFormat("underline") }),
-                        SlashMenuItemData("Strikethrough", Res.drawable.text_x, 15.dp, closeThen { onToggleFormat("strike") })
+                        SlashMenuItemData("Strikethrough", Res.drawable.text_x, 15.dp, closeThen { onToggleFormat("strike") }),
+                        SlashMenuItemData("Highlight", Res.drawable.highlight, 15.dp, closeThen { onToggleFormat("highlight") })
                     )
                 )
             )

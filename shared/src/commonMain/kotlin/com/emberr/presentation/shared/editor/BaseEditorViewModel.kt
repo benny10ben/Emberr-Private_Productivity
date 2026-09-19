@@ -17,6 +17,7 @@ import com.emberr.domain.util.network.HtmlMetadataFetcher
 import com.emberr.domain.util.media.MediaStorageHelper
 import com.emberr.domain.util.sync.SyncCoordinator
 import com.emberr.presentation.reminders.ReminderScheduler
+import com.emberr.ui.theme.HighlightCellBackgroundHex
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -826,10 +827,11 @@ abstract class BaseEditorViewModel(
         modifyBlocks { list ->
             mapBlockById(list, id) { b ->
                 when (format) {
-                    "bold" -> updateFormat(b, !b.isBold, b.isItalic, b.isStrikeThrough, b.isUnderlined, now)
-                    "italic" -> updateFormat(b, b.isBold, !b.isItalic, b.isStrikeThrough, b.isUnderlined, now)
-                    "strike" -> updateFormat(b, b.isBold, b.isItalic, !b.isStrikeThrough, b.isUnderlined, now)
-                    "underline" -> updateFormat(b, b.isBold, b.isItalic, b.isStrikeThrough, !b.isUnderlined, now)
+                    "bold" -> updateFormat(b, !b.isBold, b.isItalic, b.isStrikeThrough, b.isUnderlined, b.isHighlighted, now)
+                    "italic" -> updateFormat(b, b.isBold, !b.isItalic, b.isStrikeThrough, b.isUnderlined, b.isHighlighted, now)
+                    "strike" -> updateFormat(b, b.isBold, b.isItalic, !b.isStrikeThrough, b.isUnderlined, b.isHighlighted, now)
+                    "underline" -> updateFormat(b, b.isBold, b.isItalic, b.isStrikeThrough, !b.isUnderlined, b.isHighlighted, now)
+                    "highlight" -> updateFormat(b, b.isBold, b.isItalic, b.isStrikeThrough, b.isUnderlined, !b.isHighlighted, now)
                     else -> b
                 }
             }
@@ -837,15 +839,15 @@ abstract class BaseEditorViewModel(
         scheduleAutosave()
     }
 
-    private fun updateFormat(b: NoteBlock, bld: Boolean, itl: Boolean, stk: Boolean, und: Boolean, now: Long) = when (b) {
-        is TextBlock -> b.copy(isBold = bld, isItalic = itl, isStrikeThrough = stk, isUnderlined = und, updatedAt = now)
-        is HeadingBlock -> b.copy(isBold = bld, isItalic = itl, isStrikeThrough = stk, isUnderlined = und, updatedAt = now)
-        is CheckboxBlock -> b.copy(isBold = bld, isItalic = itl, isStrikeThrough = stk, isUnderlined = und, updatedAt = now)
-        is BulletedListBlock -> b.copy(isBold = bld, isItalic = itl, isStrikeThrough = stk, isUnderlined = und, updatedAt = now)
-        is NumberedListBlock -> b.copy(isBold = bld, isItalic = itl, isStrikeThrough = stk, isUnderlined = und, updatedAt = now)
-        is ToggleBlock -> b.copy(isBold = bld, isItalic = itl, isStrikeThrough = stk, isUnderlined = und, updatedAt = now)
+    private fun updateFormat(b: NoteBlock, bld: Boolean, itl: Boolean, stk: Boolean, und: Boolean, hlt: Boolean, now: Long) = when (b) {
+        is TextBlock -> b.copy(isBold = bld, isItalic = itl, isStrikeThrough = stk, isUnderlined = und, isHighlighted = hlt, updatedAt = now)
+        is HeadingBlock -> b.copy(isBold = bld, isItalic = itl, isStrikeThrough = stk, isUnderlined = und, isHighlighted = hlt, updatedAt = now)
+        is CheckboxBlock -> b.copy(isBold = bld, isItalic = itl, isStrikeThrough = stk, isUnderlined = und, isHighlighted = hlt, updatedAt = now)
+        is BulletedListBlock -> b.copy(isBold = bld, isItalic = itl, isStrikeThrough = stk, isUnderlined = und, isHighlighted = hlt, updatedAt = now)
+        is NumberedListBlock -> b.copy(isBold = bld, isItalic = itl, isStrikeThrough = stk, isUnderlined = und, isHighlighted = hlt, updatedAt = now)
+        is ToggleBlock -> b.copy(isBold = bld, isItalic = itl, isStrikeThrough = stk, isUnderlined = und, isHighlighted = hlt, updatedAt = now)
         is CodeBlock -> b
-        is QuoteBlock -> b.copy(isBold = bld, isItalic = itl, isStrikeThrough = stk, isUnderlined = und, updatedAt = now)
+        is QuoteBlock -> b.copy(isBold = bld, isItalic = itl, isStrikeThrough = stk, isUnderlined = und, isHighlighted = hlt, updatedAt = now)
         else -> b
     }
 
@@ -854,6 +856,7 @@ abstract class BaseEditorViewModel(
         "italic" -> b.isItalic
         "strike" -> b.isStrikeThrough
         "underline" -> b.isUnderlined
+        "highlight" -> b.isHighlighted
         else -> false
     }
 
@@ -868,10 +871,11 @@ abstract class BaseEditorViewModel(
             list.map { b ->
                 if (b.id !in ids) return@map b
                 when (format) {
-                    "bold" -> updateFormat(b, turnOn, b.isItalic, b.isStrikeThrough, b.isUnderlined, now)
-                    "italic" -> updateFormat(b, b.isBold, turnOn, b.isStrikeThrough, b.isUnderlined, now)
-                    "strike" -> updateFormat(b, b.isBold, b.isItalic, turnOn, b.isUnderlined, now)
-                    "underline" -> updateFormat(b, b.isBold, b.isItalic, b.isStrikeThrough, turnOn, now)
+                    "bold" -> updateFormat(b, turnOn, b.isItalic, b.isStrikeThrough, b.isUnderlined, b.isHighlighted, now)
+                    "italic" -> updateFormat(b, b.isBold, turnOn, b.isStrikeThrough, b.isUnderlined, b.isHighlighted, now)
+                    "strike" -> updateFormat(b, b.isBold, b.isItalic, turnOn, b.isUnderlined, b.isHighlighted, now)
+                    "underline" -> updateFormat(b, b.isBold, b.isItalic, b.isStrikeThrough, turnOn, b.isHighlighted, now)
+                    "highlight" -> updateFormat(b, b.isBold, b.isItalic, b.isStrikeThrough, b.isUnderlined, turnOn, now)
                     else -> b
                 }
             }
@@ -950,6 +954,9 @@ abstract class BaseEditorViewModel(
         "italic" -> style.copy(isItalic = !style.isItalic)
         "strike" -> style.copy(isStrikeThrough = !style.isStrikeThrough)
         "underline" -> style.copy(isUnderlined = !style.isUnderlined)
+        "highlight" -> style.copy(
+            backgroundColorHex = if (style.backgroundColorHex == HighlightCellBackgroundHex) null else HighlightCellBackgroundHex
+        )
         else -> null
     }
 
@@ -981,8 +988,28 @@ abstract class BaseEditorViewModel(
         var bold: Boolean = false,
         var italic: Boolean = false,
         var strike: Boolean = false,
-        var underline: Boolean = false
+        var underline: Boolean = false,
+        var highlight: Boolean = false
     )
+
+    private fun CharFormatFlags.hasFormat(format: String): Boolean = when (format) {
+        "bold" -> bold
+        "italic" -> italic
+        "strike" -> strike
+        "underline" -> underline
+        "highlight" -> highlight
+        else -> false
+    }
+
+    private fun CharFormatFlags.setFormat(format: String, isOn: Boolean) {
+        when (format) {
+            "bold" -> bold = isOn
+            "italic" -> italic = isOn
+            "strike" -> strike = isOn
+            "underline" -> underline = isOn
+            "highlight" -> highlight = isOn
+        }
+    }
 
     private fun List<InlineSpan>.toFlagsArray(length: Int): Array<CharFormatFlags> {
         val flags = Array(length) { CharFormatFlags() }
@@ -994,6 +1021,7 @@ abstract class BaseEditorViewModel(
                 if (span.italic) flags[i].italic = true
                 if (span.strikeThrough) flags[i].strike = true
                 if (span.underline) flags[i].underline = true
+                if (span.highlight) flags[i].highlight = true
             }
         }
         return flags
@@ -1004,13 +1032,23 @@ abstract class BaseEditorViewModel(
         var i = 0
         while (i < size) {
             val f = this[i]
-            if (!f.bold && !f.italic && !f.strike && !f.underline) {
+            if (!f.bold && !f.italic && !f.strike && !f.underline && !f.highlight) {
                 i++
                 continue
             }
             var j = i + 1
             while (j < size && this[j] == f) j++
-            result.add(InlineSpan(i, j, bold = f.bold, italic = f.italic, strikeThrough = f.strike, underline = f.underline))
+            result.add(
+                InlineSpan(
+                    start = i,
+                    end = j,
+                    bold = f.bold,
+                    italic = f.italic,
+                    strikeThrough = f.strike,
+                    underline = f.underline,
+                    highlight = f.highlight
+                )
+            )
             i = j
         }
         return result
@@ -1019,24 +1057,21 @@ abstract class BaseEditorViewModel(
     private fun toggleInlineSpanFormat(spans: List<InlineSpan>, textLength: Int, start: Int, end: Int, format: String): List<InlineSpan> {
         if (start >= end || textLength <= 0) return spans
         val flags = spans.toFlagsArray(textLength)
-        val isFullyOn = (start until end).all { i ->
-            when (format) {
-                "bold" -> flags[i].bold
-                "italic" -> flags[i].italic
-                "strike" -> flags[i].strike
-                "underline" -> flags[i].underline
-                else -> false
-            }
-        }
-        val newValue = !isFullyOn
-        for (i in start until end) {
-            when (format) {
-                "bold" -> flags[i].bold = newValue
-                "italic" -> flags[i].italic = newValue
-                "strike" -> flags[i].strike = newValue
-                "underline" -> flags[i].underline = newValue
-            }
-        }
+        val isFullyOn = (start until end).all { i -> flags[i].hasFormat(format) }
+        return setInlineSpanFormat(spans, textLength, start, end, format, isOn = !isFullyOn)
+    }
+
+    private fun setInlineSpanFormat(
+        spans: List<InlineSpan>,
+        textLength: Int,
+        start: Int,
+        end: Int,
+        format: String,
+        isOn: Boolean
+    ): List<InlineSpan> {
+        if (start >= end || textLength <= 0) return spans
+        val flags = spans.toFlagsArray(textLength)
+        for (i in start until end) flags[i].setFormat(format, isOn)
         return flags.toSpans()
     }
 

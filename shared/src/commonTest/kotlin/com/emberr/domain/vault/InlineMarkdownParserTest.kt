@@ -52,14 +52,31 @@ class InlineMarkdownParserTest {
     }
 
     @Test
+    fun highlightMarkersBecomeAHighlightSpan() {
+        val parsed = InlineMarkdownParser.parse("plain ==marked== plain")
+
+        assertEquals("plain marked plain", parsed.text)
+        assertEquals(listOf(InlineSpan(start = 6, end = 12, highlight = true)), parsed.spans)
+    }
+
+    @Test
+    fun escapedDoubledEqualsStaysLiteral() {
+        val parsed = InlineMarkdownParser.parse("2 \\=\\= 3")
+
+        assertEquals("2 == 3", parsed.text)
+        assertTrue(parsed.spans.isEmpty())
+    }
+
+    @Test
     fun combinedMarkersProduceOneSpanWithEveryFlag() {
-        val parsed = InlineMarkdownParser.parse("***~~<u>abc</u>~~***")
+        val parsed = InlineMarkdownParser.parse("***~~<u>==abc==</u>~~***")
 
         assertEquals("abc", parsed.text)
         assertTrue(parsed.isWholeTextBold)
         assertTrue(parsed.isWholeTextItalic)
         assertTrue(parsed.isWholeTextStrikeThrough)
         assertTrue(parsed.isWholeTextUnderlined)
+        assertTrue(parsed.isWholeTextHighlighted)
     }
 
     @Test
@@ -118,7 +135,10 @@ class InlineMarkdownParserTest {
             "with <u>underline</u> inside",
             "2 \\* 3",
             "**ab***cd*",
-            "one **two** three"
+            "one **two** three",
+            "plain ==marked== plain",
+            "==**both**==",
+            "2 \\=\\= 3"
         )
 
         for (sample in samples) {
@@ -129,7 +149,8 @@ class InlineMarkdownParserTest {
                 isWholeBlockBold = parsed.isWholeTextBold,
                 isWholeBlockItalic = parsed.isWholeTextItalic,
                 isWholeBlockStrikeThrough = parsed.isWholeTextStrikeThrough,
-                isWholeBlockUnderlined = parsed.isWholeTextUnderlined
+                isWholeBlockUnderlined = parsed.isWholeTextUnderlined,
+                isWholeBlockHighlighted = parsed.isWholeTextHighlighted
             )
             assertEquals(parsed.text, InlineMarkdownParser.parse(rewritten).text, "text drifted for: $sample")
             assertEquals(parsed.spans, InlineMarkdownParser.parse(rewritten).spans, "spans drifted for: $sample")

@@ -430,7 +430,8 @@ fun rememberWebLinkActions(): WebLinkActions {
 
 data class WebLinkVisualTransformation(
     private val inlineSpans: List<InlineSpan> = emptyList(),
-    private val hoveredLink: HoveredLink? = null
+    private val hoveredLink: HoveredLink? = null,
+    private val highlightColor: Color = Color.Unspecified
 ) : VisualTransformation {
     override fun filter(text: AnnotatedString): TransformedText {
         val highlighted = text.withInteractiveLinksHighlighted(hoveredLink)
@@ -451,7 +452,8 @@ data class WebLinkVisualTransformation(
                 SpanStyle(
                     fontWeight = if (span.bold) FontWeight.Bold else null,
                     fontStyle = if (span.italic) FontStyle.Italic else null,
-                    textDecoration = decoration
+                    textDecoration = decoration,
+                    background = if (span.highlight) highlightColor else Color.Unspecified
                 ),
                 start,
                 end

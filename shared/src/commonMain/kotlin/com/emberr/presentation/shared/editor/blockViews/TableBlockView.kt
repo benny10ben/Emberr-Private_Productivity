@@ -101,6 +101,7 @@ import com.emberr.presentation.shared.editor.components.DesktopCursor
 import com.emberr.presentation.shared.editor.components.desktopPointerCursor
 import com.emberr.presentation.shared.components.EmberrHorizontalScrollbar
 import com.emberr.presentation.shared.components.smoothWheelScroll
+import com.emberr.ui.theme.highlightBackgroundColor
 import emberr.shared.generated.resources.Res
 import emberr.shared.generated.resources.arrow_down
 import emberr.shared.generated.resources.arrow_left
@@ -687,8 +688,9 @@ private fun TableGridCell(
     val keyboardController = LocalSoftwareKeyboardController.current
     val webLinkActions = rememberWebLinkActions()
     val linkHoverState = rememberLinkHoverState()
-    val webLinkTransformation = remember(spans, linkHoverState.hoveredLink) {
-        WebLinkVisualTransformation(spans, linkHoverState.hoveredLink)
+    val highlightColor = highlightBackgroundColor
+    val webLinkTransformation = remember(spans, linkHoverState.hoveredLink, highlightColor) {
+        WebLinkVisualTransformation(spans, linkHoverState.hoveredLink, highlightColor)
     }
 
     var editorValue by remember { mutableStateOf(TextFieldValue(value, TextRange(value.length))) }

@@ -115,6 +115,7 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.AnnotatedString
 import com.emberr.presentation.shared.components.EmberrDesktopMenu
 import com.emberr.ui.theme.LocalEmberrFontStyle
+import com.emberr.ui.theme.highlightBackgroundColor
 import com.emberr.ui.theme.fontFamilyFor
 import emberr.shared.generated.resources.Res
 import emberr.shared.generated.resources.calendar_add
@@ -301,6 +302,7 @@ fun NoteBlockItem(
 
     val isCheckboxChecked = block is CheckboxBlock && block.isChecked
     val applyStrikeThrough = block.isStrikeThrough || isCheckboxChecked
+    val highlightColor = highlightBackgroundColor
 
     val textStyle = baseStyle.copy(
         fontWeight = if (block.isBold) FontWeight.Bold else baseStyle.fontWeight,
@@ -312,7 +314,8 @@ fun NoteBlockItem(
             else -> TextDecoration.None
         },
         textAlign = block.textAlignmentOrNull()?.toComposeTextAlign() ?: TextAlign.Unspecified,
-        color = if (isCheckboxChecked) MaterialTheme.colorScheme.outline else baseStyle.color
+        color = if (isCheckboxChecked) MaterialTheme.colorScheme.outline else baseStyle.color,
+        background = if (block.isHighlighted) highlightColor else Color.Unspecified
     )
 
     val internalVerticalPadding = when (block) {
@@ -533,10 +536,10 @@ fun NoteBlockItem(
             val inlineSpans = block.inlineSpansOrEmpty()
             val noteTitlesById = remember(allLinkableNotes) { allLinkableNotes.associate { it.noteId to it.title } }
             val richTextTransformation: VisualTransformation = remember(
-                block is CodeBlock, linkColor, fadedLinkColor, validNoteIds, inlineSpans, linkHoverState.hoveredLink, noteTitlesById
+                block is CodeBlock, linkColor, fadedLinkColor, highlightColor, validNoteIds, inlineSpans, linkHoverState.hoveredLink, noteTitlesById
             ) {
                 if (block is CodeBlock) VisualTransformation.None
-                else RichTextVisualTransformation(linkColor, fadedLinkColor, validNoteIds, inlineSpans, linkHoverState.hoveredLink, noteTitlesById)
+                else RichTextVisualTransformation(linkColor, fadedLinkColor, highlightColor, validNoteIds, inlineSpans, linkHoverState.hoveredLink, noteTitlesById)
             }
 
             Column(modifier = textFieldWrapperModifier) {
@@ -1293,6 +1296,7 @@ fun IsolatedEditorTextField(
 data class RichTextVisualTransformation(
     private val linkColor: Color,
     private val fadedColor: Color,
+    private val highlightColor: Color,
     private val validNoteIds: Set<String>,
     private val inlineSpans: List<InlineSpan> = emptyList(),
     private val hoveredLink: HoveredLink? = null,
@@ -1386,7 +1390,8 @@ data class RichTextVisualTransformation(
                 SpanStyle(
                     fontWeight = if (span.bold) FontWeight.Bold else null,
                     fontStyle = if (span.italic) FontStyle.Italic else null,
-                    textDecoration = decoration
+                    textDecoration = decoration,
+                    background = if (span.highlight) highlightColor else Color.Unspecified
                 ),
                 transformedStart,
                 transformedEnd

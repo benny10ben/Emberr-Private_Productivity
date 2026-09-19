@@ -9,15 +9,17 @@ private const val ITALIC_MARKER = "*"
 private const val STRIKE_THROUGH_MARKER = "~~"
 private const val UNDERLINE_OPENING_TAG = "<u>"
 private const val UNDERLINE_CLOSING_TAG = "</u>"
+private const val HIGHLIGHT_MARKER = "=="
 
 private data class CharacterStyle(
     val isBold: Boolean,
     val isItalic: Boolean,
     val isStrikeThrough: Boolean,
-    val isUnderlined: Boolean
+    val isUnderlined: Boolean,
+    val isHighlighted: Boolean
 ) {
     val hasNoFormatting: Boolean
-        get() = !isBold && !isItalic && !isStrikeThrough && !isUnderlined
+        get() = !isBold && !isItalic && !isStrikeThrough && !isUnderlined && !isHighlighted
 }
 
 object InlineMarkdownFormatter {
@@ -30,7 +32,8 @@ object InlineMarkdownFormatter {
         isWholeBlockBold: Boolean = false,
         isWholeBlockItalic: Boolean = false,
         isWholeBlockStrikeThrough: Boolean = false,
-        isWholeBlockUnderlined: Boolean = false
+        isWholeBlockUnderlined: Boolean = false,
+        isWholeBlockHighlighted: Boolean = false
     ): String {
         if (text.isEmpty()) return ""
 
@@ -40,17 +43,22 @@ object InlineMarkdownFormatter {
             isWholeBlockBold = isWholeBlockBold,
             isWholeBlockItalic = isWholeBlockItalic,
             isWholeBlockStrikeThrough = isWholeBlockStrikeThrough,
-            isWholeBlockUnderlined = isWholeBlockUnderlined
+            isWholeBlockUnderlined = isWholeBlockUnderlined,
+            isWholeBlockHighlighted = isWholeBlockHighlighted
         )
         return renderStyledRuns(text, stylePerCharacter)
     }
 
     fun escapeMarkdown(text: String): String = buildString(text.length) {
-        for (character in text) {
-            if (character in charactersNeedingEscape) append('\\')
+        for (index in text.indices) {
+            val character = text[index]
+            if (character in charactersNeedingEscape || isPartOfDoubledEquals(text, index)) append('\\')
             append(character)
         }
     }
+
+    private fun isPartOfDoubledEquals(text: String, index: Int): Boolean =
+        text[index] == '=' && (text.getOrNull(index - 1) == '=' || text.getOrNull(index + 1) == '=')
 
     private fun buildStylePerCharacter(
         textLength: Int,
@@ -58,13 +66,15 @@ object InlineMarkdownFormatter {
         isWholeBlockBold: Boolean,
         isWholeBlockItalic: Boolean,
         isWholeBlockStrikeThrough: Boolean,
-        isWholeBlockUnderlined: Boolean
+        isWholeBlockUnderlined: Boolean,
+        isWholeBlockHighlighted: Boolean
     ): Array<CharacterStyle> {
         val blockWideStyle = CharacterStyle(
             isBold = isWholeBlockBold,
             isItalic = isWholeBlockItalic,
             isStrikeThrough = isWholeBlockStrikeThrough,
-            isUnderlined = isWholeBlockUnderlined
+            isUnderlined = isWholeBlockUnderlined,
+            isHighlighted = isWholeBlockHighlighted
         )
         val stylePerCharacter = Array(textLength) { blockWideStyle }
 
@@ -77,7 +87,8 @@ object InlineMarkdownFormatter {
                     isBold = existing.isBold || span.bold,
                     isItalic = existing.isItalic || span.italic,
                     isStrikeThrough = existing.isStrikeThrough || span.strikeThrough,
-                    isUnderlined = existing.isUnderlined || span.underline
+                    isUnderlined = existing.isUnderlined || span.underline,
+                    isHighlighted = existing.isHighlighted || span.highlight
                 )
             }
         }
@@ -128,7 +139,9 @@ object InlineMarkdownFormatter {
         if (style.isItalic) output.append(ITALIC_MARKER)
         if (style.isStrikeThrough) output.append(STRIKE_THROUGH_MARKER)
         if (style.isUnderlined) output.append(UNDERLINE_OPENING_TAG)
+        if (style.isHighlighted) output.append(HIGHLIGHT_MARKER)
         output.append(escapeMarkdown(segment.substring(firstVisibleIndex, afterLastVisibleIndex)))
+        if (style.isHighlighted) output.append(HIGHLIGHT_MARKER)
         if (style.isUnderlined) output.append(UNDERLINE_CLOSING_TAG)
         if (style.isStrikeThrough) output.append(STRIKE_THROUGH_MARKER)
         if (style.isItalic) output.append(ITALIC_MARKER)

@@ -17,6 +17,9 @@ val CharcoalNoir   = Color(0xFF0d0d0d)
 val IroncladGrey   = Color(0xFF1E1E1E)
 val UrbanFog       = Color(0xFF848484)
 val CloudVeil      = Color(0xFFEFEFEF)
+val HighlightLime      = Color(0xFFFFF176)
+val HighlightLimeDark  = Color(0xFF6B5F10)
+const val HighlightCellBackgroundHex = "#FDFFB6"
 
 private val LightColorScheme = lightColorScheme(
     primary          = CharcoalNoir,
@@ -41,6 +44,10 @@ private val DarkColorScheme = darkColorScheme(
 )
 
 val LocalAppIsDark = staticCompositionLocalOf { false }
+
+val highlightBackgroundColor: Color
+    @Composable get() = if (LocalAppIsDark.current) HighlightLimeDark else HighlightLime
+
 enum class FontSizePreference { SMALL, DEFAULT, LARGE }
 enum class ThemePreference(val displayName: String) {
     SYSTEM("System"),
