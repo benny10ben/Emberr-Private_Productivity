@@ -1,8 +1,6 @@
 package com.emberr.presentation.rag.history
 
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -13,7 +11,6 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -21,22 +18,18 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.emberr.domain.util.system.isDesktopPlatform
 import com.emberr.presentation.rag.RagViewModel
 import com.emberr.presentation.rag.components.DesktopMenuRowHorizontalPadding
-import com.emberr.presentation.rag.components.OptionRowPadding
-import com.emberr.presentation.rag.components.OptionRowShape
-import com.emberr.presentation.rag.components.OptionRowVerticalSpacing
 import com.emberr.presentation.rag.components.RagDesktopMenuItem
-import com.emberr.presentation.rag.components.clickableWithoutMobileRipple
 import com.emberr.presentation.shared.components.EmberrBottomSheet
+import com.emberr.presentation.shared.components.EmberrBottomSheetOption
 import com.emberr.presentation.shared.components.EmberrButtonPrimary
 import com.emberr.presentation.shared.components.EmberrTextField
+
+private val SheetEdgePadding = 20.dp
 
 @Composable
 internal fun ChatHistorySheet(
@@ -48,6 +41,7 @@ internal fun ChatHistorySheet(
         expanded = expanded,
         onDismiss = onDismiss,
         title = "Chat History",
+        contentHorizontalPadding = 0.dp
     ) { closeAnd ->
         ChatHistoryMenuContent(viewModel = viewModel, closeAnd = closeAnd)
     }
@@ -61,7 +55,8 @@ internal fun ChatHistoryMenuContent(
     val sessions by viewModel.sessions.collectAsState()
     val currentSessionId by viewModel.currentSessionId.collectAsState()
     var searchQuery by remember { mutableStateOf("") }
-    val rowHorizontalPadding = if (isDesktopPlatform) DesktopMenuRowHorizontalPadding else 0.dp
+    val rowHorizontalPadding = if (isDesktopPlatform) DesktopMenuRowHorizontalPadding else SheetEdgePadding
+    val sectionLabelHorizontalPadding = if (isDesktopPlatform) 0.dp else SheetEdgePadding
 
     Column(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
         Spacer(Modifier.height(10.dp))
@@ -88,40 +83,23 @@ internal fun ChatHistoryMenuContent(
                 onClick = { closeAnd { viewModel.clearChat() } }
             )
         } else {
-            Surface(
-                shape = OptionRowShape,
-                color = Color.Transparent,
-                tonalElevation = 0.dp,
-                shadowElevation = 0.dp,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = OptionRowVerticalSpacing)
-                    .clip(OptionRowShape)
-                    .clickableWithoutMobileRipple { closeAnd { viewModel.clearChat() } }
-            ) {
-                Row(
-                    modifier = Modifier.padding(OptionRowPadding),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(14.dp)
-                ) {
+            EmberrBottomSheetOption(
+                label = "New Chat",
+                icon = {
                     Icon(
                         Icons.Default.Add,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(20.dp)
                     )
-                    Text(
-                        text = "New Chat",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-            }
+                },
+                onClick = { closeAnd { viewModel.clearChat() } }
+            )
         }
         HorizontalDivider(
             modifier = Modifier.padding(
                 vertical = 10.dp,
-                horizontal = if (isDesktopPlatform) 16.dp else 0.dp
+                horizontal = if (isDesktopPlatform) 16.dp else SheetEdgePadding
             ),
             color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)
         )
@@ -135,7 +113,8 @@ internal fun ChatHistoryMenuContent(
         Text(
             text = "Recent Chats",
             style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+            modifier = Modifier.padding(horizontal = sectionLabelHorizontalPadding)
         )
         Spacer(Modifier.height(8.dp))
 
@@ -165,7 +144,7 @@ internal fun ChatHistoryMenuContent(
             EmberrButtonPrimary(
                 text = "Close",
                 onClick = { closeAnd { } },
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth().padding(horizontal = SheetEdgePadding)
             )
         }
     }

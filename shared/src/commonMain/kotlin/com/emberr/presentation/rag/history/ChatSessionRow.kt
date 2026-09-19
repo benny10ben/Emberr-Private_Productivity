@@ -19,35 +19,26 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.emberr.domain.ai.chat.ChatSession
 import com.emberr.domain.util.system.isDesktopPlatform
-import com.emberr.presentation.rag.components.DesktopMenuRowHorizontalPadding
 import com.emberr.presentation.rag.components.ModelOptionCard
-import com.emberr.presentation.rag.components.OptionRowPadding
-import com.emberr.presentation.rag.components.OptionRowShape
-import com.emberr.presentation.rag.components.OptionRowVerticalSpacing
-import com.emberr.presentation.rag.components.SelectedOptionDot
 import com.emberr.presentation.rag.components.clickableWithoutMobileRipple
 import com.emberr.presentation.shared.components.EmberrAlertDialog
 import com.emberr.presentation.shared.components.EmberrBottomSheet
+import com.emberr.presentation.shared.components.EmberrBottomSheetOption
 import com.emberr.presentation.shared.components.EmberrButtonPrimary
 import com.emberr.presentation.shared.components.EmberrButtonSecondary
 import com.emberr.presentation.shared.components.EmberrDesktopMenu
+import com.emberr.presentation.shared.components.EmberrDesktopMenuOption
 import com.emberr.presentation.shared.components.EmberrTextField
-import com.emberr.presentation.shared.components.SelectedOptionBackground
 
 @Composable
 internal fun ChatSessionRow(
@@ -61,86 +52,59 @@ internal fun ChatSessionRow(
     var showRenameDialog by remember { mutableStateOf(false) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
 
-    Surface(
-        shape = OptionRowShape,
-        color = if (isActive) SelectedOptionBackground else Color.Transparent,
-        tonalElevation = 0.dp,
-        shadowElevation = 0.dp,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(
-                horizontal = if (isDesktopPlatform) 8.dp else 0.dp,
-                vertical = OptionRowVerticalSpacing
+    val chatOptionsButton: @Composable () -> Unit = {
+        Box {
+            Icon(
+                Icons.Default.MoreVert,
+                contentDescription = "Chat options",
+                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                modifier = Modifier
+                    .size(20.dp)
+                    .clickableWithoutMobileRipple { showMenu = true }
             )
-            .clip(OptionRowShape)
-            .clickableWithoutMobileRipple(onClick)
-    ) {
-        Row(
-            modifier = if (isDesktopPlatform) {
-                Modifier.padding(horizontal = DesktopMenuRowHorizontalPadding, vertical = 10.dp)
-            } else {
-                Modifier.padding(OptionRowPadding)
-            },
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = session.title,
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = if (isActive)
-                        MaterialTheme.colorScheme.primary
-                    else
-                        MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    text = session.messages.lastOrNull()?.text.orEmpty(),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
 
-            if (isActive) {
-                SelectedOptionDot()
-            }
-
-            Box {
-                Icon(
-                    Icons.Default.MoreVert,
-                    contentDescription = "Chat options",
-                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                    modifier = Modifier
-                        .size(20.dp)
-                        .clickableWithoutMobileRipple { showMenu = true }
-                )
-
-                if (isDesktopPlatform) {
-                    EmberrDesktopMenu(
-                        expanded = showMenu,
-                        onDismissRequest = { showMenu = false }
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text("Rename") },
-                            onClick = {
-                                showMenu = false
-                                showRenameDialog = true
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Delete") },
-                            onClick = {
-                                showMenu = false
-                                showDeleteConfirm = true
-                            }
-                        )
-                    }
+            if (isDesktopPlatform) {
+                EmberrDesktopMenu(
+                    expanded = showMenu,
+                    onDismissRequest = { showMenu = false }
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("Rename") },
+                        onClick = {
+                            showMenu = false
+                            showRenameDialog = true
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Delete") },
+                        onClick = {
+                            showMenu = false
+                            showDeleteConfirm = true
+                        }
+                    )
                 }
             }
         }
+    }
+
+    if (isDesktopPlatform) {
+        EmberrDesktopMenuOption(
+            label = session.title,
+            subtitle = session.messages.lastOrNull()?.text.orEmpty(),
+            isSelected = isActive,
+            trailing = chatOptionsButton,
+            onClick = onClick
+        )
+    } else {
+        EmberrBottomSheetOption(
+            label = session.title,
+            subtitle = session.messages.lastOrNull()?.text.orEmpty(),
+            isSelected = isActive,
+            labelMaxLines = 1,
+            subtitleMaxLines = 1,
+            trailing = chatOptionsButton,
+            onClick = onClick
+        )
     }
 
     if (!isDesktopPlatform) {

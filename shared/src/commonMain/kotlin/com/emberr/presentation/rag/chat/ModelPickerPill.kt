@@ -28,7 +28,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.emberr.domain.ai.AiGenerationMode
@@ -36,16 +35,11 @@ import com.emberr.domain.ai.external.ExternalAiProvider
 import com.emberr.domain.ai.external.ExternalAiProviderConfig
 import com.emberr.domain.util.system.isDesktopPlatform
 import com.emberr.presentation.rag.RagViewModel
-import com.emberr.presentation.rag.components.ModelOptionCard
-import com.emberr.presentation.rag.components.OptionRowPadding
-import com.emberr.presentation.rag.components.OptionRowShape
-import com.emberr.presentation.rag.components.OptionRowVerticalSpacing
-import com.emberr.presentation.rag.components.RagDesktopMenuItem
-import com.emberr.presentation.rag.components.SelectedOptionDot
 import com.emberr.presentation.shared.components.EmberrBottomSheet
+import com.emberr.presentation.shared.components.EmberrBottomSheetOption
 import com.emberr.presentation.shared.components.EmberrButtonPrimary
 import com.emberr.presentation.shared.components.EmberrDesktopMenu
-import com.emberr.presentation.shared.components.SelectedOptionBackground
+import com.emberr.presentation.shared.components.EmberrDesktopMenuOption
 
 @Composable
 internal fun ModelPickerPill(viewModel: RagViewModel) {
@@ -124,8 +118,8 @@ internal fun ModelPickerPill(viewModel: RagViewModel) {
             ) {
                 Column(modifier = Modifier.width(240.dp).padding(vertical = 4.dp)) {
                     selectableLocalModels.forEach { model ->
-                        RagDesktopMenuItem(
-                            text = model.displayName,
+                        EmberrDesktopMenuOption(
+                            label = model.displayName,
                             isSelected = aiGenerationMode == AiGenerationMode.LOCAL &&
                                     selectedLocalModelFileName == model.fileName,
                             onClick = { showPicker = false; viewModel.selectLocalModel(model.fileName) }
@@ -136,8 +130,8 @@ internal fun ModelPickerPill(viewModel: RagViewModel) {
                             val config = externalConfigs[provider]
                             val isConfigured = !config?.apiKey.isNullOrBlank()
                             if (isConfigured) {
-                                RagDesktopMenuItem(
-                                    text = config.model.takeIf { it.isNotBlank() } ?: provider.displayName,
+                                EmberrDesktopMenuOption(
+                                    label = config.model.takeIf { it.isNotBlank() } ?: provider.displayName,
                                     isSelected = aiGenerationMode == AiGenerationMode.EXTERNAL &&
                                             selectedExternalAiProvider == provider,
                                     onClick = { showPicker = false; viewModel.selectExternalProvider(provider) }
@@ -155,31 +149,17 @@ internal fun ModelPickerPill(viewModel: RagViewModel) {
             expanded = showPicker,
             onDismiss = { showPicker = false },
             title = "Choose AI Model",
+            contentHorizontalPadding = 0.dp
         ) { closeAnd ->
             Column(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
                 selectableLocalModels.forEach { model ->
                     val isSelectedModel = aiGenerationMode == AiGenerationMode.LOCAL &&
                             selectedLocalModelFileName == model.fileName
-                    ModelOptionCard(
-                        icon = null,
-                        title = model.displayName,
-                        titleMaxLines = 1,
-                        subtitle = null,
-                        contentPadding = OptionRowPadding,
-                        containerColor = if (isSelectedModel)
-                            SelectedOptionBackground
-                        else
-                            Color.Transparent,
-                        titleColor = if (isSelectedModel)
-                            MaterialTheme.colorScheme.primary
-                        else
-                            MaterialTheme.colorScheme.onSurface,
-                        trailing = if (isSelectedModel) {
-                            { SelectedOptionDot() }
-                        } else null,
-                        shape = OptionRowShape,
-                        onClick = { closeAnd { viewModel.selectLocalModel(model.fileName) } },
-                        modifier = Modifier.padding(vertical = OptionRowVerticalSpacing)
+                    EmberrBottomSheetOption(
+                        label = model.displayName,
+                        labelMaxLines = 1,
+                        isSelected = isSelectedModel,
+                        onClick = { closeAnd { viewModel.selectLocalModel(model.fileName) } }
                     )
                 }
 
@@ -190,26 +170,11 @@ internal fun ModelPickerPill(viewModel: RagViewModel) {
                         if (isConfigured) {
                             val isSelectedProvider = aiGenerationMode == AiGenerationMode.EXTERNAL &&
                                     selectedExternalAiProvider == provider
-                            ModelOptionCard(
-                                icon = null,
-                                title = config.model.takeIf { it.isNotBlank() } ?: provider.displayName,
-                                titleMaxLines = 1,
-                                subtitle = null,
-                                contentPadding = OptionRowPadding,
-                                containerColor = if (isSelectedProvider)
-                                    SelectedOptionBackground
-                                else
-                                    Color.Transparent,
-                                titleColor = if (isSelectedProvider)
-                                    MaterialTheme.colorScheme.primary
-                                else
-                                    MaterialTheme.colorScheme.onSurface,
-                                trailing = if (isSelectedProvider) {
-                                    { SelectedOptionDot() }
-                                } else null,
-                                shape = OptionRowShape,
-                                onClick = { closeAnd { viewModel.selectExternalProvider(provider) } },
-                                modifier = Modifier.padding(vertical = OptionRowVerticalSpacing)
+                            EmberrBottomSheetOption(
+                                label = config.model.takeIf { it.isNotBlank() } ?: provider.displayName,
+                                labelMaxLines = 1,
+                                isSelected = isSelectedProvider,
+                                onClick = { closeAnd { viewModel.selectExternalProvider(provider) } }
                             )
                         }
                     }
@@ -218,7 +183,8 @@ internal fun ModelPickerPill(viewModel: RagViewModel) {
                 EmberrButtonPrimary(
                     text = "Close",
                     onClick = { showPicker = false },
-                    modifier = Modifier.fillMaxWidth().padding(top = 12.dp)
+                    modifier = Modifier.fillMaxWidth()
+                        .padding(top = 12.dp, start = 20.dp, end = 20.dp)
                 )
             }
         }

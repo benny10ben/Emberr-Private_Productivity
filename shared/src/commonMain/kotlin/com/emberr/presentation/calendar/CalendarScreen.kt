@@ -90,9 +90,10 @@ import com.emberr.domain.util.system.isDesktopPlatform
 import com.emberr.presentation.customEmberrShadow
 import com.emberr.presentation.shared.components.EmberrBlur
 import com.emberr.presentation.shared.components.EmberrBottomSheet
+import com.emberr.presentation.shared.components.EmberrBottomSheetOption
 import com.emberr.presentation.shared.components.EmberrButtonPrimary
+import com.emberr.presentation.shared.components.EmberrDesktopMenuOption
 import com.emberr.presentation.shared.components.EmberrDesktopMenu
-import com.emberr.presentation.shared.components.SelectedOptionBackground
 import com.emberr.presentation.shared.components.EmberrTopHeaderBar
 import com.emberr.presentation.shared.components.TopHeaderBarButtonSize
 import com.emberr.presentation.shared.components.TopBarIconButton
@@ -123,6 +124,13 @@ import org.koin.compose.viewmodel.koinViewModel
 import kotlin.time.Duration.Companion.milliseconds
 
 enum class CalendarViewMode { DAY, THREE_DAY, WEEK, MONTH }
+
+private val calendarViewModeLabels = listOf(
+    CalendarViewMode.DAY to "Day",
+    CalendarViewMode.THREE_DAY to "3 Day",
+    CalendarViewMode.WEEK to "Week",
+    CalendarViewMode.MONTH to "Month"
+)
 
 private object NoRippleIndicationNodeFactory : IndicationNodeFactory {
     override fun create(interactionSource: InteractionSource): DelegatableNode = object : Modifier.Node() {}
@@ -1409,65 +1417,23 @@ private fun ViewModeSection(
             )
         }
 
-        ViewModeRow(
-            label = "Day",
-            isSelected = viewMode == CalendarViewMode.DAY,
-            onClick = { onViewModeChange(CalendarViewMode.DAY) }
-        )
-        ViewModeRow(
-            label = "3 Day",
-            isSelected = viewMode == CalendarViewMode.THREE_DAY,
-            onClick = { onViewModeChange(CalendarViewMode.THREE_DAY) }
-        )
-        ViewModeRow(
-            label = "Week",
-            isSelected = viewMode == CalendarViewMode.WEEK,
-            onClick = { onViewModeChange(CalendarViewMode.WEEK) }
-        )
-        ViewModeRow(
-            label = "Month",
-            isSelected = viewMode == CalendarViewMode.MONTH,
-            onClick = { onViewModeChange(CalendarViewMode.MONTH) }
-        )
-    }
-}
+        calendarViewModeLabels.forEach { (mode, label) ->
+            val isSelectedMode = viewMode == mode
 
-@Composable
-private fun ViewModeRow(
-    label: String,
-    isSelected: Boolean,
-    onClick: () -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(
-                horizontal = if (isDesktopPlatform) 0.dp else 12.dp,
-                vertical = 2.dp
-            )
-            .clip(RoundedCornerShape(14.dp))
-            .background(if (isSelected) SelectedOptionBackground else Color.Transparent)
-            .clickable(onClick = onClick)
-            .padding(
-                horizontal = if (isDesktopPlatform) 12.dp else 14.dp,
-                vertical = if (isDesktopPlatform) 10.dp else 14.dp
-            ),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodyLarge,
-            fontWeight = FontWeight.Normal,
-            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.weight(1f)
-        )
-
-        if (isSelected) {
-            Box(
-                modifier = Modifier
-                    .size(8.dp)
-                    .background(MaterialTheme.colorScheme.primary, CircleShape)
-            )
+            if (isDesktopPlatform) {
+                EmberrDesktopMenuOption(
+                    label = label,
+                    isSelected = isSelectedMode,
+                    onClick = { onViewModeChange(mode) },
+                    outerHorizontalPadding = 0.dp
+                )
+            } else {
+                EmberrBottomSheetOption(
+                    label = label,
+                    isSelected = isSelectedMode,
+                    onClick = { onViewModeChange(mode) }
+                )
+            }
         }
     }
 }

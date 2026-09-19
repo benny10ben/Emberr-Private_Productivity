@@ -55,7 +55,8 @@ import com.emberr.domain.util.system.isDesktopPlatform
 import com.emberr.presentation.shared.UserSettings
 import com.emberr.presentation.shared.components.EmberrBlur
 import com.emberr.presentation.shared.components.EmberrBottomSheet
-import com.emberr.presentation.shared.components.SelectedOptionBackground
+import com.emberr.presentation.shared.components.EmberrBottomSheetOption
+import com.emberr.presentation.shared.components.EmberrDesktopMenuOption
 import com.emberr.presentation.shared.components.EmberrBottomSheetAction
 import com.emberr.presentation.shared.components.EmberrDesktopMenu
 import com.emberr.presentation.shared.components.KmpBackHandler
@@ -1114,58 +1115,44 @@ fun HomeScreen(
 @Composable
 fun DesktopSortMenu(currentSortType: SortType, currentSortOrder: SortOrder, onDismiss: () -> Unit, onSortChanged: (SortType, SortOrder) -> Unit) {
     Column(modifier = Modifier.width(200.dp).padding(vertical = 4.dp)) {
-        DesktopSortOptionItem(
-            "Last Edited",
-            currentSortType == SortType.LAST_EDITED
-        ) { onDismiss(); onSortChanged(SortType.LAST_EDITED, currentSortOrder) }
-        DesktopSortOptionItem(
-            "Date Created",
-            currentSortType == SortType.DATE_CREATED
-        ) { onDismiss(); onSortChanged(SortType.DATE_CREATED, currentSortOrder) }
-        DesktopSortOptionItem(
-            "Name (A-Z)",
-            currentSortType == SortType.NAME
-        ) { onDismiss(); onSortChanged(SortType.NAME, currentSortOrder) }
-        DesktopSortOptionItem(
-            "Type",
-            currentSortType == SortType.TYPE
-        ) { onDismiss(); onSortChanged(SortType.TYPE, currentSortOrder) }
-        DesktopSortOptionItem("Manual", currentSortType == SortType.MANUAL) {
-            onDismiss(); onSortChanged(SortType.MANUAL, currentSortOrder)
-        }
+        EmberrDesktopMenuOption(
+            label = "Last Edited",
+            isSelected = currentSortType == SortType.LAST_EDITED,
+            onClick = { onDismiss(); onSortChanged(SortType.LAST_EDITED, currentSortOrder) }
+        )
+        EmberrDesktopMenuOption(
+            label = "Date Created",
+            isSelected = currentSortType == SortType.DATE_CREATED,
+            onClick = { onDismiss(); onSortChanged(SortType.DATE_CREATED, currentSortOrder) }
+        )
+        EmberrDesktopMenuOption(
+            label = "Name (A-Z)",
+            isSelected = currentSortType == SortType.NAME,
+            onClick = { onDismiss(); onSortChanged(SortType.NAME, currentSortOrder) }
+        )
+        EmberrDesktopMenuOption(
+            label = "Type",
+            isSelected = currentSortType == SortType.TYPE,
+            onClick = { onDismiss(); onSortChanged(SortType.TYPE, currentSortOrder) }
+        )
+        EmberrDesktopMenuOption(
+            label = "Manual",
+            isSelected = currentSortType == SortType.MANUAL,
+            onClick = { onDismiss(); onSortChanged(SortType.MANUAL, currentSortOrder) }
+        )
         HorizontalDivider(
             modifier = Modifier.padding(vertical = 6.dp, horizontal = 12.dp),
             color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)
         )
-        DesktopSortOptionItem(
-            "Ascending",
-            currentSortOrder == SortOrder.ASCENDING
-        ) { onDismiss(); onSortChanged(currentSortType, SortOrder.ASCENDING) }
-        DesktopSortOptionItem(
-            "Descending",
-            currentSortOrder == SortOrder.DESCENDING
-        ) { onDismiss(); onSortChanged(currentSortType, SortOrder.DESCENDING) }
-    }
-}
-
-@Composable
-private fun DesktopSortOptionItem(text: String, isSelected: Boolean, onClick: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 2.dp)
-            .clip(RoundedCornerShape(12.dp))
-            .background(if (isSelected) SelectedOptionBackground else Color.Transparent)
-            .clickable { onClick() }
-            .padding(horizontal = 12.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Text(
-            text,
-            style = MaterialTheme.typography.bodyLarge,
-            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+        EmberrDesktopMenuOption(
+            label = "Ascending",
+            isSelected = currentSortOrder == SortOrder.ASCENDING,
+            onClick = { onDismiss(); onSortChanged(currentSortType, SortOrder.ASCENDING) }
+        )
+        EmberrDesktopMenuOption(
+            label = "Descending",
+            isSelected = currentSortOrder == SortOrder.DESCENDING,
+            onClick = { onDismiss(); onSortChanged(currentSortType, SortOrder.DESCENDING) }
         )
     }
 }
@@ -1806,37 +1793,45 @@ fun SortBottomSheet(expanded: Boolean, currentSortType: SortType, currentSortOrd
         contentHorizontalPadding = 0.dp
     ) { closeAnd ->
         Column(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)) {
-            SortOptionItem(
-                "Last Edited",
-                currentSortType == SortType.LAST_EDITED
-            ) { closeAnd { onSortChanged(SortType.LAST_EDITED, currentSortOrder) } }
-            SortOptionItem(
-                "Date Created",
-                currentSortType == SortType.DATE_CREATED
-            ) { closeAnd { onSortChanged(SortType.DATE_CREATED, currentSortOrder) } }
-            SortOptionItem(
-                "Name (A-Z)",
-                currentSortType == SortType.NAME
-            ) { closeAnd { onSortChanged(SortType.NAME, currentSortOrder) } }
-            SortOptionItem(
-                "Type",
-                currentSortType == SortType.TYPE
-            ) { closeAnd { onSortChanged(SortType.TYPE, currentSortOrder) } }
-            SortOptionItem("Manual", currentSortType == SortType.MANUAL) {
-                closeAnd { onSortChanged(SortType.MANUAL, currentSortOrder) }
-            }
+            EmberrBottomSheetOption(
+                label = "Last Edited",
+                isSelected = currentSortType == SortType.LAST_EDITED,
+                onClick = { closeAnd { onSortChanged(SortType.LAST_EDITED, currentSortOrder) } }
+            )
+            EmberrBottomSheetOption(
+                label = "Date Created",
+                isSelected = currentSortType == SortType.DATE_CREATED,
+                onClick = { closeAnd { onSortChanged(SortType.DATE_CREATED, currentSortOrder) } }
+            )
+            EmberrBottomSheetOption(
+                label = "Name (A-Z)",
+                isSelected = currentSortType == SortType.NAME,
+                onClick = { closeAnd { onSortChanged(SortType.NAME, currentSortOrder) } }
+            )
+            EmberrBottomSheetOption(
+                label = "Type",
+                isSelected = currentSortType == SortType.TYPE,
+                onClick = { closeAnd { onSortChanged(SortType.TYPE, currentSortOrder) } }
+            )
+            EmberrBottomSheetOption(
+                label = "Manual",
+                isSelected = currentSortType == SortType.MANUAL,
+                onClick = { closeAnd { onSortChanged(SortType.MANUAL, currentSortOrder) } }
+            )
             HorizontalDivider(
-                modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp),
+                modifier = Modifier.padding(horizontal = 26.dp, vertical = 8.dp),
                 color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)
             )
-            SortOptionItem(
-                "Ascending",
-                currentSortOrder == SortOrder.ASCENDING
-            ) { closeAnd { onSortChanged(currentSortType, SortOrder.ASCENDING) } }
-            SortOptionItem(
-                "Descending",
-                currentSortOrder == SortOrder.DESCENDING
-            ) { closeAnd { onSortChanged(currentSortType, SortOrder.DESCENDING) } }
+            EmberrBottomSheetOption(
+                label = "Ascending",
+                isSelected = currentSortOrder == SortOrder.ASCENDING,
+                onClick = { closeAnd { onSortChanged(currentSortType, SortOrder.ASCENDING) } }
+            )
+            EmberrBottomSheetOption(
+                label = "Descending",
+                isSelected = currentSortOrder == SortOrder.DESCENDING,
+                onClick = { closeAnd { onSortChanged(currentSortType, SortOrder.DESCENDING) } }
+            )
 
             EmberrButtonPrimary(
                 text = "Close",
@@ -1848,24 +1843,3 @@ fun SortBottomSheet(expanded: Boolean, currentSortType: SortType, currentSortOrd
     }
 }
 
-@Composable
-private fun SortOptionItem(text: String, isSelected: Boolean, onClick: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 2.dp)
-            .clip(RoundedCornerShape(12.dp))
-            .background(if (isSelected) SelectedOptionBackground else Color.Transparent)
-            .noRippleClickable { onClick() }
-            .padding(horizontal = 12.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Text(
-            text,
-            style = MaterialTheme.typography.bodyLarge,
-            fontWeight = FontWeight.Normal,
-            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
-        )
-    }
-}
