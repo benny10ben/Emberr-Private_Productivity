@@ -1210,6 +1210,7 @@ private fun TableCellTextEditor(
                         GlobalEditorState.currentSelection = tfv.selection
                     } else if (GlobalEditorState.currentlyFocusedTableCellKey == cellKey) {
                         GlobalEditorState.currentlyFocusedTableCellKey = null
+                        GlobalEditorState.currentSelection = TextRange.Zero
                     }
                 }
                 .onPreviewKeyEvent { event ->

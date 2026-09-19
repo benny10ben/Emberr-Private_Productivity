@@ -799,6 +799,7 @@ private fun TableGridCell(
                         GlobalEditorState.currentSelection = editorValue.selection
                     } else if (GlobalEditorState.currentlyFocusedTableCellKey == cellKey) {
                         GlobalEditorState.currentlyFocusedTableCellKey = null
+                        GlobalEditorState.currentSelection = TextRange.Zero
                     }
                 }
         )
