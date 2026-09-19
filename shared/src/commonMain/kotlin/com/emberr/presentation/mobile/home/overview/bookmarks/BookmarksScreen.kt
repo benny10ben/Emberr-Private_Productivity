@@ -13,17 +13,18 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -65,12 +66,12 @@ import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
 import emberr.shared.generated.resources.Res
 import emberr.shared.generated.resources.circle_plus
+import emberr.shared.generated.resources.x
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.painterResource
 import kotlin.time.Duration.Companion.milliseconds
 
-private val InputContainerShape = RoundedCornerShape(12.dp)
 private val SelectionHighlightShape = RoundedCornerShape(12.dp)
 private val CategoryPillShape = RoundedCornerShape(20.dp)
 private val PillAutoScrollEdgeWidth = 56.dp
@@ -327,35 +328,40 @@ fun BookmarksScreen(
                         .padding(bottom = 12.dp, start = 16.dp, end = 16.dp)
                 ) {
                     Surface(
-                        shape = InputContainerShape,
+                        shape = CircleShape,
                         color = defaultBgColor,
                         contentColor = defaultContentColor,
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(barSize)
-                            .customEmberrShadow(InputContainerShape)
-                            .clip(InputContainerShape)
+                            .customEmberrShadow(CircleShape)
+                            .clip(CircleShape)
                             .emberrBlur(hazeState, EmberrBlur.Regular)
+                            .border(
+                                width = 0.5.dp,
+                                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
+                                shape = CircleShape
+                            )
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(horizontal = 16.dp)
+                            modifier = Modifier.padding(start = 16.dp, end = 8.dp)
                         ) {
                             Icon(
                                 Icons.Default.Link,
                                 contentDescription = "Add Link",
-                                modifier = Modifier.size(20.dp),
-                                tint = defaultContentColor
+                                modifier = Modifier.size(18.dp),
+                                tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
                             )
                             Spacer(Modifier.width(12.dp))
                             BasicTextField(
                                 value = newUrlInput,
                                 onValueChange = { newUrlInput = it },
                                 textStyle = MaterialTheme.typography.bodyLarge.copy(
-                                    color = defaultContentColor
+                                    color = MaterialTheme.colorScheme.primary
                                 ),
                                 singleLine = true,
-                                cursorBrush = SolidColor(defaultContentColor),
+                                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                                 modifier = Modifier
                                     .weight(1f)
                                     .focusRequester(inputFocusRequester),
@@ -374,29 +380,32 @@ fun BookmarksScreen(
                                             Text(
                                                 text = "Paste a link...",
                                                 style = MaterialTheme.typography.bodyLarge,
-                                                color = defaultContentColor.copy(0.5f)
+                                                color = defaultContentColor.copy(alpha = 0.45f)
                                             )
                                         }
                                         inner()
                                     }
                                 }
                             )
-                            IconButton(
-                                onClick = {
-                                    if (newUrlInput.isNotEmpty()) {
-                                        newUrlInput = ""
-                                    } else {
-                                        showAddUrlInput = false
-                                        localFocusManager.clearFocus()
-                                    }
-                                },
-                                modifier = Modifier.size(24.dp)
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .clickable(remember { MutableInteractionSource() }, null) {
+                                        if (newUrlInput.isNotEmpty()) {
+                                            newUrlInput = ""
+                                        } else {
+                                            showAddUrlInput = false
+                                            localFocusManager.clearFocus()
+                                        }
+                                    },
+                                contentAlignment = Alignment.Center
                             ) {
                                 Icon(
-                                    Icons.Default.Close,
-                                    contentDescription = "Close",
-                                    modifier = Modifier.size(18.dp),
-                                    tint = defaultContentColor.copy(0.6f)
+                                    painter = painterResource(Res.drawable.x),
+                                    contentDescription = if (newUrlInput.isEmpty()) "Close" else "Clear link",
+                                    modifier = Modifier.size(17.dp),
+                                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
                                 )
                             }
                         }
