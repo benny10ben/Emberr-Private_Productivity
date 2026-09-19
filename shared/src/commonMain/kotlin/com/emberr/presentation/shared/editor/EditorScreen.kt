@@ -207,10 +207,14 @@ object GlobalEditorState {
 
     var currentlyFocusedTableCellKey: String? = null
 
-    // Updated on every keystroke/tap/drag inside the focused block's text field so a toolbar button
-    // press elsewhere (EditorToolbar, the slash menu) can tell whether the user has a real text
-    // selection to apply inline formatting to, vs. just a cursor (whole-block formatting instead).
+    var hasTextSelection by mutableStateOf(false)
+        private set
+
     var currentSelection: TextRange = TextRange.Zero
+        set(value) {
+            field = value
+            hasTextSelection = !value.collapsed
+        }
 }
 
 object EditorEventBus {
@@ -1020,7 +1024,20 @@ fun EditorToolbar(
         CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 36.dp) {
             Column(modifier = Modifier.fillMaxWidth().animateContentSize()) {
                 when (mobileMenuState) {
-                    MobileMenuState.MAIN -> {
+                    MobileMenuState.MAIN -> if (GlobalEditorState.hasTextSelection) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 8.dp, vertical = 2.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceEvenly
+                        ) {
+                            InlineFormatButtons(tint = tint, iconSize = customIconSize, onToggleFormat = onToggleFormat)
+                            ToolbarButton(onClick = { keyboardController?.hide() }) {
+                                Icon(painterResource(Res.drawable.keyboard), "Close Keyboard", tint = tint, modifier = Modifier.size(customIconSize))
+                            }
+                        }
+                    } else {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
