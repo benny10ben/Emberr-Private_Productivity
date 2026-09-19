@@ -3,13 +3,16 @@ package com.emberr.domain.util.export
 import android.content.Context
 import android.net.Uri
 import android.widget.Toast
+import androidx.compose.ui.graphics.toArgb
+import com.emberr.ui.theme.HighlightColor
 import com.emberr.domain.model.*
 import com.emberr.domain.util.media.MediaStorageHelper
 import androidx.core.graphics.toColorInt
 import androidx.core.graphics.withTranslation
 import androidx.core.graphics.withSave
 
-private val PdfHighlightColor = 0xFFFFF176.toInt()
+private fun pdfHighlightColorFor(colorName: String?): Int =
+    HighlightColor.named(colorName).lightBackground.toArgb()
 
 fun generateAndSaveAndroidPdf(
     context: Context,
@@ -87,7 +90,8 @@ fun generateAndSaveAndroidPdf(
                     textPaint.textSkewX = if (isItalic) -0.25f else 0f
                     textPaint.isStrikeThruText = isStrike
                     textPaint.isUnderlineText = isUnder
-                    textPaint.bgColor = if (isHighlighted) PdfHighlightColor else 0
+                    textPaint.bgColor =
+                        if (isHighlighted) pdfHighlightColorFor(block.highlightColorNameOrNull()) else 0
                     textPaint.textSize = if (block is HeadingBlock) (if (block.level == 1) 18f else 14f) else 12f
 
                     val textStr = when (block) {
