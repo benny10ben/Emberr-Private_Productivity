@@ -1,6 +1,5 @@
 package com.emberr.presentation.rag.components
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -14,31 +13,23 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.emberr.presentation.shared.components.SelectedOptionBackground
 
 @Composable
 internal fun RagDesktopMenuItem(
     icon: (@Composable () -> Unit)? = null,
     text: String,
     isDestructive: Boolean = false,
-    isSelected: Boolean = false,
     trailing: (@Composable () -> Unit)? = null,
     onClick: () -> Unit
 ) {
-    val textColor = when {
-        isDestructive -> MaterialTheme.colorScheme.error
-        isSelected -> MaterialTheme.colorScheme.primary
-        else -> MaterialTheme.colorScheme.onSurface
-    }
+    val textColor = if (isDestructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 8.dp, vertical = 2.dp)
             .clip(RoundedCornerShape(12.dp))
-            .background(if (isSelected) SelectedOptionBackground else Color.Transparent)
             .clickable(onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
