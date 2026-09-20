@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=@APP_NAME@
+Comment=Minimalist offline-first notes and daily reminders
+Exec=@APP_NAME@
+Icon=@PACKAGE_NAME@
+Terminal=false
+Categories=@MENU_CATEGORY@;
+StartupNotify=true
+StartupWMClass=@WINDOW_CLASS@

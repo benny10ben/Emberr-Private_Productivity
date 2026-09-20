@@ -1,0 +1,4 @@
+#!/bin/sh
+set -eu
+HERE=$(CDPATH= cd -- "$(dirname -- "$(readlink -f -- "$0")")" && pwd)
+exec "$HERE/usr/bin/@APP_NAME@" "$@"

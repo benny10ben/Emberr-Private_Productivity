@@ -257,6 +257,12 @@ val linuxPackagingResourceDir = layout.buildDirectory.dir("compose/packaging/lin
 val tarballScriptTemplateDir = layout.projectDirectory.dir("packaging/linux/tarball")
 val tarballRootDirectoryName = "$packageIdentifier-$applicationVersion-x86_64"
 val installedIconSize = "512"
+val appDirTemplateDir = layout.projectDirectory.dir("packaging/linux/appimage")
+val appDirStagingDir = layout.buildDirectory.dir("compose/packaging/appdir")
+val appImageBuildTools = listOf("appimagetool", "mksquashfs")
+val appImageBuildToolInstallHint =
+    "sudo dnf install squashfs-tools, and put appimagetool from " +
+        "https://github.com/AppImage/appimagetool/releases on your PATH"
 
 compose.desktop {
     application {
@@ -524,6 +530,123 @@ tasks.register<Tar>("packageTarball") {
                 .replace("@ICON_SIZE@", installedIconSize)
         }
     }
+}
+
+// AppImage release packaging
+//
+// Build it with:
+//
+//     ./gradlew :shared:packageAppImage
+//
+// Result: shared/build/compose/binaries/main/appimage/Emberr-<version>-x86_64.AppImage
+//
+// Needs squashfs-tools from dnf and appimagetool on PATH. appimagetool is not packaged
+// by Fedora and is only published as an AppImage, so it is downloaded by hand once
+// rather than pinned here.
+//
+// Two names collide in this area and are worth keeping straight. Compose's
+// createDistributable produces an "app image", which is just an unpacked folder. An
+// AppImage is the single file format built here, and the folder it is built from is
+// called an AppDir. The AppDir below puts Compose's app image at usr/, so the launcher
+// at usr/bin/Emberr still finds usr/lib beside it exactly as it does when unpacked.
+//
+// The desktop entry and icon are deliberately duplicated: appimagetool requires both at
+// the AppDir root, while the copies under usr/share are what desktop integration tools
+// read once a user installs the AppImage.
+//
+// The AppDir is wiped before every copy. jlink writes the runtime's legal files as mode
+// 444, Sync reproduces that in the AppDir, and the next build then fails with
+// "Permission denied" because it cannot overwrite a read only file. Deleting first
+// avoids that. Relaxing permissions per file is not an option: Gradle initialises
+// FileCopyDetails.permissions from its own default rather than from the source file, so
+// touching it would drop the executable bit from the launcher and every .so.
+val prepareAppDir = tasks.register<Sync>("prepareAppDir") {
+    group = "linux packaging"
+    description = "Lays out the AppDir that appimagetool turns into a single AppImage file."
+    dependsOn("createDistributable")
+
+    val composeAppImageDir = layout.buildDirectory.dir("compose/binaries/main/app/$applicationName")
+    val iconThemeDirectory = "usr/share/icons/hicolor/${installedIconSize}x${installedIconSize}/apps"
+    val stagingDirectory = appDirStagingDir
+
+    into(appDirStagingDir)
+
+    doFirst {
+        stagingDirectory.get().asFile.deleteRecursively()
+    }
+
+    from(composeAppImageDir) {
+        into("usr")
+    }
+
+    from(linuxIconFile) {
+        rename { "$packageIdentifier.png" }
+    }
+
+    from(linuxIconFile) {
+        into(iconThemeDirectory)
+        rename { "$packageIdentifier.png" }
+    }
+
+    from(appDirTemplateDir) {
+        filePermissions { unix("0755") }
+        filter { line ->
+            line.replace("@APP_NAME@", applicationName)
+                .replace("@PACKAGE_NAME@", packageIdentifier)
+                .replace("@MENU_CATEGORY@", menuCategory)
+                .replace("@WINDOW_CLASS@", desktopWindowClassName)
+        }
+    }
+
+    from(appDirTemplateDir) {
+        include("*.desktop")
+        into("usr/share/applications")
+        filter { line ->
+            line.replace("@APP_NAME@", applicationName)
+                .replace("@PACKAGE_NAME@", packageIdentifier)
+                .replace("@MENU_CATEGORY@", menuCategory)
+                .replace("@WINDOW_CLASS@", desktopWindowClassName)
+        }
+    }
+}
+
+tasks.register<Exec>("packageAppImage") {
+    group = "linux packaging"
+    description = "Builds the single file AppImage users can download and run without installing."
+    dependsOn(prepareAppDir)
+
+    val appImageOutputDir = layout.buildDirectory.dir("compose/binaries/main/appimage")
+    val appImageFileName = "$applicationName-$applicationVersion-x86_64.AppImage"
+    val requiredBuildTools = appImageBuildTools
+    val buildToolInstallHint = appImageBuildToolInstallHint
+
+    inputs.dir(appDirStagingDir).withPropertyName("appDir")
+    outputs.dir(appImageOutputDir).withPropertyName("appImageOutput")
+
+    environment("ARCH", "x86_64")
+
+    doFirst {
+        val pathDirectories = System.getenv("PATH").orEmpty().split(File.pathSeparator)
+        val missingTools = requiredBuildTools.filter { toolName ->
+            pathDirectories.none { directory -> File(directory, toolName).canExecute() }
+        }
+        if (missingTools.isNotEmpty()) {
+            throw GradleException(
+                "Cannot build the AppImage because these tools are not on PATH: " +
+                    missingTools.joinToString(", ") +
+                    ". Install them with: $buildToolInstallHint"
+            )
+        }
+        val outputDirectory = appImageOutputDir.get().asFile
+        outputDirectory.deleteRecursively()
+        outputDirectory.mkdirs()
+    }
+
+    commandLine(
+        "appimagetool",
+        appDirStagingDir.get().asFile.absolutePath,
+        appImageOutputDir.get().asFile.resolve(appImageFileName).absolutePath
+    )
 }
 
 // While targetFormats is empty Compose registers none of these, so this guard matches
