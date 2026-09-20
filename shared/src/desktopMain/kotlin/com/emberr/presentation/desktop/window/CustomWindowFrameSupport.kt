@@ -14,11 +14,13 @@ object CustomWindowFrameSupport {
         if (override == "false" || override == "off" || override == "0") return false
         if (override == "true" || override == "on" || override == "1") return true
 
-        return runCatching {
+        val canDrawTranslucentWindow = runCatching {
             if (GraphicsEnvironment.isHeadless()) return@runCatching false
             GraphicsEnvironment.getLocalGraphicsEnvironment()
                 .defaultScreenDevice
                 .isWindowTranslucencySupported(GraphicsDevice.WindowTranslucency.PERPIXEL_TRANSLUCENT)
         }.getOrDefault(false)
+
+        return canDrawTranslucentWindow && NativeWindowActions.isAvailable
     }
 }

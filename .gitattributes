@@ -1,0 +1,18 @@
+* text=auto eol=lf
+
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+*.sh text eol=lf
+*.spec text eol=lf
+*.desktop text eol=lf
+AppRun text eol=lf
+gradlew text eol=lf
+
+*.png binary
+*.ico binary
+*.jpg binary
+*.webp binary
+*.ttf binary
+*.jar binary

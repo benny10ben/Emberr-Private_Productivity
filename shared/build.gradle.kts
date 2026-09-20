@@ -1,4 +1,5 @@
 import java.io.File
+import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
@@ -26,16 +27,30 @@ dependencies {
     llamatikJvmArtifact(libs.llamatik.library.jvm)
 }
 
-val llamatikWithLinuxNativesOnly = tasks.register<Jar>("llamatikWithLinuxNativesOnly") {
-    description = "Repacks the llamatik JVM artifact, keeping only its Linux native libraries"
-    archiveFileName.set("llamatik-linux-natives-only.jar")
+val hostOperatingSystemName = System.getProperty("os.name").orEmpty().lowercase()
+
+val isBuildingOnWindows = hostOperatingSystemName.contains("win")
+
+val llamatikNativeDirectoryNames = listOf("linux", "windows", "macos")
+
+val llamatikNativeDirectoryForHost = when {
+    hostOperatingSystemName.contains("linux") -> "linux"
+    isBuildingOnWindows -> "windows"
+    hostOperatingSystemName.contains("mac") -> "macos"
+    else -> null
+}
+
+val llamatikWithHostNativesOnly = tasks.register<Jar>("llamatikWithHostNativesOnly") {
+    description = "Repacks the llamatik JVM artifact, keeping only the native libraries for the operating system building the app"
+    archiveFileName.set("llamatik-host-natives-only.jar")
     destinationDirectory.set(layout.buildDirectory.dir("llamatik"))
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 
     from(llamatikJvmArtifact.elements.map { artifacts -> artifacts.map { zipTree(it.asFile) } }) {
-        exclude("native/macos/**")
-        exclude("native/windows/**")
         exclude("META-INF/MANIFEST.MF")
+        llamatikNativeDirectoryNames
+            .filterNot { directoryName -> directoryName == llamatikNativeDirectoryForHost }
+            .forEach { directoryName -> exclude("native/$directoryName/**") }
     }
 }
 
@@ -197,7 +212,7 @@ kotlin {
                 implementation(libs.dbus.java.core)
                 implementation(libs.dbus.java.transport.native.unixsocket)
 
-                runtimeOnly(files(llamatikWithLinuxNativesOnly))
+                runtimeOnly(files(llamatikWithHostNativesOnly))
             }
         }
     }
@@ -263,6 +278,9 @@ val appImageBuildTools = listOf("appimagetool", "mksquashfs")
 val appImageBuildToolInstallHint =
     "sudo dnf install squashfs-tools, and put appimagetool from " +
         "https://github.com/AppImage/appimagetool/releases on your PATH"
+val windowsIconFile = layout.projectDirectory.file("packaging/windows/emberr.ico")
+val windowsStartMenuGroup = applicationName
+val windowsUpgradeUuid = "66e9f5e4-6a45-45bb-bef5-bed25991c933"
 
 compose.desktop {
     application {
@@ -309,6 +327,21 @@ compose.desktop {
                 shortcut = true
                 iconFile.set(linuxIconFile)
             }
+
+            windows {
+                packageVersion = applicationVersion
+                iconFile.set(windowsIconFile)
+                menu = true
+                menuGroup = windowsStartMenuGroup
+                shortcut = true
+                dirChooser = true
+                perUserInstall = true
+                upgradeUuid = windowsUpgradeUuid
+            }
+
+            if (isBuildingOnWindows) {
+                targetFormats(TargetFormat.Exe)
+            }
         }
     }
 }
@@ -320,12 +353,30 @@ compose.desktop {
 // All of them, including the three not written yet, wrap the same app image that
 // createDistributable produces, so that task is the one piece none of this works without.
 //
-// targetFormats is deliberately left empty, so Compose registers no packaging tasks of
-// its own and packageDistributionForCurrentOS does nothing. The RPM and DEB tasks below
-// call jpackage by hand and only run when named explicitly. Leaving the set empty is
-// safe: it is the value Compose itself starts from, and createDistributable, run and
-// runDistributable never read it. Note that targetFormats() rejects an empty argument
-// list, so a format is removed by deleting the call, not by calling it with no formats.
+// targetFormats stays empty on Linux, so Compose registers no packaging tasks of its own
+// here and packageDistributionForCurrentOS does nothing. The RPM and DEB tasks below call
+// jpackage by hand and only run when named explicitly. An empty set is safe: it is the
+// value Compose itself starts from, and createDistributable, run and runDistributable
+// never read it. Note that targetFormats() rejects an empty argument list, so a format is
+// removed by deleting the call, not by calling it with no formats.
+//
+// Windows is the one exception. TargetFormat.Exe is requested in the block above, but
+// only while the build itself is running on Windows. Compose registers a task for every
+// requested format on every operating system and merely disables the ones the host cannot
+// build, so asking for Exe unconditionally would leave two dead packageExe tasks sitting
+// in the Linux task list. jpackage cannot cross-compile, so the installer has to be built
+// from Windows regardless:
+//
+//     gradlew :shared:packageExe
+//
+// Result: shared\build\compose\binaries\main\exe\Emberr-<version>.exe
+//
+// WiX needs no manual install. Compose downloads WiX 3.11.2 into
+// <gradle user home>\compose-jb\wix311 on first use, unless WIX_PATH already points at a
+// toolset directory or compose.desktop.application.downloadWix=false turns that off.
+// The Windows build does need the Android SDK, because the shared module applies the
+// Android library plugin: set ANDROID_HOME, or put sdk.dir in local.properties, which is
+// git ignored and so never arrives with a fresh clone.
 //
 // Build the RPM with:
 //
