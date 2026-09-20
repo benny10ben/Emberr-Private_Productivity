@@ -18,3 +18,5 @@ actual fun triggerHapticFeedback() {
     if (!vibrator.hasVibrator()) return
     vibrator.vibrate(VibrationEffect.createOneShot(20, VibrationEffect.DEFAULT_AMPLITUDE))
 }
+
+actual fun restartApplication() {}
