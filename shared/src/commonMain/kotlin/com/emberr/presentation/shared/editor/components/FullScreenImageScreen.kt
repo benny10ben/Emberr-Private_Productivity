@@ -294,7 +294,7 @@ fun FullScreenImageScreen(
                 .graphicsLayer { alpha = currentExpansion() },
             hazeState = hazeState,
             applyStatusBarPadding = true,
-            contentPadding = topHeaderBarPadding(top = 18.dp, horizontal = 18.dp),
+            contentPadding = topHeaderBarPadding(horizontal = 18.dp),
             onBackClick = closeFullScreen
         )
 

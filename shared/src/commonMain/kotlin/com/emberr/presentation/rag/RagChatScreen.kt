@@ -59,6 +59,7 @@ import com.emberr.presentation.shared.components.EmberrDesktopMenu
 import com.emberr.presentation.shared.components.EmberrTopHeaderBar
 import com.emberr.presentation.shared.components.TopBarIconButton
 import com.emberr.presentation.shared.components.TopHeaderBarButtonSize
+import com.emberr.presentation.shared.components.TopHeaderBarTopPadding
 import com.emberr.presentation.shared.components.topHeaderBarPadding
 import com.emberr.presentation.shared.rememberStableStatusBarsPadding
 import com.emberr.presentation.shared.stableStatusBarsPadding
@@ -302,7 +303,6 @@ private fun RagChatContent(
             } else null,
             hazeState = hazeState,
             contentPadding = topHeaderBarPadding(
-                top = if (isDesktopPlatform) DesktopPanelTopInset else 10.dp,
                 horizontal = if (isDesktopPlatform) DesktopPanelContentInset else 16.dp,
                 bottom = 8.dp
             ),
@@ -345,7 +345,7 @@ private fun RagChatContent(
                     .fillMaxWidth()
                     .then(if (isDesktopPlatform) Modifier else Modifier.stableStatusBarsPadding())
                     .padding(
-                        top = (if (isDesktopPlatform) DesktopPanelTopInset else 10.dp) +
+                        top = TopHeaderBarTopPadding +
                             TopHeaderBarButtonSize + 8.dp + VaultAccessPillGap
                     ),
                 contentAlignment = Alignment.Center

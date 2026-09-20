@@ -52,8 +52,11 @@ private const val TopEdgeGradientStopCount = 24
 
 enum class TopHeaderTitlePlacement { Center, Start }
 
+val TopHeaderBarTopPadding: Dp
+    get() = if (isDesktopPlatform) 20.dp else 10.dp
+
 fun topHeaderBarPadding(
-    top: Dp = if (isDesktopPlatform) 16.dp else 10.dp,
+    top: Dp = TopHeaderBarTopPadding,
     horizontal: Dp = 16.dp,
     bottom: Dp = 0.dp
 ): PaddingValues = PaddingValues(start = horizontal, end = horizontal, top = top, bottom = bottom)
