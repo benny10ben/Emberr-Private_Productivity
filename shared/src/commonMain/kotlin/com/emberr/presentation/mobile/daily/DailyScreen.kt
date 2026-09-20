@@ -56,6 +56,7 @@ import kotlinx.datetime.LocalDate
 import kotlin.math.abs
 import com.emberr.data.local.room.entity.CalendarTaskEntity
 import com.emberr.domain.util.system.isDesktopPlatform
+import com.emberr.presentation.BOTTOM_BAR_PILL_SHRINK_COMPENSATION
 import com.emberr.presentation.calendar.CalendarViewModel
 import com.emberr.presentation.calendar.EventEditorSheetHost
 import com.emberr.presentation.calendar.RecurrenceScopeChooser
@@ -595,6 +596,10 @@ fun DailyScreen(
     LaunchedEffect(bottomContentPadding) {
         if (bottomContentPadding > 0.dp) weekStripBottomOffset = bottomContentPadding
     }
+    val weekStripCompactDrop by animateDpAsState(
+        targetValue = if (isCompact) BOTTOM_BAR_PILL_SHRINK_COMPENSATION else 0.dp,
+        animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing)
+    )
     val weekStripHideDistancePx = with(density) { (weekStripBottomOffset + 8.dp).roundToPx() }
     val isBottomBarOnScreen = bottomContentPadding > 0.dp
 
@@ -626,7 +631,7 @@ fun DailyScreen(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .zIndex(1f)
-                        .padding(bottom = weekStripBottomOffset + 8.dp)
+                        .padding(bottom = weekStripBottomOffset + 8.dp - weekStripCompactDrop)
                 ) {
                     DailyBottomWeekStrip(
                         selectedDate = selectedDate,

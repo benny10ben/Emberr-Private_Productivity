@@ -86,6 +86,11 @@ import emberr.shared.generated.resources.search
 import emberr.shared.generated.resources.x
 import org.jetbrains.compose.resources.painterResource
 
+internal val EXPANDED_BOTTOM_BAR_PILL_HEIGHT = 52.dp
+internal val COMPACT_BOTTOM_BAR_PILL_HEIGHT = 44.dp
+internal val BOTTOM_BAR_PILL_SHRINK_COMPENSATION =
+    (EXPANDED_BOTTOM_BAR_PILL_HEIGHT - COMPACT_BOTTOM_BAR_PILL_HEIGHT) / 2
+
 internal fun Modifier.customEmberrShadow(shape: Shape, elevation: Dp = 14.dp): Modifier = this.shadow(
     elevation = elevation,
     shape = shape,
@@ -120,13 +125,15 @@ fun EmberrBottomBar(
 
     val barAnimationSpec = tween<Dp>(durationMillis = 350, easing = FastOutSlowInEasing)
     val barSize by animateDpAsState(
-        targetValue = if (isCompact && !isSearchMode) 44.dp else 52.dp,
+        targetValue = if (isCompact && !isSearchMode) {
+            COMPACT_BOTTOM_BAR_PILL_HEIGHT
+        } else {
+            EXPANDED_BOTTOM_BAR_PILL_HEIGHT
+        },
         animationSpec = barAnimationSpec
     )
-    val bottomInset by animateDpAsState(
-        targetValue = if (isCompact && !isSearchMode) 0.dp else 6.dp,
-        animationSpec = barAnimationSpec
-    )
+    val shrinkCompensation = (EXPANDED_BOTTOM_BAR_PILL_HEIGHT - barSize) / 2
+    val bottomInset = 6.dp
     val horizontalInset by animateDpAsState(
         targetValue = when {
             isSearchMode -> 0.dp
@@ -164,7 +171,12 @@ fun EmberrBottomBar(
                 IntOffset(0, if (isFollowingKeyboard) -keyboardLift.coerceAtLeast(0) else 0)
             }
             .navigationBarsPadding()
-            .padding(bottom = bottomInset, start = 16.dp, end = 16.dp),
+            .padding(
+                top = shrinkCompensation,
+                bottom = bottomInset + shrinkCompensation,
+                start = 16.dp,
+                end = 16.dp
+            ),
         contentAlignment = Alignment.BottomCenter
     ) {
         AnimatedVisibility(

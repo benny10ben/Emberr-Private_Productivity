@@ -159,7 +159,7 @@ fun DailyBottomWeekStrip(
     val sizeSpec = tween<Dp>(durationMillis = 350, easing = FastOutSlowInEasing)
     val pillWidth = 74.dp
     val maxPillHeight = 32.dp
-    val pillHeight by animateDpAsState(if (isCompact) 30.dp else maxPillHeight, sizeSpec)
+    val pillHeight by animateDpAsState(if (isCompact) 26.dp else maxPillHeight, sizeSpec)
     val pillSpacing = 8.dp
     val collapsedWidth = pillWidth * 3 + pillSpacing * 2
 
@@ -198,7 +198,7 @@ fun DailyBottomWeekStrip(
 
     BoxWithConstraints(
         modifier = modifier.fillMaxWidth().height(maxPillHeight),
-        contentAlignment = Alignment.Center
+        contentAlignment = Alignment.BottomCenter
     ) {
         val fullWidth = maxWidth
         val animatedWidth by animateDpAsState(
@@ -209,7 +209,7 @@ fun DailyBottomWeekStrip(
         LazyRow(
             state = listState,
             modifier = Modifier
-                .align(Alignment.Center)
+                .align(Alignment.BottomCenter)
                 .width(animatedWidth)
                 .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen },
 
