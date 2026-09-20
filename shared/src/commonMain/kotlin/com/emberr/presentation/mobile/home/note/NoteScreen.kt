@@ -718,7 +718,7 @@ fun NoteScreen(
                     topEdgeGradientAlpha = if (isDesktopPlatform) 0f else topEdgeGradientAlpha,
                     hazeState = hazeState,
                     contentPadding = topHeaderBarPadding(
-                        top = desktopTopMargin + if (isDesktopPlatform) 16.dp else 10.dp,
+                        top = desktopTopMargin + if (isDesktopPlatform) 20.dp else 10.dp,
                         horizontal = if (isDesktopPlatform) 22.dp else 16.dp
                     ),
                     showBackButton = showBackButton,
@@ -991,14 +991,15 @@ private fun NoteHeader(
                         Box(
                             modifier = Modifier
                                 .align(Alignment.BottomStart)
-                                .padding(start = 12.dp)
+                                .padding(start = if (isDesktopPlatform) 36.dp else 12.dp)
                                 .graphicsLayer {
                                     translationY = 36.dp.toPx()
                                 }
                                 .size(80.dp)
                                 .clip(RoundedCornerShape(8.dp))
                                 .clickable { onIconClick() },
-                            contentAlignment = Alignment.Center
+                            contentAlignment =
+                                if (isDesktopPlatform) Alignment.CenterStart else Alignment.Center
                         ) {
                             Text(
                                 text = noteIcon,
@@ -1040,7 +1041,7 @@ private fun NoteHeader(
         }
 
         Column(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = if (isDesktopPlatform) 28.dp else 16.dp)
+            modifier = Modifier.fillMaxWidth().padding(horizontal = if (isDesktopPlatform) 36.dp else 16.dp)
         ) {
             Spacer(modifier = Modifier.height(topPadding))
 
