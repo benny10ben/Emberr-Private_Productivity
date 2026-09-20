@@ -369,6 +369,16 @@ fun NoteScreen(
             (scrolledPx / collapseRangePx).coerceIn(0f, 1f)
         }
     }
+    val topEdgeGradientFadeInPx = with(density) { 48.dp.toPx() }
+    val topEdgeGradientAlpha by remember {
+        derivedStateOf {
+            if (editorListState.firstVisibleItemIndex > 0) {
+                1f
+            } else {
+                (editorListState.firstVisibleItemScrollOffset / topEdgeGradientFadeInPx).coerceIn(0f, 1f)
+            }
+        }
+    }
     val onCollapsedTitleClick: () -> Unit = {
         scope.launch { editorListState.animateScrollToItem(0) }
     }
@@ -705,6 +715,7 @@ fun NoteScreen(
                     titleColor = topBarContentColor ?: MaterialTheme.colorScheme.onSurface,
                     onTitleClick = onCollapsedTitleClick,
                     background = topBarBgColor ?: Color.Transparent,
+                    topEdgeGradientAlpha = if (isDesktopPlatform) 0f else topEdgeGradientAlpha,
                     hazeState = hazeState,
                     contentPadding = topHeaderBarPadding(
                         top = desktopTopMargin + if (isDesktopPlatform) 16.dp else 10.dp,

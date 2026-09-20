@@ -20,6 +20,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.painter.Painter
@@ -42,6 +45,10 @@ import org.jetbrains.compose.resources.painterResource
 val TopHeaderBarButtonSize = 44.dp
 
 private val DefaultTitleSideInset = 56.dp
+
+private val TopEdgeGradientHeight = 240.dp
+
+private const val TopEdgeGradientStopCount = 24
 
 enum class TopHeaderTitlePlacement { Center, Start }
 
@@ -73,6 +80,7 @@ fun EmberrTopHeaderBar(
     backButtonBackground: Color = Color.Transparent,
     onBackClick: () -> Unit = {},
     background: Color = Color.Transparent,
+    topEdgeGradientAlpha: Float = if (isDesktopPlatform) 0f else 1f,
     hazeState: HazeState? = null,
     hazeStyle: HazeStyle = EmberrBlur.Regular,
     applyStatusBarPadding: Boolean = !isDesktopPlatform,
@@ -84,10 +92,25 @@ fun EmberrTopHeaderBar(
     actions: @Composable RowScope.() -> Unit = {},
     overlayContent: @Composable BoxScope.() -> Unit = {}
 ) {
+    val topEdgeGradient = rememberTopEdgeGradient()
+
     Box(
         modifier = modifier
             .fillMaxWidth()
             .background(background)
+            .then(
+                if (topEdgeGradientAlpha > 0f) {
+                    Modifier.drawBehind {
+                        drawRect(
+                            brush = topEdgeGradient,
+                            size = Size(size.width, maxOf(size.height, TopEdgeGradientHeight.toPx())),
+                            alpha = topEdgeGradientAlpha.coerceIn(0f, 1f)
+                        )
+                    }
+                } else {
+                    Modifier
+                }
+            )
             .then(if (applyStatusBarPadding) Modifier.stableStatusBarsPadding() else Modifier)
             .padding(contentPadding)
             .onGloballyPositioned(onPositioned)
@@ -158,6 +181,20 @@ fun EmberrTopHeaderBar(
         overlayContent()
     }
 }
+
+@Composable
+private fun rememberTopEdgeGradient(): Brush {
+    val edgeColor = MaterialTheme.colorScheme.background
+    return remember(edgeColor) {
+        val colorStops = Array(TopEdgeGradientStopCount) { stopIndex ->
+            val position = stopIndex / (TopEdgeGradientStopCount - 1f)
+            position to edgeColor.copy(alpha = 1f - smoothStep(position))
+        }
+        Brush.verticalGradient(colorStops = colorStops)
+    }
+}
+
+private fun smoothStep(position: Float): Float = position * position * (3f - 2f * position)
 
 @Composable
 private fun TopHeaderBarTitle(
