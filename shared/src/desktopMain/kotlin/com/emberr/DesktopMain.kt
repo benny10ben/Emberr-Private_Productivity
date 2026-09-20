@@ -39,8 +39,13 @@ import com.emberr.domain.vault.VaultMirrorService
 import com.emberr.presentation.EmberrApp
 import com.emberr.presentation.settings.PlainTextSecretWarningDialog
 import com.emberr.presentation.desktop.DesktopSearchShortcutBus
+import com.emberr.presentation.desktop.DesktopRestartBus
 import com.emberr.presentation.desktop.EmberrSystemTray
 import com.emberr.presentation.desktop.TrayMenuAction
+import com.emberr.presentation.desktop.window.CustomWindowFrameSupport
+import com.emberr.presentation.desktop.window.DesktopAppRelauncher
+import com.emberr.presentation.desktop.window.EmberrWindowFrame
+import com.emberr.presentation.desktop.window.WindowFrameSize
 import com.emberr.presentation.mobile.home.note.NoteScreen
 import com.emberr.presentation.shared.StickyNoteWindowBus
 import com.emberr.domain.sync.startSyncServer
@@ -54,7 +59,9 @@ import com.emberr.domain.util.export.handleExportMarkdown
 import com.emberr.domain.util.export.handleExportPdf
 import com.emberr.domain.util.export.handleImportBackup
 import com.emberr.presentation.navigation.Screen
+import com.emberr.presentation.shared.editor.ActiveEditorRegistry
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.FlowPreview
 import com.emberr.presentation.reminders.ReminderClickBus
 import kotlinx.coroutines.flow.debounce
@@ -169,27 +176,53 @@ fun main() = application {
     }
 
     var isMainWindowOpen by remember { mutableStateOf(true) }
+    val mainWindowState = rememberWindowState(width = 1200.dp, height = 800.dp)
+
+    val showMainWindow = {
+        isMainWindowOpen = true
+        mainWindowState.isMinimized = false
+    }
+    val isMainWindowOnScreen = isMainWindowOpen && !mainWindowState.isMinimized
 
     LaunchedEffect(Unit) {
-        ReminderClickBus.pendingBlockId.filterNotNull().collect { isMainWindowOpen = true }
+        ReminderClickBus.pendingBlockId.filterNotNull().collect { showMainWindow() }
     }
 
     EmberrSystemTray(
         iconResourcePath = "app_icon.png",
         tooltip = "Emberr",
-        onIconClick = { isMainWindowOpen = !isMainWindowOpen },
+        onIconClick = {
+            if (isMainWindowOnScreen) isMainWindowOpen = false else showMainWindow()
+        },
         actions = listOf(
-            TrayMenuAction("Open Emberr") { isMainWindowOpen = true },
+            TrayMenuAction("Open Emberr") { showMainWindow() },
             TrayMenuAction("Close Window") { isMainWindowOpen = false },
             TrayMenuAction("Quit") { exitApplication() }
         )
     )
 
+    LaunchedEffect(DesktopRestartBus.isRestartRequested) {
+        if (!DesktopRestartBus.isRestartRequested) return@LaunchedEffect
+        withContext(NonCancellable) { ActiveEditorRegistry.flushAllPending() }
+        DesktopAppRelauncher.startNewInstance()
+        exitApplication()
+    }
+
+    val mainSettingsManager = remember { GlobalContext.get().get<SettingsManager>() }
+    val useCustomWindowFrame = remember {
+        CustomWindowFrameSupport.isSupportedByDesktop &&
+            mainSettingsManager.isCustomWindowFrameEnabled()
+    }
+    val autoHideTitleBar by mainSettingsManager.autoHideTitleBarFlow
+        .collectAsState(initial = SyncConstants.DEFAULT_AUTO_HIDE_TITLE_BAR)
+
     if (isMainWindowOpen) {
     Window(
         onCloseRequest = { isMainWindowOpen = false },
         title = "Emberr",
-        state = rememberWindowState(width = 1200.dp, height = 800.dp),
+        state = mainWindowState,
+        undecorated = useCustomWindowFrame,
+        transparent = useCustomWindowFrame,
         icon = painterResource("app_icon.png"),
         onPreviewKeyEvent = { event ->
             if (event.type == KeyEventType.KeyDown && event.key == Key.F && (event.isCtrlPressed || event.isMetaPressed)) {
@@ -236,94 +269,106 @@ fun main() = application {
         }
 
         EmberrTheme(darkTheme = darkTheme, fontSizePreference = fontSizePreference, fontStylePreference = fontStylePreference) {
-            EmberrApp(
-                startRoute = Screen.Splash.route,
-                onPickImage = { onPathSelected ->
-                    val dialog = java.awt.FileDialog(currentWindow, "Select Image", java.awt.FileDialog.LOAD)
-                    dialog.file = "*.png;*.jpg;*.jpeg;*.webp"
-                    dialog.isVisible = true
-                    dialog.files.firstOrNull()?.let { file -> onPathSelected(file.absolutePath) }
-                },
-                onPickDocument = { onPathSelected ->
-                    val dialog = java.awt.FileDialog(currentWindow, "Select Document", java.awt.FileDialog.LOAD)
-                    dialog.isVisible = true
-                    dialog.files.firstOrNull()?.let { file -> onPathSelected(file.absolutePath) }
-                },
-                onOpenFile = { path, _ ->
-                    try {
-                        val cleanPath = path.removePrefix("file://")
-                        val originalFile = if (cleanPath.contains("/") || cleanPath.contains("\\")) {
-                            java.io.File(cleanPath)
-                        } else {
-                            java.io.File(System.getProperty("user.home"), ".emberr/media/$cleanPath")
-                        }
+            EmberrWindowFrame(
+                windowState = mainWindowState,
+                isEnabled = useCustomWindowFrame,
+                windowTitle = "Emberr",
+                autoHideTitleBar = autoHideTitleBar,
+                onCloseRequest = { isMainWindowOpen = false }
+            ) {
+                EmberrApp(
+                    startRoute = Screen.Splash.route,
+                    onPickImage = { onPathSelected ->
+                        val dialog = java.awt.FileDialog(currentWindow, "Select Image", java.awt.FileDialog.LOAD)
+                        dialog.file = "*.png;*.jpg;*.jpeg;*.webp"
+                        dialog.isVisible = true
+                        dialog.files.firstOrNull()?.let { file -> onPathSelected(file.absolutePath) }
+                    },
+                    onPickDocument = { onPathSelected ->
+                        val dialog = java.awt.FileDialog(currentWindow, "Select Document", java.awt.FileDialog.LOAD)
+                        dialog.isVisible = true
+                        dialog.files.firstOrNull()?.let { file -> onPathSelected(file.absolutePath) }
+                    },
+                    onOpenFile = { path, _ ->
+                        try {
+                            val cleanPath = path.removePrefix("file://")
+                            val originalFile = if (cleanPath.contains("/") || cleanPath.contains("\\")) {
+                                java.io.File(cleanPath)
+                            } else {
+                                java.io.File(System.getProperty("user.home"), ".emberr/media/$cleanPath")
+                            }
 
-                        if (!originalFile.exists()) {
+                            if (!originalFile.exists()) {
+                                SwingUtilities.invokeLater {
+                                    JOptionPane.showMessageDialog(
+                                        currentWindow,
+                                        "This file is no longer available on this device.",
+                                        "File Not Found",
+                                        JOptionPane.WARNING_MESSAGE
+                                    )
+                                }
+                            } else {
+                                val tmpDir = java.io.File(System.getProperty("java.io.tmpdir"), "emberr_view").apply { mkdirs() }
+                                val viewFile = java.io.File(tmpDir, originalFile.name)
+
+                                if (!viewFile.exists() || viewFile.length() != originalFile.length()) {
+                                    originalFile.copyTo(viewFile, overwrite = true)
+                                }
+
+                                java.awt.Desktop.getDesktop().open(viewFile)
+                            }
+                        } catch (e: Exception) {
+                            e.printStackTrace()
                             SwingUtilities.invokeLater {
                                 JOptionPane.showMessageDialog(
                                     currentWindow,
-                                    "This file is no longer available on this device.",
-                                    "File Not Found",
-                                    JOptionPane.WARNING_MESSAGE
+                                    "Failed to open file: ${e.message}",
+                                    "Error",
+                                    JOptionPane.ERROR_MESSAGE
                                 )
                             }
-                        } else {
-                            val tmpDir = java.io.File(System.getProperty("java.io.tmpdir"), "emberr_view").apply { mkdirs() }
-                            val viewFile = java.io.File(tmpDir, originalFile.name)
-
-                            if (!viewFile.exists() || viewFile.length() != originalFile.length()) {
-                                originalFile.copyTo(viewFile, overwrite = true)
-                            }
-
-                            java.awt.Desktop.getDesktop().open(viewFile)
                         }
-                    } catch (e: Exception) {
-                        e.printStackTrace()
+                    },
+                    onExportMarkdown = { fileName, content ->
+                        Thread { handleExportMarkdown(currentWindow, fileName, content) }.start()
+                    },
+                    onExportPdf = { fileName, title, blocks ->
+                        Thread { handleExportPdf(currentWindow, fileName, title, blocks) }.start()
+                    },
+                    onExportBackup = {
+                        Thread { handleExportBackup(currentWindow) }.start()
+                    },
+                    onImportBackupClick = {
+                        Thread { handleImportBackup(currentWindow) }.start()
+                    },
+                    onRequestBackupFolder = {
                         SwingUtilities.invokeLater {
                             JOptionPane.showMessageDialog(
                                 currentWindow,
-                                "Failed to open file: ${e.message}",
-                                "Error",
-                                JOptionPane.ERROR_MESSAGE
+                                "Automated background backups are currently only supported on the Android app. You can still use the manual 'Export Backup' button!",
+                                "Desktop Feature",
+                                JOptionPane.INFORMATION_MESSAGE
                             )
                         }
                     }
-                },
-                onExportMarkdown = { fileName, content ->
-                    Thread { handleExportMarkdown(currentWindow, fileName, content) }.start()
-                },
-                onExportPdf = { fileName, title, blocks ->
-                    Thread { handleExportPdf(currentWindow, fileName, title, blocks) }.start()
-                },
-                onExportBackup = {
-                    Thread { handleExportBackup(currentWindow) }.start()
-                },
-                onImportBackupClick = {
-                    Thread { handleImportBackup(currentWindow) }.start()
-                },
-                onRequestBackupFolder = {
-                    SwingUtilities.invokeLater {
-                        JOptionPane.showMessageDialog(
-                            currentWindow,
-                            "Automated background backups are currently only supported on the Android app. You can still use the manual 'Export Backup' button!",
-                            "Desktop Feature",
-                            JOptionPane.INFORMATION_MESSAGE
-                        )
-                    }
-                }
-            )
+                )
 
-            PlainTextSecretWarningDialog()
+                PlainTextSecretWarningDialog()
+            }
         }
     }
     }
 
     StickyNoteWindowBus.openNoteIds.forEach { stickyNoteId ->
         key(stickyNoteId) {
+            val stickyNoteWindowState = rememberWindowState(width = 320.dp, height = 360.dp)
+
             Window(
                 onCloseRequest = { StickyNoteWindowBus.close(stickyNoteId) },
                 title = "Sticky Note",
-                state = rememberWindowState(width = 320.dp, height = 360.dp),
+                state = stickyNoteWindowState,
+                undecorated = useCustomWindowFrame,
+                transparent = useCustomWindowFrame,
                 icon = painterResource("app_icon.png")
             ) {
                 val settingsManager = remember { GlobalContext.get().get<SettingsManager>() }
@@ -355,6 +400,14 @@ fun main() = application {
                 val stickyWindow = this.window as Frame
 
                 EmberrTheme(darkTheme = darkTheme, fontSizePreference = fontSizePreference, fontStylePreference = fontStylePreference) {
+                    EmberrWindowFrame(
+                        windowState = stickyNoteWindowState,
+                        isEnabled = useCustomWindowFrame,
+                        windowTitle = "Sticky Note",
+                        frameSize = WindowFrameSize.Compact,
+                        autoHideTitleBar = autoHideTitleBar,
+                        onCloseRequest = { StickyNoteWindowBus.close(stickyNoteId) }
+                    ) {
                     NoteScreen(
                         noteId = stickyNoteId,
                         isStickyNote = true,
@@ -418,6 +471,7 @@ fun main() = application {
                             Thread { handleExportPdf(stickyWindow, fileName, title, blocks) }.start()
                         }
                     )
+                    }
                 }
             }
         }
