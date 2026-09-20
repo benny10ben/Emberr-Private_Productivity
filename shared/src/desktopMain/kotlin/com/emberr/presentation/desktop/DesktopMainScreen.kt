@@ -816,7 +816,7 @@ fun DesktopMainScreen(
 
                 // top: icon row
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(start = 8.dp, end = 8.dp, top = 12.dp),
+                    modifier = Modifier.fillMaxWidth().padding(start = 8.dp, end = 8.dp, top = 16.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     IconButton(onClick = onToggleSidebar) {
@@ -1480,43 +1480,17 @@ fun DesktopMainScreen(
                         }
                     }
 
-                    AnimatedVisibility(
-                        visible = isSidebarVisible,
-                        enter = fadeIn(tween(280)),
-                        exit = fadeOut(tween(280))
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxHeight()
-                                .width(PANEL_PADDING)
-                                .background(Color.Transparent)
-                                .pointerHoverIcon(PointerIcon(Cursor(Cursor.E_RESIZE_CURSOR)))
-                                .pointerInput(Unit) {
-                                    detectHorizontalDragGestures(
-                                        onDragEnd = {
-                                            settingsManager.saveDesktopSidebarWidth(panelWidth.value)
-                                        }
-                                    ) { change, dragAmount ->
-                                        change.consume()
-                                        val deltaDp = with(density) { dragAmount.toDp() }
-                                        panelWidth = (panelWidth + deltaDp).coerceIn(MIN_PANEL_WIDTH, MAX_PANEL_WIDTH)
-                                    }
-                                }
-                        )
-                    }
-
                     Box(
                         modifier = Modifier
                             .weight(1f)
                             .fillMaxHeight()
-                            .padding(top = 2.dp)
                             .background(MaterialTheme.colorScheme.background)
                     ) {
                         if (!isSidebarVisible) {
                             Box(
                                 modifier = Modifier
                                     .align(Alignment.TopStart)
-                                    .padding(start = 26.dp, top = PANEL_TOP_MARGIN + 2.dp)
+                                    .padding(start = 26.dp, top = PANEL_TOP_MARGIN + 4.dp)
                                     .zIndex(10f)
                             ) {
                                 TopBarIconButton(
@@ -1580,6 +1554,29 @@ fun DesktopMainScreen(
                             }
                         }
                     }
+                }
+
+                if (isSidebarVisible) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopStart)
+                            .offset(x = panelWidth - PANEL_PADDING / 2)
+                            .fillMaxHeight()
+                            .width(PANEL_PADDING)
+                            .zIndex(22f)
+                            .pointerHoverIcon(PointerIcon(Cursor(Cursor.E_RESIZE_CURSOR)))
+                            .pointerInput(Unit) {
+                                detectHorizontalDragGestures(
+                                    onDragEnd = {
+                                        settingsManager.saveDesktopSidebarWidth(panelWidth.value)
+                                    }
+                                ) { change, dragAmount ->
+                                    change.consume()
+                                    val deltaDp = with(density) { dragAmount.toDp() }
+                                    panelWidth = (panelWidth + deltaDp).coerceIn(MIN_PANEL_WIDTH, MAX_PANEL_WIDTH)
+                                }
+                            }
+                    )
                 }
 
                 // Hover-to-peek: thin left-edge trigger (only when collapsed)
