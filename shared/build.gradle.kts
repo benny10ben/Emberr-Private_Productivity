@@ -1,3 +1,5 @@
+import java.io.File
+
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
     alias(libs.plugins.android.kotlin.multiplatform.library)
@@ -228,6 +230,27 @@ val packageIdentifier = "emberr"
 val packageRelease = "1"
 val menuCategory = "Office"
 val licenseType = "AGPL-3.0-or-later"
+val redHatBuildTools = listOf("rpmbuild")
+val redHatBuildToolInstallHint = "sudo dnf install rpm-build"
+val debianSection = "utils"
+val debianMaintainerEmail = "developer.ben10@gmail.com"
+val debianRequiredSystemPackages = listOf(
+    "libc6",
+    "libstdc++6",
+    "libgcc-s1",
+    "libgl1",
+    "libx11-6",
+    "libxext6",
+    "libxrender1",
+    "libxtst6",
+    "libxi6",
+    "libfontconfig1",
+    "libfreetype6",
+    "libasound2",
+    "xdg-utils"
+)
+val debianBuildTools = listOf("dpkg", "dpkg-deb", "fakeroot")
+val debianBuildToolInstallHint = "sudo dnf install dpkg fakeroot"
 val linuxIconFile = layout.projectDirectory.file("packaging/linux/emberr.png")
 val linuxPackagingTemplateDir = layout.projectDirectory.dir("packaging/linux/jpackage")
 val linuxPackagingResourceDir = layout.buildDirectory.dir("compose/packaging/linux")
@@ -250,9 +273,6 @@ compose.desktop {
         )
 
         nativeDistributions {
-            targetFormats(
-                org.jetbrains.compose.desktop.application.dsl.TargetFormat.Rpm
-            )
             packageName = applicationName
             packageVersion = applicationVersion
 
@@ -274,6 +294,7 @@ compose.desktop {
                 packageVersion = applicationVersion
                 appRelease = packageRelease
                 rpmLicenseType = licenseType
+                debMaintainer = debianMaintainerEmail
                 appCategory = menuCategory
                 menuGroup = menuCategory
                 shortcut = true
@@ -285,7 +306,19 @@ compose.desktop {
 
 // Linux release packaging
 //
-// Build the RPM users install with:
+// Status: the formats meant for release are tarball, AppImage and Flatpak, and none of
+// them are built here yet. RPM and DEB below are complete but dormant, kept for later.
+// All of them, including the three not written yet, wrap the same app image that
+// createDistributable produces, so that task is the one piece none of this works without.
+//
+// targetFormats is deliberately left empty, so Compose registers no packaging tasks of
+// its own and packageDistributionForCurrentOS does nothing. The RPM and DEB tasks below
+// call jpackage by hand and only run when named explicitly. Leaving the set empty is
+// safe: it is the value Compose itself starts from, and createDistributable, run and
+// runDistributable never read it. Note that targetFormats() rejects an empty argument
+// list, so a format is removed by deleting the call, not by calling it with no formats.
+//
+// Build the RPM with:
 //
 //     ./gradlew :shared:packageRpmWithDesktopEntry
 //
@@ -293,17 +326,17 @@ compose.desktop {
 // Bump applicationVersion above for a new release; bump packageRelease only when
 // repackaging the same app version.
 //
-// ./gradlew packageRpm and ./gradlew :shared:packageRpm also work and build the exact
-// same file, because the block below redirects them here. They report SKIPPED, which is
-// expected, not a failure.
+// Compose's own packageRpm could not be used even when it was registered: it always
+// passes its own --resource-dir and wipes that folder, so the Emberr.desktop and
+// emberr.spec overrides in packaging/linux/jpackage never reach jpackage. Without them
+// the window has no matching desktop entry and file associations break. That is why
+// jpackage is invoked by hand below, against the app image createDistributable produces.
 //
-// Compose's own packageRpm cannot be used directly: it always passes its own
-// --resource-dir and wipes that folder, so the Emberr.desktop and emberr.spec overrides
-// in packaging/linux/jpackage never reach jpackage. Without them the window has no
-// matching desktop entry and file associations break. That is why jpackage is invoked
-// by hand below, against the app image that createDistributable produces.
+// Before shipping an RPM or a DEB to users, add a license: pass --license-file with the
+// repository LICENSE to both tasks. jpackage warns that packages without one look low
+// quality, and lintian reports a DEB that installs no copyright file.
 val prepareLinuxPackagingResources = tasks.register<Sync>("prepareLinuxPackagingResources") {
-    group = "compose desktop"
+    group = "linux packaging"
     description = "Fills in the desktop entry template with the window class the AWT toolkit reports."
     from(linuxPackagingTemplateDir)
     into(linuxPackagingResourceDir)
@@ -312,13 +345,15 @@ val prepareLinuxPackagingResources = tasks.register<Sync>("prepareLinuxPackaging
     }
 }
 
-val packageRpmWithDesktopEntry = tasks.register<Exec>("packageRpmWithDesktopEntry") {
-    group = "compose desktop"
+tasks.register<Exec>("packageRpmWithDesktopEntry") {
+    group = "linux packaging"
     description = "Builds the RPM with a desktop entry the desktop shell can match to the app window."
     dependsOn("createDistributable", prepareLinuxPackagingResources)
 
     val appImageDir = layout.buildDirectory.dir("compose/binaries/main/app/$applicationName")
     val rpmOutputDir = layout.buildDirectory.dir("compose/binaries/main/rpm")
+    val requiredBuildTools = redHatBuildTools
+    val buildToolInstallHint = redHatBuildToolInstallHint
 
     inputs.dir(appImageDir).withPropertyName("appImage")
     inputs.dir(linuxPackagingResourceDir).withPropertyName("packagingResources")
@@ -326,6 +361,17 @@ val packageRpmWithDesktopEntry = tasks.register<Exec>("packageRpmWithDesktopEntr
     outputs.dir(rpmOutputDir).withPropertyName("rpmOutput")
 
     doFirst {
+        val pathDirectories = System.getenv("PATH").orEmpty().split(File.pathSeparator)
+        val missingTools = requiredBuildTools.filter { toolName ->
+            pathDirectories.none { directory -> File(directory, toolName).canExecute() }
+        }
+        if (missingTools.isNotEmpty()) {
+            throw GradleException(
+                "Cannot build the RPM because these tools are not on PATH: " +
+                    missingTools.joinToString(", ") +
+                    ". Install them with: $buildToolInstallHint"
+            )
+        }
         val outputDirectory = rpmOutputDir.get().asFile
         outputDirectory.deleteRecursively()
         outputDirectory.mkdirs()
@@ -349,12 +395,95 @@ val packageRpmWithDesktopEntry = tasks.register<Exec>("packageRpmWithDesktopEntr
     )
 }
 
-// Both stock Compose RPM tasks are disabled and point at the task above, so no command
-// can ship an RPM that is missing the desktop entry overrides.
-val stockRpmTaskNames = setOf("packageRpm", "packageReleaseRpm")
+// Debian release packaging
+//
+// Not released yet. Nothing depends on the task below, so it only runs when it is named
+// explicitly:
+//
+//     ./gradlew :shared:packageDebWithDesktopEntry
+//
+// Result: shared/build/compose/binaries/main/deb/emberr_<version>-<release>_amd64.deb
+//
+// Before the first run, install the Debian tooling Fedora does not ship by default:
+//
+//     sudo dnf install dpkg fakeroot
+//
+// Three Debian specific settings are passed by hand because jpackage cannot work them
+// out while it runs on Fedora:
+//
+//   1. --linux-package-deps. jpackage only fills in Depends: when it detects a Debian
+//      host, which it does by running "dpkg -s coreutils". Fedora's dpkg ships an empty
+//      package database, so that check fails and the dependency list comes out blank.
+//      debianRequiredSystemPackages above is the hand-maintained replacement, taken from
+//      the NEEDED entries of every native library the app image loads.
+//   2. --linux-app-category. This fills in Section:, which Debian expects to be one of
+//      its own section names, so it is "utils" and not the "Office" the RPM uses.
+//      The desktop entry category stays "Office" because that comes from the separate
+//      --linux-menu-group option.
+//   3. --linux-deb-maintainer. Without it the Maintainer: field reads "Unknown".
+tasks.register<Exec>("packageDebWithDesktopEntry") {
+    group = "linux packaging"
+    description = "Builds the DEB with a desktop entry, an explicit dependency list and Debian metadata."
+    dependsOn("createDistributable", prepareLinuxPackagingResources)
 
-tasks.matching { it.name in stockRpmTaskNames }.configureEach {
-    dependsOn(packageRpmWithDesktopEntry)
+    val appImageDir = layout.buildDirectory.dir("compose/binaries/main/app/$applicationName")
+    val debOutputDir = layout.buildDirectory.dir("compose/binaries/main/deb")
+    val requiredBuildTools = debianBuildTools
+    val buildToolInstallHint = debianBuildToolInstallHint
+
+    inputs.dir(appImageDir).withPropertyName("appImage")
+    inputs.dir(linuxPackagingResourceDir).withPropertyName("packagingResources")
+    inputs.file(linuxIconFile).withPropertyName("icon")
+    outputs.dir(debOutputDir).withPropertyName("debOutput")
+
+    doFirst {
+        val pathDirectories = System.getenv("PATH").orEmpty().split(File.pathSeparator)
+        val missingTools = requiredBuildTools.filter { toolName ->
+            pathDirectories.none { directory -> File(directory, toolName).canExecute() }
+        }
+        if (missingTools.isNotEmpty()) {
+            throw GradleException(
+                "Cannot build the DEB because these tools are not on PATH: " +
+                    missingTools.joinToString(", ") +
+                    ". Install them with: $buildToolInstallHint"
+            )
+        }
+        val outputDirectory = debOutputDir.get().asFile
+        outputDirectory.deleteRecursively()
+        outputDirectory.mkdirs()
+    }
+
+    commandLine(
+        desktopRuntimeJdk.get().metadata.installationPath.file("bin/jpackage").asFile.absolutePath,
+        "--type", "deb",
+        "--app-image", appImageDir.get().asFile.absolutePath,
+        "--resource-dir", linuxPackagingResourceDir.get().asFile.absolutePath,
+        "--icon", linuxIconFile.asFile.absolutePath,
+        "--dest", debOutputDir.get().asFile.absolutePath,
+        "--name", applicationName,
+        "--app-version", applicationVersion,
+        "--linux-package-name", packageIdentifier,
+        "--linux-app-release", packageRelease,
+        "--linux-app-category", debianSection,
+        "--linux-menu-group", menuCategory,
+        "--linux-deb-maintainer", debianMaintainerEmail,
+        "--linux-package-deps", debianRequiredSystemPackages.joinToString(", "),
+        "--linux-shortcut"
+    )
+}
+
+// While targetFormats is empty Compose registers none of these, so this guard matches
+// nothing today. It stays so that adding a format back cannot ship a package that is
+// missing the desktop entry overrides. It disables rather than redirects, so no format
+// can ever be dragged into a release on a machine without the tools to build it.
+val stockComposePackagingTaskNames = setOf(
+    "packageRpm",
+    "packageReleaseRpm",
+    "packageDeb",
+    "packageReleaseDeb"
+)
+
+tasks.matching { it.name in stockComposePackagingTaskNames }.configureEach {
     onlyIf { false }
 }
 
