@@ -39,6 +39,7 @@ okio = "3.18.2"
 jsoup = "1.23.2"
 dbusJava = "5.2.0"
 jmdns = "3.6.3"
+jna = "5.13.0"
 
 # Local storage and encryption
 room = "2.8.4"
@@ -118,6 +119,7 @@ jsoup = { group = "org.jsoup", name = "jsoup", version.ref = "jsoup" }
 dbus-java-core = { group = "com.github.hypfvieh", name = "dbus-java-core", version.ref = "dbusJava" }
 dbus-java-transport-native-unixsocket = { group = "com.github.hypfvieh", name = "dbus-java-transport-native-unixsocket", version.ref = "dbusJava" }
 jmdns = { group = "org.jmdns", name = "jmdns", version.ref = "jmdns" }
+jna-platform = { group = "net.java.dev.jna", name = "jna-platform", version.ref = "jna" }
 
 # Room
 androidx-room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }

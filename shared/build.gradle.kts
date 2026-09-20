@@ -187,6 +187,7 @@ kotlin {
                 implementation(libs.ktor.server.content.negotiation)
                 implementation(libs.ktor.server.auth)
                 implementation(libs.jmdns)
+                implementation(libs.jna.platform)
                 implementation(libs.zxing.core)
                 implementation(libs.java.keyring)
                 implementation(libs.pdfbox)
@@ -237,6 +238,9 @@ compose.desktop {
         javaHome = desktopRuntimeJdk.get().metadata.installationPath.asFile.absolutePath
 
         jvmArgs += listOf(
+            "--add-opens", "java.desktop/java.awt=ALL-UNNAMED",
+            "--add-opens", "java.desktop/sun.awt=ALL-UNNAMED",
+            "--add-opens", "java.desktop/sun.awt.X11=ALL-UNNAMED",
             "-Xmx1g",
             "-XX:MaxMetaspaceSize=256m",
             "-XX:+UseG1GC",
