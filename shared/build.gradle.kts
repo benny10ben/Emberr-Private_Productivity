@@ -254,6 +254,9 @@ val debianBuildToolInstallHint = "sudo dnf install dpkg fakeroot"
 val linuxIconFile = layout.projectDirectory.file("packaging/linux/emberr.png")
 val linuxPackagingTemplateDir = layout.projectDirectory.dir("packaging/linux/jpackage")
 val linuxPackagingResourceDir = layout.buildDirectory.dir("compose/packaging/linux")
+val tarballScriptTemplateDir = layout.projectDirectory.dir("packaging/linux/tarball")
+val tarballRootDirectoryName = "$packageIdentifier-$applicationVersion-x86_64"
+val installedIconSize = "512"
 
 compose.desktop {
     application {
@@ -470,6 +473,57 @@ tasks.register<Exec>("packageDebWithDesktopEntry") {
         "--linux-package-deps", debianRequiredSystemPackages.joinToString(", "),
         "--linux-shortcut"
     )
+}
+
+// Tarball release packaging
+//
+// This is the format meant to ship first. Build it with:
+//
+//     ./gradlew :shared:packageTarball
+//
+// Result: shared/build/compose/binaries/main/tarball/emberr-<version>-x86_64.tar.gz
+//
+// Unlike the RPM and DEB tasks this one needs no external tools at all, because a
+// tarball is just the app image createDistributable already produced plus the two
+// scripts below. jpackage is never involved, so there is no desktop entry template
+// either: install.sh writes the entry itself, which it has to do because Exec must be
+// the absolute path the user installed to and that is only known at install time.
+//
+// The scripts install per user and never ask for root. The icon goes to the hicolor
+// theme rather than next to the desktop entry, because Icon=emberr is resolved through
+// the icon theme and a loose file in applications/ would never be found.
+tasks.register<Tar>("packageTarball") {
+    group = "linux packaging"
+    description = "Builds the user installable tarball with install.sh and uninstall.sh."
+    dependsOn("createDistributable")
+
+    val appImageDir = layout.buildDirectory.dir("compose/binaries/main/app/$applicationName")
+
+    archiveFileName.set("$tarballRootDirectoryName.tar.gz")
+    destinationDirectory.set(layout.buildDirectory.dir("compose/binaries/main/tarball"))
+    compression = Compression.GZIP
+
+    from(appImageDir) {
+        into("$tarballRootDirectoryName/$packageIdentifier")
+    }
+
+    from(linuxIconFile) {
+        into(tarballRootDirectoryName)
+        rename { "$packageIdentifier.png" }
+    }
+
+    from(tarballScriptTemplateDir) {
+        into(tarballRootDirectoryName)
+        filePermissions { unix("0755") }
+        filter { line ->
+            line.replace("@APP_NAME@", applicationName)
+                .replace("@PACKAGE_NAME@", packageIdentifier)
+                .replace("@APP_VERSION@", applicationVersion)
+                .replace("@WINDOW_CLASS@", desktopWindowClassName)
+                .replace("@MENU_CATEGORY@", menuCategory)
+                .replace("@ICON_SIZE@", installedIconSize)
+        }
+    }
 }
 
 // While targetFormats is empty Compose registers none of these, so this guard matches
