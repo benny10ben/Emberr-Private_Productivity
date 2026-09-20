@@ -91,6 +91,14 @@ interface SettingsManager {
     fun isShowScrollbarEnabled(): Boolean
     fun saveShowScrollbar(enabled: Boolean)
 
+    val customWindowFrameEnabledFlow: Flow<Boolean>
+    fun isCustomWindowFrameEnabled(): Boolean
+    fun saveCustomWindowFrameEnabled(enabled: Boolean)
+
+    val autoHideTitleBarFlow: Flow<Boolean>
+    fun isAutoHideTitleBarEnabled(): Boolean
+    fun saveAutoHideTitleBar(enabled: Boolean)
+
     // AI generation
     val aiGenerationModeFlow: Flow<String>
     fun saveAiGenerationMode(mode: String)

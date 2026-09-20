@@ -257,6 +257,36 @@ class DesktopSettingsManager(private val secretStore: DesktopSecretStore) : Sett
         _showScrollbar.value = enabled
     }
 
+    private val _customWindowFrameEnabled = MutableStateFlow(
+        prefs.getBoolean(
+            SyncConstants.KEY_CUSTOM_WINDOW_FRAME,
+            SyncConstants.DEFAULT_CUSTOM_WINDOW_FRAME
+        )
+    )
+    override val customWindowFrameEnabledFlow: Flow<Boolean> = _customWindowFrameEnabled
+
+    override fun isCustomWindowFrameEnabled(): Boolean = _customWindowFrameEnabled.value
+
+    override fun saveCustomWindowFrameEnabled(enabled: Boolean) {
+        prefs.putBoolean(SyncConstants.KEY_CUSTOM_WINDOW_FRAME, enabled)
+        _customWindowFrameEnabled.value = enabled
+    }
+
+    private val _autoHideTitleBar = MutableStateFlow(
+        prefs.getBoolean(
+            SyncConstants.KEY_AUTO_HIDE_TITLE_BAR,
+            SyncConstants.DEFAULT_AUTO_HIDE_TITLE_BAR
+        )
+    )
+    override val autoHideTitleBarFlow: Flow<Boolean> = _autoHideTitleBar
+
+    override fun isAutoHideTitleBarEnabled(): Boolean = _autoHideTitleBar.value
+
+    override fun saveAutoHideTitleBar(enabled: Boolean) {
+        prefs.putBoolean(SyncConstants.KEY_AUTO_HIDE_TITLE_BAR, enabled)
+        _autoHideTitleBar.value = enabled
+    }
+
     private val _aiGenerationMode = MutableStateFlow(
         prefs.get(SyncConstants.KEY_AI_GENERATION_MODE, SyncConstants.DEFAULT_AI_GENERATION_MODE)
     )

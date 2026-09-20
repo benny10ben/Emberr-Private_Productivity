@@ -38,8 +38,10 @@ import com.emberr.domain.sync.SyncPairingData
 import com.emberr.domain.sync.SyncServerStatus
 import com.emberr.domain.util.system.AppPermission
 import com.emberr.domain.util.system.isDesktopPlatform
+import com.emberr.domain.util.system.restartApplication
 import com.emberr.domain.util.system.rememberAppPermissionCoordinator
 import com.emberr.presentation.shared.components.EmberrBottomSheet
+import com.emberr.presentation.shared.components.EmberrAlertDialog
 import com.emberr.presentation.shared.components.EmberrButtonPrimary
 import com.emberr.presentation.shared.components.EmberrButtonSecondary
 import com.emberr.presentation.shared.components.EmberrTextField
@@ -147,6 +149,8 @@ fun SettingsScreen(
     var showSubNoteOpenModeSheet by remember { mutableStateOf(false) }
 
     val showScrollbar by viewModel.showScrollbar.collectAsState()
+    val customWindowFrameEnabled by viewModel.customWindowFrameEnabled.collectAsState()
+    val autoHideTitleBar by viewModel.autoHideTitleBar.collectAsState()
 
     val aiFeaturesDisabled by viewModel.aiFeaturesDisabled.collectAsState()
     val isPurgingAiData by viewModel.isPurgingAiData.collectAsState()
@@ -253,11 +257,15 @@ fun SettingsScreen(
                     subNoteOpenModeLabel = runCatching { SubNoteOpenMode.valueOf(subNoteOpenMode) }
                         .getOrDefault(SubNoteOpenMode.SIDE_PANEL).displayName,
                     showScrollbar = showScrollbar,
+                    customWindowFrameEnabled = customWindowFrameEnabled,
+                    autoHideTitleBar = autoHideTitleBar,
                     onThemeClick = { showThemeSheet = true },
                     onFontSizeClick = { showFontSizeSheet = true },
                     onFontStyleClick = { showFontStyleSheet = true },
                     onSubNoteOpenModeClick = { showSubNoteOpenModeSheet = true },
-                    onShowScrollbarChange = { viewModel.setShowScrollbar(it) }
+                    onShowScrollbarChange = { viewModel.setShowScrollbar(it) },
+                    onCustomWindowFrameChange = { viewModel.setCustomWindowFrameEnabled(it) },
+                    onAutoHideTitleBarChange = { viewModel.setAutoHideTitleBar(it) }
                 )
             }
         )
@@ -1003,11 +1011,15 @@ private fun AppearanceSettingsSection(
     fontStyleLabel: String,
     subNoteOpenModeLabel: String,
     showScrollbar: Boolean,
+    customWindowFrameEnabled: Boolean,
+    autoHideTitleBar: Boolean,
     onThemeClick: () -> Unit,
     onFontSizeClick: () -> Unit,
     onFontStyleClick: () -> Unit,
     onSubNoteOpenModeClick: () -> Unit,
-    onShowScrollbarChange: (Boolean) -> Unit
+    onShowScrollbarChange: (Boolean) -> Unit,
+    onCustomWindowFrameChange: (Boolean) -> Unit,
+    onAutoHideTitleBarChange: (Boolean) -> Unit
 ) {
     SettingsGroup(title = "Appearance") {
         SettingsActionRow(
@@ -1053,6 +1065,74 @@ private fun AppearanceSettingsSection(
                 text = "Shows scrollbars in the sidebar, editor, note lists, tables and databases. " +
                     "Scrolling with the wheel or trackpad works either way."
             )
+
+            SettingsDivider()
+
+            var showCustomWindowFrameNotice by remember { mutableStateOf(false) }
+
+            SettingsToggleRow(
+                icon = painterResource(Res.drawable.sidebar),
+                title = "Custom Title Bar",
+                isChecked = customWindowFrameEnabled,
+                onCheckedChange = { enabled ->
+                    onCustomWindowFrameChange(enabled)
+                    showCustomWindowFrameNotice = true
+                }
+            )
+
+            SettingsFootnote(
+                text = "Draws the window corners and the minimise, maximise and close buttons " +
+                    "inside Emberr instead of letting the desktop draw a separate title bar. " +
+                    "Takes effect the next time you start Emberr."
+            )
+
+            if (customWindowFrameEnabled) {
+                SettingsDivider()
+                SettingsToggleRow(
+                    icon = painterResource(Res.drawable.sidebar),
+                    title = "Auto-hide Title Bar",
+                    isChecked = autoHideTitleBar,
+                    onCheckedChange = onAutoHideTitleBarChange
+                )
+
+                SettingsFootnote(
+                    text = "Keeps the title bar out of the way and slides it in when you move " +
+                        "the pointer to the top of the window. Turn this off to keep it on " +
+                        "screen all the time."
+                )
+            }
+
+            if (showCustomWindowFrameNotice) {
+                EmberrAlertDialog(
+                    onDismissRequest = { showCustomWindowFrameNotice = false },
+                    title = "Restart to apply"
+                ) {
+                    Text(
+                        text = "The window cannot switch between its own title bar and the " +
+                            "desktop's one while it is open, so Emberr needs to restart to " +
+                            "apply this. Unsaved work is saved as you type, so restarting now " +
+                            "is safe.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f)
+                    )
+                    Spacer(Modifier.height(20.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        EmberrButtonSecondary(
+                            text = "Later",
+                            onClick = { showCustomWindowFrameNotice = false },
+                            modifier = Modifier.weight(1f)
+                        )
+                        EmberrButtonPrimary(
+                            text = "Restart Now",
+                            onClick = {
+                                showCustomWindowFrameNotice = false
+                                restartApplication()
+                            },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+            }
         }
     }
 }

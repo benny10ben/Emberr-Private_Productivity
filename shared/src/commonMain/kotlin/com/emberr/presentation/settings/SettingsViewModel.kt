@@ -116,6 +116,27 @@ class SettingsViewModel(
         settingsManager.saveShowScrollbar(enabled)
     }
 
+    val customWindowFrameEnabled: StateFlow<Boolean> =
+        settingsManager.customWindowFrameEnabledFlow.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = settingsManager.isCustomWindowFrameEnabled()
+        )
+
+    fun setCustomWindowFrameEnabled(enabled: Boolean) {
+        settingsManager.saveCustomWindowFrameEnabled(enabled)
+    }
+
+    val autoHideTitleBar: StateFlow<Boolean> = settingsManager.autoHideTitleBarFlow.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = settingsManager.isAutoHideTitleBarEnabled()
+    )
+
+    fun setAutoHideTitleBar(enabled: Boolean) {
+        settingsManager.saveAutoHideTitleBar(enabled)
+    }
+
     val aiFeaturesDisabled: StateFlow<Boolean> = settingsManager.aiFeaturesDisabledFlow.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
