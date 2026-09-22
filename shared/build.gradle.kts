@@ -302,6 +302,13 @@ compose.desktop {
             "-XX:CICompilerCount=2"
         )
 
+        if (isBuildingOnWindows) {
+            jvmArgs += listOf(
+                "-XX:+AutoCreateSharedArchive",
+                "-XX:SharedArchiveFile=\$APPDIR/startup-classes.jsa"
+            )
+        }
+
         nativeDistributions {
             packageName = applicationName
             packageVersion = applicationVersion
@@ -398,6 +405,44 @@ compose.desktop {
 // Before shipping an RPM or a DEB to users, add a license: pass --license-file with the
 // repository LICENSE to both tasks. jpackage warns that packages without one look low
 // quality, and lintian reports a DEB that installs no copyright file.
+val addStartupClassCacheToAppImage = tasks.register<Exec>("addStartupClassCacheToAppImage") {
+    group = "desktop packaging"
+    description = "Dumps the shared class archive jlink leaves out, so launches skip reloading every JDK class."
+    dependsOn("createDistributable")
+
+    val bundledRuntimeFolderName = if (isBuildingOnWindows) "runtime" else "lib/runtime"
+    val launcherFileName = if (isBuildingOnWindows) "java.exe" else "java"
+    val appImageDirectory = layout.buildDirectory.dir("compose/binaries/main/app/$applicationName")
+    val fullJdkLauncherFile = desktopRuntimeJdk.get().metadata.installationPath
+        .file("bin/$launcherFileName").asFile
+    val borrowedLauncherFile = appImageDirectory.get().asFile
+        .resolve("$bundledRuntimeFolderName/bin/$launcherFileName")
+
+    outputs.upToDateWhen { false }
+
+    doFirst {
+        borrowedLauncherFile.parentFile.mkdirs()
+        fullJdkLauncherFile.copyTo(borrowedLauncherFile, overwrite = true)
+        borrowedLauncherFile.setExecutable(true)
+    }
+
+    commandLine(borrowedLauncherFile.absolutePath, "-Xshare:dump")
+
+    doLast {
+        borrowedLauncherFile.delete()
+        val borrowedLauncherDirectory = borrowedLauncherFile.parentFile
+        if (borrowedLauncherDirectory.list()?.isEmpty() == true) {
+            borrowedLauncherDirectory.delete()
+        }
+    }
+}
+
+val windowsPackagingTaskNames = setOf("packageExe", "packageReleaseExe", "packageMsi", "packageReleaseMsi")
+
+tasks.matching { it.name in windowsPackagingTaskNames }.configureEach {
+    dependsOn(addStartupClassCacheToAppImage)
+}
+
 val prepareLinuxPackagingResources = tasks.register<Sync>("prepareLinuxPackagingResources") {
     group = "linux packaging"
     description = "Fills in the desktop entry template with the window class the AWT toolkit reports."
@@ -411,7 +456,7 @@ val prepareLinuxPackagingResources = tasks.register<Sync>("prepareLinuxPackaging
 tasks.register<Exec>("packageRpmWithDesktopEntry") {
     group = "linux packaging"
     description = "Builds the RPM with a desktop entry the desktop shell can match to the app window."
-    dependsOn("createDistributable", prepareLinuxPackagingResources)
+    dependsOn("createDistributable", prepareLinuxPackagingResources, addStartupClassCacheToAppImage)
 
     val appImageDir = layout.buildDirectory.dir("compose/binaries/main/app/$applicationName")
     val rpmOutputDir = layout.buildDirectory.dir("compose/binaries/main/rpm")
@@ -487,7 +532,7 @@ tasks.register<Exec>("packageRpmWithDesktopEntry") {
 tasks.register<Exec>("packageDebWithDesktopEntry") {
     group = "linux packaging"
     description = "Builds the DEB with a desktop entry, an explicit dependency list and Debian metadata."
-    dependsOn("createDistributable", prepareLinuxPackagingResources)
+    dependsOn("createDistributable", prepareLinuxPackagingResources, addStartupClassCacheToAppImage)
 
     val appImageDir = layout.buildDirectory.dir("compose/binaries/main/app/$applicationName")
     val debOutputDir = layout.buildDirectory.dir("compose/binaries/main/deb")
@@ -555,7 +600,7 @@ tasks.register<Exec>("packageDebWithDesktopEntry") {
 tasks.register<Tar>("packageTarball") {
     group = "linux packaging"
     description = "Builds the user installable tarball with install.sh and uninstall.sh."
-    dependsOn("createDistributable")
+    dependsOn("createDistributable", addStartupClassCacheToAppImage)
 
     val appImageDir = layout.buildDirectory.dir("compose/binaries/main/app/$applicationName")
 
@@ -617,7 +662,7 @@ tasks.register<Tar>("packageTarball") {
 val prepareAppDir = tasks.register<Sync>("prepareAppDir") {
     group = "linux packaging"
     description = "Lays out the AppDir that appimagetool turns into a single AppImage file."
-    dependsOn("createDistributable")
+    dependsOn("createDistributable", addStartupClassCacheToAppImage)
 
     val composeAppImageDir = layout.buildDirectory.dir("compose/binaries/main/app/$applicationName")
     val iconThemeDirectory = "usr/share/icons/hicolor/${installedIconSize}x${installedIconSize}/apps"
