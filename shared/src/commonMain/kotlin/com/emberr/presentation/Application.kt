@@ -16,6 +16,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
@@ -297,11 +298,18 @@ fun EmberrApp(
     ) {
         if (isDesktopPlatform) {
             var isOnboardingCompleted by remember { mutableStateOf(settingsManager.isOnboardingCompleted()) }
+            var hasSplashFinished by remember { mutableStateOf(false) }
+            var hasFirstFrameRendered by remember { mutableStateOf(false) }
+
+            LaunchedEffect(Unit) {
+                withFrameNanos { }
+                hasFirstFrameRendered = true
+            }
 
             Box(
                 modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)
             ) {
-                if (isOnboardingCompleted) {
+                if (hasFirstFrameRendered && isOnboardingCompleted) {
                     DesktopMainScreenWrapper(
                         isSidebarVisible = isSidebarVisible,
                         sidebarWidth = DESKTOP_SIDEBAR_WIDTH,
@@ -320,8 +328,24 @@ fun EmberrApp(
                         ragViewModel = ragViewModel,
                         onDismissRagChat = dismissRagChat
                     )
-                } else {
+                } else if (hasFirstFrameRendered) {
                     OnboardingScreen(onFinished = { isOnboardingCompleted = true })
+                }
+
+                if (!hasSplashFinished) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .pointerInput(Unit) {
+                                awaitPointerEventScope {
+                                    while (true) {
+                                        awaitPointerEvent().changes.forEach { change -> change.consume() }
+                                    }
+                                }
+                            }
+                    ) {
+                        LoadingScreen(onLoadingComplete = { hasSplashFinished = true })
+                    }
                 }
 
                 fullScreenContent?.invoke()
