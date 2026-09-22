@@ -297,6 +297,12 @@ fun DailyEditorPane(
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
     ) {
+        val editorTopPadding = if (isDesktopPlatform) {
+            if (!isSidebarVisible) 72.dp else 16.dp
+        } else {
+            rememberStableStatusBarsPadding().calculateTopPadding() + 150.dp
+        }
+
         EditorScreen(
             blocks = blocks,
             allLinkableNotes = allLinkableNotes,
@@ -349,14 +355,17 @@ fun DailyEditorPane(
                 }
             },
             bottomContentPadding = bottomContentPadding,
-            topContentPadding = if (isDesktopPlatform) {
-                if (!isSidebarVisible) 72.dp else 16.dp
-            } else {
-                rememberStableStatusBarsPadding().calculateTopPadding() + 150.dp
-            },
+            topContentPadding = editorTopPadding,
             modifier = Modifier.fillMaxSize().hazeSource(state = hazeState),
             onUndo = { viewModel.undo() },
-            onRedo = { viewModel.redo() }
+            onRedo = { viewModel.redo() },
+            emptyContent = {
+                DailyEmptyDayMessage(
+                    date = selectedDate,
+                    topPadding = editorTopPadding,
+                    bottomPadding = bottomContentPadding
+                )
+            }
         )
 
         AnimatedVisibility(

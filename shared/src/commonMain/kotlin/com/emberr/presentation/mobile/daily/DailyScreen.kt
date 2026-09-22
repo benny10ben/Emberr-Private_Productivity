@@ -452,7 +452,15 @@ fun DailyScreen(
                             isCurrentActivePage = isCurrentActivePage,
                             topContentPadding = rememberStableStatusBarsPadding().calculateTopPadding() + 72.dp,
                             onUndo = { viewModel.undo() },
-                            onRedo = { viewModel.redo() }
+                            onRedo = { viewModel.redo() },
+                            emptyContent = {
+                                DailyEmptyDayMessage(
+                                    date = pageDate,
+                                    topPadding = rememberStableStatusBarsPadding().calculateTopPadding() + 72.dp,
+                                    bottomPadding = bottomContentPadding +
+                                            if (bottomContentPadding > 0.dp) 40.dp else 0.dp
+                                )
+                            }
                         )
                     }
                 }
