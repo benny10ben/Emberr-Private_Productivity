@@ -8,6 +8,7 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.isCtrlPressed
@@ -23,6 +24,7 @@ import coil3.ImageLoader
 import coil3.compose.setSingletonImageLoaderFactory
 import coil3.memory.MemoryCache
 import coil3.network.ktor3.KtorNetworkFetcherFactory
+import com.emberr.core.desktop.DesktopSingleInstance
 import com.emberr.core.security.secrets.DesktopSecretStore
 import com.emberr.data.local.prefs.SettingsManager
 import com.emberr.data.local.prefs.SyncConstants
@@ -46,6 +48,7 @@ import com.emberr.presentation.desktop.window.CustomWindowFrameSupport
 import com.emberr.presentation.desktop.window.DesktopAppRelauncher
 import com.emberr.presentation.desktop.window.EmberrWindowFrame
 import com.emberr.presentation.desktop.window.MatchWindowsTitleBarToAppTheme
+import com.emberr.presentation.desktop.window.raiseWindowToFront
 import com.emberr.presentation.desktop.window.WindowFrameSize
 import com.emberr.presentation.mobile.home.note.NoteScreen
 import com.emberr.presentation.shared.StickyNoteWindowBus
@@ -65,6 +68,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.FlowPreview
 import com.emberr.presentation.reminders.ReminderClickBus
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.withContext
@@ -76,14 +80,27 @@ import javax.swing.SwingUtilities
 import kotlin.time.Duration.Companion.milliseconds
 
 private const val DESKTOP_IMAGE_CACHE_BYTES = 48L * 1024 * 1024
+private const val MILLIS_TO_WAIT_FOR_FIRST_FRAME_BEFORE_STARTING_ANYWAY = 4000L
 
-fun main() = application {
+fun main() {
+    if (!DesktopSingleInstance.claimOwnershipOrWakeRunningApp()) return
+    runEmberrDesktopApp()
+}
+
+private fun runEmberrDesktopApp() = application {
 
     remember {
         startKoin {
             modules(sharedModule, desktopModule)
         }
         Unit
+    }
+
+    var isBackgroundStartupAllowed by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        delay(MILLIS_TO_WAIT_FOR_FIRST_FRAME_BEFORE_STARTING_ANYWAY)
+        isBackgroundStartupAllowed = true
     }
 
     setSingletonImageLoaderFactory { context ->
@@ -105,13 +122,15 @@ fun main() = application {
         }
     }
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(isBackgroundStartupAllowed) {
+        if (!isBackgroundStartupAllowed) return@LaunchedEffect
         withContext(Dispatchers.IO) {
             GlobalContext.get().get<DesktopSecretStore>().initialise()
         }
     }
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(isBackgroundStartupAllowed) {
+        if (!isBackgroundStartupAllowed) return@LaunchedEffect
         withContext(Dispatchers.IO) {
             val koin = GlobalContext.get()
             koin.get<DesktopSecretStore>().awaitReadyState()
@@ -119,7 +138,8 @@ fun main() = application {
         }
     }
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(isBackgroundStartupAllowed) {
+        if (!isBackgroundStartupAllowed) return@LaunchedEffect
         withContext(Dispatchers.IO) {
             val koin = GlobalContext.get()
             koin.get<DesktopSecretStore>().awaitReadyState()
@@ -141,17 +161,21 @@ fun main() = application {
         }
     }
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(isBackgroundStartupAllowed) {
+        if (!isBackgroundStartupAllowed) return@LaunchedEffect
         val vaultMirrorService = withContext(Dispatchers.IO) {
             VaultLog.keepErrorsIn(java.io.File(System.getProperty("user.home"), ".emberr/vault-errors.txt"))
             GlobalContext.get().get<VaultMirrorService>()
         }
         vaultMirrorService.startWatching(this)
-        vaultMirrorService.refreshEverythingNow()
+        withContext(Dispatchers.IO) {
+            vaultMirrorService.refreshEverythingNow()
+        }
     }
 
     @OptIn(FlowPreview::class)
-    LaunchedEffect(Unit) {
+    LaunchedEffect(isBackgroundStartupAllowed) {
+        if (!isBackgroundStartupAllowed) return@LaunchedEffect
         val localMediaGarbageCollector = withContext(Dispatchers.IO) {
             GlobalContext.get().get<LocalMediaGarbageCollector>()
         }
@@ -175,6 +199,11 @@ fun main() = application {
         ReminderClickBus.pendingBlockId.filterNotNull().collect { showMainWindow() }
     }
 
+    LaunchedEffect(Unit) {
+        DesktopSingleInstance.showWindowRequests.collect { showMainWindow() }
+    }
+
+    if (isBackgroundStartupAllowed) {
     EmberrSystemTray(
         iconResourcePath = "app_icon.png",
         tooltip = "Emberr",
@@ -187,10 +216,12 @@ fun main() = application {
             TrayMenuAction("Quit") { exitApplication() }
         )
     )
+    }
 
     LaunchedEffect(DesktopRestartBus.isRestartRequested) {
         if (!DesktopRestartBus.isRestartRequested) return@LaunchedEffect
         withContext(NonCancellable) { ActiveEditorRegistry.flushAllPending() }
+        DesktopSingleInstance.releaseOwnership()
         DesktopAppRelauncher.startNewInstance()
         exitApplication()
     }
@@ -223,9 +254,20 @@ fun main() = application {
         val currentWindow = this.window as Frame
 
         LaunchedEffect(Unit) {
+            withFrameNanos { }
+            isBackgroundStartupAllowed = true
+        }
+
+        LaunchedEffect(Unit) {
             ReminderClickBus.pendingBlockId.filterNotNull().collect {
                 currentWindow.toFront()
                 currentWindow.requestFocus()
+            }
+        }
+
+        LaunchedEffect(Unit) {
+            DesktopSingleInstance.showWindowRequests.collect {
+                raiseWindowToFront(currentWindow)
             }
         }
 
