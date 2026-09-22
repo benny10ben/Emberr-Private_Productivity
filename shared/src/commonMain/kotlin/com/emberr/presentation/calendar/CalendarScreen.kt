@@ -41,7 +41,6 @@ import com.emberr.domain.util.eventbus.WidgetCalendarDateBus
 import com.emberr.domain.util.eventbus.WidgetCalendarEventBus
 import com.emberr.domain.util.eventbus.WidgetComposeRequest
 import com.emberr.domain.util.eventbus.WidgetComposeRequestBus
-import com.emberr.presentation.shared.stableStatusBarsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -367,11 +366,9 @@ fun CalendarScreen(
                     .zIndex(10f)
                     .onGloballyPositioned { coordinates -> topBarHeightPx = coordinates.size.height.toFloat() }
                     .pointerInput(Unit) { detectTapGestures {} }
-                    .then(if (isDesktopPlatform) Modifier else Modifier.stableStatusBarsPadding())
             ) {
                 EmberrTopHeaderBar(
                     hazeState = internalHazeState,
-                    applyStatusBarPadding = false,
                     contentPadding = topHeaderBarPadding(bottom = 16.dp),
                     verticalAlignment = Alignment.Top,
                     onBackClick = onNavigateBack,
