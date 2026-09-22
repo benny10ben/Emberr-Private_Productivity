@@ -45,6 +45,7 @@ import com.emberr.presentation.desktop.TrayMenuAction
 import com.emberr.presentation.desktop.window.CustomWindowFrameSupport
 import com.emberr.presentation.desktop.window.DesktopAppRelauncher
 import com.emberr.presentation.desktop.window.EmberrWindowFrame
+import com.emberr.presentation.desktop.window.MatchWindowsTitleBarToAppTheme
 import com.emberr.presentation.desktop.window.WindowFrameSize
 import com.emberr.presentation.mobile.home.note.NoteScreen
 import com.emberr.presentation.shared.StickyNoteWindowBus
@@ -269,6 +270,8 @@ fun main() = application {
         }
 
         EmberrTheme(darkTheme = darkTheme, fontSizePreference = fontSizePreference, fontStylePreference = fontStylePreference) {
+            MatchWindowsTitleBarToAppTheme(currentWindow)
+
             EmberrWindowFrame(
                 windowState = mainWindowState,
                 isEnabled = useCustomWindowFrame,
@@ -400,6 +403,8 @@ fun main() = application {
                 val stickyWindow = this.window as Frame
 
                 EmberrTheme(darkTheme = darkTheme, fontSizePreference = fontSizePreference, fontStylePreference = fontStylePreference) {
+                    MatchWindowsTitleBarToAppTheme(stickyWindow)
+
                     EmberrWindowFrame(
                         windowState = stickyNoteWindowState,
                         isEnabled = useCustomWindowFrame,
