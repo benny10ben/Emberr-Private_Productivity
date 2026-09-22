@@ -11,6 +11,11 @@ WINDOW_CLASS="@WINDOW_CLASS@"
 MENU_CATEGORY="@MENU_CATEGORY@"
 ICON_SIZE="@ICON_SIZE@"
 
+FORCE_CLOSE=0
+if [ "${1:-}" = "--force" ]; then
+    FORCE_CLOSE=1
+fi
+
 if [ -z "${HOME:-}" ]; then
     echo "Error: HOME is not set, so there is nowhere to install to." >&2
     exit 1
@@ -34,6 +39,41 @@ SOURCE_ICON="$SOURCE_DIR/$PACKAGE_NAME.png"
 if [ ! -f "$SOURCE_APP_DIR/bin/$APP_NAME" ] || [ ! -f "$SOURCE_ICON" ]; then
     echo "Error: run this script from inside the extracted $PACKAGE_NAME folder." >&2
     exit 1
+fi
+
+running_app_process_ids() {
+    if ! command -v pgrep > /dev/null 2>&1; then
+        return 0
+    fi
+    pgrep -f "^$LAUNCHER" 2>/dev/null || true
+}
+
+close_running_app() {
+    echo "Closing $APP_NAME"
+    kill $(running_app_process_ids) 2>/dev/null || true
+
+    attempts=0
+    while [ "$attempts" -lt 100 ] && [ -n "$(running_app_process_ids)" ]; do
+        sleep 0.1
+        attempts=$((attempts + 1))
+    done
+
+    if [ -n "$(running_app_process_ids)" ]; then
+        echo "It did not close in ten seconds, stopping it the hard way."
+        kill -9 $(running_app_process_ids) 2>/dev/null || true
+        sleep 1
+    fi
+}
+
+if [ -n "$(running_app_process_ids)" ] && [ "$FORCE_CLOSE" -eq 0 ]; then
+    echo "Error: $APP_NAME is running, so the old version would stay in memory." >&2
+    echo "Quit it from the tray icon, then run this script again." >&2
+    echo "Or run \"$0 --force\" to close it and install in one go." >&2
+    exit 1
+fi
+
+if [ -n "$(running_app_process_ids)" ]; then
+    close_running_app
 fi
 
 if [ -d "$APP_DIR" ]; then
