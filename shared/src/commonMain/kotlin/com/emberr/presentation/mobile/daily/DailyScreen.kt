@@ -805,7 +805,7 @@ private fun DailyCalendarSheet(
 }
 
 @Composable
-private fun DailyEmptyDayMessage(
+fun DailyEmptyDayMessage(
     date: LocalDate,
     modifier: Modifier = Modifier,
     topPadding: Dp = 0.dp,
