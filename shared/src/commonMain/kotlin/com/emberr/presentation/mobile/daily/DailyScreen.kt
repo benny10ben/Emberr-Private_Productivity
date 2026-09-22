@@ -13,6 +13,7 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.graphics.Color
@@ -21,6 +22,8 @@ import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
@@ -55,6 +58,8 @@ import com.emberr.presentation.shared.editor.GlobalEditorState
 import kotlinx.datetime.LocalDate
 import kotlin.math.abs
 import com.emberr.data.local.room.entity.CalendarTaskEntity
+import com.emberr.domain.quote.DailyQuote
+import com.emberr.domain.quote.DailyQuoteLibrary
 import com.emberr.domain.util.system.isDesktopPlatform
 import com.emberr.presentation.BOTTOM_BAR_PILL_SHRINK_COMPENSATION
 import com.emberr.presentation.calendar.CalendarViewModel
@@ -796,5 +801,68 @@ private fun DailyCalendarSheet(
                     .padding(vertical = 12.dp, horizontal = 20.dp)
             )
         }
+    }
+}
+
+@Composable
+private fun DailyEmptyDayMessage(
+    date: LocalDate,
+    modifier: Modifier = Modifier,
+    topPadding: Dp = 0.dp,
+    bottomPadding: Dp = 0.dp
+) {
+    val quoteOfTheDay by produceState<DailyQuote?>(initialValue = null, key1 = date) {
+        value = DailyQuoteLibrary.quoteForDate(date)
+    }
+
+    val textColor = MaterialTheme.colorScheme.onSurface
+    val halfwayBetweenQuoteAndBottom = BiasAlignment(horizontalBias = 0f, verticalBias = 0.5f)
+
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(top = topPadding, bottom = bottomPadding)
+    ) {
+        AnimatedVisibility(
+            visible = quoteOfTheDay != null,
+            enter = fadeIn(tween(durationMillis = 350)),
+            exit = fadeOut(tween(durationMillis = 150)),
+            modifier = Modifier.align(Alignment.Center)
+        ) {
+            quoteOfTheDay?.let { quote ->
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = if (isDesktopPlatform) 72.dp else 44.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = quote.text,
+                        style = MaterialTheme.typography.bodyLarge.copy(fontStyle = FontStyle.Italic),
+                        color = textColor.copy(alpha = 0.55f),
+                        textAlign = TextAlign.Center
+                    )
+                    if (quote.author.isNotEmpty()) {
+                        Spacer(Modifier.height(14.dp))
+                        Text(
+                            text = "— ${quote.author}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = textColor.copy(alpha = 0.35f),
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+            }
+        }
+
+        Text(
+            text = if (isDesktopPlatform) "Double click to write your thoughts" else "Double tap to write your thoughts",
+            style = MaterialTheme.typography.labelSmall,
+            color = textColor.copy(alpha = 0.3f),
+            textAlign = TextAlign.Center,
+            modifier = Modifier
+                .align(halfwayBetweenQuoteAndBottom)
+                .padding(horizontal = 24.dp)
+        )
     }
 }
