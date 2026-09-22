@@ -23,6 +23,7 @@ LAUNCHER="$APP_DIR/bin/$APP_NAME"
 WRAPPER="$BIN_DIR/$PACKAGE_NAME"
 DESKTOP_ENTRY="$DESKTOP_ENTRY_DIR/$PACKAGE_NAME.desktop"
 ICON="$ICON_THEME_DIR/${ICON_SIZE}x${ICON_SIZE}/apps/$PACKAGE_NAME.png"
+STARTUP_CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/$PACKAGE_NAME"
 
 if [ -d "$APP_DIR" ]; then
     rm -rf "$APP_DIR"
@@ -37,6 +38,11 @@ fi
 if [ -f "$ICON" ]; then
     rm -f "$ICON"
     echo "Removed $ICON"
+fi
+
+if [ -d "$STARTUP_CACHE_DIR" ]; then
+    rm -rf "$STARTUP_CACHE_DIR"
+    echo "Removed $STARTUP_CACHE_DIR"
 fi
 
 if [ -L "$WRAPPER" ] && [ "$(readlink "$WRAPPER")" = "$LAUNCHER" ]; then

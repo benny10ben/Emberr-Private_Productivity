@@ -74,6 +74,15 @@ cat > "$WRAPPER" <<WRAPPER_CONTENT
 MALLOC_ARENA_MAX=2
 export MALLOC_ARENA_MAX
 
+STARTUP_CACHE_DIR="\${XDG_CACHE_HOME:-\${HOME:-/tmp}/.cache}/$PACKAGE_NAME"
+STARTUP_ARCHIVE="\$STARTUP_CACHE_DIR/startup-classes.jsa"
+mkdir -p "\$STARTUP_CACHE_DIR" 2>/dev/null
+if [ -f "\$STARTUP_ARCHIVE" ] && [ ! -s "\$STARTUP_ARCHIVE" ]; then
+    rm -f "\$STARTUP_ARCHIVE"
+fi
+JAVA_TOOL_OPTIONS="\${JAVA_TOOL_OPTIONS:+\$JAVA_TOOL_OPTIONS }-XX:+AutoCreateSharedArchive -XX:SharedArchiveFile=\$STARTUP_ARCHIVE"
+export JAVA_TOOL_OPTIONS
+
 exec "$LAUNCHER" "\$@"
 WRAPPER_CONTENT
 chmod +x "$WRAPPER"
