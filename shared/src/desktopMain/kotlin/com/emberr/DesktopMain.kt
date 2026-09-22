@@ -21,6 +21,7 @@ import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import coil3.ImageLoader
 import coil3.compose.setSingletonImageLoaderFactory
+import coil3.memory.MemoryCache
 import coil3.network.ktor3.KtorNetworkFetcherFactory
 import com.emberr.core.security.secrets.DesktopSecretStore
 import com.emberr.data.local.prefs.SettingsManager
@@ -75,6 +76,8 @@ import javax.swing.JOptionPane
 import javax.swing.SwingUtilities
 import kotlin.time.Duration.Companion.milliseconds
 
+private const val DESKTOP_IMAGE_CACHE_BYTES = 48L * 1024 * 1024
+
 fun main() = application {
 
     remember {
@@ -86,6 +89,11 @@ fun main() = application {
 
     setSingletonImageLoaderFactory { context ->
         ImageLoader.Builder(context)
+            .memoryCache {
+                MemoryCache.Builder()
+                    .maxSizeBytes(DESKTOP_IMAGE_CACHE_BYTES)
+                    .build()
+            }
             .components {
                 add(KtorNetworkFetcherFactory())
             }
