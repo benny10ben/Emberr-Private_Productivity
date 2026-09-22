@@ -1,5 +1,6 @@
 package com.emberr.presentation.shared.components
 
+import androidx.compose.animation.core.Easing
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -20,24 +21,26 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.emberr.domain.util.system.isDesktopPlatform
 import com.emberr.presentation.shared.stableStatusBarsPadding
+import dev.chrisbanes.haze.HazeProgressive
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.HazeStyle
+import dev.chrisbanes.haze.hazeEffect
 import emberr.shared.generated.resources.Res
 import emberr.shared.generated.resources.chevron_left
 import org.jetbrains.compose.resources.painterResource
@@ -46,9 +49,15 @@ val TopHeaderBarButtonSize = 44.dp
 
 private val DefaultTitleSideInset = 56.dp
 
-private val TopEdgeGradientHeight = 240.dp
+private val TopEdgeBlurHeight = 140.dp
 
-private const val TopEdgeGradientStopCount = 24
+private val TopEdgeFadeEasing = Easing { position -> smoothStep(position) }
+
+private val TopEdgeBlurFade = HazeProgressive.verticalGradient(
+    easing = TopEdgeFadeEasing,
+    startIntensity = 1f,
+    endIntensity = 0f
+)
 
 enum class TopHeaderTitlePlacement { Center, Start }
 
@@ -83,7 +92,8 @@ fun EmberrTopHeaderBar(
     backButtonBackground: Color = Color.Transparent,
     onBackClick: () -> Unit = {},
     background: Color = Color.Transparent,
-    topEdgeGradientAlpha: Float = if (isDesktopPlatform) 0f else 1f,
+    topEdgeBlurAlpha: Float = if (isDesktopPlatform) 0f else 1f,
+    topEdgeBlurHeight: Dp = TopEdgeBlurHeight,
     hazeState: HazeState? = null,
     hazeStyle: HazeStyle = EmberrBlur.Regular,
     applyStatusBarPadding: Boolean = !isDesktopPlatform,
@@ -95,52 +105,76 @@ fun EmberrTopHeaderBar(
     actions: @Composable RowScope.() -> Unit = {},
     overlayContent: @Composable BoxScope.() -> Unit = {}
 ) {
-    val topEdgeGradient = rememberTopEdgeGradient()
+    val showBlurFade = topEdgeBlurAlpha > 0f && topEdgeBlurHeight > 0.dp
+    val blurBandSource = if (showBlurFade) hazeState else null
 
     Box(
         modifier = modifier
             .fillMaxWidth()
             .background(background)
-            .then(
-                if (topEdgeGradientAlpha > 0f) {
-                    Modifier.drawBehind {
-                        drawRect(
-                            brush = topEdgeGradient,
-                            size = Size(size.width, maxOf(size.height, TopEdgeGradientHeight.toPx())),
-                            alpha = topEdgeGradientAlpha.coerceIn(0f, 1f)
-                        )
-                    }
-                } else {
-                    Modifier
-                }
-            )
-            .then(if (applyStatusBarPadding) Modifier.stableStatusBarsPadding() else Modifier)
-            .padding(contentPadding)
-            .onGloballyPositioned(onPositioned)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = verticalAlignment
-        ) {
-            when {
-                showBackButton -> TopBarIconButton(
-                    icon = backIcon,
-                    contentDescription = backContentDescription,
-                    bgColor = backButtonBackground,
-                    tint = backButtonTint,
-                    hazeState = hazeState,
-                    hazeStyle = hazeStyle,
-                    size = TopHeaderBarButtonSize,
-                    onClick = onBackClick
-                )
+        if (blurBandSource != null) {
+            TopEdgeBlurBand(
+                hazeState = blurBandSource,
+                hazeStyle = hazeStyle,
+                blurHeight = topEdgeBlurHeight,
+                blurAlpha = topEdgeBlurAlpha
+            )
+        }
 
-                reserveBackButtonSpace -> Spacer(Modifier.size(TopHeaderBarButtonSize))
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .then(if (applyStatusBarPadding) Modifier.stableStatusBarsPadding() else Modifier)
+                .padding(contentPadding)
+                .onGloballyPositioned(onPositioned)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = verticalAlignment
+            ) {
+                when {
+                    showBackButton -> TopBarIconButton(
+                        icon = backIcon,
+                        contentDescription = backContentDescription,
+                        bgColor = backButtonBackground,
+                        tint = backButtonTint,
+                        hazeState = hazeState,
+                        hazeStyle = hazeStyle,
+                        size = TopHeaderBarButtonSize,
+                        onClick = onBackClick
+                    )
+
+                    reserveBackButtonSpace -> Spacer(Modifier.size(TopHeaderBarButtonSize))
+                }
+
+                leadingContent()
+
+                if (titlePlacement == TopHeaderTitlePlacement.Start) {
+                    TopHeaderBarTitle(
+                        text = title,
+                        style = titleStyle,
+                        color = titleColor,
+                        fontWeight = titleFontWeight,
+                        visibility = titleVisibility,
+                        padding = titlePadding,
+                        leadingIcon = titleLeadingIcon,
+                        trailingIcon = titleTrailingIcon,
+                        onClick = onTitleClick
+                    )
+                }
+
+                if (centerContent != null) {
+                    centerContent()
+                } else {
+                    Spacer(Modifier.weight(1f))
+                }
+
+                actions()
             }
 
-            leadingContent()
-
-            if (titlePlacement == TopHeaderTitlePlacement.Start) {
+            if (titlePlacement == TopHeaderTitlePlacement.Center) {
                 TopHeaderBarTitle(
                     text = title,
                     style = titleStyle,
@@ -150,51 +184,47 @@ fun EmberrTopHeaderBar(
                     padding = titlePadding,
                     leadingIcon = titleLeadingIcon,
                     trailingIcon = titleTrailingIcon,
-                    onClick = onTitleClick
+                    onClick = onTitleClick,
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .fillMaxWidth()
+                        .padding(horizontal = titleSideInset)
                 )
             }
 
-            if (centerContent != null) {
-                centerContent()
-            } else {
-                Spacer(Modifier.weight(1f))
-            }
-
-            actions()
+            overlayContent()
         }
-
-        if (titlePlacement == TopHeaderTitlePlacement.Center) {
-            TopHeaderBarTitle(
-                text = title,
-                style = titleStyle,
-                color = titleColor,
-                fontWeight = titleFontWeight,
-                visibility = titleVisibility,
-                padding = titlePadding,
-                leadingIcon = titleLeadingIcon,
-                trailingIcon = titleTrailingIcon,
-                onClick = onTitleClick,
-                modifier = Modifier
-                    .align(Alignment.Center)
-                    .fillMaxWidth()
-                    .padding(horizontal = titleSideInset)
-            )
-        }
-
-        overlayContent()
     }
 }
 
 @Composable
-private fun rememberTopEdgeGradient(): Brush {
-    val edgeColor = MaterialTheme.colorScheme.background
-    return remember(edgeColor) {
-        val colorStops = Array(TopEdgeGradientStopCount) { stopIndex ->
-            val position = stopIndex / (TopEdgeGradientStopCount - 1f)
-            position to edgeColor.copy(alpha = 1f - smoothStep(position))
+private fun TopEdgeBlurBand(
+    hazeState: HazeState,
+    hazeStyle: HazeStyle,
+    blurHeight: Dp,
+    blurAlpha: Float
+) {
+    val blurHeightInPixels = with(LocalDensity.current) { blurHeight.roundToPx() }
+
+    Layout(
+        content = {
+            Box(
+                modifier = Modifier.hazeEffect(hazeState, hazeStyle) {
+                    alpha = blurAlpha.coerceIn(0f, 1f)
+                    progressive = TopEdgeBlurFade
+                }
+            )
+        },
+        measurePolicy = { measurables, constraints ->
+            val bandWidth = if (constraints.hasBoundedWidth) constraints.maxWidth else 0
+            val band = measurables.first().measure(
+                Constraints.fixed(bandWidth, blurHeightInPixels)
+            )
+            layout(width = 0, height = 0) {
+                band.place(0, 0)
+            }
         }
-        Brush.verticalGradient(colorStops = colorStops)
-    }
+    )
 }
 
 private fun smoothStep(position: Float): Float = position * position * (3f - 2f * position)
