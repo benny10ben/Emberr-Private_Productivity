@@ -290,12 +290,16 @@ compose.desktop {
             "--add-opens", "java.desktop/java.awt=ALL-UNNAMED",
             "--add-opens", "java.desktop/sun.awt=ALL-UNNAMED",
             "--add-opens", "java.desktop/sun.awt.X11=ALL-UNNAMED",
-            "-Xmx1g",
+            "-Xmx512m",
             "-XX:MaxMetaspaceSize=256m",
             "-XX:+UseG1GC",
             "-XX:G1PeriodicGCInterval=30000",
             "-XX:MaxHeapFreeRatio=30",
-            "-XX:MinHeapFreeRatio=10"
+            "-XX:MinHeapFreeRatio=10",
+            "-XX:ParallelGCThreads=4",
+            "-XX:ConcGCThreads=1",
+            "-XX:G1ConcRefinementThreads=4",
+            "-XX:CICompilerCount=2"
         )
 
         nativeDistributions {
