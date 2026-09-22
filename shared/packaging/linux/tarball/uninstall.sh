@@ -20,7 +20,7 @@ ICON_THEME_DIR="$DATA_HOME/icons/hicolor"
 BIN_DIR="$HOME/.local/bin"
 
 LAUNCHER="$APP_DIR/bin/$APP_NAME"
-SYMLINK="$BIN_DIR/$PACKAGE_NAME"
+WRAPPER="$BIN_DIR/$PACKAGE_NAME"
 DESKTOP_ENTRY="$DESKTOP_ENTRY_DIR/$PACKAGE_NAME.desktop"
 ICON="$ICON_THEME_DIR/${ICON_SIZE}x${ICON_SIZE}/apps/$PACKAGE_NAME.png"
 
@@ -39,9 +39,12 @@ if [ -f "$ICON" ]; then
     echo "Removed $ICON"
 fi
 
-if [ -L "$SYMLINK" ] && [ "$(readlink "$SYMLINK")" = "$LAUNCHER" ]; then
-    rm -f "$SYMLINK"
-    echo "Removed $SYMLINK"
+if [ -L "$WRAPPER" ] && [ "$(readlink "$WRAPPER")" = "$LAUNCHER" ]; then
+    rm -f "$WRAPPER"
+    echo "Removed $WRAPPER"
+elif [ -f "$WRAPPER" ] && grep -q "^exec \"$LAUNCHER\"" "$WRAPPER" 2>/dev/null; then
+    rm -f "$WRAPPER"
+    echo "Removed $WRAPPER"
 fi
 
 if command -v update-desktop-database > /dev/null 2>&1; then

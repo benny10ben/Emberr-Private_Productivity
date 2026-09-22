@@ -1,4 +1,7 @@
 #!/bin/sh
 set -eu
 HERE=$(CDPATH= cd -- "$(dirname -- "$(readlink -f -- "$0")")" && pwd)
+MALLOC_ARENA_MAX=2
+export MALLOC_ARENA_MAX
+
 exec "$HERE/usr/bin/@APP_NAME@" "$@"

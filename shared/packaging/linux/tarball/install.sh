@@ -24,7 +24,7 @@ ICON_DIR="$ICON_THEME_DIR/${ICON_SIZE}x${ICON_SIZE}/apps"
 BIN_DIR="$HOME/.local/bin"
 
 LAUNCHER="$APP_DIR/bin/$APP_NAME"
-SYMLINK="$BIN_DIR/$PACKAGE_NAME"
+WRAPPER="$BIN_DIR/$PACKAGE_NAME"
 DESKTOP_ENTRY="$DESKTOP_ENTRY_DIR/$PACKAGE_NAME.desktop"
 
 SOURCE_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
@@ -60,7 +60,7 @@ cat > "$DESKTOP_ENTRY" <<DESKTOP_ENTRY_CONTENT
 Type=Application
 Name=$APP_NAME
 Comment=Minimalist offline-first notes and daily reminders
-Exec=$LAUNCHER
+Exec=$WRAPPER
 Icon=$PACKAGE_NAME
 Terminal=false
 Categories=$MENU_CATEGORY;
@@ -68,7 +68,15 @@ StartupNotify=true
 StartupWMClass=$WINDOW_CLASS
 DESKTOP_ENTRY_CONTENT
 
-ln -sfn "$LAUNCHER" "$SYMLINK"
+rm -f "$WRAPPER"
+cat > "$WRAPPER" <<WRAPPER_CONTENT
+#!/bin/sh
+MALLOC_ARENA_MAX=2
+export MALLOC_ARENA_MAX
+
+exec "$LAUNCHER" "\$@"
+WRAPPER_CONTENT
+chmod +x "$WRAPPER"
 
 if command -v update-desktop-database > /dev/null 2>&1; then
     update-desktop-database "$DESKTOP_ENTRY_DIR" > /dev/null 2>&1 || true
@@ -80,7 +88,7 @@ fi
 echo "Done."
 echo "  Application  $APP_DIR"
 echo "  Menu entry   $DESKTOP_ENTRY"
-echo "  Terminal     $SYMLINK"
+echo "  Terminal     $WRAPPER"
 
 case ":$PATH:" in
     *":$BIN_DIR:"*)
