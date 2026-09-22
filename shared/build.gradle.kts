@@ -175,7 +175,6 @@ kotlin {
                 implementation(libs.androidx.sqlite.ktx)
                 implementation(libs.tink.android)
                 implementation(libs.androidx.glance.appwidget)
-                implementation(libs.icons.lucide)
                 implementation(libs.jsoup)
                 implementation(libs.ktor.client.okhttp)
                 implementation(libs.androidx.documentfile)

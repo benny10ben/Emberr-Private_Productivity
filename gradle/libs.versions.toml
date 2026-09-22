@@ -21,7 +21,6 @@ kotlinxCollectionsImmutable = "0.5.2"
 activityCompose = "1.13.0"
 coil3 = "3.6.2"
 haze = "1.7.3"
-iconsLucide = "1.1.0"
 glance = "1.2.0"
 
 # Lifecycle and navigation
@@ -82,7 +81,6 @@ androidx-activity-compose = { group = "androidx.activity", name = "activity-comp
 coil-compose = { group = "io.coil-kt.coil3", name = "coil-compose", version.ref = "coil3" }
 coil-network-ktor3 = { group = "io.coil-kt.coil3", name = "coil-network-ktor3", version.ref = "coil3" }
 haze = { group = "dev.chrisbanes.haze", name = "haze", version.ref = "haze" }
-icons-lucide = { group = "com.composables", name = "icons-lucide", version.ref = "iconsLucide" }
 androidx-glance-appwidget = { group = "androidx.glance", name = "glance-appwidget", version.ref = "glance" }
 
 # Lifecycle and navigation
