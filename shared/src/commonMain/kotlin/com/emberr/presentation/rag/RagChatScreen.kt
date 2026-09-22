@@ -302,6 +302,7 @@ private fun RagChatContent(
                 }
             } else null,
             hazeState = hazeState,
+            topEdgeBlurAlpha = if (isChatReady) 1f else 0f,
             contentPadding = topHeaderBarPadding(
                 horizontal = if (isDesktopPlatform) DesktopPanelContentInset else 16.dp,
                 bottom = 8.dp
