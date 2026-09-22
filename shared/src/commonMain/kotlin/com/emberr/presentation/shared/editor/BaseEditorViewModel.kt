@@ -1669,11 +1669,11 @@ abstract class BaseEditorViewModel(
     }
 
     fun addBlankBlockBelowFocused() {
-        val targetId = currentlyFocusedBlockId ?: _blocks.value.lastOrNull()?.id ?: return
+        val targetId = currentlyFocusedBlockId ?: _blocks.value.lastOrNull()?.id
         val newId = UUID.randomUUID().toString()
         val now = System.currentTimeMillis()
         modifyBlocks { list ->
-            val idx = list.indexOfFirst { it.id == targetId }
+            val idx = if (targetId == null) -1 else list.indexOfFirst { it.id == targetId }
             val indent = if (idx != -1) list[idx].indentationLevel else 0
             val isPinnedContext = if (idx != -1) list[idx].isPinned else false
             val alignmentContext = if (idx != -1) list[idx].textAlignmentOrNull() ?: TextAlignment.LEFT else TextAlignment.LEFT

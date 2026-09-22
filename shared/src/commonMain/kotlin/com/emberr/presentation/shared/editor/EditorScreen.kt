@@ -2,6 +2,7 @@ package com.emberr.presentation.shared.editor
 
 import androidx.compose.animation.*
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -344,6 +345,7 @@ fun EditorScreen(
     toolbarOffset: Dp = 0.dp,
     headerContent: (@Composable LazyItemScope.() -> Unit)? = null,
     sectionLabelFor: ((NoteBlock) -> String?)? = null,
+    emptyContent: (@Composable () -> Unit)? = null,
     mobileMenuState: MobileMenuState = MobileMenuState.MAIN,
     onMobileMenuStateChange: (MobileMenuState) -> Unit = {},
     slashQuery: String = "",
@@ -787,7 +789,11 @@ fun EditorScreen(
                                 wrappedActions.onOutsideTap()
                             },
                             onDoubleTap = {
-                                val lastBlock = currentBlocks.lastOrNull() ?: return@detectTapGestures
+                                val lastBlock = currentBlocks.lastOrNull()
+                                if (lastBlock == null) {
+                                    wrappedActions.onAddBlankBlock()
+                                    return@detectTapGestures
+                                }
                                 val isMediaBlock = lastBlock is BookmarkBlock
                                         || lastBlock is ImageBlock
                                         || lastBlock is DocumentBlock
@@ -932,6 +938,21 @@ fun EditorScreen(
                         )
                     }
                 }
+            }
+        }
+
+        if (emptyContent != null) {
+            val hasNothingButOneBlankLine = blocks.size == 1 &&
+                    (blocks.first() as? TextBlock)?.text?.isBlank() == true
+            val isEditorVisuallyEmpty = blocks.isEmpty() || hasNothingButOneBlankLine
+
+            AnimatedVisibility(
+                visible = isEditorVisuallyEmpty && activeBlockId == null,
+                enter = fadeIn(tween(durationMillis = 400, delayMillis = 200)),
+                exit = fadeOut(tween(durationMillis = 180)),
+                modifier = Modifier.fillMaxSize()
+            ) {
+                emptyContent()
             }
         }
 
