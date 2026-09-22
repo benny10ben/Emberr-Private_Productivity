@@ -7,7 +7,11 @@ import com.emberr.domain.ai.models.modelFileExists
 import com.emberr.domain.ai.models.resolveModelPath
 import com.llamatik.library.platform.LlamaBridge
 import com.llamatik.library.platform.GenStream
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
@@ -17,6 +21,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlin.time.Duration.Companion.minutes
 
 class LocalAiEngine(
     private val aiSettingsRepository: AiSettingsRepository
@@ -31,6 +36,9 @@ class LocalAiEngine(
     private var loadedModel: LoadedModel = LoadedModel.NONE
     private var loadedGeneratorFileName: String? = null
 
+    private val modelUnloadScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private var pendingModelUnload: Job? = null
+
     private enum class LoadedModel { NONE, EMBEDDER, GENERATOR }
 
     // Embedding
@@ -39,8 +47,12 @@ class LocalAiEngine(
             withContext(Dispatchers.Default) {
                 if (texts.isEmpty()) return@withContext emptyList()
 
-                ensureEmbedderLoaded()
-                texts.map { LlamaBridge.embed(it).toList() }
+                try {
+                    ensureEmbedderLoaded()
+                    texts.map { LlamaBridge.embed(it).toList() }
+                } finally {
+                    unloadModelAfterIdlePeriod()
+                }
             }
         }
 
@@ -58,25 +70,29 @@ class LocalAiEngine(
 
         launch(Dispatchers.IO) {
             nativeMutex.withLock {
-                ensureGeneratorLoaded()
+                try {
+                    ensureGeneratorLoaded()
 
-                val historyMessages = conversationHistory.flatMap { turn ->
-                    listOf("user" to turn.userMessage, "assistant" to turn.assistantMessage)
-                }
-
-                val formattedPrompt = LlamaBridge.applyChatTemplate(
-                    messages = listOf("system" to "$systemPrompt\n\n$contextBlock") + historyMessages + listOf("user" to userQuestion),
-                    addAssistantPrefix = true
-                ) ?: "$systemPrompt\n\n$contextBlock\n\nUser: $userQuestion\n\nAssistant:"
-
-                LlamaBridge.generateStream(
-                    prompt = formattedPrompt,
-                    callback = object : GenStream {
-                        override fun onDelta(text: String) { trySend(text) }
-                        override fun onComplete()           { close() }
-                        override fun onError(message: String) { close(Exception(message)) }
+                    val historyMessages = conversationHistory.flatMap { turn ->
+                        listOf("user" to turn.userMessage, "assistant" to turn.assistantMessage)
                     }
-                )
+
+                    val formattedPrompt = LlamaBridge.applyChatTemplate(
+                        messages = listOf("system" to "$systemPrompt\n\n$contextBlock") + historyMessages + listOf("user" to userQuestion),
+                        addAssistantPrefix = true
+                    ) ?: "$systemPrompt\n\n$contextBlock\n\nUser: $userQuestion\n\nAssistant:"
+
+                    LlamaBridge.generateStream(
+                        prompt = formattedPrompt,
+                        callback = object : GenStream {
+                            override fun onDelta(text: String) { trySend(text) }
+                            override fun onComplete()           { close() }
+                            override fun onError(message: String) { close(Exception(message)) }
+                        }
+                    )
+                } finally {
+                    unloadModelAfterIdlePeriod()
+                }
             }
         }
 
@@ -92,6 +108,14 @@ class LocalAiEngine(
     }
 
     // Private helpers
+    private fun unloadModelAfterIdlePeriod() {
+        pendingModelUnload?.cancel()
+        pendingModelUnload = modelUnloadScope.launch {
+            delay(IDLE_TIME_BEFORE_UNLOADING_MODEL)
+            runCatching { shutdown() }
+        }
+    }
+
     private fun failWhenHardwareCannotRunLocalAi() {
         val reason = unsupportedHardwareReason ?: return
         throw LocalAiUnsupportedException(reason)
@@ -171,14 +195,22 @@ class LocalAiEngine(
 
     suspend fun checkGeneratorFinetuneType(): String? = nativeMutex.withLock {
         withContext(Dispatchers.Default) {
-            ensureGeneratorLoaded()
-            LlamaBridge.getModelFinetuneType()
+            try {
+                ensureGeneratorLoaded()
+                LlamaBridge.getModelFinetuneType()
+            } finally {
+                unloadModelAfterIdlePeriod()
+            }
         }
     }
 
     suspend fun warmUpGenerator() = nativeMutex.withLock {
         withContext(Dispatchers.Default) {
-            ensureGeneratorLoaded()
+            try {
+                ensureGeneratorLoaded()
+            } finally {
+                unloadModelAfterIdlePeriod()
+            }
         }
     }
 
@@ -206,5 +238,6 @@ class LocalAiEngine(
 
     private companion object {
         const val MIN_OUTPUT_TOKENS = 128
+        val IDLE_TIME_BEFORE_UNLOADING_MODEL = 5.minutes
     }
 }
