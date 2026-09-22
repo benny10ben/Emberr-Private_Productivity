@@ -6,11 +6,15 @@ import java.net.BindException
 
 class SyncServerAvailability {
 
-    private val _status = MutableStateFlow<SyncServerStatus>(SyncServerStatus.Starting)
+    private val _status = MutableStateFlow<SyncServerStatus>(SyncServerStatus.Idle)
     val status = _status.asStateFlow()
 
     fun markRunning(port: Int) {
         _status.value = SyncServerStatus.Running(port)
+    }
+
+    fun markIdle() {
+        _status.value = SyncServerStatus.Idle
     }
 
     fun markUnavailable(port: Int, cause: Throwable) {

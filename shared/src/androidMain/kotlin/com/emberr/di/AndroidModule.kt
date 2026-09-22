@@ -295,7 +295,10 @@ val androidModule = module {
     single<SyncDiscoveryManager> { AndroidDiscoveryManager(androidContext()) }
     single<com.emberr.domain.sync.SyncClient> { com.emberr.domain.sync.SyncClient(get(), get(), get()) }
     single<SyncRepository> { SyncRepositoryImpl(get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get()) }
-    viewModel { SyncViewModel(get(), get(), get(), get(), get()) }
+    single<com.emberr.domain.sync.LanSyncServerController> {
+        com.emberr.domain.sync.AndroidLanSyncServerController()
+    }
+    viewModel { SyncViewModel(get(), get(), get(), get(), get(), get()) }
 
     // Manual export/import (unrelated to automatic backups below)
     single {

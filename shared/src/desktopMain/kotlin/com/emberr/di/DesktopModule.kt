@@ -127,7 +127,18 @@ val desktopModule = module {
     single { com.emberr.domain.sync.SyncServerAvailability() }
     single<com.emberr.domain.sync.SyncClient> { com.emberr.domain.sync.SyncClient(get(), get(), get()) }
     single<SyncRepository> { SyncRepositoryImpl(get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get()) }
-    factory { SyncViewModel(get(), get(), get(), get(), get(), get<com.emberr.domain.sync.SyncServerAvailability>().status) }
+    single<com.emberr.domain.sync.LanSyncServerController> {
+        com.emberr.domain.sync.DesktopLanSyncServerController(
+            settingsManager = get(),
+            syncRepository = get(),
+            hmacSigner = get(),
+            syncEncryptionManager = get(),
+            pairingState = get(),
+            serverAvailability = get(),
+            discoveryManager = get()
+        )
+    }
+    factory { SyncViewModel(get(), get(), get(), get(), get(), get(), get<com.emberr.domain.sync.SyncServerAvailability>().status) }
 
     // Automatic Backup
     single<BackupRescheduler> { DesktopBackupRescheduler() }

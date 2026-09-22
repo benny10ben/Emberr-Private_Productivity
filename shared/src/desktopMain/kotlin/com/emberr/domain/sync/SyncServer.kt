@@ -81,6 +81,14 @@ private suspend fun ApplicationCall.rejectedUnacceptableRequest(
     return false
 }
 
+private const val SERVER_STOP_TIMEOUT_MS = 500L
+
+class RunningSyncServer internal constructor(private val stopServer: () -> Unit) {
+    fun stop() {
+        runCatching { stopServer() }
+    }
+}
+
 fun startSyncServer(
     settingsManager: SettingsManager,
     syncRepository: SyncRepository,
@@ -88,7 +96,7 @@ fun startSyncServer(
     syncEncryptionManager: SyncEncryptionManager,
     pairingState: SyncPairingState,
     serverAvailability: SyncServerAvailability
-): Boolean {
+): RunningSyncServer? {
     val port = settingsManager.getSyncPort().let { if (it <= 0) SyncConstants.DEFAULT_PORT else it }
 
     val server = embeddedServer(Netty, host = "0.0.0.0", port = port) {
@@ -294,12 +302,12 @@ fun startSyncServer(
     return runCatching { server.start(wait = false) }.fold(
         onSuccess = {
             serverAvailability.markRunning(port)
-            true
+            RunningSyncServer { server.stop(gracePeriodMillis = 0, timeoutMillis = SERVER_STOP_TIMEOUT_MS) }
         },
         onFailure = { startFailure ->
             runCatching { server.stop(gracePeriodMillis = 0, timeoutMillis = 0) }
             serverAvailability.markUnavailable(port, startFailure)
-            false
+            null
         }
     )
 }

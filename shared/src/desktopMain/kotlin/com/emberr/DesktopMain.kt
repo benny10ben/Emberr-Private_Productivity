@@ -34,7 +34,6 @@ import com.emberr.domain.selfhost.sync.ForegroundSyncPoller
 import com.emberr.domain.selfhost.crypto.SecureSyncKeyStorage
 import com.emberr.domain.selfhost.sync.SelfHostSyncLog
 import com.emberr.domain.selfhost.sync.SelfHostSyncScheduler
-import com.emberr.domain.sync.SyncRepository
 import com.emberr.domain.vault.VaultLog
 import com.emberr.domain.vault.VaultMirrorService
 import com.emberr.presentation.EmberrApp
@@ -50,7 +49,7 @@ import com.emberr.presentation.desktop.window.MatchWindowsTitleBarToAppTheme
 import com.emberr.presentation.desktop.window.WindowFrameSize
 import com.emberr.presentation.mobile.home.note.NoteScreen
 import com.emberr.presentation.shared.StickyNoteWindowBus
-import com.emberr.domain.sync.startSyncServer
+import com.emberr.domain.sync.LanSyncServerController
 import com.emberr.domain.theme.resolveLinuxSystemIsDark
 import com.emberr.ui.theme.FontSizePreference
 import com.emberr.ui.theme.FontStylePreference
@@ -116,28 +115,7 @@ fun main() = application {
         withContext(Dispatchers.IO) {
             val koin = GlobalContext.get()
             koin.get<DesktopSecretStore>().awaitReadyState()
-            val settingsManager = koin.get<SettingsManager>()
-            val syncRepository = koin.get<SyncRepository>()
-            val hmacSigner = koin.get<com.emberr.core.security.SyncHmacSigner>()
-            val syncEncryptionManager = koin.get<com.emberr.core.security.SyncEncryptionManager>()
-            val pairingState = koin.get<com.emberr.domain.sync.SyncPairingState>()
-
-            val serverAvailability = koin.get<com.emberr.domain.sync.SyncServerAvailability>()
-            val isSyncServerRunning = startSyncServer(
-                settingsManager,
-                syncRepository,
-                hmacSigner,
-                syncEncryptionManager,
-                pairingState,
-                serverAvailability
-            )
-
-            if (isSyncServerRunning) {
-                val discoveryManager = koin.get<com.emberr.domain.sync.discovery.SyncDiscoveryManager>()
-                val port = settingsManager.getSyncPort()
-                    .let { if (it <= 0) com.emberr.data.local.prefs.SyncConstants.DEFAULT_PORT else it }
-                discoveryManager.startBroadcasting(port, "Emberr Desktop")
-            }
+            koin.get<LanSyncServerController>().startIfPaired()
         }
     }
 

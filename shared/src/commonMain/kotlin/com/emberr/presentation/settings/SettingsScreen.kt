@@ -229,6 +229,7 @@ fun SettingsScreen(
                     onOpenSelfHostSetup = onNavigateToSelfHostSetup,
                     onSyncNow = { syncViewModel.triggerManualSync() },
                     onPairMobileDevice = {
+                        syncViewModel.startServerForPairing()
                         activePairingData = syncViewModel.generatePairingData()
                         showPairingDialog = true
                     },
@@ -627,7 +628,10 @@ fun SettingsScreen(
     if (showPairingDialog && activePairingData != null) {
         SyncPairingDialog(
             pairingData = activePairingData,
-            onDismiss = { showPairingDialog = false }
+            onDismiss = {
+                showPairingDialog = false
+                syncViewModel.stopServerUnlessPaired()
+            }
         )
     }
 

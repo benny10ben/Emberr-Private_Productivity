@@ -7,6 +7,7 @@ import com.emberr.core.security.SyncHmacSigner
 import com.emberr.data.local.prefs.SettingsManager
 import com.emberr.domain.sync.LanSyncLog
 import com.emberr.domain.sync.LanSyncSchemaMismatchException
+import com.emberr.domain.sync.LanSyncServerController
 import com.emberr.domain.sync.SyncClient
 import com.emberr.domain.sync.SyncPairingData
 import com.emberr.domain.sync.SyncPairingState
@@ -31,6 +32,7 @@ class SyncViewModel(
     private val hmacSigner: SyncHmacSigner,
     private val syncEncryptionManager: SyncEncryptionManager,
     private val pairingState: SyncPairingState,
+    private val lanSyncServerController: LanSyncServerController,
     val serverStatus: StateFlow<SyncServerStatus>? = null
 ) : ViewModel() {
 
@@ -63,6 +65,16 @@ class SyncViewModel(
     }
 
     val isPaired = pairingState.isPaired
+
+    fun startServerForPairing() {
+        viewModelScope.launch(Dispatchers.IO) {
+            lanSyncServerController.startForPairing()
+        }
+    }
+
+    fun stopServerUnlessPaired() {
+        lanSyncServerController.stopIfNotPaired()
+    }
 
     fun resetSyncStatus() {
         _syncStatus.value = "Idle"
@@ -105,6 +117,7 @@ class SyncViewModel(
             }
 
             pairingState.unpairLocally()
+            lanSyncServerController.stopNow()
             _syncStatus.value = "Idle"
         }
     }
