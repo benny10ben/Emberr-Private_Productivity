@@ -19,21 +19,26 @@ import kotlin.math.abs
 private const val SETTLE_FRACTION = 0.16f
 private const val SETTLE_THRESHOLD_PX = 0.5f
 private const val MIN_STEP_PX = 1f
+private const val SMALLEST_WHOLE_NOTCH = 1f
 
-val DefaultWheelNotch: Dp = 34.dp
+val DefaultTrackpadNotch: Dp = 34.dp
+val DefaultMouseWheelNotch: Dp = 90.dp
 
 @Composable
 fun Modifier.smoothWheelScroll(
     state: ScrollableState,
-    pixelsPerNotch: Dp = DefaultWheelNotch,
+    pixelsPerTrackpadNotch: Dp = DefaultTrackpadNotch,
+    pixelsPerMouseWheelNotch: Dp = DefaultMouseWheelNotch,
     horizontal: Boolean = false
 ): Modifier {
     if (!isDesktopPlatform) return this
 
-    val notchDistancePx = with(LocalDensity.current) { pixelsPerNotch.toPx() }
+    val density = LocalDensity.current
+    val trackpadDistancePx = with(density) { pixelsPerTrackpadNotch.toPx() }
+    val mouseWheelDistancePx = with(density) { pixelsPerMouseWheelNotch.toPx() }
     val glide = remember(state) { WheelGlide() }
 
-    LaunchedEffect(state, notchDistancePx) {
+    LaunchedEffect(state) {
         while (true) {
             glide.wakeups.receive()
             state.scroll {
@@ -56,7 +61,7 @@ fun Modifier.smoothWheelScroll(
         }
     }
 
-    return this.pointerInput(state, notchDistancePx, horizontal) {
+    return this.pointerInput(state, trackpadDistancePx, mouseWheelDistancePx, horizontal) {
         awaitPointerEventScope {
             while (true) {
                 var claimedDistancePx = 0f
@@ -67,7 +72,10 @@ fun Modifier.smoothWheelScroll(
                     val rawDelta = change?.let {
                         with(it.scrollDelta) { if (horizontal && y == 0f) x else y }
                     } ?: 0f
-                    val distance = rawDelta.coerceIn(-1f, 1f) * notchDistancePx
+                    val isWholeWheelNotch = abs(rawDelta) >= SMALLEST_WHOLE_NOTCH
+                    val distancePerNotch =
+                        if (isWholeWheelNotch) mouseWheelDistancePx else trackpadDistancePx
+                    val distance = rawDelta.coerceIn(-1f, 1f) * distancePerNotch
                     val canTravel =
                         if (distance > 0f) state.canScrollForward else state.canScrollBackward
 
