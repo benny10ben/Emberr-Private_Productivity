@@ -605,7 +605,8 @@ fun NoteScreen(
                         .hazeSource(state = hazeState),
                     listState = editorListState,
                     onUndo = { viewModel.undo() },
-                    onRedo = { viewModel.redo() }
+                    onRedo = { viewModel.redo() },
+                    emptyContent = { NoteEmptyPageMessage() }
                 )
 
 
