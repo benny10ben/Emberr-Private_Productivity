@@ -58,6 +58,13 @@ fun TrashScreen(
     val backgroundColor = if (isDesktopPlatform) Color.Transparent else MaterialTheme.colorScheme.background
     val hazeState = remember { HazeState() }
 
+    val gridState = rememberLazyGridState()
+    val topEdgeFadeAlpha by remember {
+        derivedStateOf {
+            if (gridState.firstVisibleItemIndex > 0 || gridState.firstVisibleItemScrollOffset > 0) 1f else 0f
+        }
+    }
+
     Box(modifier = Modifier.fillMaxSize()) {
         if (trashedNotes.isEmpty()) {
             Box(
@@ -75,8 +82,6 @@ fun TrashScreen(
                 )
             }
         } else {
-            val gridState = rememberLazyGridState()
-
             LazyVerticalGrid(
                 state = gridState,
                 columns = GridCells.Adaptive(minSize = 150.dp),
@@ -124,6 +129,7 @@ fun TrashScreen(
                 title = "Trash",
                 hazeState = hazeState,
                 contentPadding = topHeaderBarPadding(bottom = 16.dp),
+                topEdgeFadeAlpha = topEdgeFadeAlpha,
                 onBackClick = onNavigateBack,
                 actions = {
                     if (trashedNotes.isNotEmpty()) {
