@@ -4,9 +4,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.emberr.data.local.prefs.SettingsManager
 import com.emberr.data.local.prefs.SyncConstants
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 class OnboardingViewModel(
     private val settingsManager: SettingsManager
@@ -63,6 +65,8 @@ class OnboardingViewModel(
     }
 
     fun completeOnboarding() {
-        settingsManager.saveOnboardingCompleted(true)
+        viewModelScope.launch(Dispatchers.IO) {
+            settingsManager.saveOnboardingCompleted(true)
+        }
     }
 }
