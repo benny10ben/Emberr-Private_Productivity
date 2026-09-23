@@ -23,6 +23,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.awt.ComposeWindow
 import androidx.compose.ui.awt.awtEventOrNull
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -132,10 +133,23 @@ fun WindowScope.EmberrWindowFrame(
         NativeWindowActions.reportInvisibleBorderWidth(window, invisibleBorderPx)
     }
 
+    val builtInResizeBand = when {
+        isMaximized -> 0.dp
+        NativeWindowActions.isAvailable -> 0.dp
+        else -> frameSize.resizeBand
+    }
+    LaunchedEffect(window, builtInResizeBand) {
+        (window as? ComposeWindow)?.undecoratedResizerThickness = builtInResizeBand
+    }
+
     var frameSizeInPixels by remember { mutableStateOf(IntSize.Zero) }
     var hoveredResizeEdge by remember { mutableStateOf<WindowResizeEdge?>(null) }
     var isTitleBarVisible by remember { mutableStateOf(false) }
     val resizeBandPx = with(LocalDensity.current) { frameSize.resizeBand.toPx() }
+
+    LaunchedEffect(canResizeNatively) {
+        if (!canResizeNatively) hoveredResizeEdge = null
+    }
 
     Box(
         modifier = Modifier
