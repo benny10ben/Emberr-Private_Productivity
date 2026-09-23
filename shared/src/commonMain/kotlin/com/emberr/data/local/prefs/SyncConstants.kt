@@ -22,6 +22,8 @@ object SyncConstants {
     const val DEFAULT_FONT_SIZE_PREFERENCE = "DEFAULT"
     const val KEY_FONT_STYLE_PREFERENCE = "font_style_preference"
     const val DEFAULT_FONT_STYLE_PREFERENCE = "POPPINS"
+    const val KEY_TOP_BAR_FADE_STYLE = "top_bar_fade_style"
+    const val DEFAULT_TOP_BAR_FADE_STYLE = "BLUR"
     const val KEY_SUBNOTE_OPEN_MODE = "subnote_open_mode"
     const val DEFAULT_SUBNOTE_OPEN_MODE = "SIDE_PANEL"
     // AI generation

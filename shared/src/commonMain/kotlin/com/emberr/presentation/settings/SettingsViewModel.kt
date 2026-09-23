@@ -96,6 +96,16 @@ class SettingsViewModel(
         settingsManager.saveFontStylePreference(preference)
     }
 
+    val topBarFadeStyle: StateFlow<String> = settingsManager.topBarFadeStyleFlow.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = settingsManager.getTopBarFadeStyle()
+    )
+
+    fun setTopBarFadeStyle(style: String) {
+        settingsManager.saveTopBarFadeStyle(style)
+    }
+
     val subNoteOpenMode: StateFlow<String> = settingsManager.subNoteOpenModeFlow.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),

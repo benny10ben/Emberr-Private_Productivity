@@ -22,6 +22,7 @@ object BackupFormat {
         lines += "theme_preference=${settingsManager.themePreferenceFlow.first()}"
         lines += "font_size_preference=${settingsManager.fontSizePreferenceFlow.first()}"
         lines += "font_style_preference=${settingsManager.fontStylePreferenceFlow.first()}"
+        lines += "top_bar_fade_style=${settingsManager.getTopBarFadeStyle()}"
         lines += "subnote_open_mode=${settingsManager.subNoteOpenModeFlow.first()}"
         lines += "show_scrollbar=${settingsManager.isShowScrollbarEnabled()}"
         lines += "ai_generation_mode=${settingsManager.aiGenerationModeFlow.first()}"
@@ -67,6 +68,7 @@ object BackupFormat {
         values["theme_preference"]?.let { settingsManager.saveThemePreference(it) }
         values["font_size_preference"]?.let { settingsManager.saveFontSizePreference(it) }
         values["font_style_preference"]?.let { settingsManager.saveFontStylePreference(it) }
+        values["top_bar_fade_style"]?.let { settingsManager.saveTopBarFadeStyle(it) }
         values["subnote_open_mode"]?.let { settingsManager.saveSubNoteOpenMode(it) }
         values["show_scrollbar"]?.toBooleanStrictOrNull()?.let { settingsManager.saveShowScrollbar(it) }
         values["ai_generation_mode"]?.let { settingsManager.saveAiGenerationMode(it) }

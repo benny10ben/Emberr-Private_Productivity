@@ -84,6 +84,10 @@ interface SettingsManager {
     val fontStylePreferenceFlow: Flow<String>
     fun saveFontStylePreference(preference: String)
 
+    val topBarFadeStyleFlow: Flow<String>
+    fun getTopBarFadeStyle(): String
+    fun saveTopBarFadeStyle(style: String)
+
     val subNoteOpenModeFlow: Flow<String>
     fun saveSubNoteOpenMode(mode: String)
 

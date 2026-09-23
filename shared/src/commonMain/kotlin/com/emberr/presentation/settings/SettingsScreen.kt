@@ -83,6 +83,7 @@ import emberr.shared.generated.resources.text_type
 import emberr.shared.generated.resources.timer_reset
 import emberr.shared.generated.resources.triangle_alert
 import com.emberr.presentation.shared.SubNoteOpenMode
+import com.emberr.presentation.shared.TopBarFadeStyle
 import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
 import org.koin.compose.viewmodel.koinViewModel
@@ -144,6 +145,9 @@ fun SettingsScreen(
     val fontStylePreference by viewModel.fontStylePreference.collectAsState()
     var showFontSizeSheet by remember { mutableStateOf(false) }
     var showFontStyleSheet by remember { mutableStateOf(false) }
+
+    val topBarFadeStyle by viewModel.topBarFadeStyle.collectAsState()
+    var showTopBarFadeStyleSheet by remember { mutableStateOf(false) }
 
     val subNoteOpenMode by viewModel.subNoteOpenMode.collectAsState()
     var showSubNoteOpenModeSheet by remember { mutableStateOf(false) }
@@ -257,6 +261,7 @@ fun SettingsScreen(
                         .getOrDefault(FontStylePreference.POPPINS).displayName,
                     subNoteOpenModeLabel = runCatching { SubNoteOpenMode.valueOf(subNoteOpenMode) }
                         .getOrDefault(SubNoteOpenMode.SIDE_PANEL).displayName,
+                    topBarFadeStyleLabel = topBarFadeStyleFor(topBarFadeStyle).displayName,
                     showScrollbar = showScrollbar,
                     customWindowFrameEnabled = customWindowFrameEnabled,
                     autoHideTitleBar = autoHideTitleBar,
@@ -264,6 +269,7 @@ fun SettingsScreen(
                     onFontSizeClick = { showFontSizeSheet = true },
                     onFontStyleClick = { showFontStyleSheet = true },
                     onSubNoteOpenModeClick = { showSubNoteOpenModeSheet = true },
+                    onTopBarFadeStyleClick = { showTopBarFadeStyleSheet = true },
                     onShowScrollbarChange = { viewModel.setShowScrollbar(it) },
                     onCustomWindowFrameChange = { viewModel.setCustomWindowFrameEnabled(it) },
                     onAutoHideTitleBarChange = { viewModel.setAutoHideTitleBar(it) }
@@ -541,6 +547,38 @@ fun SettingsScreen(
                 EmberrButtonPrimary(
                     text = "Close",
                     onClick = { showFontStyleSheet = false },
+                    modifier = Modifier.fillMaxWidth()
+                        .padding(top = 12.dp, start = 20.dp, end = 20.dp)
+                )
+            }
+        }
+    }
+
+    if (showTopBarFadeStyleSheet) {
+        EmberrBottomSheet(
+            expanded = true,
+            onDismiss = { showTopBarFadeStyleSheet = false },
+            title = "Top Bar Fade",
+            subtitle = "Choose how content fades out behind the top bar while you scroll.",
+            contentHorizontalPadding = 0.dp
+        ) {
+            val selectedFadeStyle = topBarFadeStyleFor(topBarFadeStyle)
+
+            Column(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
+                TopBarFadeStyle.entries.forEach { option ->
+                    EmberrBottomSheetOption(
+                        label = option.displayName,
+                        isSelected = option == selectedFadeStyle,
+                        onClick = {
+                            viewModel.setTopBarFadeStyle(option.name)
+                            showTopBarFadeStyleSheet = false
+                        }
+                    )
+                }
+
+                EmberrButtonPrimary(
+                    text = "Close",
+                    onClick = { showTopBarFadeStyleSheet = false },
                     modifier = Modifier.fillMaxWidth()
                         .padding(top = 12.dp, start = 20.dp, end = 20.dp)
                 )
@@ -1014,6 +1052,7 @@ private fun AppearanceSettingsSection(
     fontSizeLabel: String,
     fontStyleLabel: String,
     subNoteOpenModeLabel: String,
+    topBarFadeStyleLabel: String,
     showScrollbar: Boolean,
     customWindowFrameEnabled: Boolean,
     autoHideTitleBar: Boolean,
@@ -1021,6 +1060,7 @@ private fun AppearanceSettingsSection(
     onFontSizeClick: () -> Unit,
     onFontStyleClick: () -> Unit,
     onSubNoteOpenModeClick: () -> Unit,
+    onTopBarFadeStyleClick: () -> Unit,
     onShowScrollbarChange: (Boolean) -> Unit,
     onCustomWindowFrameChange: (Boolean) -> Unit,
     onAutoHideTitleBarChange: (Boolean) -> Unit
@@ -1046,6 +1086,20 @@ private fun AppearanceSettingsSection(
             trailingLabel = fontStyleLabel,
             onClick = onFontStyleClick
         )
+
+        if (!isDesktopPlatform) {
+            SettingsDivider()
+            SettingsActionRow(
+                icon = painterResource(Res.drawable.palette),
+                title = "Top Bar Fade",
+                trailingLabel = topBarFadeStyleLabel,
+                onClick = onTopBarFadeStyleClick
+            )
+
+            SettingsFootnote(
+                text = "Controls how content disappears behind the top bar as you scroll."
+            )
+        }
     }
 
     if (isDesktopPlatform) {
@@ -1465,3 +1519,6 @@ fun SettingsToggleRow(
 private fun fontSizeDisplayNameFor(preferenceName: String): String =
     FontSizeOptions.firstOrNull { it.first == preferenceName }?.second
         ?: FontSizeOptions[1].second
+
+private fun topBarFadeStyleFor(styleName: String): TopBarFadeStyle =
+    runCatching { TopBarFadeStyle.valueOf(styleName) }.getOrDefault(TopBarFadeStyle.BLUR)

@@ -18,9 +18,14 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.painter.Painter
@@ -35,7 +40,9 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.emberr.data.local.prefs.SettingsManager
 import com.emberr.domain.util.system.isDesktopPlatform
+import com.emberr.presentation.shared.TopBarFadeStyle
 import com.emberr.presentation.shared.stableStatusBarsPadding
 import dev.chrisbanes.haze.HazeProgressive
 import dev.chrisbanes.haze.HazeState
@@ -44,10 +51,15 @@ import dev.chrisbanes.haze.hazeEffect
 import emberr.shared.generated.resources.Res
 import emberr.shared.generated.resources.chevron_left
 import org.jetbrains.compose.resources.painterResource
+import org.koin.compose.koinInject
 
 val TopHeaderBarButtonSize = 44.dp
 
 private val DefaultTitleSideInset = 56.dp
+
+private val TopEdgeGradientHeight = 240.dp
+
+private const val TopEdgeGradientStopCount = 24
 
 private val TopEdgeBlurHeight = 140.dp
 
@@ -92,7 +104,7 @@ fun EmberrTopHeaderBar(
     backButtonBackground: Color = Color.Transparent,
     onBackClick: () -> Unit = {},
     background: Color = Color.Transparent,
-    topEdgeBlurAlpha: Float = if (isDesktopPlatform) 0f else 1f,
+    topEdgeFadeAlpha: Float = 1f,
     topEdgeBlurHeight: Dp = TopEdgeBlurHeight,
     hazeState: HazeState? = null,
     hazeStyle: HazeStyle = EmberrBlur.Regular,
@@ -105,20 +117,39 @@ fun EmberrTopHeaderBar(
     actions: @Composable RowScope.() -> Unit = {},
     overlayContent: @Composable BoxScope.() -> Unit = {}
 ) {
-    val showBlurFade = topEdgeBlurAlpha > 0f && topEdgeBlurHeight > 0.dp
+    val fadeStyle = rememberTopBarFadeStyle()
+    val topEdgeGradient = rememberTopEdgeGradient()
+
+    val showColorFade = fadeStyle == TopBarFadeStyle.COLOR && topEdgeFadeAlpha > 0f
+    val showBlurFade = fadeStyle == TopBarFadeStyle.BLUR &&
+        topEdgeFadeAlpha > 0f &&
+        topEdgeBlurHeight > 0.dp
     val blurBandSource = if (showBlurFade) hazeState else null
 
     Box(
         modifier = modifier
             .fillMaxWidth()
             .background(background)
+            .then(
+                if (showColorFade) {
+                    Modifier.drawBehind {
+                        drawRect(
+                            brush = topEdgeGradient,
+                            size = Size(size.width, maxOf(size.height, TopEdgeGradientHeight.toPx())),
+                            alpha = topEdgeFadeAlpha.coerceIn(0f, 1f)
+                        )
+                    }
+                } else {
+                    Modifier
+                }
+            )
     ) {
         if (blurBandSource != null) {
             TopEdgeBlurBand(
                 hazeState = blurBandSource,
                 hazeStyle = hazeStyle,
                 blurHeight = topEdgeBlurHeight,
-                blurAlpha = topEdgeBlurAlpha
+                blurAlpha = topEdgeFadeAlpha
             )
         }
 
@@ -194,6 +225,31 @@ fun EmberrTopHeaderBar(
 
             overlayContent()
         }
+    }
+}
+
+@Composable
+private fun rememberTopBarFadeStyle(): TopBarFadeStyle {
+    if (isDesktopPlatform) return TopBarFadeStyle.NONE
+
+    val settingsManager = koinInject<SettingsManager>()
+    val styleName by settingsManager.topBarFadeStyleFlow.collectAsState(
+        initial = settingsManager.getTopBarFadeStyle()
+    )
+    return remember(styleName) {
+        runCatching { TopBarFadeStyle.valueOf(styleName) }.getOrDefault(TopBarFadeStyle.BLUR)
+    }
+}
+
+@Composable
+private fun rememberTopEdgeGradient(): Brush {
+    val edgeColor = MaterialTheme.colorScheme.background
+    return remember(edgeColor) {
+        val colorStops = Array(TopEdgeGradientStopCount) { stopIndex ->
+            val position = stopIndex / (TopEdgeGradientStopCount - 1f)
+            position to edgeColor.copy(alpha = 1f - smoothStep(position))
+        }
+        Brush.verticalGradient(colorStops = colorStops)
     }
 }
 

@@ -292,6 +292,19 @@ class AndroidSettingsManager(
         _fontStylePreference.value = preference
     }
 
+    private val _topBarFadeStyle = MutableStateFlow(
+        sharedPreferences.getString(SyncConstants.KEY_TOP_BAR_FADE_STYLE, SyncConstants.DEFAULT_TOP_BAR_FADE_STYLE)
+            ?: SyncConstants.DEFAULT_TOP_BAR_FADE_STYLE
+    )
+    override val topBarFadeStyleFlow: Flow<String> = _topBarFadeStyle
+
+    override fun getTopBarFadeStyle(): String = _topBarFadeStyle.value
+
+    override fun saveTopBarFadeStyle(style: String) {
+        sharedPreferences.edit { putString(SyncConstants.KEY_TOP_BAR_FADE_STYLE, style) }
+        _topBarFadeStyle.value = style
+    }
+
     private val _subNoteOpenMode = MutableStateFlow(
         sharedPreferences.getString(SyncConstants.KEY_SUBNOTE_OPEN_MODE, SyncConstants.DEFAULT_SUBNOTE_OPEN_MODE)
             ?: SyncConstants.DEFAULT_SUBNOTE_OPEN_MODE

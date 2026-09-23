@@ -235,6 +235,18 @@ class DesktopSettingsManager(private val secretStore: DesktopSecretStore) : Sett
         _fontStylePreference.value = preference
     }
 
+    private val _topBarFadeStyle = MutableStateFlow(
+        prefs.get(SyncConstants.KEY_TOP_BAR_FADE_STYLE, SyncConstants.DEFAULT_TOP_BAR_FADE_STYLE)
+    )
+    override val topBarFadeStyleFlow: Flow<String> = _topBarFadeStyle
+
+    override fun getTopBarFadeStyle(): String = _topBarFadeStyle.value
+
+    override fun saveTopBarFadeStyle(style: String) {
+        prefs.put(SyncConstants.KEY_TOP_BAR_FADE_STYLE, style)
+        _topBarFadeStyle.value = style
+    }
+
     private val _subNoteOpenMode = MutableStateFlow(
         prefs.get(SyncConstants.KEY_SUBNOTE_OPEN_MODE, SyncConstants.DEFAULT_SUBNOTE_OPEN_MODE)
     )
