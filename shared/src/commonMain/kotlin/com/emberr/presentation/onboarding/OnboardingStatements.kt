@@ -129,33 +129,25 @@ fun OnboardingStatementStack(
     }
     val stackAreaHeight = remember { mutableIntStateOf(0) }
 
-    var bottomOfActiveStatement = 0
-    for (index in 0..currentStepIndex) {
-        if (index > 0) bottomOfActiveStatement += spacingPx
-        bottomOfActiveStatement += statementHeights[index]
-    }
-
     val everyStatementIsMeasured = statementHeights.none { it == 0 }
 
-    val activeStatementBottom = remember { Animatable(0f) }
+    val glidingStep = remember { Animatable(0f) }
     var hasTakenFirstPosition by remember { mutableStateOf(false) }
 
-    LaunchedEffect(bottomOfActiveStatement, everyStatementIsMeasured) {
-        if (!everyStatementIsMeasured) return@LaunchedEffect
-
+    LaunchedEffect(currentStepIndex) {
         if (hasTakenFirstPosition) {
-            activeStatementBottom.animateTo(
-                targetValue = bottomOfActiveStatement.toFloat(),
+            glidingStep.animateTo(
+                targetValue = currentStepIndex.toFloat(),
                 animationSpec = tween(OnboardingGlideDurationMillis, easing = OnboardingGlideEasing)
             )
         } else {
-            activeStatementBottom.snapTo(bottomOfActiveStatement.toFloat())
+            glidingStep.snapTo(currentStepIndex.toFloat())
             hasTakenFirstPosition = true
         }
     }
 
     val stackAlpha by animateFloatAsState(
-        targetValue = if (hasTakenFirstPosition) 1f else 0f,
+        targetValue = if (everyStatementIsMeasured) 1f else 0f,
         animationSpec = tween(FadeDurationMillis),
         label = "onboarding-stack-alpha"
     )
@@ -172,11 +164,18 @@ fun OnboardingStatementStack(
                 .fillMaxWidth()
                 .graphicsLayer { alpha = stackAlpha }
                 .offset {
+                    val position = glidingStep.value
+                    val lowerIndex = position.toInt().coerceIn(0, steps.lastIndex)
+                    val upperIndex = (lowerIndex + 1).coerceAtMost(steps.lastIndex)
+                    val blend = position - lowerIndex
+
+                    val lowerBottom = statementBottomAt(lowerIndex, statementHeights, spacingPx)
+                    val upperBottom = statementBottomAt(upperIndex, statementHeights, spacingPx)
+                    val activeBottom = lowerBottom + (upperBottom - lowerBottom) * blend
+
                     IntOffset(
                         x = 0,
-                        y = stackAreaHeight.intValue -
-                            bottomFadePx -
-                            activeStatementBottom.value.roundToInt()
+                        y = stackAreaHeight.intValue - bottomFadePx - activeBottom.roundToInt()
                     )
                 }
                 .wrapContentHeight(align = Alignment.Top, unbounded = true),
@@ -202,6 +201,16 @@ fun OnboardingStatementStack(
             }
         }
     }
+}
+
+private fun statementBottomAt(index: Int, heights: List<Int>, spacingPx: Int): Float {
+    var bottom = 0
+    for (i in 0..index) {
+        if (i > 0) bottom += spacingPx
+        bottom += heights[i]
+    }
+
+    return bottom.toFloat()
 }
 
 @Composable
