@@ -199,6 +199,11 @@ fun HomeScreen(
 
     val gridState = rememberLazyStaggeredGridState()
     val favListState = rememberLazyListState()
+    val topEdgeFadeAlpha by remember {
+        derivedStateOf {
+            if (gridState.firstVisibleItemIndex > 0 || gridState.firstVisibleItemScrollOffset > 0) 1f else 0f
+        }
+    }
     val treeDragState = rememberMobileTreeDragState()
     val favoriteDragState = rememberMobileFavoriteDragState()
     var listOriginInRoot by remember { mutableStateOf(Offset.Zero) }
@@ -965,6 +970,7 @@ fun HomeScreen(
                 hazeState = hazeState,
                 applyStatusBarPadding = true,
                 contentPadding = topHeaderBarPadding(top = 10.dp, bottom = 16.dp),
+                topEdgeFadeAlpha = topEdgeFadeAlpha,
                 leadingContent = {
                     if (!isSelectionMode && isDesktopPlatform) {
                         IconButton(
