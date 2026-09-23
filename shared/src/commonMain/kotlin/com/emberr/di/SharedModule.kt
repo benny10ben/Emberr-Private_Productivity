@@ -197,9 +197,7 @@ val sharedModule = module {
 
     viewModel {
         com.emberr.presentation.onboarding.OnboardingViewModel(
-            settingsManager = get(),
-            noteRepository = get(),
-            mediaStorageHelper = get()
+            settingsManager = get()
         )
     }
 
