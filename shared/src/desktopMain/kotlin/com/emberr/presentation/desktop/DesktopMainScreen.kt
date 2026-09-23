@@ -113,6 +113,7 @@ import com.emberr.presentation.shared.components.EmberrPillShadowAmbientColor
 import com.emberr.presentation.shared.components.EmberrPillShadowSpotColor
 import com.emberr.presentation.shared.components.EmberrShadowElevation
 import com.emberr.presentation.shared.components.TopBarIconButtonGroup
+import com.emberr.presentation.shared.components.customEmberrShadow
 import com.emberr.presentation.shared.components.TopBarIconButtonItem
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.input.pointer.PointerEventType
@@ -226,6 +227,7 @@ private fun SidebarSearchBar(
         modifier = modifier
             .fillMaxWidth()
             .height(44.dp)
+            .customEmberrShadow(CircleShape)
             .clip(CircleShape)
             .background(MaterialTheme.colorScheme.background)
             .padding(start = 16.dp, end = 8.dp),
