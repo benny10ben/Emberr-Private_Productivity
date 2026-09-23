@@ -92,6 +92,7 @@ import kotlin.time.Duration.Companion.milliseconds
 import androidx.compose.ui.platform.LocalDensity
 import kotlinx.coroutines.flow.MutableSharedFlow
 import com.emberr.data.local.room.entity.NoteMetadataEntity
+import com.emberr.presentation.BOTTOM_BAR_BOTTOM_PADDING
 import com.emberr.presentation.shared.components.EmberrBlur
 import com.emberr.presentation.shared.components.emberrBlur
 import com.emberr.presentation.shared.components.EmberrVerticalScrollbar
@@ -1851,7 +1852,7 @@ fun BlockSelectionPill(
             shape = DefaultCornerShape,
             color = Color.Transparent,
             modifier = Modifier
-                .padding(bottom = 32.dp)
+                .padding(bottom = if (isDesktopPlatform) 32.dp else BOTTOM_BAR_BOTTOM_PADDING)
                 .customEmberrShadow(DefaultCornerShape)
                 .clip(DefaultCornerShape)
                 .emberrBlur(hazeState, EmberrBlur.Regular)
