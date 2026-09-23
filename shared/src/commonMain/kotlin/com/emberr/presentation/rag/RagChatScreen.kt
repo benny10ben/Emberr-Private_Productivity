@@ -61,6 +61,7 @@ import com.emberr.presentation.rag.settings.FineTuningSheet
 import com.emberr.presentation.rag.settings.LocalAiSettingsSheet
 import com.emberr.presentation.shared.components.EmberrBlur
 import com.emberr.presentation.shared.components.EmberrDesktopMenu
+import com.emberr.presentation.shared.components.EmberrShadowElevation
 import com.emberr.presentation.shared.components.EmberrTopHeaderBar
 import com.emberr.presentation.shared.components.TopBarIconButton
 import com.emberr.presentation.shared.components.TopHeaderBarButtonSize
@@ -90,7 +91,7 @@ fun RagChatScreen(
         modifier = Modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background,
         tonalElevation = 0.dp,
-        shadowElevation = 0.dp
+        shadowElevation = EmberrShadowElevation.None
     ) {
         RagChatContent(
             viewModel = viewModel,
@@ -116,7 +117,7 @@ fun RagChatPanel(
         modifier = modifier.fillMaxHeight(),
         color = MaterialTheme.colorScheme.background,
         tonalElevation = 0.dp,
-        shadowElevation = 0.dp
+        shadowElevation = EmberrShadowElevation.None
     ) {
         RagChatContent(
             viewModel = viewModel,

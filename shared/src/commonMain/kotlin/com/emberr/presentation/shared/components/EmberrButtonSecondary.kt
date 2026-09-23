@@ -31,7 +31,7 @@ fun EmberrButtonSecondary(
             },
             contentColor = MaterialTheme.colorScheme.onSurface
         ),
-        elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
+        elevation = ButtonDefaults.buttonElevation(defaultElevation = EmberrShadowElevation.None)
     ) {
         Text(
             text = text,

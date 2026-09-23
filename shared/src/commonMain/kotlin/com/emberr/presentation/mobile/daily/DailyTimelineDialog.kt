@@ -87,6 +87,7 @@ import com.emberr.domain.model.inlineSpansOrEmpty
 import com.emberr.domain.util.system.isDesktopPlatform
 import com.emberr.presentation.LocalImageOverlay
 import com.emberr.presentation.shared.components.EmberrBlur
+import com.emberr.presentation.shared.components.EmberrShadowElevation
 import com.emberr.presentation.shared.components.TopBarIconButton
 import com.emberr.presentation.shared.components.emberrBlur
 import com.emberr.presentation.shared.components.fullScreenDialogProperties
@@ -300,7 +301,7 @@ private fun TimelineHeader(
                 tint = MaterialTheme.colorScheme.onSurface,
                 hazeState = hazeState,
                 hazeStyle = EmberrBlur.Regular,
-                shadowElevation = 0.dp,
+                shadowElevation = EmberrShadowElevation.None,
                 onClick = onDismiss
             )
         }

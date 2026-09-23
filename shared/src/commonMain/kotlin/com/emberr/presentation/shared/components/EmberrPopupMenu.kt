@@ -42,7 +42,7 @@ fun EmberrPopupMenuSurface(
     Surface(
         shape = PopupMenuShape,
         color = MaterialTheme.colorScheme.surface,
-        shadowElevation = 10.dp,
+        shadowElevation = EmberrShadowElevation.Standard,
         modifier = modifier
             .widthIn(min = 112.dp, max = 240.dp)
             .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.15f), PopupMenuShape)

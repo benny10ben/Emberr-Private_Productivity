@@ -44,6 +44,7 @@ import com.emberr.presentation.shared.components.EmberrAlertDialog
 import com.emberr.presentation.shared.components.EmberrBottomSheet
 import com.emberr.presentation.shared.components.EmberrButtonPrimary
 import com.emberr.presentation.shared.components.EmberrButtonSecondary
+import com.emberr.presentation.shared.components.EmberrShadowElevation
 import com.emberr.presentation.shared.components.EmberrTextField
 import kotlin.time.Clock
 
@@ -252,7 +253,7 @@ internal fun ExternalAiSettingsSheet(
                                 containerColor = MaterialTheme.colorScheme.error,
                                 contentColor = MaterialTheme.colorScheme.onError
                             ),
-                            elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
+                            elevation = ButtonDefaults.buttonElevation(defaultElevation = EmberrShadowElevation.None)
                         ) {
                             Text("Delete", style = MaterialTheme.typography.bodyLarge)
                         }
@@ -273,7 +274,7 @@ private fun ProviderChip(
         shape = RoundedCornerShape(10.dp),
         color = if (selected) MaterialTheme.colorScheme.primary else Color.Transparent,
         tonalElevation = 0.dp,
-        shadowElevation = 0.dp,
+        shadowElevation = EmberrShadowElevation.None,
         modifier = Modifier
             .clip(RoundedCornerShape(10.dp))
             .clickableWithoutMobileRipple(onClick)

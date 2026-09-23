@@ -61,6 +61,7 @@ import com.emberr.presentation.shared.components.EmberrBottomSheet
 import com.emberr.presentation.shared.components.EmberrBottomSheetAction
 import com.emberr.presentation.shared.components.EmberrButtonPrimary
 import com.emberr.presentation.shared.components.EmberrButtonSecondary
+import com.emberr.presentation.shared.components.EmberrShadowElevation
 import com.emberr.presentation.shared.components.EmberrTextField
 import com.emberr.presentation.shared.components.MinimalDatePickerDialog
 import com.emberr.presentation.shared.components.MinimalTimePickerDialog
@@ -88,7 +89,6 @@ private val EventChipTextColor = Color(0xFF1A1A1A)
 private val InteractiveShape = RoundedCornerShape(12.dp)
 private val FieldPadding = 14.dp
 private val SectionSpacing = 16.dp
-private val ViewFieldsIconShadowElevation = 0.dp
 
 @Composable
 fun EventChip(
@@ -524,7 +524,7 @@ private fun EventViewFields(
                     tint = MaterialTheme.colorScheme.primary,
                     hazeState = hazeState,
                     hazeStyle = EmberrBlur.Regular,
-                    shadowElevation = ViewFieldsIconShadowElevation,
+                    shadowElevation = EmberrShadowElevation.None,
                     onClick = onEditClick
                 )
                 if (onDelete != null) {
@@ -535,7 +535,7 @@ private fun EventViewFields(
                         tint = MaterialTheme.colorScheme.error,
                         hazeState = hazeState,
                         hazeStyle = EmberrBlur.Regular,
-                        shadowElevation = ViewFieldsIconShadowElevation,
+                        shadowElevation = EmberrShadowElevation.None,
                         onClick = onDelete
                     )
                 }

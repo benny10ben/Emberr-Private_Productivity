@@ -67,11 +67,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectTapGestures
+import com.emberr.presentation.shared.components.EmberrShadowElevation
+import com.emberr.presentation.shared.components.EmberrWindowShadow
 
-private val AmbientShadowBlur = 7.dp
-private val AmbientShadowDrop = 4.dp
-private val ContactShadowBlur = 2.dp
-private val ContactShadowDrop = 1.dp
 private val CloseHoverColor = Color(0xFFE04B4B)
 private val TitleBarRevealBand = 22.dp
 private const val TitleBarRevealMillis = 150
@@ -119,7 +117,7 @@ fun WindowScope.EmberrWindowFrame(
     val frameShape: Shape = if (isMaximized) RectangleShape else RoundedCornerShape(frameSize.cornerRadius)
 
     val isWindowFocused = LocalWindowInfo.current.isWindowFocused
-    val shadowStrength = if (isWindowFocused) 1f else 0.45f
+    val shadowStrength = if (isWindowFocused) 1f else EmberrWindowShadow.UnfocusedStrength
     val canResizeNatively = !isMaximized && NativeWindowActions.isAvailable
 
     LaunchedEffect(window) {
@@ -192,7 +190,7 @@ fun WindowScope.EmberrWindowFrame(
             modifier = Modifier.fillMaxSize(),
             shape = frameShape,
             color = MaterialTheme.colorScheme.background,
-            shadowElevation = 0.dp
+            shadowElevation = EmberrShadowElevation.None
         ) {
             val titleBar: @Composable () -> Unit = {
                 EmberrTitleBar(
@@ -243,7 +241,7 @@ fun WindowScope.EmberrWindowFrame(
                 ) {
                     Surface(
                         color = MaterialTheme.colorScheme.surface,
-                        shadowElevation = 3.dp
+                        shadowElevation = EmberrShadowElevation.Standard
                     ) {
                         titleBar()
                     }
@@ -428,8 +426,8 @@ private fun DrawScope.drawCloseGlyph(color: Color) {
 }
 
 private fun DrawScope.drawWindowShadow(cornerRadius: Float, strength: Float) {
-    drawBlurredRoundedRect(cornerRadius, AmbientShadowBlur, AmbientShadowDrop, 0.30f * strength)
-    drawBlurredRoundedRect(cornerRadius, ContactShadowBlur, ContactShadowDrop, 0.22f * strength)
+    drawBlurredRoundedRect(cornerRadius, EmberrWindowShadow.AmbientBlur, EmberrWindowShadow.AmbientDrop, EmberrWindowShadow.AmbientAlpha * strength)
+    drawBlurredRoundedRect(cornerRadius, EmberrWindowShadow.ContactBlur, EmberrWindowShadow.ContactDrop, EmberrWindowShadow.ContactAlpha * strength)
 }
 
 private fun DrawScope.drawBlurredRoundedRect(

@@ -49,11 +49,12 @@ import androidx.compose.ui.input.key.type
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import com.emberr.domain.util.system.isDesktopPlatform
-import com.emberr.presentation.customEmberrShadow
 import com.emberr.presentation.rag.RagViewModel
 import com.emberr.presentation.rag.settings.AiSettingsMenuContent
 import com.emberr.presentation.shared.components.EmberrBlur
 import com.emberr.presentation.shared.components.EmberrDesktopMenu
+import com.emberr.presentation.shared.components.EmberrShadowElevation
+import com.emberr.presentation.shared.components.customEmberrShadow
 import com.emberr.presentation.shared.components.emberrBlur
 import dev.chrisbanes.haze.HazeState
 import emberr.shared.generated.resources.Res
@@ -97,7 +98,7 @@ internal fun ChatInputBar(
 
     val isMorphing = chatAnimatedVisibilityScope?.transition?.isRunning == true
     val shadowElevation by animateDpAsState(
-        targetValue = if (isMorphing) 0.dp else 8.dp,
+        targetValue = if (isMorphing) EmberrShadowElevation.None else EmberrShadowElevation.Standard,
         animationSpec = tween(durationMillis = 150, easing = FastOutSlowInEasing)
     )
 

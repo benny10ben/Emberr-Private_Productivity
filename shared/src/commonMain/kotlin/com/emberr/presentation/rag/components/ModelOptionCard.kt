@@ -16,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import com.emberr.presentation.shared.components.EmberrShadowElevation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 
@@ -37,7 +38,7 @@ internal fun ModelOptionCard(
         shape = shape,
         color = containerColor,
         tonalElevation = 0.dp,
-        shadowElevation = 0.dp,
+        shadowElevation = EmberrShadowElevation.None,
         modifier = modifier
             .fillMaxWidth()
             .clip(shape)

@@ -32,6 +32,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.emberr.presentation.shared.components.EmberrShadowElevation
 import kotlinx.coroutines.delay
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -86,7 +87,7 @@ internal fun ChatEmptyState(
                 shape = RoundedCornerShape(12.dp),
                 color = MaterialTheme.colorScheme.surface,
                 tonalElevation = 0.dp,
-                shadowElevation = 0.dp,
+                shadowElevation = EmberrShadowElevation.None,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = 5.dp)

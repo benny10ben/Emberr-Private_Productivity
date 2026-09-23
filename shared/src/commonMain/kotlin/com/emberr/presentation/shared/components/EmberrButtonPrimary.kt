@@ -26,7 +26,7 @@ fun EmberrButtonPrimary(
             containerColor = MaterialTheme.colorScheme.primary,
             contentColor = MaterialTheme.colorScheme.onPrimary
         ),
-        elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
+        elevation = ButtonDefaults.buttonElevation(defaultElevation = EmberrShadowElevation.None)
     ) {
         Text(
             text = text,

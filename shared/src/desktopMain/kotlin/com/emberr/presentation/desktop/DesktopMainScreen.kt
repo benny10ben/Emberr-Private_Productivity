@@ -111,6 +111,7 @@ import androidx.compose.animation.core.spring
 import com.emberr.presentation.shared.components.TopBarIconButton
 import com.emberr.presentation.shared.components.EmberrPillShadowAmbientColor
 import com.emberr.presentation.shared.components.EmberrPillShadowSpotColor
+import com.emberr.presentation.shared.components.EmberrShadowElevation
 import com.emberr.presentation.shared.components.TopBarIconButtonGroup
 import com.emberr.presentation.shared.components.TopBarIconButtonItem
 import androidx.compose.ui.ExperimentalComposeUiApi
@@ -1778,7 +1779,7 @@ fun DesktopMainScreen(
                         shape = CircleShape,
                         color = MaterialTheme.colorScheme.surface,
                         contentColor = MaterialTheme.colorScheme.onSurface,
-                        shadowElevation = 6.dp,
+                        shadowElevation = EmberrShadowElevation.Standard,
                         modifier = Modifier.padding(horizontal = 24.dp).wrapContentWidth()
                     ) {
                         Row(

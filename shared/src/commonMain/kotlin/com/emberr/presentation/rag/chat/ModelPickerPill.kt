@@ -40,6 +40,7 @@ import com.emberr.presentation.shared.components.EmberrBottomSheetOption
 import com.emberr.presentation.shared.components.EmberrButtonPrimary
 import com.emberr.presentation.shared.components.EmberrDesktopMenu
 import com.emberr.presentation.shared.components.EmberrDesktopMenuOption
+import com.emberr.presentation.shared.components.EmberrShadowElevation
 
 @Composable
 internal fun ModelPickerPill(viewModel: RagViewModel) {
@@ -84,7 +85,7 @@ internal fun ModelPickerPill(viewModel: RagViewModel) {
             shape = RoundedCornerShape(50),
             color = MaterialTheme.colorScheme.surface,
             tonalElevation = 0.dp,
-            shadowElevation = 0.dp,
+            shadowElevation = EmberrShadowElevation.None,
             modifier = Modifier
                 .clip(RoundedCornerShape(50))
                 .clickable { showPicker = true }

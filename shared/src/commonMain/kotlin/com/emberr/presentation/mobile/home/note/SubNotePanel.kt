@@ -24,6 +24,7 @@ import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.unit.dp
 import com.emberr.domain.model.NoteBlock
 import com.emberr.presentation.shared.SubNoteOpenMode
+import com.emberr.presentation.shared.components.EmberrShadowElevation
 import com.emberr.presentation.shared.components.EmberrTopHeaderBar
 import dev.chrisbanes.haze.HazeState
 import emberr.shared.generated.resources.Res
@@ -147,7 +148,7 @@ fun SubNotePanel(
                         Modifier
                     }
                 )
-                .shadow(elevation = 20.dp, shape = if (isExpanded) RectangleShape else RoundedCornerShape(18.dp))
+                .shadow(elevation = EmberrShadowElevation.Standard, shape = if (isExpanded) RectangleShape else RoundedCornerShape(18.dp))
                 .clip(if (isExpanded) RectangleShape else RoundedCornerShape(18.dp))
         ) {
             var showInnerPanel by remember { mutableStateOf(false) }

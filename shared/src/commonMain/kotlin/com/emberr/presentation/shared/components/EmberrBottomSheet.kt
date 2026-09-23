@@ -41,7 +41,6 @@ private val FloatingDialogShape = RoundedCornerShape(12.dp)
 private val SheetEdgeWidth = 0.5.dp
 private const val SheetEdgeAlpha = 0.2f
 private val SheetHorizontalPadding = 20.dp
-private val SheetIconShadowElevation = 0.dp
 private val SheetIconSpacing = 8.dp
 
 /**
@@ -192,7 +191,7 @@ private fun EmberrFloatingDialog(
                                     contentDescription = headerAction.contentDescription,
                                     bgColor = if (LocalAppIsDark.current) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.background,
                                     tint = headerAction.tint ?: MaterialTheme.colorScheme.onSurface,
-                                    shadowElevation = SheetIconShadowElevation,
+                                    shadowElevation = EmberrShadowElevation.None,
                                     onClick = headerAction.onClick
                                 )
                             }
@@ -203,7 +202,7 @@ private fun EmberrFloatingDialog(
 //                                contentDescription = "Close",
 //                                bgColor = if (LocalAppIsDark.current) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.background,
 //                                tint = MaterialTheme.colorScheme.onSurface,
-//                                shadowElevation = SheetIconShadowElevation,
+//                                shadowElevation = EmberrShadowElevation.None,
 //                                onClick = onDismiss
 //                            )
 //                        }
@@ -324,7 +323,7 @@ private fun EmberrModalBottomSheet(
                                     contentDescription = headerAction.contentDescription,
                                     bgColor = if (LocalAppIsDark.current) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.background,
                                     tint = headerAction.tint ?: MaterialTheme.colorScheme.onSurface,
-                                    shadowElevation = SheetIconShadowElevation,
+                                    shadowElevation = EmberrShadowElevation.None,
                                     onClick = headerAction.onClick
                                 )
                             }

@@ -53,12 +53,10 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -72,6 +70,8 @@ import androidx.navigation.NavHostController
 import com.emberr.domain.util.system.isDesktopPlatform
 import com.emberr.presentation.navigation.Screen
 import com.emberr.presentation.shared.components.EmberrBlur
+import com.emberr.presentation.shared.components.EmberrShadowElevation
+import com.emberr.presentation.shared.components.customEmberrShadow
 import com.emberr.presentation.shared.components.emberrBlur
 import com.emberr.ui.theme.LocalEmberrFontStyle
 import com.emberr.ui.theme.fontFamilyFor
@@ -90,13 +90,6 @@ internal val EXPANDED_BOTTOM_BAR_PILL_HEIGHT = 52.dp
 internal val COMPACT_BOTTOM_BAR_PILL_HEIGHT = 44.dp
 internal val BOTTOM_BAR_PILL_SHRINK_COMPENSATION =
     (EXPANDED_BOTTOM_BAR_PILL_HEIGHT - COMPACT_BOTTOM_BAR_PILL_HEIGHT) / 2
-
-internal fun Modifier.customEmberrShadow(shape: Shape, elevation: Dp = 14.dp): Modifier = this.shadow(
-    elevation = elevation,
-    shape = shape,
-    spotColor = Color.Black.copy(alpha = 0.35f),
-    ambientColor = Color.Black.copy(alpha = 0.20f)
-)
 
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
@@ -193,7 +186,7 @@ fun EmberrBottomBar(
         ) {
             val isMorphing = bottomBarAnimatedVisibilityScope.transition.isRunning
             val shadowElevation by animateDpAsState(
-                targetValue = if (isMorphing) 0.dp else 14.dp,
+                targetValue = if (isMorphing) EmberrShadowElevation.None else EmberrShadowElevation.Standard,
                 animationSpec = tween(durationMillis = 150, easing = FastOutSlowInEasing)
             )
             Surface(

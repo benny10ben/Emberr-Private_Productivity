@@ -58,6 +58,7 @@ import androidx.compose.ui.unit.dp
 import com.emberr.data.local.room.entity.SpaceEntity
 import com.emberr.presentation.shared.components.EmberrButtonSecondary
 import com.emberr.presentation.shared.components.EmberrDesktopMenu
+import com.emberr.presentation.shared.components.EmberrShadowElevation
 import emberr.shared.generated.resources.Res
 import emberr.shared.generated.resources.plus
 import kotlin.math.abs
@@ -439,7 +440,7 @@ private fun DeleteSpaceConfirmation(
                     containerColor = MaterialTheme.colorScheme.error,
                     contentColor = MaterialTheme.colorScheme.onError
                 ),
-                elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
+                elevation = ButtonDefaults.buttonElevation(defaultElevation = EmberrShadowElevation.None)
             ) {
                 Text(text = "Delete", style = MaterialTheme.typography.bodyLarge)
             }

@@ -19,6 +19,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.emberr.domain.ai.AiGenerationMode
+import com.emberr.presentation.shared.components.EmberrShadowElevation
 
 @Composable
 internal fun VaultAccessPill(aiGenerationMode: AiGenerationMode, externalAiReadOnly: Boolean) {
@@ -29,7 +30,7 @@ internal fun VaultAccessPill(aiGenerationMode: AiGenerationMode, externalAiReadO
         shape = RoundedCornerShape(50),
         color = MaterialTheme.colorScheme.surface,
         tonalElevation = 0.dp,
-        shadowElevation = 0.dp
+        shadowElevation = EmberrShadowElevation.None
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),

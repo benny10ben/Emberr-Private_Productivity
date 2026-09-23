@@ -18,12 +18,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import com.emberr.ui.theme.LocalAppIsDark
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.drawscope.ContentDrawScope
@@ -37,33 +35,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.HazeStyle
-
-val DefaultEmberrShadowElevation = 14.dp
-
-val DefaultEmberrShadowSpotColor = Color.Black.copy(alpha = 0.35f)
-val DefaultEmberrShadowAmbientColor = Color.Black.copy(alpha = 0.20f)
-
-val EmberrPillShadowSpotColor: Color
-    @Composable get() =
-        if (LocalAppIsDark.current) DefaultEmberrShadowSpotColor
-        else Color.Black.copy(alpha = 0.18f)
-
-val EmberrPillShadowAmbientColor: Color
-    @Composable get() =
-        if (LocalAppIsDark.current) DefaultEmberrShadowAmbientColor
-        else Color.Transparent
-
-fun Modifier.customEmberrShadow(
-    shape: Shape,
-    elevation: Dp = DefaultEmberrShadowElevation,
-    spotColor: Color = DefaultEmberrShadowSpotColor,
-    ambientColor: Color = DefaultEmberrShadowAmbientColor
-): Modifier = this.shadow(
-    elevation = elevation,
-    shape = shape,
-    spotColor = spotColor,
-    ambientColor = ambientColor
-)
 
 object NoRippleIndicationNodeFactory : IndicationNodeFactory {
     private class NoRippleIndicationNode : Modifier.Node(), DrawModifierNode {
@@ -140,7 +111,7 @@ fun TopBarIconButton(
     hazeStyle: HazeStyle? = null,
     size: Dp = 44.dp,
     iconSize: Dp = 22.dp,
-    shadowElevation: Dp = DefaultEmberrShadowElevation,
+    shadowElevation: Dp = EmberrShadowElevation.Standard,
     onClick: () -> Unit
 ) {
     val resolvedStyle = hazeStyle ?: EmberrBlur.Regular
@@ -185,7 +156,7 @@ fun TopBarIconButton(
     hazeStyle: HazeStyle? = null,
     size: Dp = 44.dp,
     iconSize: Dp = 22.dp,
-    shadowElevation: Dp = DefaultEmberrShadowElevation,
+    shadowElevation: Dp = EmberrShadowElevation.Standard,
     onClick: () -> Unit
 ) {
     TopBarIconButton(
@@ -219,9 +190,9 @@ fun TopBarIconButtonGroup(
     hazeStyle: HazeStyle? = null,
     horizontalPadding: Dp = 6.dp,
     iconSize: Dp = 22.dp,
-    shadowElevation: Dp = DefaultEmberrShadowElevation,
-    shadowSpotColor: Color = DefaultEmberrShadowSpotColor,
-    shadowAmbientColor: Color = DefaultEmberrShadowAmbientColor
+    shadowElevation: Dp = EmberrShadowElevation.Standard,
+    shadowSpotColor: Color = EmberrShadowSpotColor,
+    shadowAmbientColor: Color = EmberrShadowAmbientColor
 ) {
     val resolvedStyle = hazeStyle ?: EmberrBlur.Regular
     Surface(

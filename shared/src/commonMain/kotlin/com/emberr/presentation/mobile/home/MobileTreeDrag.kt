@@ -18,6 +18,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
+import com.emberr.presentation.shared.components.EmberrShadowElevation
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -268,5 +269,5 @@ fun Modifier.mobileTreeFloatingRow(
         alpha = 0.95f
         scaleX = 1.02f
         scaleY = 1.02f
-        shadowElevation = 16f
+        shadowElevation = EmberrShadowElevation.StandardPx
     }

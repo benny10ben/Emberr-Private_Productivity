@@ -49,6 +49,7 @@ import com.emberr.presentation.mobile.home.RenameBottomSheet
 import com.emberr.presentation.shared.components.EmberrAlertDialog
 import com.emberr.presentation.shared.components.EmberrBottomSheet
 import com.emberr.presentation.shared.components.EmberrButtonSecondary
+import com.emberr.presentation.shared.components.EmberrShadowElevation
 import com.emberr.presentation.shared.components.NoRippleIndicationNodeFactory
 import emberr.shared.generated.resources.Res
 import emberr.shared.generated.resources.pen_square
@@ -169,7 +170,7 @@ fun SpaceOptionsSheets(
                         containerColor = MaterialTheme.colorScheme.error,
                         contentColor = MaterialTheme.colorScheme.onError
                     ),
-                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
+                    elevation = ButtonDefaults.buttonElevation(defaultElevation = EmberrShadowElevation.None)
                 ) {
                     Text(text = "Delete", style = MaterialTheme.typography.bodyLarge)
                 }

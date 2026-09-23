@@ -19,6 +19,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import com.emberr.presentation.shared.components.EmberrShadowElevation
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -185,7 +186,7 @@ fun Modifier.mobileFavoriteDraggedCard(
     scaleX = 1.04f
     scaleY = 1.04f
     alpha = 0.95f
-    shadowElevation = 16f
+    shadowElevation = EmberrShadowElevation.StandardPx
 }
 
 @Composable

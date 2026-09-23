@@ -146,7 +146,7 @@ fun NotePickerDialog(
             Surface(
                 shape = RoundedCornerShape(12.dp),
                 color = MaterialTheme.colorScheme.surface,
-                shadowElevation = 12.dp,
+                shadowElevation = EmberrShadowElevation.Standard,
                 modifier = Modifier
                     .width(320.dp)
                     .heightIn(max = 360.dp)

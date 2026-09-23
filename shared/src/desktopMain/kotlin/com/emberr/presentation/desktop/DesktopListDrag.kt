@@ -33,6 +33,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import com.emberr.presentation.mobile.home.DropInsertPosition
 import com.emberr.presentation.mobile.home.HomeItemKey
+import com.emberr.presentation.shared.components.EmberrShadowElevation
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.input.pointer.PointerEventPass
@@ -111,7 +112,7 @@ fun DesktopListDragChip(
             modifier = Modifier
                 .offset(y = chipOffsetY.coerceAtLeast(0.dp))
                 .padding(start = 12.dp)
-                .shadow(6.dp, RoundedCornerShape(8.dp))
+                .shadow(EmberrShadowElevation.Standard, RoundedCornerShape(8.dp))
                 .clip(RoundedCornerShape(8.dp))
                 .background(MaterialTheme.colorScheme.surface)
                 .padding(horizontal = 10.dp, vertical = 6.dp),

@@ -52,6 +52,7 @@ import com.emberr.domain.model.DatabaseColumn
 import com.emberr.domain.model.DatabaseRow
 import com.emberr.domain.model.DatabaseView
 import com.emberr.presentation.shared.components.EmberrHorizontalScrollbar
+import com.emberr.presentation.shared.components.EmberrShadowElevation
 import com.emberr.presentation.shared.components.smoothWheelScroll
 import com.emberr.presentation.shared.editor.EditorActions
 import kotlin.math.roundToInt
@@ -282,7 +283,7 @@ internal fun KanbanView(
                     modifier = Modifier
                         .offset { IntOffset(localOffset.x.roundToInt(), localOffset.y.roundToInt()) }
                         .width(with(density) { dragState.cardSize.width.toDp() })
-                        .graphicsLayer { alpha = 0.95f; shadowElevation = 12f }
+                        .graphicsLayer { alpha = 0.95f; shadowElevation = EmberrShadowElevation.StandardPx }
                         .zIndex(10f)
                 ) {
                     KanbanCardSurface(

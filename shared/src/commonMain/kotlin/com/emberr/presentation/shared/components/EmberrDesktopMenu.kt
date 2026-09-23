@@ -38,7 +38,7 @@ fun EmberrDesktopMenu(
         properties = properties,
         shape = DefaultMenuShape,
         containerColor = if (blurSource != null) Color.Transparent else surfaceColor,
-        shadowElevation = if (blurSource != null) 0.dp else MenuDefaults.ShadowElevation,
+        shadowElevation = if (blurSource != null) EmberrShadowElevation.None else MenuDefaults.ShadowElevation,
         modifier = if (blurSource != null) {
             modifier
                 .emberrBlur(blurSource, EmberrBlur.Thick)

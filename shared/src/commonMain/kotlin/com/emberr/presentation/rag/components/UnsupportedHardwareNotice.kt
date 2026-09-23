@@ -12,6 +12,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.emberr.presentation.shared.components.EmberrShadowElevation
 
 @Composable
 internal fun UnsupportedHardwareNotice(reason: String, modifier: Modifier = Modifier) {
@@ -19,7 +20,7 @@ internal fun UnsupportedHardwareNotice(reason: String, modifier: Modifier = Modi
         shape = RoundedCornerShape(12.dp),
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
         tonalElevation = 0.dp,
-        shadowElevation = 0.dp,
+        shadowElevation = EmberrShadowElevation.None,
         modifier = modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp)) {

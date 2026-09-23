@@ -78,8 +78,11 @@ import com.emberr.domain.model.ViewType
 import com.emberr.domain.model.VoiceBlock
 import com.emberr.domain.util.system.isDesktopPlatform
 import com.emberr.presentation.shared.components.EmberrDesktopMenu
+import com.emberr.presentation.shared.components.EmberrShadowElevation
+import com.emberr.presentation.shared.components.EmberrShadowSpotColorSoft
 import com.emberr.presentation.shared.components.EmberrTextField
 import com.emberr.presentation.shared.components.KmpBackHandler
+import com.emberr.presentation.shared.components.customEmberrShadow
 import com.emberr.presentation.shared.editor.blockViews.LinkedNoteOptionsMenu
 import dev.chrisbanes.haze.HazeState
 import kotlinx.coroutines.delay
@@ -143,13 +146,6 @@ import kotlin.math.abs
 import kotlin.math.roundToInt
 
 private val DefaultCornerShape = RoundedCornerShape(12.dp)
-
-private fun Modifier.customEmberrShadow(shape: Shape): Modifier = this.shadow(
-    elevation = 14.dp,
-    shape = shape,
-    spotColor = Color.Black.copy(alpha = 0.25f),
-    ambientColor = Color.Black.copy(alpha = 0.10f)
-)
 
 // Adjusts automatic bring-into-view scroll distances to account for top and bottom floating bars (top inset)
 // and key-board/navigation bars (bottom inset), ensuring focused items remain visible within the un-covered viewport.
@@ -1379,7 +1375,7 @@ private fun FloatingSwatch(
     Box(
         modifier = Modifier
             .size(FloatingSwatchSize)
-            .shadow(elevation = 6.dp, shape = CircleShape, spotColor = Color.Black.copy(alpha = 0.25f))
+            .shadow(elevation = EmberrShadowElevation.Standard, shape = CircleShape, spotColor = EmberrShadowSpotColorSoft)
             .clip(CircleShape)
             .background(fillColor)
             .then(if (showsRemoveMark) Modifier.removeHighlightMark() else Modifier)

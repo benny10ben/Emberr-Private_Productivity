@@ -121,6 +121,7 @@ import com.emberr.domain.model.displayText
 import com.emberr.domain.util.system.isDesktopPlatform
 import com.emberr.domain.util.system.triggerHapticFeedback
 import com.emberr.presentation.shared.components.EmberrHorizontalScrollbar
+import com.emberr.presentation.shared.components.EmberrShadowElevation
 import com.emberr.presentation.shared.components.smoothWheelScroll
 import com.emberr.presentation.shared.editor.EditorActions
 import com.emberr.presentation.shared.editor.GlobalEditorState
@@ -1356,7 +1357,7 @@ private fun NoteMentionPopup(
             Surface(
                 shape = RoundedCornerShape(12.dp),
                 color = MaterialTheme.colorScheme.surface,
-                shadowElevation = 8.dp,
+                shadowElevation = EmberrShadowElevation.Standard,
                 modifier = Modifier
                     .width(260.dp)
                     .heightIn(max = 300.dp)

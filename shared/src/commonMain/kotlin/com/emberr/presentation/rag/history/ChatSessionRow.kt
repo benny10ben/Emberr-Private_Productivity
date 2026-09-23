@@ -38,6 +38,7 @@ import com.emberr.presentation.shared.components.EmberrButtonPrimary
 import com.emberr.presentation.shared.components.EmberrButtonSecondary
 import com.emberr.presentation.shared.components.EmberrDesktopMenu
 import com.emberr.presentation.shared.components.EmberrDesktopMenuOption
+import com.emberr.presentation.shared.components.EmberrShadowElevation
 import com.emberr.presentation.shared.components.EmberrTextField
 
 @Composable
@@ -177,7 +178,7 @@ internal fun ChatSessionRow(
                         containerColor = MaterialTheme.colorScheme.error,
                         contentColor = MaterialTheme.colorScheme.onError
                     ),
-                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
+                    elevation = ButtonDefaults.buttonElevation(defaultElevation = EmberrShadowElevation.None)
                 ) {
                     Text("Delete", style = MaterialTheme.typography.bodyLarge)
                 }

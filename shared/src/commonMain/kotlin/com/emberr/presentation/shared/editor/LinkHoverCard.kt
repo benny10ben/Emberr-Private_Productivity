@@ -49,6 +49,7 @@ import androidx.compose.ui.window.PopupProperties
 import com.emberr.data.local.room.entity.NoteMetadataEntity
 import com.emberr.domain.util.network.HtmlMetadataFetcher
 import com.emberr.domain.util.network.UrlMetadata
+import com.emberr.presentation.shared.components.EmberrShadowElevation
 import com.emberr.presentation.shared.editor.components.DesktopCursor
 import com.emberr.presentation.shared.editor.components.desktopPointerCursor
 import kotlinx.coroutines.CoroutineScope
@@ -191,7 +192,7 @@ fun LinkHoverCard(
                 Surface(
                     shape = RoundedCornerShape(10.dp),
                     color = MaterialTheme.colorScheme.surface,
-                    shadowElevation = 10.dp,
+                    shadowElevation = EmberrShadowElevation.Standard,
                     modifier = Modifier
                         .widthIn(max = 320.dp)
                         .border(
