@@ -86,6 +86,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import com.emberr.domain.model.RecurrenceEditScope
 import com.emberr.domain.util.system.isDesktopPlatform
+import com.emberr.presentation.BOTTOM_BAR_BOTTOM_PADDING
+import com.emberr.presentation.COMPACT_BOTTOM_BAR_PILL_HEIGHT
+import com.emberr.presentation.EXPANDED_BOTTOM_BAR_PILL_HEIGHT
 import com.emberr.presentation.shared.components.EmberrBlur
 import com.emberr.presentation.shared.components.EmberrBottomSheet
 import com.emberr.presentation.shared.components.EmberrBottomSheetOption
@@ -1303,20 +1306,22 @@ private fun CalendarBottomBar(
 
     val barAnimationSpec = tween<Dp>(durationMillis = 350, easing = FastOutSlowInEasing)
     val barSize by animateDpAsState(
-        targetValue = if (isCompact) 44.dp else 52.dp,
+        targetValue = if (isCompact) COMPACT_BOTTOM_BAR_PILL_HEIGHT else EXPANDED_BOTTOM_BAR_PILL_HEIGHT,
         animationSpec = barAnimationSpec
     )
-    val bottomInset by animateDpAsState(
-        targetValue = if (isCompact) 0.dp else 6.dp,
-        animationSpec = barAnimationSpec
-    )
+    val shrinkCompensation = (EXPANDED_BOTTOM_BAR_PILL_HEIGHT - barSize) / 2
     val navItemHeight = barSize - 12.dp
 
     Box(
         modifier = modifier
             .fillMaxWidth()
             .navigationBarsPadding()
-            .padding(bottom = bottomInset, start = 16.dp, end = 16.dp),
+            .padding(
+                top = shrinkCompensation,
+                bottom = BOTTOM_BAR_BOTTOM_PADDING + shrinkCompensation,
+                start = 16.dp,
+                end = 16.dp
+            ),
         contentAlignment = Alignment.BottomCenter
     ) {
         val isMorphing = bottomBarAnimatedVisibilityScope.transition.isRunning
