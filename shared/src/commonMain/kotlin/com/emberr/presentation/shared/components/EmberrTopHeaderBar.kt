@@ -104,6 +104,7 @@ fun EmberrTopHeaderBar(
     onBackClick: () -> Unit = {},
     background: Color = Color.Transparent,
     topEdgeFadeAlpha: Float = 1f,
+    topEdgeColor: Color = MaterialTheme.colorScheme.background,
     topEdgeGradientHeight: Dp = TopEdgeGradientHeight,
     topEdgeBlurHeight: Dp = TopEdgeBlurHeight,
     hazeState: HazeState? = null,
@@ -118,7 +119,7 @@ fun EmberrTopHeaderBar(
     overlayContent: @Composable BoxScope.() -> Unit = {}
 ) {
     val fadeStyle = rememberTopBarFadeStyle()
-    val topEdgeGradient = rememberTopEdgeGradient()
+    val topEdgeGradient = rememberTopEdgeGradient(topEdgeColor)
 
     val showColorFade = fadeStyle == TopBarFadeStyle.COLOR &&
         topEdgeFadeAlpha > 0f &&
@@ -239,8 +240,7 @@ private fun rememberTopBarFadeStyle(): TopBarFadeStyle {
 }
 
 @Composable
-private fun rememberTopEdgeGradient(): Brush {
-    val edgeColor = MaterialTheme.colorScheme.background
+private fun rememberTopEdgeGradient(edgeColor: Color): Brush {
     return remember(edgeColor) {
         val colorStops = Array(TopEdgeGradientStopCount) { stopIndex ->
             val position = stopIndex / (TopEdgeGradientStopCount - 1f)

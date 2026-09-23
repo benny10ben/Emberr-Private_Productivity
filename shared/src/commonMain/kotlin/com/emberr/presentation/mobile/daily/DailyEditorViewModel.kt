@@ -252,12 +252,12 @@ class DailyEditorViewModel(
                         } else {
                             repository.getDailyNote(dateString)?.blocks ?: emptyList()
                         }
-                        val readableBlocks = sourceBlocks.filter {
-                            !it.isDeleted && !it.isPinned && !isBlockEmptyForTimeline(it)
+                        val visibleBlocks = sourceBlocks.filter {
+                            !it.isDeleted && !it.isPinned && !isBlockHiddenFromTimeline(it)
                         }
                         when {
-                            readableBlocks.isNotEmpty() ->
-                                DailyTimelineDay(date, recalculateNumberedLists(readableBlocks))
+                            visibleBlocks.any { !isBlockEmptyForTimeline(it) } ->
+                                DailyTimelineDay(date, recalculateNumberedLists(visibleBlocks))
                             date == anchorDate -> DailyTimelineDay(date, emptyList())
                             else -> null
                         }
@@ -874,8 +874,14 @@ data class DailyTimelineDay(
     val blocks: List<NoteBlock>
 )
 
-// The daily editor always keeps a trailing empty text block for typing, and media blocks can exist
-// without a file while their picker is still open - none of those should show up in the timeline.
+private fun isBlockHiddenFromTimeline(block: NoteBlock): Boolean = when (block) {
+    is BookmarkBlock -> block.url.isBlank()
+    is ImageBlock -> block.localFilePath.isNullOrBlank()
+    is DocumentBlock -> block.localFilePath.isNullOrBlank()
+    is VoiceBlock -> block.localFilePath.isNullOrBlank()
+    else -> false
+}
+
 private fun isBlockEmptyForTimeline(block: NoteBlock): Boolean = when (block) {
     is TextBlock -> block.text.isBlank()
     is HeadingBlock -> block.text.isBlank()

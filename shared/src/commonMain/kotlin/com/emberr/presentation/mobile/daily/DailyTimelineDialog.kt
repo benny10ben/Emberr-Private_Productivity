@@ -76,8 +76,10 @@ import com.emberr.domain.model.LinkedNoteBlock
 import com.emberr.domain.model.NoteBlock
 import com.emberr.domain.model.NumberedListBlock
 import com.emberr.domain.model.QuoteBlock
+import com.emberr.domain.model.SolidDividerBlock
 import com.emberr.domain.model.TableBlock
 import com.emberr.domain.model.TextBlock
+import com.emberr.domain.model.ThreeDotDividerBlock
 import com.emberr.domain.model.ToggleBlock
 import com.emberr.domain.model.VoiceBlock
 import com.emberr.data.local.room.entity.NoteMetadataEntity
@@ -88,6 +90,8 @@ import com.emberr.domain.util.system.isDesktopPlatform
 import com.emberr.presentation.LocalImageOverlay
 import com.emberr.presentation.shared.components.EmberrBlur
 import com.emberr.presentation.shared.components.EmberrShadowElevation
+import com.emberr.presentation.shared.components.EmberrTopHeaderBar
+import com.emberr.presentation.shared.components.TopHeaderTitlePlacement
 import com.emberr.presentation.shared.components.TopBarIconButton
 import com.emberr.presentation.shared.components.emberrBlur
 import com.emberr.presentation.shared.components.fullScreenDialogProperties
@@ -104,6 +108,7 @@ import com.emberr.ui.theme.LocalAppIsDark
 import com.emberr.ui.theme.LocalAppIsDark
 import com.emberr.ui.theme.highlightBackgroundFor
 import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.HazeTint
 import dev.chrisbanes.haze.hazeSource
 import emberr.shared.generated.resources.Res
 import emberr.shared.generated.resources.arrow_down
@@ -128,6 +133,8 @@ private val BubbleShape = RoundedCornerShape(topStart = 6.dp, topEnd = 18.dp, bo
 private val IndentationStep = 14.dp
 private val TableBlockSideInsetCancellation = 16.dp
 private val DatabaseBlockSideInsetCancellation = 18.dp
+private val HeaderBlurHeight = 90.dp
+private val HeaderGradientHeight = 110.dp
 
 private fun Modifier.reduceSideInset(amount: Dp): Modifier = this.layout { measurable, constraints ->
     val amountPx = amount.roundToPx()
@@ -245,6 +252,7 @@ fun DailyTimelineDialog(
 
                     TimelineHeader(
                         hazeState = hazeState,
+                        backgroundColor = dialogBackgroundColor,
                         onDismiss = onDismiss,
                         modifier = Modifier.align(Alignment.TopCenter)
                     )
@@ -269,43 +277,52 @@ fun DailyTimelineDialog(
 @Composable
 private fun TimelineHeader(
     hazeState: HazeState,
+    backgroundColor: Color,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(start = 20.dp, end = 12.dp, top = 14.dp, bottom = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            text = "Timeline",
-            style = MaterialTheme.typography.bodyLarge,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.weight(1f)
-        )
-        Box(
-            modifier = Modifier
-                .clip(CircleShape)
-                .border(
-                    width = 0.5.dp,
-                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
-                    shape = CircleShape
+    val headerBlurStyle = EmberrBlur.Regular.copy(
+        backgroundColor = backgroundColor,
+        tints = listOf(HazeTint(backgroundColor.copy(alpha = 0.45f))),
+        fallbackTint = HazeTint(backgroundColor)
+    )
+
+    EmberrTopHeaderBar(
+        modifier = modifier,
+        title = "Timeline",
+        titlePlacement = TopHeaderTitlePlacement.Start,
+        showBackButton = false,
+        reserveBackButtonSpace = false,
+        topEdgeColor = backgroundColor,
+        topEdgeBlurHeight = HeaderBlurHeight,
+        topEdgeGradientHeight = HeaderGradientHeight,
+        hazeState = hazeState,
+        hazeStyle = headerBlurStyle,
+        applyStatusBarPadding = false,
+        contentPadding = PaddingValues(start = 20.dp, end = 12.dp, top = 14.dp, bottom = 8.dp),
+        actions = {
+            Box(
+                modifier = Modifier
+                    .clip(CircleShape)
+                    .border(
+                        width = 0.5.dp,
+                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
+                        shape = CircleShape
+                    )
+            ) {
+                TopBarIconButton(
+                    icon = Icons.Default.Close,
+                    contentDescription = "Close timeline",
+                    bgColor = Color.Transparent,
+                    tint = MaterialTheme.colorScheme.onSurface,
+                    hazeState = hazeState,
+                    hazeStyle = EmberrBlur.Regular,
+                    shadowElevation = EmberrShadowElevation.None,
+                    onClick = onDismiss
                 )
-        ) {
-            TopBarIconButton(
-                icon = Icons.Default.Close,
-                contentDescription = "Close timeline",
-                bgColor = Color.Transparent,
-                tint = MaterialTheme.colorScheme.onSurface,
-                hazeState = hazeState,
-                hazeStyle = EmberrBlur.Regular,
-                shadowElevation = EmberrShadowElevation.None,
-                onClick = onDismiss
-            )
+            }
         }
-    }
+    )
 }
 
 @Composable
@@ -723,6 +740,30 @@ private fun TimelineBlockContent(
                     override fun onToggleSelection(id: String) = onNavigate()
                 }
             )
+        }
+
+        is SolidDividerBlock -> Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 12.dp)
+                .height(1.5.dp)
+                .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.2f), RoundedCornerShape(1.dp))
+        )
+
+        is ThreeDotDividerBlock -> Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 16.dp),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            val dotSize = 6.dp
+            val dotColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)
+            Box(Modifier.size(dotSize).clip(CircleShape).background(dotColor))
+            Spacer(Modifier.width(16.dp))
+            Box(Modifier.size(dotSize).clip(CircleShape).background(dotColor))
+            Spacer(Modifier.width(16.dp))
+            Box(Modifier.size(dotSize).clip(CircleShape).background(dotColor))
         }
 
         else -> Unit
