@@ -8,10 +8,8 @@ import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
@@ -34,10 +32,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -60,11 +55,9 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import com.emberr.domain.util.system.isDesktopPlatform
@@ -73,8 +66,6 @@ import com.emberr.presentation.shared.components.EmberrBlur
 import com.emberr.presentation.shared.components.EmberrShadowElevation
 import com.emberr.presentation.shared.components.customEmberrShadow
 import com.emberr.presentation.shared.components.emberrBlur
-import com.emberr.ui.theme.LocalEmberrFontStyle
-import com.emberr.ui.theme.fontFamilyFor
 import dev.chrisbanes.haze.HazeState
 import kotlinx.coroutines.flow.first
 import emberr.shared.generated.resources.Res
@@ -107,14 +98,12 @@ fun EmberrBottomBar(
     onAiIconTap: () -> Unit = {},
     isAiEnabled: Boolean = true,
     isListening: Boolean = false,
-    partialText: String = "",
     isCompact: Boolean = false,
     isSearchMode: Boolean = false,
     searchQuery: String = "",
     onSearchQueryChange: (String) -> Unit = {},
     onCloseSearch: () -> Unit = {}
 ) {
-    val defaultBgColor = MaterialTheme.colorScheme.background.copy(alpha = 0.65f)
     val defaultContentColor = MaterialTheme.colorScheme.onSurface
 
     val barAnimationSpec = tween<Dp>(durationMillis = 350, easing = FastOutSlowInEasing)
@@ -298,48 +287,6 @@ fun EmberrBottomBar(
                             }
                         }
                     }
-                }
-            }
-        }
-
-        if (!isDesktopPlatform) {
-            AnimatedVisibility(
-                visible = isListening || partialText.isNotEmpty(),
-                enter = fadeIn(tween(200)) + expandHorizontally(
-                    expandFrom = Alignment.CenterHorizontally,
-                    animationSpec = tween(200)
-                ),
-                exit = fadeOut(tween(200)) + shrinkHorizontally(
-                    shrinkTowards = Alignment.CenterHorizontally,
-                    animationSpec = tween(200)
-                ),
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .offset(y = -(barSize + 8.dp))
-                    .wrapContentWidth(unbounded = true, align = Alignment.CenterHorizontally)
-            ) {
-                Surface(
-                    shape = RoundedCornerShape(100f),
-                    color = defaultBgColor,
-                    contentColor = defaultContentColor,
-                    modifier = Modifier
-                        .widthIn(max = 240.dp)
-                        .clip(RoundedCornerShape(100f))
-                        .emberrBlur(hazeState, EmberrBlur.Regular)
-                        .border(
-                            width = 0.5.dp,
-                            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
-                            shape = CircleShape
-                        )
-                ) {
-                    Text(
-                        text = partialText.ifBlank { "Listening..." },
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                        fontFamily = fontFamilyFor(LocalEmberrFontStyle.current),
-                        fontSize = 14.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
                 }
             }
         }

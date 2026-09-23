@@ -13,11 +13,7 @@ import com.emberr.domain.repository.NoteRepository
 import com.emberr.domain.sample.SampleNotesSeeder
 import com.emberr.domain.space.ActiveSpaceStore
 import com.emberr.domain.template.DefaultTemplateSeeder
-import com.emberr.domain.util.eventbus.VoiceTaskEventBus
-import com.emberr.domain.util.voice.VoiceRecognizer
 import com.emberr.domain.util.sync.SyncCoordinator
-import com.emberr.domain.util.task.TaskExtractor
-import com.emberr.presentation.reminders.ReminderScheduler
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
@@ -26,11 +22,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
-import kotlin.time.Clock
-import kotlin.time.Instant
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.toLocalDateTime
-import kotlinx.datetime.todayIn
 import java.util.UUID
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -45,9 +36,6 @@ internal val FolderEntity.lastEditedAt: Long
 class HomeViewModel(
     private val repository: NoteRepository,
     private val settingsManager: SettingsManager,
-    private val reminderScheduler: ReminderScheduler,
-    private val taskExtractor: TaskExtractor,
-    private val voiceRecognizer: VoiceRecognizer,
     private val templateSeeder: DefaultTemplateSeeder,
     private val sampleNotesSeeder: SampleNotesSeeder,
     private val localMediaGarbageCollector: LocalMediaGarbageCollector,
@@ -761,114 +749,6 @@ class HomeViewModel(
         viewModelScope.launch(Dispatchers.IO) {
             repository.deleteTemplate(templateId)
         }
-    }
-
-    private val _isVoiceTaskListening = MutableStateFlow(false)
-    val isVoiceTaskListening: StateFlow<Boolean> = _isVoiceTaskListening.asStateFlow()
-
-    private val _voiceTaskPartialText = MutableStateFlow("")
-    val voiceTaskPartialText: StateFlow<String> = _voiceTaskPartialText.asStateFlow()
-
-    private fun processVoiceTask(transcript: String) {
-        if (transcript.isBlank()) return
-
-        viewModelScope.launch(Dispatchers.IO) {
-            val parsedTasks = taskExtractor.extractTasks(transcript)
-            if (parsedTasks.isEmpty()) return@launch
-
-            val systemTZ = TimeZone.currentSystemDefault()
-
-            val tasksByDate = parsedTasks.groupBy { task ->
-                if (task.timestamp != null) {
-                    Instant.fromEpochMilliseconds(task.timestamp)
-                        .toLocalDateTime(systemTZ)
-                        .date
-                        .toString()
-                } else {
-                    Clock.System.todayIn(systemTZ).toString()
-                }
-            }
-
-            try {
-                SyncCoordinator.mutex.withLock {
-                    for ((targetDateString, tasks) in tasksByDate) {
-                        val content = repository.getDailyNote(targetDateString)
-                        val currentBlocks = mutableListOf<NoteBlock>()
-
-                        if (content != null && content.blocks.isNotEmpty()) {
-                            currentBlocks.addAll(content.blocks)
-                        } else {
-                            currentBlocks.add(TextBlock(id = "root_$targetDateString", text = ""))
-                        }
-
-                        for (task in tasks) {
-                            val newVoiceTaskBlock = CheckboxBlock(
-                                id = UUID.randomUUID().toString(),
-                                text = task.taskText,
-                                isChecked = false,
-                                reminderTimestamp = task.timestamp,
-                                indentationLevel = 0
-                            )
-
-                            currentBlocks.add(newVoiceTaskBlock)
-
-                            VoiceTaskEventBus.emitTaskAdded(targetDateString, newVoiceTaskBlock)
-
-                            task.timestamp?.let { timeInMillis ->
-                                reminderScheduler.schedule(
-                                    blockId = newVoiceTaskBlock.id,
-                                    noteTitle = "Daily: $targetDateString",
-                                    text = task.taskText,
-                                    timestamp = timeInMillis
-                                )
-                            }
-                        }
-
-                        repository.saveDailyNote(targetDateString, NoteContent(blocks = currentBlocks))
-                    }
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }
-    }
-
-    fun startVoiceTaskListening(onPermissionNeeded: () -> Unit = {}) {
-        _isVoiceTaskListening.value = true
-        _voiceTaskPartialText.value = "Listening..."
-
-        voiceRecognizer.startListening(
-            onPartial = { _voiceTaskPartialText.value = it },
-            onResult = { result ->
-                _isVoiceTaskListening.value = false
-                processVoiceTask(result)
-                _voiceTaskPartialText.value = ""
-            },
-            onError = { error ->
-                _isVoiceTaskListening.value = false
-                if (error == "No match") {
-                    _voiceTaskPartialText.value = ""
-                } else {
-                    _voiceTaskPartialText.value = error
-                }
-            },
-            onPermissionNeeded = {
-                _isVoiceTaskListening.value = false
-                _voiceTaskPartialText.value = ""
-                onPermissionNeeded()
-            }
-        )
-    }
-
-    fun stopVoiceTaskListening() {
-        voiceRecognizer.stopListening()
-        _isVoiceTaskListening.value = false
-        _voiceTaskPartialText.value = ""
-    }
-
-    override fun onCleared() {
-        super.onCleared()
-        voiceRecognizer.destroy()
     }
 
     fun moveNote(noteId: String, targetFolderId: String?) {

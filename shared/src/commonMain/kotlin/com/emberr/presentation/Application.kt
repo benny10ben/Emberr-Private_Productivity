@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -49,6 +50,8 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import com.emberr.presentation.mobile.home.HomeScreen
+import com.emberr.presentation.mobile.voice.VoiceTaskDialog
+import com.emberr.presentation.mobile.voice.VoiceTaskViewModel
 import com.emberr.presentation.search.SearchResultsList
 import com.emberr.presentation.search.SearchViewModel
 import com.emberr.presentation.share.ShareReceiverSheet
@@ -133,8 +136,9 @@ fun EmberrApp(
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
-    val isVoiceTaskListening by HomeViewModel.isVoiceTaskListening.collectAsState()
-    val partialText by HomeViewModel.voiceTaskPartialText.collectAsState()
+    val voiceTaskViewModel: VoiceTaskViewModel = koinViewModel()
+    val voiceTaskSessionState by voiceTaskViewModel.sessionState.collectAsState()
+    var isVoiceTaskDialogOpen by rememberSaveable { mutableStateOf(false) }
 
     val hazeState = remember { HazeState() }
     val density = LocalDensity.current
@@ -146,13 +150,13 @@ fun EmberrApp(
     LaunchedEffect(hasMicPermission) {
         if (isMicPermissionPending && hasMicPermission) {
             isMicPermissionPending = false
-            HomeViewModel.startVoiceTaskListening()
+            voiceTaskViewModel.startListening()
         }
     }
 
     val requestMicPermission: () -> Unit = {
         if (hasMicPermission) {
-            HomeViewModel.startVoiceTaskListening()
+            voiceTaskViewModel.startListening()
         } else {
             isMicPermissionPending = true
             micPermissionCoordinator.request(AppPermission.Microphone)
@@ -951,21 +955,39 @@ fun EmberrApp(
                                 onSearchQueryChange = searchViewModel::onQueryChange,
                                 onCloseSearch = closeSearchBar,
                                 onMicClick = {
-                                    if (isVoiceTaskListening) {
-                                        HomeViewModel.stopVoiceTaskListening()
-                                    } else {
-                                        HomeViewModel.startVoiceTaskListening(
-                                            onPermissionNeeded = { requestMicPermission() }
-                                        )
-                                    }
+                                    isVoiceTaskDialogOpen = true
+                                    voiceTaskViewModel.startListening(
+                                        onPermissionNeeded = { requestMicPermission() }
+                                    )
                                 },
-                                isListening = isVoiceTaskListening,
-                                partialText = partialText,
+                                isListening = voiceTaskSessionState.isListening,
                                 isCompact = isBottomBarCompact
                             )
                         }
                     }
 
+
+                    if (isVoiceTaskDialogOpen) {
+                        VoiceTaskDialog(
+                            state = voiceTaskSessionState,
+                            onOrbClick = {
+                                voiceTaskViewModel.startListening(
+                                    onPermissionNeeded = { requestMicPermission() }
+                                )
+                            },
+                            onTaskEditStart = voiceTaskViewModel::stopListening,
+                            onTaskTextChange = voiceTaskViewModel::editTask,
+                            onTaskReminderChange = voiceTaskViewModel::setTaskReminder,
+                            onAdd = {
+                                voiceTaskViewModel.addTasks()
+                                isVoiceTaskDialogOpen = false
+                            },
+                            onDiscard = {
+                                voiceTaskViewModel.discardTasks()
+                                isVoiceTaskDialogOpen = false
+                            }
+                        )
+                    }
 
                     ShareReceiverSheet(
                         share = currentShare,

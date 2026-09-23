@@ -14,10 +14,13 @@ import android.speech.SpeechRecognizer
 import androidx.core.content.ContextCompat
 import java.util.Locale
 
+private const val SEGMENTED_SESSION_SILENCE_MILLIS = 10_000L
+
 class NativeVoiceRecognizer(private val context: Context) : VoiceRecognizer {
     private var speechRecognizer: SpeechRecognizer? = null
 
     private var onPartialCallback: ((String) -> Unit)? = null
+    private var onSegmentCallback: ((String) -> Unit)? = null
     private var onResultCallback: ((String) -> Unit)? = null
     private var onErrorCallback: ((String) -> Unit)? = null
 
@@ -63,6 +66,17 @@ class NativeVoiceRecognizer(private val context: Context) : VoiceRecognizer {
             }
         }
 
+        override fun onSegmentResults(segmentResults: Bundle) {
+            val matches = segmentResults.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+            if (!matches.isNullOrEmpty()) {
+                onSegmentCallback?.invoke(removeFillerWords(matches[0]))
+            }
+        }
+
+        override fun onEndOfSegmentedSession() {
+            onResultCallback?.invoke("")
+        }
+
         override fun onEvent(eventType: Int, params: Bundle?) {}
     }
 
@@ -86,6 +100,7 @@ class NativeVoiceRecognizer(private val context: Context) : VoiceRecognizer {
 
     override fun startListening(
         onPartial: (String) -> Unit,
+        onSegment: (String) -> Unit,
         onResult: (String) -> Unit,
         onError: (String) -> Unit,
         onPermissionNeeded: () -> Unit
@@ -107,6 +122,7 @@ class NativeVoiceRecognizer(private val context: Context) : VoiceRecognizer {
             }
 
             onPartialCallback = onPartial
+            onSegmentCallback = onSegment
             onResultCallback = onResult
             onErrorCallback = onError
 
@@ -124,6 +140,16 @@ class NativeVoiceRecognizer(private val context: Context) : VoiceRecognizer {
                 putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
                 putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, context.packageName)
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault().toString())
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    putExtra(
+                        RecognizerIntent.EXTRA_SEGMENTED_SESSION,
+                        RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS
+                    )
+                    putExtra(
+                        RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS,
+                        SEGMENTED_SESSION_SILENCE_MILLIS
+                    )
+                }
             }
 
             try {
@@ -152,6 +178,7 @@ class NativeVoiceRecognizer(private val context: Context) : VoiceRecognizer {
 
             speechRecognizer = null
             onPartialCallback = null
+            onSegmentCallback = null
             onResultCallback = null
             onErrorCallback = null
         }

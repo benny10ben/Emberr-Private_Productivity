@@ -26,14 +26,44 @@ class HeuristicTaskExtractor(
         val now = clock.now()
         val tz = currentTimeZone()
 
-        return stripped.split(SPLIT_CONNECTORS).mapNotNull { raw ->
+        val tasks = mutableListOf<ParsedTask>()
+        for (raw in stripped.split(SPLIT_CONNECTORS).flatMap(::splitAtTaskBoundaries)) {
             val segment = stripLeadingFillers(raw.trim())
-            if (segment.isBlank()) return@mapNotNull null
-            val parsed = parseTemporal(segment, now, tz)
+            if (segment.isBlank()) continue
+            val followsPreviousTask = AFTER_PREVIOUS_TASK.containsMatchIn(segment)
+            val parsed = parseTemporal(stripLeadingFillers(segment.replace(AFTER_PREVIOUS_TASK, " ")), now, tz)
+            val timestamp = parsed.timestamp
+                ?: if (followsPreviousTask) tasks.lastOrNull()?.timestamp?.plus(AFTER_PREVIOUS_TASK_GAP_MILLIS) else null
             val task = cleanTaskText(parsed.remaining).ifBlank { "Voice reminder" }
-            ParsedTask(taskText = task, timestamp = parsed.timestamp)
+            tasks += ParsedTask(taskText = task, timestamp = timestamp)
         }
+        return tasks
     }
+
+    private fun splitAtTaskBoundaries(text: String): List<String> {
+        val pieces = mutableListOf<String>()
+        var pieceStart = 0
+        for (boundary in SOFT_TASK_BOUNDARY.findAll(text)) {
+            if (startsANewTask(text.substring(boundary.range.last + 1))) {
+                pieces += text.substring(pieceStart, boundary.range.first)
+                pieceStart = boundary.range.last + 1
+            }
+        }
+        pieces += text.substring(pieceStart)
+        return pieces
+    }
+
+    private fun startsANewTask(followingText: String): Boolean {
+        val candidateTask = followingText.replace(LEADING_AFTER_PREVIOUS_TASK, "")
+        if (PREFIX_FILLERS.any { candidateTask.startsWith(it, ignoreCase = true) }) return true
+        val nextWords = WORD.findAll(candidateTask).take(2).map { it.value.lowercase() }.toList()
+        val firstWord = nextWords.firstOrNull() ?: return false
+        if (firstWord in TASK_STARTING_VERBS) return true
+        return firstWord in NOUN_LIKE_TASK_STARTING_VERBS && nextWords.getOrNull(1) in OBJECT_STARTING_WORDS
+    }
+
+    private fun String.withoutTemporalPhrase(range: IntRange): String =
+        substring(0, range.first).replace(DANGLING_PREPOSITION, "") + " " + substring(range.last + 1)
 
     // Text cleanup
     private fun stripLeadingFillers(text: String): String {
@@ -57,7 +87,7 @@ class HeuristicTaskExtractor(
             .replace(SUFFIX_FILLERS, "")
             .replace(LEADING_NON_ALNUM, "")
             .replace(LEADING_PREPOSITION, "")
-            .replace(TRAILING_PREPOSITION, "")
+            .replace(TRAILING_PUNCTUATION, "")
             .replace(MULTI_SPACE, " ")
             .trim()
         if (s.isNotEmpty()) s = s.replaceFirstChar { it.uppercase() }
@@ -94,6 +124,7 @@ class HeuristicTaskExtractor(
         if (date == null) {
             parseWeekday(working, nowLocal.dayOfWeek, today)?.let {
                 date = it.date
+                time = it.timeHint
                 working = it.remaining
             }
         }
@@ -149,14 +180,14 @@ class HeuristicTaskExtractor(
         if (minutes <= 0) return null
 
         val instant = Instant.fromEpochMilliseconds(now.toEpochMilliseconds() + minutes * 60_000L)
-        return text.removeRange(m.range) to instant
+        return text.withoutTemporalPhrase(m.range) to instant
     }
 
     private fun parseRelativeDate(text: String, today: LocalDate): DatePart? {
         for ((regex, handler) in REL_DAY_PATTERNS) {
             val match = regex.find(text) ?: continue
             val (date, hint) = handler(today)
-            return DatePart(date = date, remaining = text.removeRange(match.range), timeHint = hint)
+            return DatePart(date = date, remaining = text.withoutTemporalPhrase(match.range), timeHint = hint)
         }
         return null
     }
@@ -172,16 +203,17 @@ class HeuristicTaskExtractor(
         if (modifier == "next" && delta < 7) delta += 7
         return DatePart(
             date = todayDate.plus(delta, DateTimeUnit.DAY),
-            remaining = text.removeRange(m.range),
+            remaining = text.withoutTemporalPhrase(m.range),
+            timeHint = PART_OF_DAY_TIMES[m.groupValues[3].lowercase()],
         )
     }
 
     private fun parseExplicitTime(text: String): TimePart? {
         NOON_REGEX.find(text)?.let {
-            return TimePart(LocalTime(12, 0), text.removeRange(it.range))
+            return TimePart(LocalTime(12, 0), text.withoutTemporalPhrase(it.range))
         }
         MIDNIGHT_REGEX.find(text)?.let {
-            return TimePart(LocalTime(0, 0), text.removeRange(it.range))
+            return TimePart(LocalTime(0, 0), text.withoutTemporalPhrase(it.range))
         }
 
         FRACTION_TIME_REGEX.find(text)?.let { m ->
@@ -195,7 +227,7 @@ class HeuristicTaskExtractor(
                 else -> return@let
             }
             if (h in 0..23 && mn in 0..59) {
-                return TimePart(LocalTime(h, mn), text.removeRange(m.range))
+                return TimePart(LocalTime(h, mn), text.withoutTemporalPhrase(m.range))
             }
         }
 
@@ -208,7 +240,7 @@ class HeuristicTaskExtractor(
                 "am" -> if (hour == 12) hour = 0
             }
             if (hour in 0..23 && minute in 0..59) {
-                return TimePart(LocalTime(hour, minute), text.removeRange(m.range))
+                return TimePart(LocalTime(hour, minute), text.withoutTemporalPhrase(m.range))
             }
         }
 
@@ -216,7 +248,7 @@ class HeuristicTaskExtractor(
             val hour = m.groupValues[1].toIntOrNull() ?: return@let
             val minute = m.groupValues[2].toIntOrNull() ?: return@let
             if (hour in 0..23 && minute in 0..59) {
-                return TimePart(LocalTime(hour, minute), text.removeRange(m.range))
+                return TimePart(LocalTime(hour, minute), text.withoutTemporalPhrase(m.range))
             }
         }
         return null
@@ -224,15 +256,8 @@ class HeuristicTaskExtractor(
 
     private fun parseSoftTimeOfDay(text: String): TimePart? {
         val m = SOFT_TIME_REGEX.find(text) ?: return null
-        val word = m.groupValues[1].lowercase()
-        val time = when (word) {
-            "morning" -> LocalTime(9, 0)
-            "afternoon" -> LocalTime(14, 0)
-            "evening" -> LocalTime(18, 0)
-            "night" -> LocalTime(20, 0)
-            else -> return null
-        }
-        return TimePart(time, text.removeRange(m.range))
+        val time = PART_OF_DAY_TIMES[m.groupValues[1].lowercase()] ?: return null
+        return TimePart(time, text.withoutTemporalPhrase(m.range))
     }
 
     private companion object {
@@ -304,14 +329,55 @@ class HeuristicTaskExtractor(
                     "|also\\s+remind\\s+me\\s+to" +
                     "|oh\\s+and\\s+also" +
                     "|and\\s+also" +
-                    "|and\\s+then" +
+                    "|and\\s+(?=then\\b)" +
                     ")\\b|\\s*;\\s*",
             RegexOption.IGNORE_CASE,
         )
 
         private val LEADING_NON_ALNUM = Regex("^[^\\p{L}\\p{N}]+")
         private val LEADING_PREPOSITION = Regex("(?i)^(in|on|at|by|to|for)\\s+")
-        private val TRAILING_PREPOSITION = Regex("(?i)\\s+(at|on|in|for|by|to)$")
+        private val TRAILING_PUNCTUATION = Regex("[\\s,.!?;:]+$")
+        private val DANGLING_PREPOSITION = Regex("(?i)\\b(?:by|for|until|till|before|around)\\s*$")
+        private val WORD = Regex("[\\p{L}']+")
+
+        private val SOFT_TASK_BOUNDARY = Regex(
+            "(?i)\\s*[,.!?]+\\s+(?:(?:and\\s+)?also\\s+|and\\s+|plus\\s+)?" +
+                    "|\\s+(?:and|also|plus)\\s+" +
+                    "|\\s+(?=(?:right\\s+)?after\\s+that\\b|afterwards?\\b|then\\b)"
+        )
+
+        private const val AFTER_PREVIOUS_TASK_GAP_MILLIS = 60L * 60L * 1000L
+        private val AFTER_PREVIOUS_TASK = Regex("(?i)\\b(?:right\\s+)?(?:after\\s+that|afterwards?)\\b|^then\\b")
+        private val LEADING_AFTER_PREVIOUS_TASK =
+            Regex("(?i)^(?:(?:right\\s+)?(?:after\\s+that|afterwards?)|then)\\b[\\s,]*")
+
+        private val TASK_STARTING_VERBS = setOf(
+            "add", "apply", "ask", "attend", "bake", "book", "bring", "buy", "call", "cancel", "change",
+            "charge", "check", "clean", "collect", "confirm", "cook", "do", "drop", "email", "feed",
+            "fetch", "fill", "finish", "fix", "follow", "get", "give", "go", "grab", "have", "hand",
+            "help", "invite", "join", "learn", "leave", "look", "mail", "make", "meet", "message",
+            "move", "organize", "organise", "pack", "pay", "phone", "pick", "plan", "practice",
+            "practise", "prepare", "print", "put", "read", "register", "remember", "renew", "reply",
+            "research", "reschedule", "return", "review", "ring", "schedule", "see", "sell", "send",
+            "sign", "start", "stop", "study", "submit", "take", "tell", "text", "thank", "tidy",
+            "update", "upload", "vacuum", "visit", "walk", "wash", "watch", "write",
+        )
+
+        private val NOUN_LIKE_TASK_STARTING_VERBS = setOf(
+            "dust", "file", "iron", "order", "paint", "plant", "post", "water",
+        )
+
+        private val OBJECT_STARTING_WORDS = setOf(
+            "a", "an", "the", "my", "your", "his", "her", "our", "their", "this", "that", "these",
+            "those", "some", "all", "it", "them", "him", "me", "up", "out", "off",
+        )
+
+        private val PART_OF_DAY_TIMES = mapOf(
+            "morning" to LocalTime(9, 0),
+            "afternoon" to LocalTime(14, 0),
+            "evening" to LocalTime(18, 0),
+            "night" to LocalTime(20, 0),
+        )
         private val MULTI_SPACE = Regex("\\s+")
 
         // Temporal patterns
@@ -389,7 +455,8 @@ class HeuristicTaskExtractor(
 
         private val WEEKDAY_REGEX = Regex(
             "(?i)\\b(on\\s+|next\\s+|this\\s+|this\\s+coming\\s+|coming\\s+)?" +
-                    "(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\\b"
+                    "(monday|tuesday|wednesday|thursday|friday|saturday|sunday)" +
+                    "(?:\\s+(morning|afternoon|evening|night))?\\b"
         )
 
         private val NOON_REGEX = Regex("(?i)\\b(?:at\\s+)?(?:noon|midday)\\b")
@@ -410,7 +477,7 @@ class HeuristicTaskExtractor(
         )
 
         private val SOFT_TIME_REGEX = Regex(
-            "(?i)\\b(?:in\\s+the\\s+)?(morning|afternoon|evening|night)\\b"
+            "(?i)\\b(?:in\\s+the|at|by)\\s+(morning|afternoon|evening|night)\\b"
         )
     }
 }

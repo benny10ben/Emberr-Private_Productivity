@@ -98,6 +98,174 @@ class HeuristicTaskExtractorTest {
     }
 
     @Test
+    fun andFollowedByAnActionStartsANewTask() {
+        val tasks = extractor.extractTasks("buy milk and call mom")
+
+        assertEquals(listOf("Buy milk", "Call mom"), tasks.map { it.taskText })
+    }
+
+    @Test
+    fun thenFollowedByAnActionStartsANewTask() {
+        val tasks = extractor.extractTasks("take out the trash then wash the dishes")
+
+        assertEquals(listOf("Take out the trash", "Wash the dishes"), tasks.map { it.taskText })
+    }
+
+    @Test
+    fun aCommaSeparatedListOfActionsBecomesSeparateTasks() {
+        val tasks = extractor.extractTasks("buy milk, call mom, pick up the laundry")
+
+        assertEquals(listOf("Buy milk", "Call mom", "Pick up the laundry"), tasks.map { it.taskText })
+    }
+
+    @Test
+    fun sentencesEndingInFullStopsBecomeSeparateTasksWithoutTheFullStop() {
+        val tasks = extractor.extractTasks("Buy milk. Call mom. Pick up the laundry.")
+
+        assertEquals(listOf("Buy milk", "Call mom", "Pick up the laundry"), tasks.map { it.taskText })
+    }
+
+    @Test
+    fun aReminderPhraseAfterAndStartsANewTask() {
+        val tasks = extractor.extractTasks("buy milk and i need to call mom")
+
+        assertEquals(listOf("Buy milk", "Call mom"), tasks.map { it.taskText })
+    }
+
+    @Test
+    fun aListOfThingsToBuyStaysOneTask() {
+        assertEquals("Buy milk, eggs and bread", textFor("buy milk, eggs and bread"))
+    }
+
+    @Test
+    fun aWordThatIsUsuallyANounOnlyStartsATaskWhenAnObjectFollowsIt() {
+        assertEquals("Buy chips and water", textFor("buy chips and water"))
+        assertEquals(
+            listOf("Pay rent", "Water the plants"),
+            extractor.extractTasks("pay rent and water the plants").map { it.taskText }
+        )
+    }
+
+    @Test
+    fun eachTaskKeepsItsOwnDate() {
+        val tasks = extractor.extractTasks("call the dentist and book a cleaning for tuesday")
+
+        assertEquals(listOf("Call the dentist", "Book a cleaning"), tasks.map { it.taskText })
+        assertNull(tasks[0].timestamp)
+        assertEquals(
+            LocalDateTime(2026, 1, 6, 9, 0, 0),
+            Instant.fromEpochMilliseconds(tasks[1].timestamp!!).toLocalDateTime(timeZone)
+        )
+    }
+
+    @Test
+    fun aTimeSaidAfterAPauseBelongsToTheTaskBeforeIt() {
+        assertEquals("Call mom", textFor("call mom, tomorrow at 5 pm"))
+        assertEquals(LocalDateTime(2026, 1, 6, 17, 0, 0), reminderFor("call mom, tomorrow at 5 pm"))
+    }
+
+    @Test
+    fun theLittleWordAtTheEndOfAPhrasalVerbIsKept() {
+        assertEquals("Check in", textFor("remind me to check in"))
+        assertEquals("Log in to the portal", textFor("log in to the portal"))
+    }
+
+    @Test
+    fun aPrepositionLeftBehindByADateIsRemoved() {
+        assertEquals("Submit the report", textFor("submit the report by friday"))
+        assertEquals("Finish the slides", textFor("finish the slides before noon"))
+    }
+
+    @Test
+    fun partsOfTheDayUsedAsDescriptionsAreNotTreatedAsTimes() {
+        assertEquals("Buy night cream", textFor("buy night cream"))
+        assertNull(singleTaskFor("buy night cream").timestamp)
+        assertEquals("Pack the evening dress", textFor("pack the evening dress"))
+        assertNull(singleTaskFor("pack the evening dress").timestamp)
+    }
+
+    @Test
+    fun partsOfTheDayWithATimeWordAreStillUnderstood() {
+        assertEquals(LocalDateTime(2026, 1, 5, 20, 0, 0), reminderFor("take the pills at night"))
+        assertEquals(LocalDateTime(2026, 1, 5, 18, 0, 0), reminderFor("take the pills in the evening"))
+    }
+
+    @Test
+    fun aWeekdayWithAPartOfTheDayUsesBoth() {
+        assertEquals(LocalDateTime(2026, 1, 12, 9, 0, 0), reminderFor("call mom on monday morning"))
+        assertEquals(LocalDateTime(2026, 1, 9, 18, 0, 0), reminderFor("call mom on friday evening"))
+        assertEquals("Call mom", textFor("call mom on friday evening"))
+    }
+
+    private fun reminderOf(task: ParsedTask): LocalDateTime =
+        Instant.fromEpochMilliseconds(task.timestamp!!).toLocalDateTime(timeZone)
+
+    @Test
+    fun aTaskSaidToHappenAfterThatIsSetAnHourAfterThePreviousOne() {
+        val tasks = extractor.extractTasks("remind me to go to play basketball tomorrow and cook food after that")
+
+        assertEquals(listOf("Go to play basketball", "Cook food"), tasks.map { it.taskText })
+        assertEquals(LocalDateTime(2026, 1, 6, 9, 0, 0), reminderOf(tasks[0]))
+        assertEquals(LocalDateTime(2026, 1, 6, 10, 0, 0), reminderOf(tasks[1]))
+    }
+
+    @Test
+    fun afterThatCanAlsoStartTheNextTask() {
+        val afterAComma = extractor.extractTasks("play basketball at 5 pm, after that cook food")
+        val afterAnd = extractor.extractTasks("play basketball at 5 pm and after that cook food")
+        val withoutAConnector = extractor.extractTasks("play basketball at 5 pm afterwards cook food")
+
+        for (tasks in listOf(afterAComma, afterAnd, withoutAConnector)) {
+            assertEquals(listOf("Play basketball", "Cook food"), tasks.map { it.taskText })
+            assertEquals(LocalDateTime(2026, 1, 5, 18, 0, 0), reminderOf(tasks[1]))
+        }
+    }
+
+    @Test
+    fun aTaskAfterThatKeepsItsOwnTimeWhenItHasOne() {
+        val tasks = extractor.extractTasks("play basketball at 5 pm and after that call mom at 9 pm")
+
+        assertEquals(LocalDateTime(2026, 1, 5, 21, 0, 0), reminderOf(tasks[1]))
+    }
+
+    @Test
+    fun afterThatWithNothingTimedBeforeItOnlyDisappearsFromTheText() {
+        val tasks = extractor.extractTasks("buy milk and after that call mom")
+
+        assertEquals(listOf("Buy milk", "Call mom"), tasks.map { it.taskText })
+        assertNull(tasks[1].timestamp)
+        assertEquals("Cook food", textFor("cook food after that"))
+        assertNull(singleTaskFor("cook food after that").timestamp)
+    }
+
+    @Test
+    fun thenLinksATaskToThePreviousOneLikeAfterThat() {
+        val afterAnd = extractor.extractTasks("play basketball tomorrow and then cook food")
+        val afterAComma = extractor.extractTasks("play basketball tomorrow, then cook food")
+        val withoutAConnector = extractor.extractTasks("play basketball tomorrow then cook food")
+
+        for (tasks in listOf(afterAnd, afterAComma, withoutAConnector)) {
+            assertEquals(listOf("Play basketball", "Cook food"), tasks.map { it.taskText })
+            assertEquals(LocalDateTime(2026, 1, 6, 10, 0, 0), reminderOf(tasks[1]))
+        }
+    }
+
+    @Test
+    fun aTaskAfterThenKeepsItsOwnTimeWhenItHasOne() {
+        val tasks = extractor.extractTasks("play basketball at 5 pm and then call mom at 9 pm")
+
+        assertEquals(LocalDateTime(2026, 1, 5, 21, 0, 0), reminderOf(tasks[1]))
+    }
+
+    @Test
+    fun thenInsideATaskDoesNotLinkIt() {
+        val tasks = extractor.extractTasks("call mom at 5 pm and tell her i will be home by then")
+
+        assertEquals(listOf("Call mom", "Tell her i will be home by then"), tasks.map { it.taskText })
+        assertNull(tasks[1].timestamp)
+    }
+
+    @Test
     fun aTranscriptThatIsNothingButATimeStillBecomesAUsableReminder() {
         val task = singleTaskFor("in 20 minutes")
 

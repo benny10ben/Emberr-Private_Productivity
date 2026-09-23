@@ -205,14 +205,19 @@ val sharedModule = module {
         com.emberr.presentation.mobile.home.HomeViewModel(
             repository = get(),
             settingsManager = get(),
-            reminderScheduler = get(),
-            taskExtractor = get(),
-            voiceRecognizer = get(),
             templateSeeder = get(),
             sampleNotesSeeder = get(),
             localMediaGarbageCollector = get(),
             favoriteNoteOrderStore = get(),
             activeSpaceStore = get()
+        )
+    }
+    viewModel {
+        com.emberr.presentation.mobile.voice.VoiceTaskViewModel(
+            repository = get(),
+            reminderScheduler = get(),
+            voiceRecognizer = get(),
+            taskExtractor = get()
         )
     }
     viewModel {

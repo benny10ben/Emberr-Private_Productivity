@@ -4,6 +4,7 @@ class DesktopVoiceRecognizer : VoiceRecognizer {
 
     override fun startListening(
         onPartial: (String) -> Unit,
+        onSegment: (String) -> Unit,
         onResult: (String) -> Unit,
         onError: (String) -> Unit,
         onPermissionNeeded: () -> Unit
