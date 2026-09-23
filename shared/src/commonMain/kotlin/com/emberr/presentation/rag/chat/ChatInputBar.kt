@@ -49,6 +49,7 @@ import androidx.compose.ui.input.key.type
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import com.emberr.domain.util.system.isDesktopPlatform
+import com.emberr.presentation.BOTTOM_BAR_BOTTOM_PADDING
 import com.emberr.presentation.rag.RagViewModel
 import com.emberr.presentation.rag.settings.AiSettingsMenuContent
 import com.emberr.presentation.shared.components.EmberrBlur
@@ -93,7 +94,6 @@ internal fun ChatInputBar(
     val barShape = RoundedCornerShape(28.dp)
 
     val minHeight = 96.dp
-    val bottomInset = 6.dp
     val horizontalInset = 16.dp
 
     val isMorphing = chatAnimatedVisibilityScope?.transition?.isRunning == true
@@ -137,7 +137,7 @@ internal fun ChatInputBar(
             .fillMaxWidth()
             .imePadding()
             .navigationBarsPadding()
-            .padding(bottom = bottomInset)
+            .padding(bottom = BOTTOM_BAR_BOTTOM_PADDING)
             .padding(horizontal = horizontalInset)
             .heightIn(min = minHeight)
             .then(sharedPillModifier)

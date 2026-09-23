@@ -88,6 +88,7 @@ import org.jetbrains.compose.resources.painterResource
 
 internal val EXPANDED_BOTTOM_BAR_PILL_HEIGHT = 52.dp
 internal val COMPACT_BOTTOM_BAR_PILL_HEIGHT = 44.dp
+internal val BOTTOM_BAR_BOTTOM_PADDING = 12.dp
 internal val BOTTOM_BAR_PILL_SHRINK_COMPENSATION =
     (EXPANDED_BOTTOM_BAR_PILL_HEIGHT - COMPACT_BOTTOM_BAR_PILL_HEIGHT) / 2
 
@@ -126,7 +127,6 @@ fun EmberrBottomBar(
         animationSpec = barAnimationSpec
     )
     val shrinkCompensation = (EXPANDED_BOTTOM_BAR_PILL_HEIGHT - barSize) / 2
-    val bottomInset = 6.dp
     val horizontalInset by animateDpAsState(
         targetValue = when {
             isSearchMode -> 0.dp
@@ -166,7 +166,7 @@ fun EmberrBottomBar(
             .navigationBarsPadding()
             .padding(
                 top = shrinkCompensation,
-                bottom = bottomInset + shrinkCompensation,
+                bottom = BOTTOM_BAR_BOTTOM_PADDING + shrinkCompensation,
                 start = 16.dp,
                 end = 16.dp
             ),

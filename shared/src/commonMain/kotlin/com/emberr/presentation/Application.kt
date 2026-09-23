@@ -63,7 +63,7 @@ private const val ONBOARDING_OVERLAY_FADE_MILLIS = 650
 private const val ONBOARDING_SWAP_FADE_OUT_MILLIS = 300
 private const val ONBOARDING_SWAP_FADE_IN_MILLIS = 380
 
-private val SEARCH_BAR_RESERVED_HEIGHT = 64.dp
+private val SEARCH_BAR_RESERVED_HEIGHT = EXPANDED_BOTTOM_BAR_PILL_HEIGHT + BOTTOM_BAR_BOTTOM_PADDING + 6.dp
 
 val LocalImageOverlay = staticCompositionLocalOf<( (@Composable () -> Unit)? ) -> Unit> { {} }
 
