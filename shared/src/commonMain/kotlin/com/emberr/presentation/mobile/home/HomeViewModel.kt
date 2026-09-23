@@ -109,7 +109,7 @@ class HomeViewModel(
         if (storedIds.isBlank()) return emptySet()
         return try {
             expandedFolderJson.decodeFromString<Set<String>>(storedIds)
-        } catch (storedIdsAreUnreadable: Exception) {
+        } catch (_: Exception) {
             emptySet()
         }
     }
@@ -203,16 +203,6 @@ class HomeViewModel(
         }
     }
 
-    // orderedKeys: the final order the user already sees on screen (the mobile grid reorders
-    // live while dragging), so nothing has to be recomputed here.
-    fun applyManualOrder(orderedKeys: List<String>) {
-        viewModelScope.launch(Dispatchers.IO) {
-            persistManualOrder(
-                orderedKeys.filter { HomeItemKey.isNote(it) || HomeItemKey.isFolder(it) }
-            )
-        }
-    }
-
     private suspend fun persistManualOrder(orderedKeys: List<String>) {
         orderedKeys.forEachIndexed { index, key ->
             val order = index + 1
@@ -233,7 +223,6 @@ class HomeViewModel(
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
     private val _selectedFolderId = MutableStateFlow<String?>(null)
-    val selectedFolderId: StateFlow<String?> = _selectedFolderId.asStateFlow()
 
     private val _searchQuery = MutableStateFlow("")
 
@@ -299,30 +288,6 @@ class HomeViewModel(
 
         favoriteNoteOrderStore.saveOrder(reordered)
     }
-
-    val currentSubFolders = combine(
-        _allFolders,
-        _selectedFolderId,
-        sortType,
-        sortOrder
-    ) { all, currentParent, type, order ->
-        applyFolderSort(all.filter { !it.isDeleted && it.parentFolderId == currentParent }, type, order)
-    }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
-
-    val breadcrumbs = combine(_allFolders, _selectedFolderId) { all, currentId ->
-        val path = mutableListOf<FolderEntity>()
-        var curr = currentId
-        while (curr != null) {
-            val folder = all.find { it.folderId == curr }
-            if (folder != null) {
-                path.add(0, folder)
-                curr = folder.parentFolderId
-            } else {
-                break
-            }
-        }
-        path
-    }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
     val foldersByParent: StateFlow<Map<String?, List<FolderEntity>>> =
         combine(
@@ -463,18 +428,6 @@ class HomeViewModel(
         viewModelScope.launch {
             repository.getBookmarksCount().collect { _bookmarksCount.value = it }
         }
-    }
-
-    fun selectFolder(folderId: String?) {
-        _selectedFolderId.value = folderId
-        clearSelection()
-    }
-
-    fun navigateUp() {
-        val currentId = _selectedFolderId.value ?: return
-        val currentFolder = _allFolders.value.find { it.folderId == currentId }
-        _selectedFolderId.value = currentFolder?.parentFolderId
-        clearSelection()
     }
 
     fun createNewFolder(name: String) {
