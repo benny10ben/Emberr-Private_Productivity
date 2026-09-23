@@ -1,8 +1,12 @@
 package com.emberr.presentation.rag
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.AnimatedVisibilityScope
+import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -33,6 +37,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
@@ -65,6 +70,8 @@ import com.emberr.presentation.shared.rememberStableStatusBarsPadding
 import com.emberr.presentation.shared.stableStatusBarsPadding
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
+
+private const val SETUP_OVERLAY_FADE_MILLIS = 650
 
 internal val DesktopPanelTopInset = 12.dp
 internal val DesktopPanelContentInset = 13.dp
@@ -201,6 +208,11 @@ private fun RagChatContent(
 
     val sidePadding = if (isDesktopPlatform) 32.dp else 16.dp
 
+    val setupStateForDisplay = remember { mutableStateOf(embeddingSetupState) }
+    if (embeddingSetupState != EmbeddingSetupState.Ready) {
+        setupStateForDisplay.value = embeddingSetupState
+    }
+
     Box(modifier = modifier) {
         Box(
             modifier = Modifier
@@ -209,16 +221,6 @@ private fun RagChatContent(
                 .background(MaterialTheme.colorScheme.background)
         ) {
             when {
-                embeddingSetupState != EmbeddingSetupState.Ready -> {
-                    EmbeddingSetupScreen(
-                        state = embeddingSetupState,
-                        isResumable = viewModel.hasResumableEmbeddingDownload(),
-                        onDownloadClick = viewModel::downloadEmbeddingModel,
-                        onPauseClick = viewModel::pauseEmbeddingModelDownload,
-                        onProceedClick = viewModel::proceedAfterEmbeddingModelDownload
-                    )
-                }
-
                 isModelAvailable == null -> {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         CircularProgressIndicator(
@@ -372,6 +374,29 @@ private fun RagChatContent(
                 onLocalAiClick = { showLocalAiSheet = true },
                 onExternalAiClick = { showExternalAiSheet = true },
                 modifier = Modifier.align(Alignment.BottomCenter)
+            )
+        }
+
+        AnimatedVisibility(
+            visible = embeddingSetupState != EmbeddingSetupState.Ready,
+            enter = EnterTransition.None,
+            exit = fadeOut(tween(SETUP_OVERLAY_FADE_MILLIS)),
+            modifier = Modifier
+                .fillMaxSize()
+                .pointerInput(Unit) {
+                    awaitPointerEventScope {
+                        while (true) {
+                            awaitPointerEvent()
+                        }
+                    }
+                }
+        ) {
+            EmbeddingSetupScreen(
+                state = setupStateForDisplay.value,
+                isResumable = viewModel.hasResumableEmbeddingDownload(),
+                onDownloadClick = viewModel::downloadEmbeddingModel,
+                onPauseClick = viewModel::pauseEmbeddingModelDownload,
+                onProceedClick = viewModel::proceedAfterEmbeddingModelDownload
             )
         }
     }
