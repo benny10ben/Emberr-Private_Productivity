@@ -90,21 +90,26 @@ abstract class BaseEditorViewModel(
 
     fun forceSyncAndIndexForAi() {
         viewModelScope.launch(Dispatchers.IO) {
-            val currentHash = computeBlocksHash()
-            if (currentHash != lastIndexedContentHash) {
+            forceSyncAndIndexForAiNow()
+        }
+    }
 
-                withContext(NonCancellable) {
-                    performSave()
-                    try {
-                        performIndexing()
-                        lastIndexedContentHash = currentHash
-                        isAiIndexDirty = false
-                        AiEventBus.notifyIndexComplete()
-                    } catch (_: Exception) {
-                        // Handle error
-                    }
+    // Suspends until this editor's own save+index has actually landed, unlike forceSyncAndIndexForAi()
+    // which just fires the work off - callers that need the freshly typed content searchable before
+    // they proceed (e.g. the AI chat about to query the vector index) must await this instead.
+    suspend fun forceSyncAndIndexForAiNow() {
+        val currentHash = computeBlocksHash()
+        if (currentHash != lastIndexedContentHash) {
+            withContext(Dispatchers.IO + NonCancellable) {
+                performSave()
+                try {
+                    performIndexing()
+                    lastIndexedContentHash = currentHash
+                    isAiIndexDirty = false
+                    AiEventBus.notifyIndexComplete()
+                } catch (_: Exception) {
+                    // Handle error
                 }
-
             }
         }
     }

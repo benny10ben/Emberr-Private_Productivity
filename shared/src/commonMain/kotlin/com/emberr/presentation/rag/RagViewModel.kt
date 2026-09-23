@@ -21,6 +21,7 @@ import com.emberr.domain.ai.tools.VaultPendingWriteStatus
 import com.emberr.domain.ai.tools.VaultToolCallEvents
 import com.emberr.domain.ai.tools.VaultToolResult
 import com.emberr.domain.ai.tools.VaultToolRunner
+import com.emberr.presentation.shared.editor.ActiveEditorRegistry
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -543,6 +544,7 @@ class RagViewModel(
         activeGenerationJob = viewModelScope.launch {
             val thisJob = coroutineContext[Job]
             try {
+                ActiveEditorRegistry.forceSyncAndIndexAllForAi()
                 ragRepository.queryAiStream(query, conversationHistory).collect { token ->
                     if (activeGenerationJob !== thisJob) return@collect
                     val list = _messages.value.toMutableList()
