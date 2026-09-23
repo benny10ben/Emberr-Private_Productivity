@@ -1,8 +1,5 @@
 package com.emberr.presentation.mobile.daily
 
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -24,8 +21,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.CompositingStrategy
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
@@ -140,8 +135,7 @@ fun DailyBottomWeekStrip(
     modifier: Modifier = Modifier,
     selectedDate: LocalDate,
     onDateSelected: (LocalDate) -> Unit,
-    hazeState: HazeState,
-    isCompact: Boolean = false
+    hazeState: HazeState
 ) {
     var anchorDate by remember { mutableStateOf(selectedDate) }
     LaunchedEffect(selectedDate) {
@@ -156,29 +150,26 @@ fun DailyBottomWeekStrip(
         initialFirstVisibleItemIndex = DAYS_AROUND_ANCHOR - 1
     )
 
-    val sizeSpec = tween<Dp>(durationMillis = 350, easing = FastOutSlowInEasing)
     val pillWidth = 74.dp
-    val maxPillHeight = 32.dp
-    val pillHeight by animateDpAsState(if (isCompact) 26.dp else maxPillHeight, sizeSpec)
+    val pillHeight = 32.dp
     val pillSpacing = 8.dp
-    val collapsedWidth = pillWidth * 3 + pillSpacing * 2
 
-    var isExpanded by remember { mutableStateOf(false) }
+    var isUserInteracting by remember { mutableStateOf(false) }
     var isProgrammaticScroll by remember { mutableStateOf(false) }
     val isScrolling by remember { derivedStateOf { listState.isScrollInProgress } }
     LaunchedEffect(isScrolling) {
         if (isScrolling && !isProgrammaticScroll) {
-            isExpanded = true
+            isUserInteracting = true
         } else if (!isScrolling) {
             delay(3000.milliseconds)
-            if (!listState.isScrollInProgress) isExpanded = false
+            if (!listState.isScrollInProgress) isUserInteracting = false
         }
     }
 
     val selectedIndex = remember(dates, selectedDate) { dates.indexOf(selectedDate) }
     var hasCompletedFirstScroll by remember { mutableStateOf(false) }
-    LaunchedEffect(selectedIndex, isExpanded, anchorDate) {
-        if (!isExpanded && selectedIndex != -1) {
+    LaunchedEffect(selectedIndex, isUserInteracting, anchorDate) {
+        if (!isUserInteracting && selectedIndex != -1) {
             val targetIndex = (selectedIndex - 1).coerceAtLeast(0)
             isProgrammaticScroll = true
             if (hasCompletedFirstScroll) {
@@ -191,62 +182,22 @@ fun DailyBottomWeekStrip(
         }
     }
 
-    val fadeWidth by animateDpAsState(
-        targetValue = if (isExpanded) 0.dp else 22.dp,
-        animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing)
-    )
-
-    BoxWithConstraints(
-        modifier = modifier.fillMaxWidth().height(maxPillHeight),
-        contentAlignment = Alignment.BottomCenter
+    LazyRow(
+        state = listState,
+        modifier = modifier.fillMaxWidth().height(pillHeight),
+        horizontalArrangement = Arrangement.spacedBy(pillSpacing),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        val fullWidth = maxWidth
-        val animatedWidth by animateDpAsState(
-            targetValue = if (isExpanded) fullWidth else collapsedWidth,
-            animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing)
-        )
-
-        LazyRow(
-            state = listState,
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .width(animatedWidth)
-                .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen },
-
-//                .drawWithContent {
-//                    drawContent()
-//                    val fw = fadeWidth.toPx()
-//                    if (fw > 0f) {
-//                        drawRect(
-//                            brush = Brush.horizontalGradient(
-//                                0f to Color.Transparent, 1f to Color.Black,
-//                                startX = 0f, endX = fw
-//                            ),
-//                            blendMode = BlendMode.DstIn
-//                        )
-//                        drawRect(
-//                            brush = Brush.horizontalGradient(
-//                                0f to Color.Black, 1f to Color.Transparent,
-//                                startX = size.width - fw, endX = size.width
-//                            ),
-//                            blendMode = BlendMode.DstIn
-//                        )
-//                    }
-//                },
-
-            horizontalArrangement = Arrangement.spacedBy(pillSpacing, Alignment.CenterHorizontally),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            items(dates, key = { it.toString() }) { date ->
-                WeekStripChip(
-                    date = date,
-                    isToday = date == today,
-                    width = pillWidth,
-                    height = pillHeight,
-                    hazeState = hazeState,
-                    onClick = { onDateSelected(date) }
-                )
-            }
+        items(dates, key = { it.toString() }) { date ->
+            WeekStripChip(
+                date = date,
+                isToday = date == today,
+                width = pillWidth,
+                height = pillHeight,
+                hazeState = hazeState,
+                isActiveDate = date == selectedDate,
+                onClick = { onDateSelected(date) }
+            )
         }
     }
 }
@@ -259,6 +210,7 @@ private fun WeekStripChip(
     height: Dp,
     hazeState: HazeState?,
     isSelected: Boolean = false,
+    isActiveDate: Boolean = false,
     onClick: () -> Unit
 ) {
     val shape = RoundedCornerShape(12.dp)
@@ -269,6 +221,7 @@ private fun WeekStripChip(
     } else {
         MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
     }
+    val activeFontWeight = if (isActiveDate) FontWeight.SemiBold else FontWeight.Normal
 
     Row(
         horizontalArrangement = Arrangement.spacedBy(5.dp, Alignment.CenterHorizontally),
@@ -295,20 +248,20 @@ private fun WeekStripChip(
             Text(
                 text = "Today",
                 style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.Normal,
+                fontWeight = activeFontWeight,
                 color = primaryTextColor
             )
         } else {
             Text(
                 text = shortDayName,
                 style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.Normal,
+                fontWeight = activeFontWeight,
                 color = mutedTextColor
             )
             Text(
                 text = date.day.toString(),
                 style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.Normal,
+                fontWeight = activeFontWeight,
                 color = primaryTextColor
             )
         }
