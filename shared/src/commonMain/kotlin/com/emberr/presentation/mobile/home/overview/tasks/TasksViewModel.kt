@@ -93,7 +93,9 @@ class TasksViewModel(
         )
 
         viewModelScope.launch(Dispatchers.IO) {
-            repository.saveNote(metadata, NoteContent(blocks = emptyList()))
+            val content = NoteContent(blocks = emptyList())
+            repository.saveNote(metadata, content)
+            repository.indexNote(metadata, content)
         }
 
         return newNoteId
@@ -272,7 +274,10 @@ class TasksViewModel(
                     }
 
                     val updatedBlocks = listOf(newBlock) + content.blocks
-                    repository.saveNote(inboxMeta.copy(updatedAt = System.currentTimeMillis()), NoteContent(blocks = updatedBlocks))
+                    val updatedMeta = inboxMeta.copy(updatedAt = System.currentTimeMillis())
+                    val updatedContent = NoteContent(blocks = updatedBlocks)
+                    repository.saveNote(updatedMeta, updatedContent)
+                    repository.indexNote(updatedMeta, updatedContent)
 
                     _focusRequest.value = FocusRequest(id = id)
                 }
@@ -322,8 +327,12 @@ class TasksViewModel(
                             val updatedBlocks = updateBlockInList(content.blocks, blockId) {
                                 it.copy(isChecked = isChecked, completedAt = timestamp)
                             }
-                            repository.saveDailyNote(loc.noteId, NoteContent(blocks = updatedBlocks))
+                            val updatedContent = NoteContent(blocks = updatedBlocks)
+                            repository.saveDailyNote(loc.noteId, updatedContent)
                             saved = true
+                            repository.getDailyNoteMetadata(loc.noteId)?.let { dailyMeta ->
+                                repository.indexDailyNote(loc.noteId, updatedContent, dailyMeta)
+                            }
                         }
                     } else {
                         val meta = repository.getNoteById(loc.noteId)
@@ -332,8 +341,11 @@ class TasksViewModel(
                             val updatedBlocks = updateBlockInList(content.blocks, blockId) {
                                 it.copy(isChecked = isChecked, completedAt = timestamp)
                             }
-                            repository.saveNote(meta.copy(updatedAt = System.currentTimeMillis()), NoteContent(blocks = updatedBlocks))
+                            val updatedMeta = meta.copy(updatedAt = System.currentTimeMillis())
+                            val updatedContent = NoteContent(blocks = updatedBlocks)
+                            repository.saveNote(updatedMeta, updatedContent)
                             saved = true
+                            repository.indexNote(updatedMeta, updatedContent)
                         }
                     }
                 }
@@ -404,13 +416,18 @@ class TasksViewModel(
                         } else {
                             listOf(updatedBlock) + targetBlocks
                         }
-                        repository.saveDailyNote(targetDateString, NoteContent(blocks = newTargetBlocks))
+                        val targetContent = NoteContent(blocks = newTargetBlocks)
+                        repository.saveDailyNote(targetDateString, targetContent)
+                        repository.getDailyNoteMetadata(targetDateString)?.let { targetMeta ->
+                            repository.indexDailyNote(targetDateString, targetContent, targetMeta)
+                        }
 
                         if (homeContent != null) {
-                            repository.saveDailyNote(
-                                loc.noteId,
-                                NoteContent(blocks = homeContent.blocks.map { if (it.id == blockId) it.markDeleted() else it })
-                            )
+                            val homeUpdatedContent = NoteContent(blocks = homeContent.blocks.map { if (it.id == blockId) it.markDeleted() else it })
+                            repository.saveDailyNote(loc.noteId, homeUpdatedContent)
+                            repository.getDailyNoteMetadata(loc.noteId)?.let { homeMeta ->
+                                repository.indexDailyNote(loc.noteId, homeUpdatedContent, homeMeta)
+                            }
                         }
                     }
 
@@ -425,8 +442,12 @@ class TasksViewModel(
                         val updatedBlocks = updateBlockInList(content.blocks, blockId) {
                             it.copy(reminderTimestamp = timestamp)
                         }
-                        repository.saveDailyNote(loc.noteId, NoteContent(blocks = updatedBlocks))
+                        val updatedContent = NoteContent(blocks = updatedBlocks)
+                        repository.saveDailyNote(loc.noteId, updatedContent)
                         saved = true
+                        repository.getDailyNoteMetadata(loc.noteId)?.let { dailyMeta ->
+                            repository.indexDailyNote(loc.noteId, updatedContent, dailyMeta)
+                        }
                     }
                     if (!saved) return@launch
                     notificationTitle = repository.getDailyNoteMetadata(loc.noteId)?.title?.ifBlank { "Daily Note" } ?: "Daily Note"
@@ -438,7 +459,10 @@ class TasksViewModel(
                         val updatedBlocks = updateBlockInList(content.blocks, blockId) {
                             it.copy(reminderTimestamp = timestamp)
                         }
-                        repository.saveNote(meta.copy(updatedAt = System.currentTimeMillis()), NoteContent(blocks = updatedBlocks))
+                        val updatedMeta = meta.copy(updatedAt = System.currentTimeMillis())
+                        val updatedContent = NoteContent(blocks = updatedBlocks)
+                        repository.saveNote(updatedMeta, updatedContent)
+                        repository.indexNote(updatedMeta, updatedContent)
                         savedMeta = meta
                     }
                     val meta = savedMeta ?: return@launch
@@ -507,11 +531,17 @@ class TasksViewModel(
                             }
                         }
 
+                        val updatedContent = NoteContent(blocks = updatedBlocks)
                         if (loc.isDaily) {
-                            repository.saveDailyNote(loc.noteId, NoteContent(blocks = updatedBlocks))
+                            repository.saveDailyNote(loc.noteId, updatedContent)
+                            repository.getDailyNoteMetadata(loc.noteId)?.let { dailyMeta ->
+                                repository.indexDailyNote(loc.noteId, updatedContent, dailyMeta)
+                            }
                         } else {
                             val meta = repository.getNoteById(loc.noteId) ?: return@forEach
-                            repository.saveNote(meta.copy(updatedAt = System.currentTimeMillis()), NoteContent(blocks = updatedBlocks))
+                            val updatedMeta = meta.copy(updatedAt = System.currentTimeMillis())
+                            repository.saveNote(updatedMeta, updatedContent)
+                            repository.indexNote(updatedMeta, updatedContent)
                         }
                         persisted.addAll(bIds)
                     }
@@ -577,31 +607,38 @@ class TasksViewModel(
                         } else {
                             listOf(newBlock) + inboxContent.blocks
                         }
-                        repository.saveNote(
-                            inboxMeta.copy(updatedAt = System.currentTimeMillis()),
-                            NoteContent(blocks = updatedInboxBlocks)
-                        )
+                        val updatedInboxMeta = inboxMeta.copy(updatedAt = System.currentTimeMillis())
+                        val updatedInboxContent = NoteContent(blocks = updatedInboxBlocks)
+                        repository.saveNote(updatedInboxMeta, updatedInboxContent)
+                        repository.indexNote(updatedInboxMeta, updatedInboxContent)
                     } else {
                         if (originalLoc.isDaily) {
                             val content = repository.getDailyNote(originalLoc.noteId)
                             if (content != null) {
                                 val updatedBlocks = updateBlockInList(content.blocks, id) { it.copy(text = textBefore) }
-                                repository.saveDailyNote(originalLoc.noteId, NoteContent(blocks = updatedBlocks))
+                                val updatedContent = NoteContent(blocks = updatedBlocks)
+                                repository.saveDailyNote(originalLoc.noteId, updatedContent)
+                                repository.getDailyNoteMetadata(originalLoc.noteId)?.let { dailyMeta ->
+                                    repository.indexDailyNote(originalLoc.noteId, updatedContent, dailyMeta)
+                                }
                             }
                         } else {
                             val meta = repository.getNoteById(originalLoc.noteId)
                             val content = repository.getNoteContent(originalLoc.noteId)
                             if (meta != null && content != null) {
                                 val updatedBlocks = updateBlockInList(content.blocks, id) { it.copy(text = textBefore) }
-                                repository.saveNote(meta.copy(updatedAt = System.currentTimeMillis()), NoteContent(blocks = updatedBlocks))
+                                val updatedMeta = meta.copy(updatedAt = System.currentTimeMillis())
+                                val updatedContent = NoteContent(blocks = updatedBlocks)
+                                repository.saveNote(updatedMeta, updatedContent)
+                                repository.indexNote(updatedMeta, updatedContent)
                             }
                         }
 
                         val updatedInboxBlocks = listOf(newBlock) + inboxContent.blocks
-                        repository.saveNote(
-                            inboxMeta.copy(updatedAt = System.currentTimeMillis()),
-                            NoteContent(blocks = updatedInboxBlocks)
-                        )
+                        val updatedInboxMeta = inboxMeta.copy(updatedAt = System.currentTimeMillis())
+                        val updatedInboxContent = NoteContent(blocks = updatedInboxBlocks)
+                        repository.saveNote(updatedInboxMeta, updatedInboxContent)
+                        repository.indexNote(updatedInboxMeta, updatedInboxContent)
                     }
                 }
 
@@ -658,12 +695,19 @@ class TasksViewModel(
                     if (loc.isDaily) {
                         val content = repository.getDailyNote(loc.noteId) ?: return@withLock
                         val updatedBlocks = content.blocks.map { if (it.id == id) it.markDeleted() else it }
-                        repository.saveDailyNote(loc.noteId, NoteContent(blocks = updatedBlocks))
+                        val updatedContent = NoteContent(blocks = updatedBlocks)
+                        repository.saveDailyNote(loc.noteId, updatedContent)
+                        repository.getDailyNoteMetadata(loc.noteId)?.let { dailyMeta ->
+                            repository.indexDailyNote(loc.noteId, updatedContent, dailyMeta)
+                        }
                     } else {
                         val meta = repository.getNoteById(loc.noteId) ?: return@withLock
                         val content = repository.getNoteContent(loc.noteId) ?: return@withLock
                         val updatedBlocks = content.blocks.map { if (it.id == id) it.markDeleted() else it }
-                        repository.saveNote(meta.copy(updatedAt = System.currentTimeMillis()), NoteContent(blocks = updatedBlocks))
+                        val updatedMeta = meta.copy(updatedAt = System.currentTimeMillis())
+                        val updatedContent = NoteContent(blocks = updatedBlocks)
+                        repository.saveNote(updatedMeta, updatedContent)
+                        repository.indexNote(updatedMeta, updatedContent)
                     }
                 }
             } catch (e: Exception) {
@@ -696,14 +740,21 @@ class TasksViewModel(
                                 val updatedBlocks = content.blocks.map { block ->
                                     if (block.id in blockIdsToDelete) block.markDeleted() else block
                                 }
-                                repository.saveDailyNote(loc.noteId, NoteContent(blocks = updatedBlocks))
+                                val updatedContent = NoteContent(blocks = updatedBlocks)
+                                repository.saveDailyNote(loc.noteId, updatedContent)
+                                repository.getDailyNoteMetadata(loc.noteId)?.let { dailyMeta ->
+                                    repository.indexDailyNote(loc.noteId, updatedContent, dailyMeta)
+                                }
                             } else {
                                 val meta = repository.getNoteById(loc.noteId) ?: return@forEach
                                 val content = repository.getNoteContent(loc.noteId) ?: return@forEach
                                 val updatedBlocks = content.blocks.map { block ->
                                     if (block.id in blockIdsToDelete) block.markDeleted() else block
                                 }
-                                repository.saveNote(meta.copy(updatedAt = System.currentTimeMillis()), NoteContent(blocks = updatedBlocks))
+                                val updatedMeta = meta.copy(updatedAt = System.currentTimeMillis())
+                                val updatedContent = NoteContent(blocks = updatedBlocks)
+                                repository.saveNote(updatedMeta, updatedContent)
+                                repository.indexNote(updatedMeta, updatedContent)
                             }
                         }
                     }
