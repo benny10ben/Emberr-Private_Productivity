@@ -83,7 +83,6 @@ import com.emberr.ui.theme.ThemePreference
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.ui.platform.LocalContext
 import com.emberr.domain.model.NoteBlock
-import com.emberr.data.local.prefs.SettingsManager
 import com.emberr.domain.util.export.generateAndSaveAndroidPdf
 import com.emberr.presentation.navigation.Screen
 import kotlin.time.Duration.Companion.milliseconds
@@ -121,7 +120,6 @@ class MainActivity : ComponentActivity() {
     }
 
     private val settingsViewModel: com.emberr.presentation.settings.SettingsViewModel by inject()
-    private val settingsManager: SettingsManager by inject()
     private val activeSpaceStore: com.emberr.domain.space.ActiveSpaceStore by inject()
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -141,11 +139,7 @@ class MainActivity : ComponentActivity() {
             (application as? EmberrApplication)?.warmUpAiEngineOnce()
         }
 
-        val routeForThisLaunch = consumeWidgetRoute(intent) ?: if (settingsManager.isOnboardingCompleted()) {
-            Screen.Daily.route
-        } else {
-            Screen.Onboarding.route
-        }
+        val routeForThisLaunch = consumeWidgetRoute(intent) ?: Screen.Daily.route
 
         handleIntent(intent)
 

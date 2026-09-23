@@ -21,6 +21,7 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 import androidx.navigation.NavType
@@ -58,6 +59,10 @@ import kotlinx.coroutines.withContext
 import kotlin.time.Duration.Companion.milliseconds
 
 private val DESKTOP_SIDEBAR_WIDTH = 340.dp
+private const val ONBOARDING_OVERLAY_FADE_MILLIS = 650
+private const val ONBOARDING_SWAP_FADE_OUT_MILLIS = 300
+private const val ONBOARDING_SWAP_FADE_IN_MILLIS = 380
+
 private val SEARCH_BAR_RESERVED_HEIGHT = 64.dp
 
 val LocalImageOverlay = staticCompositionLocalOf<( (@Composable () -> Unit)? ) -> Unit> { {} }
@@ -309,27 +314,40 @@ fun EmberrApp(
             Box(
                 modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)
             ) {
-                if (hasFirstFrameRendered && isOnboardingCompleted) {
-                    DesktopMainScreenWrapper(
-                        isSidebarVisible = isSidebarVisible,
-                        sidebarWidth = DESKTOP_SIDEBAR_WIDTH,
-                        onToggleSidebar = { isSidebarVisible = !isSidebarVisible },
-                        onSelectionModeChange = { isActive -> isSelectionActive = isActive },
-                        onPickImage = onPickImage,
-                        onTakePhoto = onTakePhoto,
-                        onPickDocument = onPickDocument,
-                        onOpenFile = onOpenFile,
-                        onExportMarkdown = onExportMarkdown,
-                        onExportPdf = onExportPdf,
-                        onExportBackup = onExportBackup,
-                        onImportBackupClick = onImportBackupClick,
-                        onAiIconTap = openAiChat,
-                        isRagChatVisible = showRagChatOverlay,
-                        ragViewModel = ragViewModel,
-                        onDismissRagChat = dismissRagChat
-                    )
-                } else if (hasFirstFrameRendered) {
-                    OnboardingScreen(onFinished = { isOnboardingCompleted = true })
+                AnimatedContent(
+                    targetState = hasFirstFrameRendered && isOnboardingCompleted,
+                    transitionSpec = {
+                        fadeIn(
+                            tween(
+                                ONBOARDING_SWAP_FADE_IN_MILLIS,
+                                delayMillis = ONBOARDING_SWAP_FADE_OUT_MILLIS
+                            )
+                        ) togetherWith fadeOut(tween(ONBOARDING_SWAP_FADE_OUT_MILLIS))
+                    },
+                    label = "onboarding-handoff"
+                ) { showsMainScreen ->
+                    if (showsMainScreen) {
+                        DesktopMainScreenWrapper(
+                            isSidebarVisible = isSidebarVisible,
+                            sidebarWidth = DESKTOP_SIDEBAR_WIDTH,
+                            onToggleSidebar = { isSidebarVisible = !isSidebarVisible },
+                            onSelectionModeChange = { isActive -> isSelectionActive = isActive },
+                            onPickImage = onPickImage,
+                            onTakePhoto = onTakePhoto,
+                            onPickDocument = onPickDocument,
+                            onOpenFile = onOpenFile,
+                            onExportMarkdown = onExportMarkdown,
+                            onExportPdf = onExportPdf,
+                            onExportBackup = onExportBackup,
+                            onImportBackupClick = onImportBackupClick,
+                            onAiIconTap = openAiChat,
+                            isRagChatVisible = showRagChatOverlay,
+                            ragViewModel = ragViewModel,
+                            onDismissRagChat = dismissRagChat
+                        )
+                    } else if (hasFirstFrameRendered) {
+                        OnboardingScreen(onFinished = { isOnboardingCompleted = true })
+                    }
                 }
 
                 if (!hasSplashFinished) {
@@ -372,6 +390,10 @@ fun EmberrApp(
             }
         }
 
+        var isOnboardingCompleted by remember {
+            mutableStateOf(settingsManager.isOnboardingCompleted())
+        }
+
         Scaffold(
             containerColor = MaterialTheme.colorScheme.background,
             contentWindowInsets = WindowInsets(0)
@@ -402,23 +424,8 @@ fun EmberrApp(
                         composable(Screen.Splash.route) {
                             LoadingScreen(
                                 onLoadingComplete = {
-                                    val destinationRoute = if (settingsManager.isOnboardingCompleted()) {
-                                        Screen.Daily.createRoute()
-                                    } else {
-                                        Screen.Onboarding.route
-                                    }
-                                    navController.navigate(destinationRoute) {
-                                        popUpTo(Screen.Splash.route) { inclusive = true }
-                                    }
-                                }
-                            )
-                        }
-
-                        composable(Screen.Onboarding.route) {
-                            OnboardingScreen(
-                                onFinished = {
                                     navController.navigate(Screen.Daily.createRoute()) {
-                                        popUpTo(Screen.Onboarding.route) { inclusive = true }
+                                        popUpTo(Screen.Splash.route) { inclusive = true }
                                     }
                                 }
                             )
@@ -972,6 +979,23 @@ fun EmberrApp(
                     )
 
                     fullScreenContent?.invoke()
+
+                    AnimatedVisibility(
+                        visible = !isOnboardingCompleted,
+                        enter = EnterTransition.None,
+                        exit = fadeOut(tween(ONBOARDING_OVERLAY_FADE_MILLIS)),
+                        modifier = Modifier
+                            .zIndex(20f)
+                            .pointerInput(Unit) {
+                                awaitPointerEventScope {
+                                    while (true) {
+                                        awaitPointerEvent()
+                                    }
+                                }
+                            }
+                    ) {
+                        OnboardingScreen(onFinished = { isOnboardingCompleted = true })
+                    }
                 }
             }
         }
