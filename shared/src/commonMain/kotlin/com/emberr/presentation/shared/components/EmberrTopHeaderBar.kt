@@ -24,7 +24,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -57,7 +56,7 @@ val TopHeaderBarButtonSize = 44.dp
 
 private val DefaultTitleSideInset = 56.dp
 
-private val TopEdgeGradientHeight = 240.dp
+private val TopEdgeGradientHeight = 200.dp
 
 private const val TopEdgeGradientStopCount = 24
 
@@ -105,6 +104,7 @@ fun EmberrTopHeaderBar(
     onBackClick: () -> Unit = {},
     background: Color = Color.Transparent,
     topEdgeFadeAlpha: Float = 1f,
+    topEdgeGradientHeight: Dp = TopEdgeGradientHeight,
     topEdgeBlurHeight: Dp = TopEdgeBlurHeight,
     hazeState: HazeState? = null,
     hazeStyle: HazeStyle = EmberrBlur.Regular,
@@ -120,7 +120,9 @@ fun EmberrTopHeaderBar(
     val fadeStyle = rememberTopBarFadeStyle()
     val topEdgeGradient = rememberTopEdgeGradient()
 
-    val showColorFade = fadeStyle == TopBarFadeStyle.COLOR && topEdgeFadeAlpha > 0f
+    val showColorFade = fadeStyle == TopBarFadeStyle.COLOR &&
+        topEdgeFadeAlpha > 0f &&
+        topEdgeGradientHeight > 0.dp
     val showBlurFade = fadeStyle == TopBarFadeStyle.BLUR &&
         topEdgeFadeAlpha > 0f &&
         topEdgeBlurHeight > 0.dp
@@ -130,20 +132,15 @@ fun EmberrTopHeaderBar(
         modifier = modifier
             .fillMaxWidth()
             .background(background)
-            .then(
-                if (showColorFade) {
-                    Modifier.drawBehind {
-                        drawRect(
-                            brush = topEdgeGradient,
-                            size = Size(size.width, maxOf(size.height, TopEdgeGradientHeight.toPx())),
-                            alpha = topEdgeFadeAlpha.coerceIn(0f, 1f)
-                        )
-                    }
-                } else {
-                    Modifier
-                }
-            )
     ) {
+        if (showColorFade) {
+            TopEdgeColorFadeBand(
+                gradient = topEdgeGradient,
+                fadeHeight = topEdgeGradientHeight,
+                fadeAlpha = topEdgeFadeAlpha
+            )
+        }
+
         if (blurBandSource != null) {
             TopEdgeBlurBand(
                 hazeState = blurBandSource,
@@ -251,6 +248,34 @@ private fun rememberTopEdgeGradient(): Brush {
         }
         Brush.verticalGradient(colorStops = colorStops)
     }
+}
+
+@Composable
+private fun TopEdgeColorFadeBand(
+    gradient: Brush,
+    fadeHeight: Dp,
+    fadeAlpha: Float
+) {
+    val fadeHeightInPixels = with(LocalDensity.current) { fadeHeight.roundToPx() }
+
+    Layout(
+        content = {
+            Box(
+                modifier = Modifier.drawBehind {
+                    drawRect(brush = gradient, alpha = fadeAlpha.coerceIn(0f, 1f))
+                }
+            )
+        },
+        measurePolicy = { measurables, constraints ->
+            val bandWidth = if (constraints.hasBoundedWidth) constraints.maxWidth else 0
+            val band = measurables.first().measure(
+                Constraints.fixed(bandWidth, fadeHeightInPixels)
+            )
+            layout(width = 0, height = 0) {
+                band.place(0, 0)
+            }
+        }
+    )
 }
 
 @Composable
