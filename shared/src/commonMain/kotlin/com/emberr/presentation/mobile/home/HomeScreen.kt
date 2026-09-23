@@ -745,6 +745,14 @@ fun HomeScreen(
                         if (treeRows.isEmpty()) {
                             item(span = StaggeredGridItemSpan.FullLine, key = "home_empty_state") {
                                 HomeEmptyState(
+                                    onCreateNote = {
+                                        addNoteTargetFolderId = null
+                                        showAddNoteDialog = true
+                                    },
+                                    onCreateFolder = {
+                                        addFolderParentId = null
+                                        showAddFolderDialog = true
+                                    },
                                     modifier = Modifier.animateItem(
                                         fadeInSpec = tween(200, easing = FastOutSlowInEasing),
                                         fadeOutSpec = tween(160, easing = FastOutSlowInEasing),
@@ -1164,8 +1172,13 @@ fun DesktopSortMenu(currentSortType: SortType, currentSortOrder: SortOrder, onDi
 }
 
 @Composable
-private fun HomeEmptyState(modifier: Modifier = Modifier) {
+private fun HomeEmptyState(
+    onCreateNote: () -> Unit,
+    onCreateFolder: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     val mutedColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+    val actionColor = MaterialTheme.colorScheme.primary
     Column(
         modifier = modifier.fillMaxWidth()
             .padding(horizontal = HORIZONTAL_PADDING, vertical = 40.dp),
@@ -1179,10 +1192,32 @@ private fun HomeEmptyState(modifier: Modifier = Modifier) {
         )
         Spacer(Modifier.height(10.dp))
         Text(
-            "No notes available",
+            "This space is empty. Start with",
             style = MaterialTheme.typography.labelSmall,
             color = mutedColor
         )
+        Spacer(Modifier.height(8.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                "a new note",
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Medium,
+                color = actionColor,
+                modifier = Modifier.noRippleClickable(onCreateNote).padding(vertical = 6.dp, horizontal = 4.dp)
+            )
+            Text(
+                "or",
+                style = MaterialTheme.typography.labelSmall,
+                color = mutedColor
+            )
+            Text(
+                "a folder",
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Medium,
+                color = actionColor,
+                modifier = Modifier.noRippleClickable(onCreateFolder).padding(vertical = 6.dp, horizontal = 4.dp)
+            )
+        }
     }
 }
 

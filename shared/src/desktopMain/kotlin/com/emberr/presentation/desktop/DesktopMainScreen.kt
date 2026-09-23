@@ -1235,6 +1235,15 @@ fun DesktopMainScreen(
                                     )
                                 }
 
+                                if (isNotesExpanded && treeRows.isEmpty()) {
+                                    item(key = "sidebar_empty_notes") {
+                                        SidebarEmptyNotesHint(
+                                            onCreateNote = { addNoteInput = ""; showAddNotePopup = true },
+                                            onCreateFolder = { addFolderInput = ""; showAddFolderPopup = true }
+                                        )
+                                    }
+                                }
+
                                 if (isNotesExpanded) {
                                     itemsIndexed(treeRows, key = { _, row -> row.key }) { index, row ->
                                         val rowMenuTarget = menuForRow(row.key)

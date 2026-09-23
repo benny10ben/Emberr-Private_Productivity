@@ -789,3 +789,57 @@ private fun SidebarMenuItem(
         Text(text = text, style = MaterialTheme.typography.bodyLarge, color = contentColor)
     }
 }
+
+@Composable
+fun SidebarEmptyNotesHint(
+    onCreateNote: () -> Unit,
+    onCreateFolder: () -> Unit
+) {
+    val mutedColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.42f)
+    val actionColor = MaterialTheme.colorScheme.primary
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = ROW_ICON_START, end = 10.dp, top = 6.dp, bottom = 8.dp)
+    ) {
+        Text(
+            text = "This space is empty.",
+            style = MaterialTheme.typography.labelSmall,
+            color = mutedColor
+        )
+        Spacer(Modifier.height(4.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = "Start with",
+                style = MaterialTheme.typography.labelSmall,
+                color = mutedColor
+            )
+            Text(
+                text = "a note",
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Medium,
+                color = actionColor,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(4.dp))
+                    .sidebarNoRippleClickable(onCreateNote)
+                    .padding(horizontal = 4.dp, vertical = 2.dp)
+            )
+            Text(
+                text = "or",
+                style = MaterialTheme.typography.labelSmall,
+                color = mutedColor
+            )
+            Text(
+                text = "a folder",
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Medium,
+                color = actionColor,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(4.dp))
+                    .sidebarNoRippleClickable(onCreateFolder)
+                    .padding(horizontal = 4.dp, vertical = 2.dp)
+            )
+        }
+    }
+}
