@@ -212,7 +212,6 @@ private fun RagChatContent(
                 embeddingSetupState != EmbeddingSetupState.Ready -> {
                     EmbeddingSetupScreen(
                         state = embeddingSetupState,
-                        sidePadding = sidePadding,
                         isResumable = viewModel.hasResumableEmbeddingDownload(),
                         onDownloadClick = viewModel::downloadEmbeddingModel,
                         onPauseClick = viewModel::pauseEmbeddingModelDownload,
