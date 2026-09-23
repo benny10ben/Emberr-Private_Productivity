@@ -117,7 +117,7 @@ class NativeVoiceRecognizer(private val context: Context) : VoiceRecognizer {
             }
 
             if (!SpeechRecognizer.isRecognitionAvailable(context)) {
-                onError("Voice recognition is unavailable on this device.")
+                onError(VOICE_RECOGNITION_UNAVAILABLE_MESSAGE)
                 return@post
             }
 

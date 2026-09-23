@@ -66,6 +66,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.emberr.domain.util.voice.VOICE_RECOGNITION_UNAVAILABLE_MESSAGE
 import com.emberr.presentation.shared.components.EmberrButtonPrimary
 import com.emberr.presentation.shared.components.EmberrButtonSecondary
 import com.emberr.presentation.shared.components.MinimalDatePickerDialog
@@ -181,6 +182,15 @@ fun VoiceTaskDialog(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                 )
+                if (state.errorMessage == VOICE_RECOGNITION_UNAVAILABLE_MESSAGE) {
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = "Install a speech recognition app to use voice tasks",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                        textAlign = TextAlign.Center
+                    )
+                }
 
                 if (state.tasks.isNotEmpty() || state.partialText.isNotBlank()) {
                     Spacer(Modifier.height(20.dp))

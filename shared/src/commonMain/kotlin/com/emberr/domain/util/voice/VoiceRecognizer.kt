@@ -1,5 +1,7 @@
 package com.emberr.domain.util.voice
 
+const val VOICE_RECOGNITION_UNAVAILABLE_MESSAGE = "Voice recognition is unavailable on this device."
+
 /**
  * Multiplatform contract for voice-to-text recognition.
  */
