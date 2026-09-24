@@ -22,4 +22,4 @@ class AppImageInstallation(private val appImageFile: File) : UpdatableInstallati
 }
 
 fun detectUpdatableInstallation(): UpdatableInstallation? =
-    RunningAppImage.fileOrNull()?.let(::AppImageInstallation) ?: TarballInstallation.forRunningAppOrNull()
+    RunningAppImage.fileOrNull()?.let(::AppImageInstallation) ?: detectStagedUpdateInstallation()

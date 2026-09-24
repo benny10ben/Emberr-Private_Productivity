@@ -1,7 +1,7 @@
 package com.emberr.presentation.desktop.window
 
 import com.emberr.domain.update.RunningAppImage
-import com.emberr.domain.update.TarballInstallation
+import com.emberr.domain.update.detectStagedUpdateInstallation
 import com.emberr.domain.util.system.appVersionName
 import java.io.File
 
@@ -13,9 +13,9 @@ object DesktopAppRelauncher {
         get() = currentProcessCommand() != null
 
     fun startNewInstance(): Boolean {
-        val tarballInstallation = TarballInstallation.forRunningAppOrNull()
-        if (tarballInstallation != null && tarballInstallation.hasNewerStagedUpdate(appVersionName)) {
-            return tarballInstallation.installStagedUpdateAfterThisProcessExits(launchAfterInstall = true)
+        val stagedUpdateInstallation = detectStagedUpdateInstallation()
+        if (stagedUpdateInstallation != null && stagedUpdateInstallation.hasNewerStagedUpdate(appVersionName)) {
+            return stagedUpdateInstallation.installStagedUpdateAfterThisProcessExits(launchAfterInstall = true)
         }
 
         val command = currentProcessCommand() ?: return false

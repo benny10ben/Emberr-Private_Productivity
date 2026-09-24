@@ -1,20 +1,15 @@
 package com.emberr.domain.update
 
 import java.io.File
-import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
-import java.util.concurrent.atomic.AtomicBoolean
 
-class TarballInstallation(installDirectory: File) : UpdatableInstallation {
+class TarballInstallation(installDirectory: File) : StagedUpdateInstallation() {
 
     private val dataDirectory = installDirectory.absoluteFile.parentFile
-    private val stagingDirectory = File(dataDirectory, "${installDirectory.name}-update")
     private val partialStagingDirectory = File(dataDirectory, "${installDirectory.name}-update.partial")
-    private val installerLogFile = File(dataDirectory, "${installDirectory.name}-update.log")
-    private val stagedInstallScript = File(stagingDirectory, "install.sh")
-    private val stagedVersionFile = File(stagingDirectory, STAGED_VERSION_FILE_NAME)
-
+    override val stagingDirectory = File(dataDirectory, "${installDirectory.name}-update")
+    override val installerLogFile = File(dataDirectory, "${installDirectory.name}-update.log")
     override val downloadFile = File(dataDirectory, "${installDirectory.name}-update.tar.gz")
 
     override fun downloadFor(release: AppUpdateManifest): AppUpdateDownload? = release.tarball
@@ -28,10 +23,10 @@ class TarballInstallation(installDirectory: File) : UpdatableInstallation {
             partialStagingDirectory.mkdirs()
             unpackTarball(downloadFile, partialStagingDirectory)
 
-            if (!File(partialStagingDirectory, "install.sh").isFile) {
+            if (!File(partialStagingDirectory, INSTALL_SCRIPT_NAME).isFile) {
                 throw AppUpdateException("The downloaded update has no installer inside, so it was not installed.")
             }
-            File(partialStagingDirectory, STAGED_VERSION_FILE_NAME).writeText(release.version)
+            writeStagedVersion(partialStagingDirectory, release.version)
 
             stagingDirectory.deleteRecursively()
             Files.move(partialStagingDirectory.toPath(), stagingDirectory.toPath(), StandardCopyOption.ATOMIC_MOVE)
@@ -40,53 +35,16 @@ class TarballInstallation(installDirectory: File) : UpdatableInstallation {
         }
     }
 
-    fun hasNewerStagedUpdate(installedVersion: String?): Boolean {
-        if (installedVersion == null || !stagedInstallScript.isFile) return false
-        val stagedVersion = stagedVersionFile.takeIf { it.isFile }?.readText()?.trim() ?: return false
-        return isNewerVersion(stagedVersion, installedVersion)
-    }
-
-    fun installNewerStagedUpdateInsteadOfStarting(installedVersion: String?): Boolean {
-        if (hasNewerStagedUpdate(installedVersion)) {
-            return installStagedUpdateAfterThisProcessExits(launchAfterInstall = true)
-        }
-        stagingDirectory.deleteRecursively()
-        return false
-    }
-
-    fun installStagedUpdateWhenAppQuits(installedVersion: String?) {
-        Runtime.getRuntime().addShutdownHook(
-            Thread {
-                if (hasNewerStagedUpdate(installedVersion)) {
-                    installStagedUpdateAfterThisProcessExits(launchAfterInstall = false)
-                }
-            }
-        )
-    }
-
-    fun installStagedUpdateAfterThisProcessExits(launchAfterInstall: Boolean): Boolean {
-        if (!installerHasStarted.compareAndSet(false, true)) return true
-        return try {
-            ProcessBuilder(
-                "/bin/sh",
-                "-c",
-                INSTALL_THEN_CLEAN_UP_COMMAND,
-                "emberr-update",
-                stagedInstallScript.absolutePath,
-                ProcessHandle.current().pid().toString(),
-                if (launchAfterInstall) "--launch-after" else "",
-                stagingDirectory.absolutePath
-            )
-                .redirectErrorStream(true)
-                .redirectOutput(ProcessBuilder.Redirect.appendTo(installerLogFile))
-                .start()
-            true
-        } catch (cause: IOException) {
-            cause.printStackTrace()
-            installerHasStarted.set(false)
-            false
-        }
-    }
+    override fun installerCommand(appProcessId: Long, launchAfterInstall: Boolean): List<String> = listOf(
+        "/bin/sh",
+        "-c",
+        INSTALL_THEN_CLEAN_UP_COMMAND,
+        "emberr-update",
+        File(stagingDirectory, INSTALL_SCRIPT_NAME).absolutePath,
+        appProcessId.toString(),
+        if (launchAfterInstall) "--launch-after" else "",
+        stagingDirectory.absolutePath
+    )
 
     private fun unpackTarball(tarballFile: File, destinationDirectory: File) {
         val process = ProcessBuilder(
@@ -107,9 +65,8 @@ class TarballInstallation(installDirectory: File) : UpdatableInstallation {
     }
 
     companion object {
-        private const val STAGED_VERSION_FILE_NAME = "staged-version.txt"
+        private const val INSTALL_SCRIPT_NAME = "install.sh"
         private const val INSTALL_THEN_CLEAN_UP_COMMAND = "sh \"$1\" --wait-for-pid \"$2\" $3; rm -rf \"$4\""
-        private val installerHasStarted = AtomicBoolean(false)
 
         fun forRunningAppOrNull(): TarballInstallation? =
             tarballInstallDirectoryFor(javaHome = System.getProperty("java.home"), dataHome = linuxDataHome())

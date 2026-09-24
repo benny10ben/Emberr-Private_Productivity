@@ -10,12 +10,10 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  publish-draft-release:
-    name: Build the AppImage and publish a draft release
+  check-release-setup:
+    name: Check the tag and the signing key
     runs-on: ubuntu-latest
-    timeout-minutes: 60
-    permissions:
-      contents: write
+    timeout-minutes: 5
 
     steps:
       - name: Check out the repository
@@ -46,6 +44,16 @@ jobs:
             echo "::error::UPDATE_SIGNING_PUBLIC_KEY_BASE64 in UpdateManifestSignature.kt does not match the signing key. It should be $public_key"
             exit 1
           fi
+
+  build-linux:
+    name: Build the AppImage and the tarball
+    needs: check-release-setup
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7
 
       - name: Set up JDK 21
         uses: actions/setup-java@v6
@@ -92,14 +100,82 @@ jobs:
             exit 1
           fi
 
+      - name: Collect the Linux packages into one folder
+        run: |
+          mkdir -p linux-files
+          cp shared/build/compose/binaries/main/appimage/Emberr-x86_64.AppImage linux-files/
+          cp shared/build/compose/binaries/main/tarball/emberr-x86_64.tar.gz linux-files/
+
+      - name: Upload the Linux packages
+        uses: actions/upload-artifact@v7
+        with:
+          name: linux-packages
+          path: linux-files/
+          retention-days: 3
+          if-no-files-found: error
+
+  build-windows:
+    name: Build the Windows installer
+    needs: check-release-setup
+    runs-on: windows-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up the Android SDK
+        uses: android-actions/setup-android@v4
+        with:
+          packages: platform-tools
+
+      - name: Set up Gradle with caching
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Build the installer with jpackage
+        run: .\gradlew.bat :shared:packageExe --stacktrace
+
+      - name: Give the installer a name that stays the same between versions
+        run: |
+          New-Item -ItemType Directory -Force -Path windows-files | Out-Null
+          $installer = Get-ChildItem shared\build\compose\binaries\main\exe\*.exe | Select-Object -First 1
+          Copy-Item $installer.FullName windows-files\Emberr-Setup-x86_64.exe
+
+      - name: Upload the Windows installer
+        uses: actions/upload-artifact@v7
+        with:
+          name: windows-installer
+          path: windows-files/Emberr-Setup-x86_64.exe
+          retention-days: 3
+          if-no-files-found: error
+
+  publish-draft-release:
+    name: Sign the update manifest and publish a draft release
+    needs: [build-linux, build-windows]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download the built packages
+        uses: actions/download-artifact@v8
+        with:
+          path: release-files
+          merge-multiple: true
+
       - name: Write the update manifest
         run: |
-          mkdir -p release-files
-          cp shared/build/compose/binaries/main/appimage/Emberr-x86_64.AppImage release-files/
-          cp shared/build/compose/binaries/main/tarball/emberr-x86_64.tar.gz release-files/
           download_base="https://github.com/$GITHUB_REPOSITORY/releases/download/$GITHUB_REF_NAME"
           app_image=release-files/Emberr-x86_64.AppImage
           tarball=release-files/emberr-x86_64.tar.gz
+          windows_installer=release-files/Emberr-Setup-x86_64.exe
           jq -n \
             --arg version "${GITHUB_REF_NAME#v}" \
             --arg appImageUrl "$download_base/Emberr-x86_64.AppImage" \
@@ -108,10 +184,14 @@ jobs:
             --arg tarballUrl "$download_base/emberr-x86_64.tar.gz" \
             --arg tarballSha256 "$(sha256sum "$tarball" | cut -d' ' -f1)" \
             --argjson tarballSizeBytes "$(stat -c %s "$tarball")" \
+            --arg windowsInstallerUrl "$download_base/Emberr-Setup-x86_64.exe" \
+            --arg windowsInstallerSha256 "$(sha256sum "$windows_installer" | cut -d' ' -f1)" \
+            --argjson windowsInstallerSizeBytes "$(stat -c %s "$windows_installer")" \
             '{
               version: $version,
               appImage: {url: $appImageUrl, sha256: $appImageSha256, sizeBytes: $appImageSizeBytes},
-              tarball: {url: $tarballUrl, sha256: $tarballSha256, sizeBytes: $tarballSizeBytes}
+              tarball: {url: $tarballUrl, sha256: $tarballSha256, sizeBytes: $tarballSizeBytes},
+              windowsInstaller: {url: $windowsInstallerUrl, sha256: $windowsInstallerSha256, sizeBytes: $windowsInstallerSizeBytes}
             }' \
             > release-files/latest.json
           cat release-files/latest.json
@@ -132,6 +212,7 @@ jobs:
       - name: Create the draft release
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
           gh release create "$GITHUB_REF_NAME" \
             --draft \
@@ -139,5 +220,6 @@ jobs:
             --generate-notes \
             release-files/Emberr-x86_64.AppImage \
             release-files/emberr-x86_64.tar.gz \
+            release-files/Emberr-Setup-x86_64.exe \
             release-files/latest.json \
             release-files/latest.json.sig

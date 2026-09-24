@@ -43,19 +43,21 @@ class AppUpdateManifestTest {
     }
 
     @Test
-    fun readsTheTarballEntryNextToTheAppImage() {
+    fun readsEveryPackageTypeEntry() {
         val manifest = parseAppUpdateManifest(
             """
             {
               "version": "1.0.2",
               "appImage": { "url": "https://example.com/a", "sha256": "abc", "sizeBytes": 1 },
-              "tarball": { "url": "https://example.com/emberr-x86_64.tar.gz", "sha256": "def", "sizeBytes": 2 }
+              "tarball": { "url": "https://example.com/emberr-x86_64.tar.gz", "sha256": "def", "sizeBytes": 2 },
+              "windowsInstaller": { "url": "https://example.com/Emberr-Setup-x86_64.exe", "sha256": "ghi", "sizeBytes": 3 }
             }
             """.trimIndent().encodeToByteArray()
         )
 
         assertEquals("https://example.com/emberr-x86_64.tar.gz", manifest.tarball?.url)
         assertEquals("def", manifest.tarball?.sha256)
+        assertEquals("https://example.com/Emberr-Setup-x86_64.exe", manifest.windowsInstaller?.url)
     }
 
     @Test
@@ -70,6 +72,7 @@ class AppUpdateManifestTest {
         )
 
         assertNull(manifest.tarball)
+        assertNull(manifest.windowsInstaller)
     }
 
     @Test
