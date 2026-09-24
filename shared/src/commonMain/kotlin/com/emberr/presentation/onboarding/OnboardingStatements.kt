@@ -35,11 +35,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.BlurredEdgeTreatment
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.BlurEffect
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
@@ -156,7 +155,11 @@ fun OnboardingStatementStack(
         modifier = modifier
             .fillMaxSize()
             .clipToBounds()
-            .fadingEdges(topFade = topFadeHeight, bottomFade = bottomFadeHeight)
+            .fadingEdges(
+                topFade = topFadeHeight,
+                bottomFade = bottomFadeHeight,
+                fadeColor = MaterialTheme.colorScheme.background
+            )
             .onSizeChanged { stackArea -> stackAreaHeight.intValue = stackArea.height }
     ) {
         Column(
@@ -236,8 +239,15 @@ private fun OnboardingStatement(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .graphicsLayer { alpha = statementAlpha }
-            .blur(statementBlur, BlurredEdgeTreatment.Unbounded),
+            .graphicsLayer {
+                alpha = statementAlpha
+                val blurPixels = statementBlur.toPx()
+                renderEffect = if (blurPixels > 0f) {
+                    BlurEffect(blurPixels, blurPixels, TileMode.Decal)
+                } else {
+                    null
+                }
+            },
         horizontalAlignment = if (isWideLayout) Alignment.CenterHorizontally else Alignment.Start
     ) {
         StatementIconBadge(icon = step.icon, isActive = stepsBehind == 0)
@@ -482,30 +492,29 @@ private fun statementHeadlineStyle(isWideLayout: Boolean): TextStyle {
     )
 }
 
-private fun Modifier.fadingEdges(topFade: Dp, bottomFade: Dp): Modifier {
+private fun Modifier.fadingEdges(topFade: Dp, bottomFade: Dp, fadeColor: Color): Modifier {
     if (topFade <= 0.dp && bottomFade <= 0.dp) return this
 
-    return this
-        .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
-        .drawWithContent {
-            drawContent()
+    val clearFadeColor = fadeColor.copy(alpha = 0f)
 
-            if (size.height <= 0f) return@drawWithContent
+    return this.drawWithContent {
+        drawContent()
 
-            val firstOpaqueStop = (topFade.toPx() / size.height).coerceIn(0f, 0.5f)
-            val lastOpaqueStop = (1f - bottomFade.toPx() / size.height)
-                .coerceIn(firstOpaqueStop, 1f)
+        if (size.height <= 0f) return@drawWithContent
 
-            drawRect(
-                brush = Brush.verticalGradient(
-                    0f to Color.Transparent,
-                    firstOpaqueStop to Color.Black,
-                    lastOpaqueStop to Color.Black,
-                    1f to Color.Transparent
-                ),
-                blendMode = BlendMode.DstIn
+        val firstClearStop = (topFade.toPx() / size.height).coerceIn(0f, 0.5f)
+        val lastClearStop = (1f - bottomFade.toPx() / size.height)
+            .coerceIn(firstClearStop, 1f)
+
+        drawRect(
+            brush = Brush.verticalGradient(
+                0f to fadeColor,
+                firstClearStop to clearFadeColor,
+                lastClearStop to clearFadeColor,
+                1f to fadeColor
             )
-        }
+        )
+    }
 }
 
 private fun alphaForDistance(stepsBehind: Int): Float = when (stepsBehind) {
