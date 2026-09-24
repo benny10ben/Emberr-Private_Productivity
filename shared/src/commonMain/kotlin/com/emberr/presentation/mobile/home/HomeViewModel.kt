@@ -638,7 +638,13 @@ class HomeViewModel(
 
     // Clones a template's content with fresh block/schema ids (see NoteBlock.deepCopyWithNewIds)
     // and saves it as a brand-new, regular note in the currently open folder.
-    fun createNoteFromTemplate(templateId: String, onNoteCreated: (String) -> Unit) {
+    fun createNoteFromTemplate(
+        templateId: String,
+        parentFolderId: String? = _selectedFolderId.value,
+        autoExpand: Boolean = false,
+        onNoteCreated: (String) -> Unit
+    ) {
+        if (autoExpand) parentFolderId?.let { fid -> updateExpandedFolderIds { it + fid } }
         viewModelScope.launch(Dispatchers.IO) {
             val templateMeta = repository.getNoteById(templateId) ?: return@launch
             val templateContent = repository.getNoteContent(templateId) ?: NoteContent(blocks = emptyList())
@@ -651,7 +657,7 @@ class HomeViewModel(
                 icon = templateMeta.icon,
                 coverImagePath = templateMeta.coverImagePath,
                 showWordCount = templateMeta.showWordCount,
-                folderId = _selectedFolderId.value,
+                folderId = parentFolderId,
                 isDaily = false,
                 dateString = null,
                 createdAt = now,

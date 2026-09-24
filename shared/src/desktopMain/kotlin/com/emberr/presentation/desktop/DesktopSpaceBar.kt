@@ -131,7 +131,7 @@ fun DesktopSpaceBar(
             EmberrDesktopMenu(
                 expanded = showCreatePopup,
                 onDismissRequest = { showCreatePopup = false },
-                modifier = Modifier.width(260.dp)
+                modifier = Modifier.width(280.dp)
             ) {
                 DesktopNamePopup(
                     title = "New Space",
@@ -355,7 +355,7 @@ fun SidebarSpaceHeader(
             EmberrDesktopMenu(
                 expanded = showRenamePopup,
                 onDismissRequest = { showRenamePopup = false },
-                modifier = Modifier.width(260.dp)
+                modifier = Modifier.width(280.dp)
             ) {
                 DesktopNamePopup(
                     title = "Rename Space",

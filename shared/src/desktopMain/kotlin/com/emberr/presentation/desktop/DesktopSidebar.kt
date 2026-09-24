@@ -74,6 +74,7 @@ import emberr.shared.generated.resources.Res
 import emberr.shared.generated.resources.file_text
 import emberr.shared.generated.resources.plus
 import emberr.shared.generated.resources.star
+import emberr.shared.generated.resources.template
 import org.jetbrains.compose.resources.painterResource
 
 private val INDENT_STEP          = 24.dp
@@ -172,15 +173,32 @@ internal fun DesktopNamePopup(
     confirmLabel: String,
     onConfirm: (String) -> Unit,
     onDismiss: () -> Unit,
-    placeholder: String = "Name..."
+    placeholder: String = "Name...",
+    onOpenTemplates: (() -> Unit)? = null
 ) {
     var input by remember(initialValue) { mutableStateOf(initialValue) }
     val onSubmit: () -> Unit = { if (input.isNotBlank()) onConfirm(input.trim()) }
     Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
-        Text(title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.padding(bottom = 10.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(bottom = 18.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f, fill = false))
+            if (onOpenTemplates != null) {
+                Icon(
+                    painter = painterResource(Res.drawable.template),
+                    contentDescription = "Templates",
+                    tint = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier
+                        .padding(start = 8.dp)
+                        .size(22.dp)
+                        .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onOpenTemplates)
+                )
+            }
+        }
         EmberrTextField(value = input, onValueChange = { input = it }, placeholder = placeholder, modifier = Modifier.fillMaxWidth(), onSubmit = onSubmit)
-        Spacer(Modifier.height(10.dp))
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             EmberrButtonSecondary(text = "Cancel", onClick = onDismiss, modifier = Modifier.weight(1f))
             EmberrButtonPrimary(text = confirmLabel, onClick = onSubmit, modifier = Modifier.weight(1f))
         }
@@ -201,6 +219,8 @@ fun SidebarFolderRow(
     onClick: (SidebarClickModifiers) -> Unit,
     onToggleFavorite: () -> Unit = {},
     onAddNote: (String) -> Unit,
+    onOpenTemplates: () -> Unit,
+    templatesMenu: @Composable (isExpanded: Boolean, onDismiss: () -> Unit) -> Unit,
     onAddSubfolder: (String) -> Unit,
     onRename: (String) -> Unit,
     onDelete: () -> Unit,
@@ -212,6 +232,7 @@ fun SidebarFolderRow(
     var showContextMenu by remember { mutableStateOf(false) }
     var contextMenuOffset by remember { mutableStateOf(DpOffset.Zero) }
     var showAddNotePopup by remember { mutableStateOf(false) }
+    var showTemplatesMenu by remember { mutableStateOf(false) }
     var showAddSubfolderPopup by remember { mutableStateOf(false) }
     var showRenamePopup by remember { mutableStateOf(false) }
     val density = LocalDensity.current
@@ -345,17 +366,23 @@ fun SidebarFolderRow(
             }
 
             Box {
-                EmberrDesktopMenu(expanded = showAddNotePopup, onDismissRequest = { showAddNotePopup = false }, modifier = Modifier.width(260.dp)) {
+                EmberrDesktopMenu(expanded = showAddNotePopup, onDismissRequest = { showAddNotePopup = false }, modifier = Modifier.width(280.dp)) {
                     DesktopNamePopup(
                         title = "New Note in ${folder.name}",
                         initialValue = "",
                         confirmLabel = "Create",
                         onConfirm = { title -> onAddNote(title); showAddNotePopup = false },
                         onDismiss = { showAddNotePopup = false },
-                        placeholder = "Note title..."
+                        placeholder = "Note title...",
+                        onOpenTemplates = {
+                            showAddNotePopup = false
+                            onOpenTemplates()
+                            showTemplatesMenu = true
+                        }
                     )
                 }
-                EmberrDesktopMenu(expanded = showAddSubfolderPopup, onDismissRequest = { showAddSubfolderPopup = false }, modifier = Modifier.width(260.dp)) {
+                templatesMenu(showTemplatesMenu) { showTemplatesMenu = false }
+                EmberrDesktopMenu(expanded = showAddSubfolderPopup, onDismissRequest = { showAddSubfolderPopup = false }, modifier = Modifier.width(280.dp)) {
                     DesktopNamePopup(
                         title = "New Subfolder",
                         initialValue = "",
@@ -364,7 +391,7 @@ fun SidebarFolderRow(
                         onDismiss = { showAddSubfolderPopup = false }
                     )
                 }
-                EmberrDesktopMenu(expanded = showRenamePopup, onDismissRequest = { showRenamePopup = false }, modifier = Modifier.width(260.dp)) {
+                EmberrDesktopMenu(expanded = showRenamePopup, onDismissRequest = { showRenamePopup = false }, modifier = Modifier.width(280.dp)) {
                     DesktopNamePopup(
                         title = "Rename Folder",
                         initialValue = folder.name,
@@ -555,7 +582,7 @@ fun SidebarNoteRow(
             }
 
             Box {
-                EmberrDesktopMenu(expanded = showRenamePopup, onDismissRequest = { showRenamePopup = false }, modifier = Modifier.width(260.dp)) {
+                EmberrDesktopMenu(expanded = showRenamePopup, onDismissRequest = { showRenamePopup = false }, modifier = Modifier.width(280.dp)) {
                     DesktopNamePopup(
                         title = "Rename Note",
                         initialValue = note.title,

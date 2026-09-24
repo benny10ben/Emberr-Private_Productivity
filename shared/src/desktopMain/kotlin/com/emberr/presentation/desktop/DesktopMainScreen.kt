@@ -1267,6 +1267,23 @@ fun DesktopMainScreen(
                                                     }
                                                 },
                                                 onAddNote = { title -> homeViewModel.createNoteInParent(row.folder.folderId, title = title, autoExpand = true) { newId -> openNote(newId) } },
+                                                onOpenTemplates = { homeViewModel.onTemplatesMenuOpened() },
+                                                templatesMenu = { isExpanded, onDismiss ->
+                                                    TemplatesDesktopMenu(
+                                                        expanded = isExpanded,
+                                                        templates = templates,
+                                                        searchQuery = templateSearchQuery,
+                                                        onSearchQueryChange = { homeViewModel.updateTemplateSearchQuery(it) },
+                                                        onDismissRequest = onDismiss,
+                                                        onTemplateClick = { id ->
+                                                            onDismiss()
+                                                            homeViewModel.createNoteFromTemplate(id, parentFolderId = row.folder.folderId, autoExpand = true) { newId -> openNote(newId) }
+                                                        },
+                                                        onEditTemplate = { id -> onDismiss(); handleEditTemplate(id) },
+                                                        onDeleteTemplate = { id -> homeViewModel.deleteTemplate(id) },
+                                                        onCreateNewTemplate = { onDismiss(); handleCreateNewTemplate() }
+                                                    )
+                                                },
                                                 onAddSubfolder = { name -> homeViewModel.createFolderInParent(row.folder.folderId, name = name, autoExpand = true) },
                                                 onRename = { newName -> homeViewModel.renameFolder(row.folder.folderId, newName) },
                                                 onDelete = {
