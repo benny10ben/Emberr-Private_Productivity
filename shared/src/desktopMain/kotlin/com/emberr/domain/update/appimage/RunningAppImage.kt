@@ -1,4 +1,4 @@
-package com.emberr.domain.update
+package com.emberr.domain.update.appimage
 
 import java.io.File
 

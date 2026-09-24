@@ -1,5 +1,9 @@
-package com.emberr.domain.update
+package com.emberr.domain.update.windows
 
+import com.emberr.domain.update.AppUpdateDownload
+import com.emberr.domain.update.AppUpdateManifest
+import com.emberr.domain.update.StagedUpdateInstallation
+import com.emberr.domain.update.requireMatchingSha256
 import java.io.File
 import java.io.IOException
 import java.nio.file.Files
@@ -67,7 +71,7 @@ class WindowsInstallation(
         private const val LAUNCHER_FILE_NAME = "Emberr.exe"
         private const val INSTALLER_FILE_NAME = "Emberr-Setup-x86_64.exe"
         private const val INSTALL_SCRIPT_NAME = "install-update.ps1"
-        private const val INSTALL_SCRIPT_RESOURCE = "update/install-windows-update.ps1"
+        private const val INSTALL_SCRIPT_RESOURCE = "update/windows/install-update.ps1"
 
         fun forRunningAppOrNull(): WindowsInstallation? {
             if (!System.getProperty("os.name").orEmpty().lowercase().contains("win")) return null

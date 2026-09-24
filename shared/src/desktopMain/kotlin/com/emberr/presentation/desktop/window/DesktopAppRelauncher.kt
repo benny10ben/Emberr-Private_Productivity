@@ -1,6 +1,6 @@
 package com.emberr.presentation.desktop.window
 
-import com.emberr.domain.update.RunningAppImage
+import com.emberr.domain.update.appimage.RunningAppImage
 import com.emberr.domain.update.detectStagedUpdateInstallation
 import com.emberr.domain.util.system.appVersionName
 import java.io.File

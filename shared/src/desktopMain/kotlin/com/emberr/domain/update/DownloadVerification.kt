@@ -1,29 +1,7 @@
 package com.emberr.domain.update
 
 import java.io.File
-import java.nio.file.Files
-import java.nio.file.StandardCopyOption
-import java.nio.file.attribute.PosixFilePermission
 import java.security.MessageDigest
-
-fun replaceAppImageWithVerifiedDownload(
-    downloadedFile: File,
-    appImageFile: File,
-    expectedSha256: String
-) {
-    try {
-        requireMatchingSha256(downloadedFile, expectedSha256)
-
-        val originalPermissions = Files.getPosixFilePermissions(appImageFile.toPath())
-        Files.setPosixFilePermissions(
-            downloadedFile.toPath(),
-            originalPermissions + PosixFilePermission.OWNER_EXECUTE
-        )
-        Files.move(downloadedFile.toPath(), appImageFile.toPath(), StandardCopyOption.ATOMIC_MOVE)
-    } finally {
-        downloadedFile.delete()
-    }
-}
 
 fun requireMatchingSha256(file: File, expectedSha256: String) {
     if (!sha256HexOf(file).equals(expectedSha256, ignoreCase = true)) {

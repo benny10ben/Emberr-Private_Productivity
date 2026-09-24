@@ -1,5 +1,7 @@
 package com.emberr.domain.update
 
+import com.emberr.domain.update.tarball.TarballInstallation
+import com.emberr.domain.update.windows.WindowsInstallation
 import java.io.File
 import java.io.IOException
 import java.util.concurrent.atomic.AtomicBoolean

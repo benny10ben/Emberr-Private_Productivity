@@ -1,5 +1,10 @@
-package com.emberr.domain.update
+package com.emberr.domain.update.tarball
 
+import com.emberr.domain.update.AppUpdateDownload
+import com.emberr.domain.update.AppUpdateException
+import com.emberr.domain.update.AppUpdateManifest
+import com.emberr.domain.update.StagedUpdateInstallation
+import com.emberr.domain.update.requireMatchingSha256
 import java.io.File
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption

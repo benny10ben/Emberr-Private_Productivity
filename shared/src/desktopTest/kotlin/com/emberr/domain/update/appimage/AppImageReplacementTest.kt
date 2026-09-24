@@ -1,5 +1,7 @@
-package com.emberr.domain.update
+package com.emberr.domain.update.appimage
 
+import com.emberr.domain.update.AppUpdateException
+import com.emberr.domain.update.sha256HexOf
 import java.io.File
 import java.nio.file.Files
 import java.nio.file.attribute.PosixFilePermissions
