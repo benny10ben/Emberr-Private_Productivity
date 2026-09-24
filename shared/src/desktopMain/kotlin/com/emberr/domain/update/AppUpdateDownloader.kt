@@ -17,7 +17,7 @@ import java.io.IOException
 
 class AppUpdateException(message: String) : Exception(message)
 
-class AppImageUpdater {
+class AppUpdateDownloader {
 
     private val httpClient by lazy {
         HttpClient {
@@ -40,24 +40,16 @@ class AppImageUpdater {
         parseAppUpdateManifest(manifestBytes).takeIf { isNewerVersion(it.version, installedVersion) }
     }
 
-    suspend fun downloadAndReplace(
-        release: AppUpdateManifest,
-        appImageFile: File,
+    suspend fun downloadFile(
+        download: AppUpdateDownload,
+        destinationFile: File,
         onProgressPercent: (Int) -> Unit
     ) = withContext(Dispatchers.IO) {
-        val download = release.appImage
-        val downloadedFile = File(appImageFile.parentFile, ".${appImageFile.name}.download")
-
-        try {
-            httpClient.prepareGet(download.url).execute { response ->
-                if (!response.status.isSuccess()) {
-                    throw IOException("Server responded with HTTP ${response.status.value}")
-                }
-                writeWithProgress(response.bodyAsChannel(), downloadedFile, download.sizeBytes, onProgressPercent)
+        httpClient.prepareGet(download.url).execute { response ->
+            if (!response.status.isSuccess()) {
+                throw IOException("Server responded with HTTP ${response.status.value}")
             }
-            replaceAppImageWithVerifiedDownload(downloadedFile, appImageFile, download.sha256)
-        } finally {
-            downloadedFile.delete()
+            writeWithProgress(response.bodyAsChannel(), destinationFile, download.sizeBytes, onProgressPercent)
         }
     }
 

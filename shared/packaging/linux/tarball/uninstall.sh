@@ -82,6 +82,9 @@ if [ -d "$APP_DIR" ]; then
     echo "Removed $APP_DIR"
 fi
 
+rm -rf "$APP_DIR.new" "$APP_DIR.old" "$APP_DIR-update" "$APP_DIR-update.partial"
+rm -f "$APP_DIR-update.tar.gz" "$APP_DIR-update.log"
+
 if [ -f "$DESKTOP_ENTRY" ]; then
     rm -f "$DESKTOP_ENTRY"
     echo "Removed $DESKTOP_ENTRY"

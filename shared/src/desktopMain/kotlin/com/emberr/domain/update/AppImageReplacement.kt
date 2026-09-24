@@ -12,9 +12,7 @@ fun replaceAppImageWithVerifiedDownload(
     expectedSha256: String
 ) {
     try {
-        if (!sha256HexOf(downloadedFile).equals(expectedSha256, ignoreCase = true)) {
-            throw AppUpdateException("The downloaded update is damaged, so it was not installed. Try again.")
-        }
+        requireMatchingSha256(downloadedFile, expectedSha256)
 
         val originalPermissions = Files.getPosixFilePermissions(appImageFile.toPath())
         Files.setPosixFilePermissions(
@@ -24,6 +22,12 @@ fun replaceAppImageWithVerifiedDownload(
         Files.move(downloadedFile.toPath(), appImageFile.toPath(), StandardCopyOption.ATOMIC_MOVE)
     } finally {
         downloadedFile.delete()
+    }
+}
+
+fun requireMatchingSha256(file: File, expectedSha256: String) {
+    if (!sha256HexOf(file).equals(expectedSha256, ignoreCase = true)) {
+        throw AppUpdateException("The downloaded update is damaged, so it was not installed. Try again.")
     }
 }
 

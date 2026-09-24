@@ -3,6 +3,7 @@ package com.emberr.domain.update
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFails
+import kotlin.test.assertNull
 
 class AppUpdateManifestTest {
 
@@ -22,8 +23,8 @@ class AppUpdateManifestTest {
         )
 
         assertEquals("1.1.0", manifest.version)
-        assertEquals("abc123", manifest.appImage.sha256)
-        assertEquals(183_500_800L, manifest.appImage.sizeBytes)
+        assertEquals("abc123", manifest.appImage?.sha256)
+        assertEquals(183_500_800L, manifest.appImage?.sizeBytes)
     }
 
     @Test
@@ -42,9 +43,39 @@ class AppUpdateManifestTest {
     }
 
     @Test
-    fun manifestWithoutAnAppImageFailsToParse() {
+    fun readsTheTarballEntryNextToTheAppImage() {
+        val manifest = parseAppUpdateManifest(
+            """
+            {
+              "version": "1.0.2",
+              "appImage": { "url": "https://example.com/a", "sha256": "abc", "sizeBytes": 1 },
+              "tarball": { "url": "https://example.com/emberr-x86_64.tar.gz", "sha256": "def", "sizeBytes": 2 }
+            }
+            """.trimIndent().encodeToByteArray()
+        )
+
+        assertEquals("https://example.com/emberr-x86_64.tar.gz", manifest.tarball?.url)
+        assertEquals("def", manifest.tarball?.sha256)
+    }
+
+    @Test
+    fun manifestFromBeforeTarballUpdatesHasNoTarballEntry() {
+        val manifest = parseAppUpdateManifest(
+            """
+            {
+              "version": "1.0.1",
+              "appImage": { "url": "https://example.com/a", "sha256": "abc", "sizeBytes": 1 }
+            }
+            """.trimIndent().encodeToByteArray()
+        )
+
+        assertNull(manifest.tarball)
+    }
+
+    @Test
+    fun manifestWithoutAVersionFailsToParse() {
         assertFails {
-            parseAppUpdateManifest("""{ "version": "1.2.0" }""".encodeToByteArray())
+            parseAppUpdateManifest("""{ "appImage": { "url": "a", "sha256": "b", "sizeBytes": 1 } }""".encodeToByteArray())
         }
     }
 }

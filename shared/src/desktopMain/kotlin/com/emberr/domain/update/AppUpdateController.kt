@@ -10,12 +10,11 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import java.io.File
 
 class AppUpdateController(
     private val settingsManager: SettingsManager,
-    private val appImageUpdater: AppImageUpdater,
-    private val appImageFile: File?,
+    private val updateDownloader: AppUpdateDownloader,
+    private val installation: UpdatableInstallation?,
     val installedVersion: String?
 ) {
     private val updateScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -26,7 +25,7 @@ class AppUpdateController(
     private val _prompt = MutableStateFlow<AppUpdatePrompt?>(null)
     val prompt: StateFlow<AppUpdatePrompt?> = _prompt.asStateFlow()
 
-    val canUpdateInApp: Boolean = appImageFile != null && installedVersion != null
+    val canUpdateInApp: Boolean = installation != null && installedVersion != null
 
     val automaticCheckEnabledFlow: Flow<Boolean> = settingsManager.automaticUpdateCheckEnabledFlow
 
@@ -44,13 +43,14 @@ class AppUpdateController(
 
     fun startDownload() {
         val release = (_state.value as? AppUpdateState.Available)?.release ?: return
-        val targetFile = appImageFile ?: return
+        val currentInstallation = installation ?: return
+        val download = currentInstallation.downloadFor(release) ?: return
         _prompt.value = null
 
-        if (targetFile.parentFile?.canWrite() != true) {
-            openLinkInRunningBrowser(AppImageUpdater.RELEASES_PAGE_URL)
+        if (!currentInstallation.canInstall()) {
+            openLinkInRunningBrowser(AppUpdateDownloader.RELEASES_PAGE_URL)
             _prompt.value = AppUpdatePrompt.ReportFailure(
-                "Emberr can't replace itself in ${targetFile.parent}. " +
+                "Emberr can't replace itself in the folder it is installed in. " +
                     "The download page is opening in your browser instead."
             )
             return
@@ -59,9 +59,10 @@ class AppUpdateController(
         _state.value = AppUpdateState.Downloading(release, progressPercent = 0)
         updateScope.launch {
             try {
-                appImageUpdater.downloadAndReplace(release, targetFile) { percent ->
+                updateDownloader.downloadFile(download, currentInstallation.downloadFile) { percent ->
                     _state.value = AppUpdateState.Downloading(release, percent)
                 }
+                currentInstallation.install(release, download)
                 _state.value = AppUpdateState.ReadyToRestart(release.version)
                 _prompt.value = AppUpdatePrompt.OfferRestart(release.version)
             } catch (cause: Exception) {
@@ -70,6 +71,8 @@ class AppUpdateController(
                 _prompt.value = AppUpdatePrompt.ReportFailure(
                     userFacingMessageFor(cause, "The update couldn't be downloaded. Check your connection and try again.")
                 )
+            } finally {
+                currentInstallation.downloadFile.delete()
             }
         }
     }
@@ -80,7 +83,7 @@ class AppUpdateController(
 
     private fun checkForUpdate(isRequestedByUser: Boolean) {
         val currentVersion = installedVersion ?: return
-        if (appImageFile == null) return
+        val currentInstallation = installation ?: return
 
         val currentState = _state.value
         val isBusy = currentState is AppUpdateState.Checking ||
@@ -91,7 +94,8 @@ class AppUpdateController(
         _state.value = AppUpdateState.Checking
         updateScope.launch {
             try {
-                val newerRelease = appImageUpdater.findNewerRelease(currentVersion)
+                val newerRelease = updateDownloader.findNewerRelease(currentVersion)
+                    ?.takeIf { release -> currentInstallation.downloadFor(release) != null }
                 if (newerRelease == null) {
                     _state.value = AppUpdateState.UpToDate
                 } else {

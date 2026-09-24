@@ -36,9 +36,9 @@ import com.emberr.domain.selfhost.crypto.Pbkdf2KeyDerivationManager
 import com.emberr.domain.selfhost.crypto.SecureSyncKeyStorage
 import com.emberr.domain.selfhost.sync.SelfHostSyncScheduler
 import com.emberr.domain.sync.SyncRepository
-import com.emberr.domain.update.AppImageUpdater
 import com.emberr.domain.update.AppUpdateController
-import com.emberr.domain.update.RunningAppImage
+import com.emberr.domain.update.AppUpdateDownloader
+import com.emberr.domain.update.detectUpdatableInstallation
 import com.emberr.domain.util.system.appVersionName
 import com.emberr.domain.util.voice.AudioRecorder
 import com.emberr.domain.util.voice.DesktopAudioRecorder
@@ -155,8 +155,8 @@ val desktopModule = module {
     single {
         AppUpdateController(
             settingsManager = get(),
-            appImageUpdater = AppImageUpdater(),
-            appImageFile = RunningAppImage.fileOrNull(),
+            updateDownloader = AppUpdateDownloader(),
+            installation = detectUpdatableInstallation(),
             installedVersion = appVersionName
         )
     }

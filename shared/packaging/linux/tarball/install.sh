@@ -12,9 +12,28 @@ MENU_CATEGORY="@MENU_CATEGORY@"
 ICON_SIZE="@ICON_SIZE@"
 
 FORCE_CLOSE=0
-if [ "${1:-}" = "--force" ]; then
-    FORCE_CLOSE=1
-fi
+LAUNCH_AFTER=0
+WAIT_FOR_PID=""
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --force) FORCE_CLOSE=1 ;;
+        --launch-after) LAUNCH_AFTER=1 ;;
+        --wait-for-pid)
+            if [ $# -lt 2 ]; then
+                echo "Error: --wait-for-pid needs a process id." >&2
+                exit 1
+            fi
+            WAIT_FOR_PID="$2"
+            shift
+            ;;
+        *)
+            echo "Unknown option: $1" >&2
+            echo "Usage: $0 [--force]" >&2
+            exit 1
+            ;;
+    esac
+    shift
+done
 
 if [ -z "${HOME:-}" ]; then
     echo "Error: HOME is not set, so there is nowhere to install to." >&2
@@ -65,6 +84,23 @@ close_running_app() {
     fi
 }
 
+wait_for_updating_app_to_exit() {
+    echo "Waiting for $APP_NAME to close"
+    attempts=0
+    while kill -0 "$WAIT_FOR_PID" 2>/dev/null; do
+        if [ "$attempts" -ge 600 ]; then
+            echo "Error: $APP_NAME was still running after a minute, so nothing was changed." >&2
+            exit 1
+        fi
+        sleep 0.1
+        attempts=$((attempts + 1))
+    done
+}
+
+if [ -n "$WAIT_FOR_PID" ]; then
+    wait_for_updating_app_to_exit
+fi
+
 if [ -n "$(running_app_process_ids)" ] && [ "$FORCE_CLOSE" -eq 0 ]; then
     echo "Error: $APP_NAME is running, so the old version would stay in memory." >&2
     echo "Quit it from the tray icon, then run this script again." >&2
@@ -72,26 +108,37 @@ if [ -n "$(running_app_process_ids)" ] && [ "$FORCE_CLOSE" -eq 0 ]; then
     exit 1
 fi
 
+NEW_APP_DIR="$APP_DIR.new"
+OLD_APP_DIR="$APP_DIR.old"
+
+echo "Installing $APP_NAME $APP_VERSION to $APP_DIR"
+rm -rf "$NEW_APP_DIR" "$OLD_APP_DIR"
+mkdir -p "$NEW_APP_DIR" "$DESKTOP_ENTRY_DIR" "$ICON_DIR" "$BIN_DIR"
+cp -R "$SOURCE_APP_DIR/." "$NEW_APP_DIR/"
+
+chmod +x "$NEW_APP_DIR/bin/$APP_NAME"
+if [ -d "$NEW_APP_DIR/lib/runtime/bin" ]; then
+    find "$NEW_APP_DIR/lib/runtime/bin" -type f -exec chmod +x {} +
+fi
+if [ -f "$NEW_APP_DIR/lib/runtime/lib/jspawnhelper" ]; then
+    chmod +x "$NEW_APP_DIR/lib/runtime/lib/jspawnhelper"
+fi
+
 if [ -n "$(running_app_process_ids)" ]; then
+    if [ "$FORCE_CLOSE" -eq 0 ]; then
+        rm -rf "$NEW_APP_DIR"
+        echo "Error: $APP_NAME was opened again during the install, so nothing was changed." >&2
+        exit 1
+    fi
     close_running_app
 fi
 
 if [ -d "$APP_DIR" ]; then
-    echo "Removing the previous install at $APP_DIR"
-    rm -rf "$APP_DIR"
+    echo "Replacing the previous install at $APP_DIR"
+    mv "$APP_DIR" "$OLD_APP_DIR"
 fi
-
-echo "Installing $APP_NAME $APP_VERSION to $APP_DIR"
-mkdir -p "$APP_DIR" "$DESKTOP_ENTRY_DIR" "$ICON_DIR" "$BIN_DIR"
-cp -R "$SOURCE_APP_DIR/." "$APP_DIR/"
-
-chmod +x "$LAUNCHER"
-if [ -d "$APP_DIR/lib/runtime/bin" ]; then
-    find "$APP_DIR/lib/runtime/bin" -type f -exec chmod +x {} +
-fi
-if [ -f "$APP_DIR/lib/runtime/lib/jspawnhelper" ]; then
-    chmod +x "$APP_DIR/lib/runtime/lib/jspawnhelper"
-fi
+mv "$NEW_APP_DIR" "$APP_DIR"
+rm -rf "$OLD_APP_DIR"
 
 cp "$SOURCE_ICON" "$ICON_DIR/$PACKAGE_NAME.png"
 
@@ -150,3 +197,8 @@ case ":$PATH:" in
         echo "  export PATH=\"\$HOME/.local/bin:\$PATH\""
         ;;
 esac
+
+if [ "$LAUNCH_AFTER" -eq 1 ]; then
+    echo "Starting $APP_NAME"
+    nohup "$WRAPPER" > /dev/null 2>&1 &
+fi

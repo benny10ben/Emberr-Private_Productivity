@@ -592,7 +592,7 @@ tasks.register<Exec>("packageDebWithDesktopEntry") {
 //
 //     ./gradlew :shared:packageTarball
 //
-// Result: shared/build/compose/binaries/main/tarball/emberr-<version>-x86_64.tar.gz
+// Result: shared/build/compose/binaries/main/tarball/emberr-x86_64.tar.gz
 //
 // Unlike the RPM and DEB tasks this one needs no external tools at all, because a
 // tarball is just the app image createDistributable already produced plus the two
@@ -610,7 +610,7 @@ tasks.register<Tar>("packageTarball") {
 
     val appImageDir = layout.buildDirectory.dir("compose/binaries/main/app/$applicationName")
 
-    archiveFileName.set("$tarballRootDirectoryName.tar.gz")
+    archiveFileName.set("$packageIdentifier-x86_64.tar.gz")
     destinationDirectory.set(layout.buildDirectory.dir("compose/binaries/main/tarball"))
     compression = Compression.GZIP
 

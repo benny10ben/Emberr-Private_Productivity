@@ -78,10 +78,10 @@ jobs:
           chmod +x "$RUNNER_TEMP/bin/appimagetool"
           echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
 
-      - name: Build the AppImage
+      - name: Build the AppImage and the tarball
         env:
           APPIMAGE_EXTRACT_AND_RUN: 1
-        run: ./gradlew :shared:packageAppImage -PappImageRuntimeFile="$RUNNER_TEMP/runtime-x86_64" --stacktrace
+        run: ./gradlew :shared:packageAppImage :shared:packageTarball -PappImageRuntimeFile="$RUNNER_TEMP/runtime-x86_64" --stacktrace
 
       - name: Check that the database schema files are committed and unchanged
         run: |
@@ -96,13 +96,23 @@ jobs:
         run: |
           mkdir -p release-files
           cp shared/build/compose/binaries/main/appimage/Emberr-x86_64.AppImage release-files/
+          cp shared/build/compose/binaries/main/tarball/emberr-x86_64.tar.gz release-files/
+          download_base="https://github.com/$GITHUB_REPOSITORY/releases/download/$GITHUB_REF_NAME"
           app_image=release-files/Emberr-x86_64.AppImage
+          tarball=release-files/emberr-x86_64.tar.gz
           jq -n \
             --arg version "${GITHUB_REF_NAME#v}" \
-            --arg url "https://github.com/$GITHUB_REPOSITORY/releases/download/$GITHUB_REF_NAME/Emberr-x86_64.AppImage" \
-            --arg sha256 "$(sha256sum "$app_image" | cut -d' ' -f1)" \
-            --argjson sizeBytes "$(stat -c %s "$app_image")" \
-            '{version: $version, appImage: {url: $url, sha256: $sha256, sizeBytes: $sizeBytes}}' \
+            --arg appImageUrl "$download_base/Emberr-x86_64.AppImage" \
+            --arg appImageSha256 "$(sha256sum "$app_image" | cut -d' ' -f1)" \
+            --argjson appImageSizeBytes "$(stat -c %s "$app_image")" \
+            --arg tarballUrl "$download_base/emberr-x86_64.tar.gz" \
+            --arg tarballSha256 "$(sha256sum "$tarball" | cut -d' ' -f1)" \
+            --argjson tarballSizeBytes "$(stat -c %s "$tarball")" \
+            '{
+              version: $version,
+              appImage: {url: $appImageUrl, sha256: $appImageSha256, sizeBytes: $appImageSizeBytes},
+              tarball: {url: $tarballUrl, sha256: $tarballSha256, sizeBytes: $tarballSizeBytes}
+            }' \
             > release-files/latest.json
           cat release-files/latest.json
 
@@ -128,5 +138,6 @@ jobs:
             --title "Emberr ${GITHUB_REF_NAME#v}" \
             --generate-notes \
             release-files/Emberr-x86_64.AppImage \
+            release-files/emberr-x86_64.tar.gz \
             release-files/latest.json \
             release-files/latest.json.sig

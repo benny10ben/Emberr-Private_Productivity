@@ -37,6 +37,8 @@ import com.emberr.domain.selfhost.crypto.SecureSyncKeyStorage
 import com.emberr.domain.selfhost.sync.SelfHostSyncLog
 import com.emberr.domain.selfhost.sync.SelfHostSyncScheduler
 import com.emberr.domain.update.AppUpdateController
+import com.emberr.domain.update.TarballInstallation
+import com.emberr.domain.util.system.appVersionName
 import com.emberr.domain.vault.VaultLog
 import com.emberr.domain.vault.VaultMirrorService
 import com.emberr.presentation.EmberrApp
@@ -86,6 +88,14 @@ private const val MILLIS_TO_WAIT_FOR_FIRST_FRAME_BEFORE_STARTING_ANYWAY = 4000L
 
 fun main() {
     if (!DesktopSingleInstance.claimOwnershipOrWakeRunningApp()) return
+
+    val tarballInstallation = TarballInstallation.forRunningAppOrNull()
+    if (tarballInstallation?.installNewerStagedUpdateInsteadOfStarting(appVersionName) == true) {
+        DesktopSingleInstance.releaseOwnership()
+        return
+    }
+    tarballInstallation?.installStagedUpdateWhenAppQuits(appVersionName)
+
     runEmberrDesktopApp()
 }
 

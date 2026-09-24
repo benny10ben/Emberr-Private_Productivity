@@ -6,7 +6,8 @@ import kotlinx.serialization.json.Json
 @Serializable
 data class AppUpdateManifest(
     val version: String,
-    val appImage: AppUpdateDownload
+    val appImage: AppUpdateDownload? = null,
+    val tarball: AppUpdateDownload? = null
 )
 
 @Serializable
