@@ -84,6 +84,7 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.ui.platform.LocalContext
 import com.emberr.domain.model.NoteBlock
 import com.emberr.domain.util.export.generateAndSaveAndroidPdf
+import com.emberr.domain.update.AndroidUpdateChecker
 import com.emberr.presentation.navigation.Screen
 import kotlin.time.Duration.Companion.milliseconds
 import androidx.core.content.IntentCompat
@@ -121,6 +122,7 @@ class MainActivity : ComponentActivity() {
 
     private val settingsViewModel: com.emberr.presentation.settings.SettingsViewModel by inject()
     private val activeSpaceStore: com.emberr.domain.space.ActiveSpaceStore by inject()
+    private val updateChecker: AndroidUpdateChecker by inject()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         val splashScreen = installSplashScreen()
@@ -133,6 +135,8 @@ class MainActivity : ComponentActivity() {
             overridePendingTransition(0, 0)
         }
         enableEdgeToEdge()
+
+        updateChecker.checkOnLaunchOnce()
 
         lifecycleScope.launch {
             withTimeoutOrNull(aiWarmUpFallbackDelay) { FirstContentRenderSignal.awaitFirstContent() }

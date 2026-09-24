@@ -49,6 +49,8 @@ import com.emberr.domain.vault.VaultImporter
 import com.emberr.domain.vault.VaultMirrorService
 import com.emberr.domain.vault.VaultPathMemory
 import com.emberr.domain.vault.VaultStartupReconciler
+import com.emberr.domain.update.AndroidUpdateChecker
+import com.emberr.domain.util.system.appVersionName
 import com.emberr.domain.util.voice.AndroidAudioRecorder
 import com.emberr.domain.util.media.AndroidImageDownloader
 import com.emberr.domain.util.media.AndroidMediaStorageHelper
@@ -331,6 +333,13 @@ val androidModule = module {
     }
     single { BackupScheduler(context = get(), settingsManager = get()) }
     single { BackupNotifier(context = get()) }
+    single {
+        AndroidUpdateChecker(
+            context = get(),
+            settingsManager = get(),
+            installedVersion = appVersionName
+        )
+    }
     single<BackupRescheduler> { AndroidBackupRescheduler(backupScheduler = get()) }
 
     // Vault mirror. The folder is app-private, so it needs no storage permission and no other app

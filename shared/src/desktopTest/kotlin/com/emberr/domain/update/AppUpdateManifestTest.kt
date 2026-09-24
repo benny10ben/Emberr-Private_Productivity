@@ -34,7 +34,7 @@ class AppUpdateManifestTest {
             {
               "version": "1.2.0",
               "appImage": { "url": "https://example.com/a", "sha256": "abc", "sizeBytes": 1 },
-              "windowsInstaller": { "url": "https://example.com/b", "sha256": "def", "sizeBytes": 2 }
+              "somePackageFromTheFuture": { "url": "https://example.com/b", "sha256": "def", "sizeBytes": 2 }
             }
             """.trimIndent().encodeToByteArray()
         )
@@ -50,7 +50,8 @@ class AppUpdateManifestTest {
               "version": "1.0.2",
               "appImage": { "url": "https://example.com/a", "sha256": "abc", "sizeBytes": 1 },
               "tarball": { "url": "https://example.com/emberr-x86_64.tar.gz", "sha256": "def", "sizeBytes": 2 },
-              "windowsInstaller": { "url": "https://example.com/Emberr-Setup-x86_64.exe", "sha256": "ghi", "sizeBytes": 3 }
+              "windowsInstaller": { "url": "https://example.com/Emberr-Setup-x86_64.exe", "sha256": "ghi", "sizeBytes": 3 },
+              "androidApk": { "url": "https://example.com/Emberr-android.apk", "sha256": "jkl", "sizeBytes": 4 }
             }
             """.trimIndent().encodeToByteArray()
         )
@@ -58,6 +59,7 @@ class AppUpdateManifestTest {
         assertEquals("https://example.com/emberr-x86_64.tar.gz", manifest.tarball?.url)
         assertEquals("def", manifest.tarball?.sha256)
         assertEquals("https://example.com/Emberr-Setup-x86_64.exe", manifest.windowsInstaller?.url)
+        assertEquals("https://example.com/Emberr-android.apk", manifest.androidApk?.url)
     }
 
     @Test
@@ -73,6 +75,7 @@ class AppUpdateManifestTest {
 
         assertNull(manifest.tarball)
         assertNull(manifest.windowsInstaller)
+        assertNull(manifest.androidApk)
     }
 
     @Test

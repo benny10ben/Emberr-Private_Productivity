@@ -30,7 +30,7 @@ class AppUpdateDownloader {
     }
 
     suspend fun findNewerRelease(installedVersion: String): AppUpdateManifest? = withContext(Dispatchers.IO) {
-        val manifestBytes = downloadBytes(LATEST_MANIFEST_URL)
+        val manifestBytes = downloadBytes(LATEST_UPDATE_MANIFEST_URL)
         val signatureBytes = downloadBytes(LATEST_MANIFEST_SIGNATURE_URL)
 
         if (!isValidManifestSignature(manifestBytes, signatureBytes)) {
@@ -92,9 +92,7 @@ class AppUpdateDownloader {
     }
 
     companion object {
-        const val RELEASES_PAGE_URL = "https://github.com/benny10ben/Emberr-Private_Productivity/releases/latest"
-        private const val LATEST_MANIFEST_URL = "$RELEASES_PAGE_URL/download/latest.json"
-        private const val LATEST_MANIFEST_SIGNATURE_URL = "$RELEASES_PAGE_URL/download/latest.json.sig"
+        private const val LATEST_MANIFEST_SIGNATURE_URL = "$LATEST_UPDATE_MANIFEST_URL.sig"
         private const val CONNECT_TIMEOUT_MS = 30_000L
         private const val SOCKET_TIMEOUT_MS = 60_000L
     }

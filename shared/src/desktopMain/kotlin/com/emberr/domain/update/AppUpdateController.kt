@@ -48,7 +48,7 @@ class AppUpdateController(
         _prompt.value = null
 
         if (!currentInstallation.canInstall()) {
-            openLinkInRunningBrowser(AppUpdateDownloader.RELEASES_PAGE_URL)
+            openLinkInRunningBrowser(LATEST_RELEASE_PAGE_URL)
             _prompt.value = AppUpdatePrompt.ReportFailure(
                 "Emberr can't replace itself in the folder it is installed in. " +
                     "The download page is opening in your browser instead."

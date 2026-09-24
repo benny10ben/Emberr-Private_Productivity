@@ -291,8 +291,10 @@ fun SettingsScreen(
 
         add(
             SettingsCategory(title = "Help", icon = Res.drawable.badge_question_mark) {
-                HelpSettingsSection()
-                AppUpdateSettingsSection()
+                Column {
+                    HelpSettingsSection()
+                    AppUpdateSettingsSection()
+                }
             }
         )
 
