@@ -51,7 +51,7 @@ After thinking about it for a while, I figured, why not put it out there? If you
 
 ## Platforms
 
-Android and Desktop. Desktop currently targets Linux, with Windows and macOS support planned.
+Android, Linux and Windows. macOS support is planned.
 
 ## Tech Stack
 
@@ -64,23 +64,59 @@ Android and Desktop. Desktop currently targets Linux, with Windows and macOS sup
 
 ## Installation
 
-### Option 1: Download from GitHub
+Every release is on the [Releases](https://github.com/benny10ben/Emberr-Private_Productivity/releases) page. The links below always download the newest version.
 
-Go to the [Releases](../../releases) page and download the latest APK, then install it on your device.
+### Android
 
-### Option 2: Obtainium
+**Option 1: Download the APK**
+
+Download [Emberr-android.apk](https://github.com/benny10ben/Emberr-Private_Productivity/releases) and open it on your phone to install it. Android may ask you to allow installing apps from your browser.
+
+**Option 2: Obtainium**
 
 Emberr can be tracked and auto-updated with [Obtainium](https://github.com/ImranR98/Obtainium):
 
 1. Open Obtainium and tap **Add App**.
-2. Paste this repository's URL: `https://github.com/benny10ben/Emberr-Privacy-Notes-Tasks-Calendar`
+2. Paste this repository's URL: `https://github.com/benny10ben/Emberr-Private_Productivity`
 3. Tap **Add** and Obtainium will pull the latest release and keep it updated.
 
-### Option 3: Build from source
+### Linux
 
-1. Clone the repository: `git clone https://github.com/benny10ben/Emberr-Privacy-Notes-Tasks-Calendar.git`
+**Option 1: AppImage (one file, nothing to install)**
+
+Download [Emberr-x86_64.AppImage](https://github.com/benny10ben/Emberr-Private_Productivity/releases), then run:
+
+```sh
+chmod +x Emberr-x86_64.AppImage
+./Emberr-x86_64.AppImage
+```
+
+**Option 2: Tarball (adds Emberr to your app menu)**
+
+Download [emberr-x86_64.tar.gz](https://github.com/benny10ben/Emberr-Private_Productivity/releases), then run:
+
+```sh
+tar -xzf emberr-x86_64.tar.gz
+./emberr-*-x86_64/install.sh
+```
+
+It installs for your user only, with no root needed. To remove it, run `uninstall.sh` from the same extracted folder.
+
+### Windows
+
+Download [Emberr-Setup-x86_64.exe](https://github.com/benny10ben/Emberr-Private_Productivity/releases) and run it.
+
+The installer isn't code-signed yet, so Windows may show "Windows protected your PC". Click **More info**, then **Run anyway**.
+
+### Updates
+
+In-App updates are available for linux and windows.
+
+### Build from source
+
+1. Clone the repository: `git clone https://github.com/benny10ben/Emberr-Private_Productivity.git`
 2. Open the project in Android Studio and let Gradle sync.
-3. Run `./gradlew :app:assembleRelease` to build the APK, or run the `app` module directly from Android Studio.
+3. Run `./gradlew :app:assembleRelease` to build the APK, or `./gradlew :shared:run` to start the desktop app.
 
 ## Contributing
 
