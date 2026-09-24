@@ -9,13 +9,13 @@ Emberr is a local-first, privacy-focused, 100% open source notes and productivit
 
 ### Why I Built This
 
-Why did I spend months building this project when there are already alternatives like Notion, Obsidian, AppFlowy, etc? Well, it comes down to a few reasons.
+Why spend months building this when apps like Notion and Obsidian already exist? Honestly, I just got annoyed.
 
-Some of these apps aren't open source, so you have no real idea what happens to your data behind the scenes. Some are open source and private but neglect entire platforms, Linux and Android are often treated as second class citizens compared to iOS, macOS, and Windows. And some just have bad UI and UX, cluttered, slow, and stuck in a design language from a decade ago.
+Most of the popular apps are closed-source, so who knows what they're doing with your data. The open-source ones are cool, but Linux and Android always feel like an afterthought. On top of that, a lot of them are just clunky, slow, and look old.
 
-I started Emberr as a side project, mainly to learn more about full stack development and backend systems (a cloud backup is what I'm building next). It was also just for myself. I wanted something that respected my privacy, ran well on Linux and Android, and actually felt good to use every day.
+I started Emberr as a side project to learn more about backend systems and mess around with full-stack stuff. But mainly, I just wanted an app for myself - something private, clean, and fast on the devices I actually use every day.
 
-After thinking about it for a while, I figured, why not put it out there? If you're like me, fed up with apps that don't respect your privacy, apps with bad UI and UX, or developers who treat Linux and Android as an afterthought, Emberr might be for you.
+Figured I might as well share it. If you're also tired of ugly UIs, privacy headaches, or getting ignored as an Android or Linux user, please give Emberr a shot.
 
 ## Features
 
@@ -24,8 +24,8 @@ After thinking about it for a while, I figured, why not put it out there? If you
 - Daily notes with automatic task rollover
 - Built-in calendar and reminders
 - Mobile to desktop sync (the data is encrypted so don't worry about using through public wifi)
-- Self-host your it on your own server (the data is encrypted on the server)
-- (AI is off by default) Local AI that runs entirely on-device for more privacy or bring your own API key for cloud AI providers
+- Self-host your data on your own server (the data is encrypted on the server)
+- (AI is off by default) Local AI that runs entirely on-device for more privacy or add your own API key for cloud AI providers
 - End-to-end encryption for your data 
 - No trackers, no ads, no sharing data to third parties
 
@@ -33,8 +33,9 @@ After thinking about it for a while, I figured, why not put it out there? If you
 
 ### Short term
 
-- UI / UX improvements
+- UI / UX and performance improvements
 - Keyboard shortcuts for the desktop app
+- Support for ARM based desktops
 - Improved Kanban and gallery views for the database block
 - Login/credentials block to store important info (hopefully with autofill too)
 - Improved local AI
@@ -45,9 +46,8 @@ After thinking about it for a while, I figured, why not put it out there? If you
 - Online account with cloud backup (end to end encrypted, of course)
 - Make each note shareable on the web
 - Share the same note, folder, or space with other users
-- Support for ARM based desktops
-- Support for community plugins (if this project gets many users) (2027)
-- Release for iOS and macOS (if I'm not broke TT) (2027)
+- Support for community plugins (if this project gets many users) (2027/28)
+- Release for iOS and macOS (if I'm not broke TT) (2027/28)
 
 ## Platforms
 
@@ -64,7 +64,7 @@ Android, Linux and Windows. macOS support is planned.
 
 ## Installation
 
-Every release is on the [Releases](https://github.com/benny10ben/Emberr-Private_Productivity/releases) page. The links below always download the newest version.
+Every release is on the [Releases](https://github.com/benny10ben/Emberr-Private_Productivity/releases) page.
 
 ### Android
 
