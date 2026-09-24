@@ -41,11 +41,28 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.Canvas
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.ImageShader
+import androidx.compose.ui.graphics.Paint
+import androidx.compose.ui.graphics.ShaderBrush
+import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -54,6 +71,7 @@ import com.emberr.presentation.shared.stableStatusBarsPadding
 import emberr.shared.generated.resources.Res
 import emberr.shared.generated.resources.chevron_left
 import org.jetbrains.compose.resources.painterResource
+import kotlin.random.Random
 
 private val WideLayoutMinWidth = 660.dp
 private val WidePaneMaxWidth = 720.dp
@@ -84,6 +102,13 @@ private val WideTopFadeHeight = 120.dp
 private val WideBottomFadeHeight = 32.dp
 private val CompactTopFadeHeight = 96.dp
 private val CompactBottomFadeHeight = 28.dp
+private const val ShowTexturedBackground = false
+private val GrainCellSize = 1.dp
+private const val GrainTileCells = 128
+private const val GrainDensity = 0.20f
+private const val GrainMinAlpha = 0.02f
+private const val GrainMaxAlpha = 0.06f
+private const val GrainSeed = 7
 
 internal val LocalOnboardingWideLayout = compositionLocalOf { false }
 
@@ -98,10 +123,20 @@ fun OnboardingFlowScaffold(
     panel: @Composable ColumnScope.() -> Unit,
     bottomBar: @Composable () -> Unit
 ) {
+    val grainBrush = rememberGrainBrush(speckColor = MaterialTheme.colorScheme.onBackground)
+    val silk = if (ShowTexturedBackground) rememberOnboardingSilk() else null
+    var scaffoldOriginInRoot by remember { mutableStateOf(Offset.Zero) }
+    var statementStackBoundsInRoot by remember { mutableStateOf(Rect.Zero) }
+
     BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
+            .onGloballyPositioned { scaffold -> scaffoldOriginInRoot = scaffold.positionInRoot() }
+            .drawWithContent {
+                drawContent()
+                if (ShowTexturedBackground) drawRect(grainBrush)
+            }
     ) {
         val isWideLayout = maxWidth >= WideLayoutMinWidth
 
@@ -147,6 +182,10 @@ fun OnboardingFlowScaffold(
             ).coerceAtLeast(0.dp)
 
         CompositionLocalProvider(LocalOnboardingWideLayout provides isWideLayout) {
+            if (silk != null) {
+                SilkBackdrop(silk = silk, modifier = Modifier.fillMaxSize())
+            }
+
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -175,13 +214,15 @@ fun OnboardingFlowScaffold(
                         steps = statements,
                         currentStepIndex = currentStepIndex,
                         spaceBetweenStatements = spaceBetweenStatements,
-                        topFadeHeight = topFadeHeight,
                         bottomFadeHeight = bottomFadeHeight,
                         isWideLayout = isWideLayout,
                         modifier = Modifier
                             .fillMaxWidth()
                             .weight(1f)
                             .padding(horizontal = sidePadding)
+                            .onGloballyPositioned { statementStack ->
+                                statementStackBoundsInRoot = statementStack.boundsInRoot()
+                            }
                     )
 
                     Spacer(modifier = Modifier.height(gapBelowStatements))
@@ -213,8 +254,55 @@ fun OnboardingFlowScaffold(
                     }
                 }
             }
+
+            StatementEdgeFades(
+                silk = silk,
+                statementBounds = { statementStackBoundsInRoot.translate(-scaffoldOriginInRoot) },
+                topFade = topFadeHeight,
+                bottomFade = bottomFadeHeight,
+                fadeColor = MaterialTheme.colorScheme.background,
+                modifier = Modifier.fillMaxSize()
+            )
         }
     }
+}
+
+@Composable
+private fun rememberGrainBrush(speckColor: Color): ShaderBrush {
+    val cellSizePx = with(LocalDensity.current) { GrainCellSize.roundToPx() }.coerceAtLeast(1)
+
+    return remember(cellSizePx, speckColor) {
+        ShaderBrush(
+            ImageShader(
+                image = createGrainTile(cellSizePx, speckColor),
+                tileModeX = TileMode.Repeated,
+                tileModeY = TileMode.Repeated
+            )
+        )
+    }
+}
+
+private fun createGrainTile(cellSizePx: Int, speckColor: Color): ImageBitmap {
+    val tileSizePx = GrainTileCells * cellSizePx
+    val tile = ImageBitmap(tileSizePx, tileSizePx)
+    val canvas = Canvas(tile)
+    val paint = Paint()
+    val random = Random(GrainSeed)
+
+    for (row in 0 until GrainTileCells) {
+        for (column in 0 until GrainTileCells) {
+            if (random.nextFloat() >= GrainDensity) continue
+
+            val speckAlpha = GrainMinAlpha + random.nextFloat() * (GrainMaxAlpha - GrainMinAlpha)
+            paint.color = speckColor.copy(alpha = speckAlpha)
+
+            val left = (column * cellSizePx).toFloat()
+            val top = (row * cellSizePx).toFloat()
+            canvas.drawRect(left, top, left + cellSizePx, top + cellSizePx, paint)
+        }
+    }
+
+    return tile
 }
 
 @Composable

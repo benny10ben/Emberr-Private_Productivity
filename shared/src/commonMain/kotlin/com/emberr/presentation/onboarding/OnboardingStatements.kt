@@ -114,7 +114,6 @@ fun OnboardingStatementStack(
     steps: List<OnboardingStep>,
     currentStepIndex: Int,
     spaceBetweenStatements: Dp,
-    topFadeHeight: Dp,
     bottomFadeHeight: Dp,
     isWideLayout: Boolean,
     modifier: Modifier = Modifier
@@ -155,11 +154,6 @@ fun OnboardingStatementStack(
         modifier = modifier
             .fillMaxSize()
             .clipToBounds()
-            .fadingEdges(
-                topFade = topFadeHeight,
-                bottomFade = bottomFadeHeight,
-                fadeColor = MaterialTheme.colorScheme.background
-            )
             .onSizeChanged { stackArea -> stackAreaHeight.intValue = stackArea.height }
     ) {
         Column(
@@ -490,31 +484,6 @@ private fun statementHeadlineStyle(isWideLayout: Boolean): TextStyle {
         lineHeight = (fontSize.value * 1.18f).sp,
         letterSpacing = (-0.4).sp
     )
-}
-
-private fun Modifier.fadingEdges(topFade: Dp, bottomFade: Dp, fadeColor: Color): Modifier {
-    if (topFade <= 0.dp && bottomFade <= 0.dp) return this
-
-    val clearFadeColor = fadeColor.copy(alpha = 0f)
-
-    return this.drawWithContent {
-        drawContent()
-
-        if (size.height <= 0f) return@drawWithContent
-
-        val firstClearStop = (topFade.toPx() / size.height).coerceIn(0f, 0.5f)
-        val lastClearStop = (1f - bottomFade.toPx() / size.height)
-            .coerceIn(firstClearStop, 1f)
-
-        drawRect(
-            brush = Brush.verticalGradient(
-                0f to fadeColor,
-                firstClearStop to clearFadeColor,
-                lastClearStop to clearFadeColor,
-                1f to fadeColor
-            )
-        )
-    }
 }
 
 private fun alphaForDistance(stepsBehind: Int): Float = when (stepsBehind) {
