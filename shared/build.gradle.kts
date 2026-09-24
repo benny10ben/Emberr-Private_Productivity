@@ -4,6 +4,7 @@ import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
     alias(libs.plugins.android.kotlin.multiplatform.library)
+    alias(libs.plugins.android.lint)
     alias(libs.plugins.jetbrains.compose)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
@@ -70,10 +71,6 @@ tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile>().configureEa
     compilerOptions {
         jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.fromTarget(javaToolchainVersion))
     }
-}
-
-tasks.matching { it.name.contains("AndroidHostTest") && it.name.contains("Lint", ignoreCase = true) }.configureEach {
-    enabled = false
 }
 
 kotlin {
@@ -704,7 +701,7 @@ dependencies {
     add("androidRuntimeClasspath", libs.androidx.compose.ui.tooling)
 }
 
-configurations.all {
+configurations.matching { it.name != "androidLintTool" }.configureEach {
     resolutionStrategy {
         eachDependency {
             if (requested.group == "org.jetbrains.kotlin" && requested.name.startsWith("kotlin-stdlib")) {
