@@ -38,14 +38,18 @@ data class EmberrFontSizes(
 )
 
 // Mobile Profiles
+val MobileFontSizesExtraSmall = EmberrFontSizes(bodyLarge = 13.sp, titleLarge = 19.sp, labelSmall = 11.sp)
 val MobileFontSizesSmall = EmberrFontSizes(bodyLarge = 14.sp, titleLarge = 20.sp, labelSmall = 12.sp)
 val MobileFontSizesDefault = EmberrFontSizes(bodyLarge = 15.sp, titleLarge = 21.sp, labelSmall = 13.sp)
 val MobileFontSizesLarge = EmberrFontSizes(bodyLarge = 16.sp, titleLarge = 22.sp, labelSmall = 14.sp)
+val MobileFontSizesExtraLarge = EmberrFontSizes(bodyLarge = 17.sp, titleLarge = 23.sp, labelSmall = 15.sp)
 
 // Desktop Profiles (Scaled up slightly)
+val DesktopFontSizesExtraSmall = EmberrFontSizes(bodyLarge = 14.sp, titleLarge = 20.sp, labelSmall = 12.sp)
 val DesktopFontSizesSmall = EmberrFontSizes(bodyLarge = 15.sp, titleLarge = 21.sp, labelSmall = 13.sp)
 val DesktopFontSizesDefault = EmberrFontSizes(bodyLarge = 16.sp, titleLarge = 22.sp, labelSmall = 14.sp)
 val DesktopFontSizesLarge = EmberrFontSizes(bodyLarge = 17.sp, titleLarge = 23.sp, labelSmall = 15.sp)
+val DesktopFontSizesExtraLarge = EmberrFontSizes(bodyLarge = 18.sp, titleLarge = 24.sp, labelSmall = 16.sp)
 
 val LocalEmberrFontSizes = staticCompositionLocalOf { MobileFontSizesDefault }
 

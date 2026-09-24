@@ -12,6 +12,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -89,20 +91,20 @@ private fun TypefaceChoice(viewModel: OnboardingViewModel) {
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun TextSizeChoice(viewModel: OnboardingViewModel) {
     val fontSizeName by viewModel.fontSizePreference.collectAsState()
     val selectedFontSize = runCatching { FontSizePreference.valueOf(fontSizeName) }
         .getOrDefault(FontSizePreference.DEFAULT)
 
-    Row(
+    FlowRow(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = if (LocalOnboardingWideLayout.current) {
             Arrangement.spacedBy(30.dp, Alignment.CenterHorizontally)
         } else {
             Arrangement.spacedBy(30.dp)
-        },
-        verticalAlignment = Alignment.Bottom
+        }
     ) {
         FontSizePreference.entries.forEach { sizePreference ->
             val isSelected = sizePreference == selectedFontSize
@@ -118,6 +120,7 @@ private fun TextSizeChoice(viewModel: OnboardingViewModel) {
                 fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal,
                 color = labelColor,
                 modifier = Modifier
+                    .align(Alignment.Bottom)
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null
@@ -416,13 +419,17 @@ private fun optionColorFor(isSelected: Boolean): Color = if (isSelected) {
 }
 
 private fun FontSizePreference.displayLabel(): String = when (this) {
+    FontSizePreference.EXTRA_SMALL -> "Extra Small"
     FontSizePreference.SMALL -> "Small"
     FontSizePreference.DEFAULT -> "Default"
     FontSizePreference.LARGE -> "Large"
+    FontSizePreference.EXTRA_LARGE -> "Extra Large"
 }
 
 private fun FontSizePreference.previewTextSize(): TextUnit = when (this) {
+    FontSizePreference.EXTRA_SMALL -> 13.sp
     FontSizePreference.SMALL -> 15.sp
     FontSizePreference.DEFAULT -> 19.sp
     FontSizePreference.LARGE -> 24.sp
+    FontSizePreference.EXTRA_LARGE -> 29.sp
 }

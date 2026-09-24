@@ -95,9 +95,11 @@ private val SettingsSidebarWidth = 244.dp
 private val SettingsPaneMaxWidth = 760.dp
 private val BackupFrequencies = listOf("Hourly", "Daily", "Weekly")
 private val FontSizeOptions = listOf(
+    FontSizePreference.EXTRA_SMALL.name to "Extra Small",
     FontSizePreference.SMALL.name to "Small",
     FontSizePreference.DEFAULT.name to "Default",
-    FontSizePreference.LARGE.name to "Large"
+    FontSizePreference.LARGE.name to "Large",
+    FontSizePreference.EXTRA_LARGE.name to "Extra Large"
 )
 
 private class SettingsCategory(
@@ -1522,7 +1524,7 @@ fun SettingsToggleRow(
 
 private fun fontSizeDisplayNameFor(preferenceName: String): String =
     FontSizeOptions.firstOrNull { it.first == preferenceName }?.second
-        ?: FontSizeOptions[1].second
+        ?: FontSizeOptions[2].second
 
 private fun topBarFadeStyleFor(styleName: String): TopBarFadeStyle =
     runCatching { TopBarFadeStyle.valueOf(styleName) }.getOrDefault(TopBarFadeStyle.BLUR)

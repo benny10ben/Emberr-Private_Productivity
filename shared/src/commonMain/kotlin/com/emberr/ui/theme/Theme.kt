@@ -48,7 +48,7 @@ val LocalAppIsDark = staticCompositionLocalOf { false }
 val highlightBackgroundColor: Color
     @Composable get() = if (LocalAppIsDark.current) HighlightLimeDark else HighlightLime
 
-enum class FontSizePreference { SMALL, DEFAULT, LARGE }
+enum class FontSizePreference { EXTRA_SMALL, SMALL, DEFAULT, LARGE, EXTRA_LARGE }
 enum class ThemePreference(val displayName: String) {
     SYSTEM("System"),
     LIGHT("Light"),
@@ -71,14 +71,18 @@ fun EmberrTheme(
 
     val currentFontSizes = when {
         isDesktopPlatform -> when (fontSizePreference) {
+            FontSizePreference.EXTRA_SMALL -> DesktopFontSizesExtraSmall
             FontSizePreference.SMALL -> DesktopFontSizesSmall
             FontSizePreference.DEFAULT -> DesktopFontSizesDefault
             FontSizePreference.LARGE -> DesktopFontSizesLarge
+            FontSizePreference.EXTRA_LARGE -> DesktopFontSizesExtraLarge
         }
         else -> when (fontSizePreference) {
+            FontSizePreference.EXTRA_SMALL -> MobileFontSizesExtraSmall
             FontSizePreference.SMALL -> MobileFontSizesSmall
             FontSizePreference.DEFAULT -> MobileFontSizesDefault
             FontSizePreference.LARGE -> MobileFontSizesLarge
+            FontSizePreference.EXTRA_LARGE -> MobileFontSizesExtraLarge
         }
     }
 
