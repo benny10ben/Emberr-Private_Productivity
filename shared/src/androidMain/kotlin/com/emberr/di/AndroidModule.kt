@@ -106,9 +106,7 @@ val androidModule = module {
         val supportFactory = SupportOpenHelperFactory(SqlCipherRuntime.asRawKey(passphrase))
 
         val builder = com.emberr.data.local.room.getDatabaseBuilder(androidContext())
-        builder
-            .openHelperFactory(supportFactory)
-            .fallbackToDestructiveMigration(dropAllTables = true)
+        builder.openHelperFactory(supportFactory)
 
         com.emberr.data.local.room.getRoomDatabase(builder)
     }

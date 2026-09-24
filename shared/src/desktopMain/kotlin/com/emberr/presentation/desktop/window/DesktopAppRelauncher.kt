@@ -1,5 +1,6 @@
 package com.emberr.presentation.desktop.window
 
+import com.emberr.domain.update.RunningAppImage
 import java.io.File
 
 object DesktopAppRelauncher {
@@ -22,6 +23,7 @@ object DesktopAppRelauncher {
     }
 
     private fun currentProcessCommand(): List<String>? {
+        RunningAppImage.fileOrNull()?.let { appImageFile -> return listOf(appImageFile.absolutePath) }
         val processInfo = ProcessHandle.current().info()
         val executable = processInfo.command().orElse(null) ?: return null
         val arguments = processInfo.arguments().orElse(emptyArray()).toList()

@@ -50,6 +50,8 @@ object SyncConstants {
     const val DEFAULT_CUSTOM_WINDOW_FRAME = true
     const val KEY_AUTO_HIDE_TITLE_BAR = "auto_hide_title_bar"
     const val DEFAULT_AUTO_HIDE_TITLE_BAR = true
+    const val KEY_AUTOMATIC_UPDATE_CHECK = "automatic_update_check"
+    const val DEFAULT_AUTOMATIC_UPDATE_CHECK = true
     const val KEY_ONBOARDING_COMPLETED = "onboarding_completed"
     const val DEFAULT_ONBOARDING_COMPLETED = false
     const val KEY_SAMPLE_DAILY_NOTE_SEEDED = "sample_daily_note_seeded"

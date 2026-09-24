@@ -1,4 +1,7 @@
 [versions]
+# Emberr release
+appVersion = "1.0.0"
+
 # Build toolchain
 agp = "9.4.0"
 kotlin = "2.4.0"
@@ -123,6 +126,7 @@ jna-platform = { group = "net.java.dev.jna", name = "jna-platform", version.ref 
 androidx-room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
 androidx-room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }
 androidx-room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }
+androidx-room-testing = { group = "androidx.room", name = "room-testing", version.ref = "room" }
 
 # SQLDelight
 sqldelight-coroutines-extensions = { group = "app.cash.sqldelight", name = "coroutines-extensions", version.ref = "sqldelight" }

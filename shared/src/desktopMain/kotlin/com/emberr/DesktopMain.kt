@@ -36,6 +36,7 @@ import com.emberr.domain.selfhost.sync.ForegroundSyncPoller
 import com.emberr.domain.selfhost.crypto.SecureSyncKeyStorage
 import com.emberr.domain.selfhost.sync.SelfHostSyncLog
 import com.emberr.domain.selfhost.sync.SelfHostSyncScheduler
+import com.emberr.domain.update.AppUpdateController
 import com.emberr.domain.vault.VaultLog
 import com.emberr.domain.vault.VaultMirrorService
 import com.emberr.presentation.EmberrApp
@@ -44,6 +45,7 @@ import com.emberr.presentation.desktop.DesktopSearchShortcutBus
 import com.emberr.presentation.desktop.DesktopRestartBus
 import com.emberr.presentation.desktop.EmberrSystemTray
 import com.emberr.presentation.desktop.TrayMenuAction
+import com.emberr.presentation.desktop.update.AppUpdatePromptDialog
 import com.emberr.presentation.desktop.window.CustomWindowFrameSupport
 import com.emberr.presentation.desktop.window.DesktopAppRelauncher
 import com.emberr.presentation.desktop.window.EmberrWindowFrame
@@ -170,6 +172,13 @@ private fun runEmberrDesktopApp() = application {
         vaultMirrorService.startWatching(this)
         withContext(Dispatchers.IO) {
             vaultMirrorService.refreshEverythingNow()
+        }
+    }
+
+    LaunchedEffect(isBackgroundStartupAllowed) {
+        if (!isBackgroundStartupAllowed) return@LaunchedEffect
+        withContext(Dispatchers.IO) {
+            GlobalContext.get().get<AppUpdateController>().checkOnLaunch()
         }
     }
 
@@ -385,6 +394,7 @@ private fun runEmberrDesktopApp() = application {
                 )
 
                 PlainTextSecretWarningDialog()
+                AppUpdatePromptDialog()
             }
         }
     }

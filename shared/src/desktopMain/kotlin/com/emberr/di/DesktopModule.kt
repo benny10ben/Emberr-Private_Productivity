@@ -9,6 +9,7 @@ import com.emberr.core.security.SyncEncryptionManager
 import com.emberr.data.local.prefs.DesktopSettingsManager
 import com.emberr.data.local.prefs.SettingsManager
 import com.emberr.data.local.room.AppDatabase
+import com.emberr.data.local.room.backUpDatabaseWhenAppVersionChanges
 import com.emberr.data.local.room.dao.BlockDao
 import com.emberr.data.local.room.dao.BookmarkBlockDao
 import com.emberr.data.local.room.dao.CalendarTaskDao
@@ -35,6 +36,10 @@ import com.emberr.domain.selfhost.crypto.Pbkdf2KeyDerivationManager
 import com.emberr.domain.selfhost.crypto.SecureSyncKeyStorage
 import com.emberr.domain.selfhost.sync.SelfHostSyncScheduler
 import com.emberr.domain.sync.SyncRepository
+import com.emberr.domain.update.AppImageUpdater
+import com.emberr.domain.update.AppUpdateController
+import com.emberr.domain.update.RunningAppImage
+import com.emberr.domain.util.system.appVersionName
 import com.emberr.domain.util.voice.AudioRecorder
 import com.emberr.domain.util.voice.DesktopAudioRecorder
 import com.emberr.domain.util.media.DesktopImageDownloader
@@ -66,8 +71,12 @@ val desktopModule = module {
 
     // Room
     single<AppDatabase> {
+        backUpDatabaseWhenAppVersionChanges(
+            databaseFile = java.io.File(emberrDirectory, "emberr_database.db"),
+            backupsDirectory = java.io.File(emberrDirectory, "database-backups"),
+            installedVersion = appVersionName
+        )
         val builder = com.emberr.data.local.room.getDatabaseBuilder()
-        builder.fallbackToDestructiveMigration(dropAllTables = true)
         com.emberr.data.local.room.getRoomDatabase(builder)
     }
     single<com.emberr.data.local.room.dao.SpaceDao> { get<AppDatabase>().spaceDao() }
@@ -142,6 +151,15 @@ val desktopModule = module {
 
     // Automatic Backup
     single<BackupRescheduler> { DesktopBackupRescheduler() }
+
+    single {
+        AppUpdateController(
+            settingsManager = get(),
+            appImageUpdater = AppImageUpdater(),
+            appImageFile = RunningAppImage.fileOrNull(),
+            installedVersion = appVersionName
+        )
+    }
 
     // Vault mirror
     single { VaultFileLedger() }

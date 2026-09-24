@@ -358,6 +358,21 @@ class AndroidSettingsManager(
         _autoHideTitleBar.value = enabled
     }
 
+    private val _automaticUpdateCheckEnabled = MutableStateFlow(
+        sharedPreferences.getBoolean(
+            SyncConstants.KEY_AUTOMATIC_UPDATE_CHECK,
+            SyncConstants.DEFAULT_AUTOMATIC_UPDATE_CHECK
+        )
+    )
+    override val automaticUpdateCheckEnabledFlow: Flow<Boolean> = _automaticUpdateCheckEnabled
+
+    override fun isAutomaticUpdateCheckEnabled(): Boolean = _automaticUpdateCheckEnabled.value
+
+    override fun saveAutomaticUpdateCheckEnabled(enabled: Boolean) {
+        sharedPreferences.edit { putBoolean(SyncConstants.KEY_AUTOMATIC_UPDATE_CHECK, enabled) }
+        _automaticUpdateCheckEnabled.value = enabled
+    }
+
     private val _aiGenerationMode = MutableStateFlow(
         sharedPreferences.getString(SyncConstants.KEY_AI_GENERATION_MODE, SyncConstants.DEFAULT_AI_GENERATION_MODE)
             ?: SyncConstants.DEFAULT_AI_GENERATION_MODE

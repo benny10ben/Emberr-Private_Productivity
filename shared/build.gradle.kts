@@ -159,6 +159,9 @@ kotlin {
 
         getByName("desktopTest") {
             dependsOn(jvmSharedTest)
+            dependencies {
+                implementation(libs.androidx.room.testing)
+            }
         }
 
         getByName("androidMain") {
@@ -234,12 +237,15 @@ configurations.named("desktopRuntimeClasspath") {
 
 val desktopRuntimeJdk = javaToolchains.launcherFor {
     languageVersion.set(JavaLanguageVersion.of(javaToolchainVersion.toInt()))
+    if (!isBuildingOnWindows) {
+        vendor.set(JvmVendorSpec.JETBRAINS)
+    }
 }
 
 val desktopMainClass = "com.emberr.DesktopMainKt"
 val desktopWindowClassName = desktopMainClass.replace('.', '-')
 val applicationName = "Emberr"
-val applicationVersion = "1.0.0"
+val applicationVersion = libs.versions.appVersion.get()
 val packageIdentifier = "emberr"
 val packageRelease = "1"
 val menuCategory = "Office"
@@ -393,7 +399,7 @@ compose.desktop {
 //     ./gradlew :shared:packageRpmWithDesktopEntry
 //
 // Result: shared/build/compose/binaries/main/rpm/emberr-<version>-<release>.x86_64.rpm
-// Bump applicationVersion above for a new release; bump packageRelease only when
+// Bump appVersion in gradle/libs.versions.toml for a new release; bump packageRelease only when
 // repackaging the same app version.
 //
 // Compose's own packageRpm could not be used even when it was registered: it always
@@ -637,7 +643,7 @@ tasks.register<Tar>("packageTarball") {
 //
 //     ./gradlew :shared:packageAppImage
 //
-// Result: shared/build/compose/binaries/main/appimage/Emberr-<version>-x86_64.AppImage
+// Result: shared/build/compose/binaries/main/appimage/Emberr-x86_64.AppImage
 //
 // Needs squashfs-tools from dnf and appimagetool on PATH. appimagetool is not packaged
 // by Fedora and is only published as an AppImage, so it is downloaded by hand once
@@ -715,7 +721,7 @@ tasks.register<Exec>("packageAppImage") {
     dependsOn(prepareAppDir)
 
     val appImageOutputDir = layout.buildDirectory.dir("compose/binaries/main/appimage")
-    val appImageFileName = "$applicationName-$applicationVersion-x86_64.AppImage"
+    val appImageFileName = "$applicationName-x86_64.AppImage"
     val requiredBuildTools = appImageBuildTools
     val buildToolInstallHint = appImageBuildToolInstallHint
 
@@ -736,15 +742,27 @@ tasks.register<Exec>("packageAppImage") {
                     ". Install them with: $buildToolInstallHint"
             )
         }
+        executable = pathDirectories
+            .map { directory -> File(directory, "appimagetool") }
+            .first { toolFile -> toolFile.canExecute() }
+            .absolutePath
         val outputDirectory = appImageOutputDir.get().asFile
         outputDirectory.deleteRecursively()
         outputDirectory.mkdirs()
     }
 
+    val pinnedRuntimeFile = providers.gradleProperty("appImageRuntimeFile").orNull
+
     commandLine(
-        "appimagetool",
-        appDirStagingDir.get().asFile.absolutePath,
-        appImageOutputDir.get().asFile.resolve(appImageFileName).absolutePath
+        buildList {
+            add("appimagetool")
+            if (pinnedRuntimeFile != null) {
+                add("--runtime-file")
+                add(pinnedRuntimeFile)
+            }
+            add(appDirStagingDir.get().asFile.absolutePath)
+            add(appImageOutputDir.get().asFile.resolve(appImageFileName).absolutePath)
+        }
     )
 }
 

@@ -103,6 +103,10 @@ interface SettingsManager {
     fun isAutoHideTitleBarEnabled(): Boolean
     fun saveAutoHideTitleBar(enabled: Boolean)
 
+    val automaticUpdateCheckEnabledFlow: Flow<Boolean>
+    fun isAutomaticUpdateCheckEnabled(): Boolean
+    fun saveAutomaticUpdateCheckEnabled(enabled: Boolean)
+
     // AI generation
     val aiGenerationModeFlow: Flow<String>
     fun saveAiGenerationMode(mode: String)

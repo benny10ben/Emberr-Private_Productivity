@@ -38,6 +38,15 @@ jobs:
       - name: Run every test on both the desktop and Android targets
         run: ./gradlew :shared:allTests --stacktrace
 
+      - name: Check that the database schema files are committed and unchanged
+        run: |
+          schema_changes=$(git status --porcelain -- shared/schemas)
+          if [ -n "$schema_changes" ]; then
+            echo "$schema_changes"
+            echo "::error::The Room schema no longer matches the committed files. If you changed an entity, bump the version in AppDatabase.kt, add an AutoMigration, and commit the new schema file. Never edit an old one."
+            exit 1
+          fi
+
       - name: Compile the desktop target
         run: ./gradlew :shared:compileKotlinDesktop --stacktrace
 

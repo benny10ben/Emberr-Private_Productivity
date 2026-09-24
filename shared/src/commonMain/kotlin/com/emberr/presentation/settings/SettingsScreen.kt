@@ -37,6 +37,7 @@ import androidx.compose.ui.zIndex
 import com.emberr.domain.sync.SyncPairingData
 import com.emberr.domain.sync.SyncServerStatus
 import com.emberr.domain.util.system.AppPermission
+import com.emberr.domain.util.system.appVersionName
 import com.emberr.domain.util.system.isDesktopPlatform
 import com.emberr.domain.util.system.restartApplication
 import com.emberr.domain.util.system.rememberAppPermissionCoordinator
@@ -291,6 +292,7 @@ fun SettingsScreen(
         add(
             SettingsCategory(title = "Help", icon = Res.drawable.badge_question_mark) {
                 HelpSettingsSection()
+                AppUpdateSettingsSection()
             }
         )
 
@@ -1252,7 +1254,7 @@ private fun HelpSettingsSection() {
         SettingsActionRow(
             icon = painterResource(Res.drawable.info),
             title = "About Emberr",
-            trailingLabel = "v1.0.0",
+            trailingLabel = appVersionName?.let { "v$it" },
             onClick = {}
         )
     }
@@ -1277,7 +1279,7 @@ private fun DangerZoneSettingsSection(onClearAllData: () -> Unit) {
 }
 
 @Composable
-private fun SettingsDivider() {
+internal fun SettingsDivider() {
     HorizontalDivider(
         modifier = Modifier.padding(start = 68.dp, end = 16.dp),
         thickness = 1.dp,
