@@ -85,6 +85,7 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
 import kotlinx.datetime.toLocalDateTime
 import kotlinx.datetime.number
+import kotlinx.datetime.todayIn
 import androidx.compose.ui.window.PopupProperties
 import androidx.compose.animation.core.animateFloatAsState
 import com.emberr.data.local.room.entity.NoteMetadataEntity
@@ -801,10 +802,15 @@ fun NoteBlockItem(
                                         val minStr = dt.minute.toString().padStart(2, '0')
                                         "${dt.month.name.take(3).lowercase().replaceFirstChar { it.uppercase() }} ${dt.day}, $hour12:$minStr $amPm"
                                     }
+                                    val timeZone = TimeZone.currentSystemDefault()
+                                    val reminderDate = Instant.fromEpochMilliseconds(block.reminderTimestamp)
+                                        .toLocalDateTime(timeZone).date
+                                    val isOverdue = !block.isChecked && reminderDate < Clock.System.todayIn(timeZone)
                                     Text(
                                         text = timeText,
                                         style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f)
+                                        color = if (isOverdue) MaterialTheme.colorScheme.error
+                                        else MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f)
                                     )
                                 }
                             }
