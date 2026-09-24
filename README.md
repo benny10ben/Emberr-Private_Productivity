@@ -31,10 +31,23 @@ After thinking about it for a while, I figured, why not put it out there? If you
 
 ## Roadmap
 
-- More productive blocks
-- Improved UI and UX with better animations
-- Make each note shareable online
-- Cloud backup (end to end encrypted)
+### Short term
+
+- UI / UX improvements
+- Keyboard shortcuts for the desktop app
+- Improved Kanban and gallery views for the database block
+- Login/credentials block to store important info (hopefully with autofill too)
+- Improved local AI
+- Code cleanup
+
+### Long term (Hopefully by end of 2026)
+
+- Online account with cloud backup (end to end encrypted, of course)
+- Make each note shareable on the web
+- Share the same note, folder, or space with other users
+- Support for ARM based desktops
+- Support for community plugins (if this project gets many users) (2027)
+- Release for iOS and macOS (if I'm not broke TT) (2027)
 
 ## Platforms
 
