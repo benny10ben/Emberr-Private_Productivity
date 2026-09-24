@@ -100,8 +100,6 @@ kotlin {
     }
 
     sourceSets {
-        // Android and desktop are both JVM, so file-based code that is not Android-specific lives
-        // here instead of being written twice.
         val jvmSharedMain = create("jvmSharedMain") {
             dependsOn(getByName("commonMain"))
         }
@@ -362,55 +360,20 @@ compose.desktop {
     }
 }
 
-// Linux release packaging
+// Desktop packaging
 //
-// Status: the formats meant for release are tarball, AppImage and Flatpak, and none of
-// them are built here yet. RPM and DEB below are complete but dormant, kept for later.
-// All of them, including the three not written yet, wrap the same app image that
-// createDistributable produces, so that task is the one piece none of this works without.
+// Releases are built by .github/workflows/release.yml when a v* tag is pushed. To release,
+// bump appVersion in gradle/libs.versions.toml. Bump packageRelease only to repackage the
+// same version as an RPM or DEB.
 //
-// targetFormats stays empty on Linux, so Compose registers no packaging tasks of its own
-// here and packageDistributionForCurrentOS does nothing. The RPM and DEB tasks below call
-// jpackage by hand and only run when named explicitly. An empty set is safe: it is the
-// value Compose itself starts from, and createDistributable, run and runDistributable
-// never read it. Note that targetFormats() rejects an empty argument list, so a format is
-// removed by deleting the call, not by calling it with no formats.
+// targetFormats stays empty on Linux, so Compose registers no packaging tasks there. Exe is
+// only requested on Windows, because jpackage can't build for another OS.
+// Building the .exe locally needs the Android SDK (ANDROID_HOME or sdk.dir), because this
+// module applies the Android plugin.
 //
-// Windows is the one exception. TargetFormat.Exe is requested in the block above, but
-// only while the build itself is running on Windows. Compose registers a task for every
-// requested format on every operating system and merely disables the ones the host cannot
-// build, so asking for Exe unconditionally would leave two dead packageExe tasks sitting
-// in the Linux task list. jpackage cannot cross-compile, so the installer has to be built
-// from Windows regardless:
-//
-//     gradlew :shared:packageExe
-//
-// Result: shared\build\compose\binaries\main\exe\Emberr-<version>.exe
-//
-// WiX needs no manual install. Compose downloads WiX 3.11.2 into
-// <gradle user home>\compose-jb\wix311 on first use, unless WIX_PATH already points at a
-// toolset directory or compose.desktop.application.downloadWix=false turns that off.
-// The Windows build does need the Android SDK, because the shared module applies the
-// Android library plugin: set ANDROID_HOME, or put sdk.dir in local.properties, which is
-// git ignored and so never arrives with a fresh clone.
-//
-// Build the RPM with:
-//
-//     ./gradlew :shared:packageRpmWithDesktopEntry
-//
-// Result: shared/build/compose/binaries/main/rpm/emberr-<version>-<release>.x86_64.rpm
-// Bump appVersion in gradle/libs.versions.toml for a new release; bump packageRelease only when
-// repackaging the same app version.
-//
-// Compose's own packageRpm could not be used even when it was registered: it always
-// passes its own --resource-dir and wipes that folder, so the Emberr.desktop and
-// emberr.spec overrides in packaging/linux/jpackage never reach jpackage. Without them
-// the window has no matching desktop entry and file associations break. That is why
-// jpackage is invoked by hand below, against the app image createDistributable produces.
-//
-// Before shipping an RPM or a DEB to users, add a license: pass --license-file with the
-// repository LICENSE to both tasks. jpackage warns that packages without one look low
-// quality, and lintian reports a DEB that installs no copyright file.
+// RPM and DEB work but aren't released. They call jpackage by hand because Compose's own
+// tasks replace the custom .desktop and .spec files in packaging/linux/jpackage. Add
+// --license-file before ever shipping them.
 val addStartupClassCacheToAppImage = tasks.register<Exec>("addStartupClassCacheToAppImage") {
     group = "desktop packaging"
     description = "Dumps the shared class archive jlink leaves out, so launches skip reloading every JDK class."
@@ -509,32 +472,9 @@ tasks.register<Exec>("packageRpmWithDesktopEntry") {
     )
 }
 
-// Debian release packaging
-//
-// Not released yet. Nothing depends on the task below, so it only runs when it is named
-// explicitly:
-//
-//     ./gradlew :shared:packageDebWithDesktopEntry
-//
-// Result: shared/build/compose/binaries/main/deb/emberr_<version>-<release>_amd64.deb
-//
-// Before the first run, install the Debian tooling Fedora does not ship by default:
-//
-//     sudo dnf install dpkg fakeroot
-//
-// Three Debian specific settings are passed by hand because jpackage cannot work them
-// out while it runs on Fedora:
-//
-//   1. --linux-package-deps. jpackage only fills in Depends: when it detects a Debian
-//      host, which it does by running "dpkg -s coreutils". Fedora's dpkg ships an empty
-//      package database, so that check fails and the dependency list comes out blank.
-//      debianRequiredSystemPackages above is the hand-maintained replacement, taken from
-//      the NEEDED entries of every native library the app image loads.
-//   2. --linux-app-category. This fills in Section:, which Debian expects to be one of
-//      its own section names, so it is "utils" and not the "Office" the RPM uses.
-//      The desktop entry category stays "Office" because that comes from the separate
-//      --linux-menu-group option.
-//   3. --linux-deb-maintainer. Without it the Maintainer: field reads "Unknown".
+// DEB (not released). Needs: sudo dnf install dpkg fakeroot
+// jpackage can't detect three Debian values on Fedora, so they are passed by hand:
+// the dependency list, the Debian section ("utils", not "Office") and the maintainer.
 tasks.register<Exec>("packageDebWithDesktopEntry") {
     group = "linux packaging"
     description = "Builds the DEB with a desktop entry, an explicit dependency list and Debian metadata."
@@ -586,23 +526,9 @@ tasks.register<Exec>("packageDebWithDesktopEntry") {
     )
 }
 
-// Tarball release packaging
-//
-// This is the format meant to ship first. Build it with:
-//
-//     ./gradlew :shared:packageTarball
-//
-// Result: shared/build/compose/binaries/main/tarball/emberr-x86_64.tar.gz
-//
-// Unlike the RPM and DEB tasks this one needs no external tools at all, because a
-// tarball is just the app image createDistributable already produced plus the two
-// scripts below. jpackage is never involved, so there is no desktop entry template
-// either: install.sh writes the entry itself, which it has to do because Exec must be
-// the absolute path the user installed to and that is only known at install time.
-//
-// The scripts install per user and never ask for root. The icon goes to the hicolor
-// theme rather than next to the desktop entry, because Icon=emberr is resolved through
-// the icon theme and a loose file in applications/ would never be found.
+// Tarball: the app image plus install.sh and uninstall.sh, which install for the current
+// user under ~/.local/share. install.sh writes the desktop entry itself, because it needs
+// the install path.
 tasks.register<Tar>("packageTarball") {
     group = "linux packaging"
     description = "Builds the user installable tarball with install.sh and uninstall.sh."
@@ -637,34 +563,13 @@ tasks.register<Tar>("packageTarball") {
     }
 }
 
-// AppImage release packaging
-//
-// Build it with:
-//
-//     ./gradlew :shared:packageAppImage
-//
-// Result: shared/build/compose/binaries/main/appimage/Emberr-x86_64.AppImage
-//
-// Needs squashfs-tools from dnf and appimagetool on PATH. appimagetool is not packaged
-// by Fedora and is only published as an AppImage, so it is downloaded by hand once
-// rather than pinned here.
-//
-// Two names collide in this area and are worth keeping straight. Compose's
-// createDistributable produces an "app image", which is just an unpacked folder. An
-// AppImage is the single file format built here, and the folder it is built from is
-// called an AppDir. The AppDir below puts Compose's app image at usr/, so the launcher
-// at usr/bin/Emberr still finds usr/lib beside it exactly as it does when unpacked.
-//
-// The desktop entry and icon are deliberately duplicated: appimagetool requires both at
-// the AppDir root, while the copies under usr/share are what desktop integration tools
-// read once a user installs the AppImage.
-//
-// The AppDir is wiped before every copy. jlink writes the runtime's legal files as mode
-// 444, Sync reproduces that in the AppDir, and the next build then fails with
-// "Permission denied" because it cannot overwrite a read only file. Deleting first
-// avoids that. Relaxing permissions per file is not an option: Gradle initialises
-// FileCopyDetails.permissions from its own default rather than from the source file, so
-// touching it would drop the executable bit from the launcher and every .so.
+// AppImage: needs squashfs-tools and appimagetool on PATH. CI pins both and passes the
+// runtime with -PappImageRuntimeFile.
+// The AppDir puts Compose's app image under usr/, so the launcher still finds usr/lib.
+// The desktop entry and icon go both at the root (for appimagetool) and under usr/share
+// (for desktop integration tools).
+// The AppDir is deleted before each copy, because jlink's read-only files would make the
+// next build fail. Changing permissions during the copy would drop the executable bits.
 val prepareAppDir = tasks.register<Sync>("prepareAppDir") {
     group = "linux packaging"
     description = "Lays out the AppDir that appimagetool turns into a single AppImage file."
@@ -766,10 +671,8 @@ tasks.register<Exec>("packageAppImage") {
     )
 }
 
-// While targetFormats is empty Compose registers none of these, so this guard matches
-// nothing today. It stays so that adding a format back cannot ship a package that is
-// missing the desktop entry overrides. It disables rather than redirects, so no format
-// can ever be dragged into a release on a machine without the tools to build it.
+// Safety net: if RPM or DEB is ever added to targetFormats, Compose's own tasks stay off,
+// so they can't ship without the custom desktop entry.
 val stockComposePackagingTaskNames = setOf(
     "packageRpm",
     "packageReleaseRpm",
