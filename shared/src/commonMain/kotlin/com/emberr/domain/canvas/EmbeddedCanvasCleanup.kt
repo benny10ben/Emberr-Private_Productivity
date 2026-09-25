@@ -49,7 +49,8 @@ class EmbeddedCanvasCleaner(
     private val noteDao: NoteDao,
     private val blockDao: BlockDao,
     private val canvasRepository: CanvasRepository,
-    private val noteRepository: NoteRepository
+    private val noteRepository: NoteRepository,
+    private val viewPositionStore: CanvasViewPositionStore
 ) {
     private val blockJson = Json { ignoreUnknownKeys = true }
 
@@ -83,6 +84,16 @@ class EmbeddedCanvasCleaner(
             LocalMediaGcLog.d("deleteCanvasesOfRemovedBlocks: deleted ${canvasIdsToDelete.size} embedded canvas(es)")
         } catch (e: Exception) {
             LocalMediaGcLog.e("deleteCanvasesOfRemovedBlocks: failed with ${e::class.simpleName}: ${e.message}", e)
+        }
+    }
+
+    suspend fun forgetViewPositionsOfDeletedCanvases() = withContext(Dispatchers.IO) {
+        try {
+            val existingNoteIds = noteDao.getAllNotesForBackup().mapTo(HashSet()) { it.noteId }
+            val forgottenCount = viewPositionStore.forgetPositionsOfMissingCanvases(existingNoteIds)
+            LocalMediaGcLog.d("forgetViewPositionsOfDeletedCanvases: forgot $forgottenCount view position(s)")
+        } catch (e: Exception) {
+            LocalMediaGcLog.e("forgetViewPositionsOfDeletedCanvases: failed with ${e::class.simpleName}: ${e.message}", e)
         }
     }
 }

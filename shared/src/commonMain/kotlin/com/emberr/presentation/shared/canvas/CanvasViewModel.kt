@@ -4,6 +4,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.emberr.data.local.prefs.SettingsManager
 import com.emberr.data.local.room.entity.CanvasEdgeEntity
 import com.emberr.data.local.room.entity.CanvasNodeEntity
 import com.emberr.data.local.room.entity.CanvasNodeShape
@@ -11,6 +12,8 @@ import com.emberr.data.local.room.entity.CanvasNodeType
 import com.emberr.data.local.room.entity.CanvasSide
 import com.emberr.domain.canvas.CanvasContent
 import com.emberr.domain.canvas.CanvasRepository
+import com.emberr.domain.canvas.CanvasViewPosition
+import com.emberr.domain.canvas.CanvasViewPositionStore
 import com.emberr.domain.canvas.isGroup
 import com.emberr.domain.canvas.isInside
 import com.emberr.domain.canvas.membersOf
@@ -44,6 +47,8 @@ private const val DEFAULT_GROUP_TITLE = "Group"
 class CanvasViewModel(
     private val canvasRepository: CanvasRepository,
     private val noteRepository: NoteRepository,
+    private val viewPositionStore: CanvasViewPositionStore,
+    private val settingsManager: SettingsManager,
     private val appScope: CoroutineScope
 ) : ViewModel() {
 
@@ -123,6 +128,18 @@ class CanvasViewModel(
             _canvas.value = CanvasContent()
         }
         viewModelScope.launch { reloadFromDatabase() }
+    }
+
+    fun savedViewPosition(canvasNoteId: String): CanvasViewPosition? = viewPositionStore.load(canvasNoteId)
+
+    fun saveViewPosition(canvasNoteId: String, position: CanvasViewPosition) {
+        viewPositionStore.save(canvasNoteId, position)
+    }
+
+    fun isDotGridVisible(canvasNoteId: String): Boolean = settingsManager.isCanvasDotGridVisible(canvasNoteId)
+
+    fun saveDotGridVisible(canvasNoteId: String, isVisible: Boolean) {
+        settingsManager.saveCanvasDotGridVisible(canvasNoteId, isVisible)
     }
 
     fun beginUndoStep() {

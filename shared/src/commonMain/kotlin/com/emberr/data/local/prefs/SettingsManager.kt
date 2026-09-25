@@ -24,6 +24,13 @@ interface SettingsManager {
     fun getExpandedFolderIdsJson(): String
     fun saveExpandedFolderIdsJson(json: String)
 
+    fun getCanvasViewPositionJson(canvasNoteId: String): String?
+    fun saveCanvasViewPositionJson(canvasNoteId: String, json: String)
+    fun getCanvasIdsWithSavedViewPosition(): Set<String>
+    fun removeCanvasViewPosition(canvasNoteId: String)
+    fun isCanvasDotGridVisible(canvasNoteId: String): Boolean
+    fun saveCanvasDotGridVisible(canvasNoteId: String, isVisible: Boolean)
+
     fun getLastSyncTimestamp(): Long
     fun saveLastSyncTimestamp(timestamp: Long)
 

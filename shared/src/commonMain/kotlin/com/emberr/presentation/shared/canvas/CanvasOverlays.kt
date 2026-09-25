@@ -80,6 +80,8 @@ import com.emberr.ui.theme.LocalAppIsDark
 import dev.chrisbanes.haze.HazeState
 import emberr.shared.generated.resources.Res
 import emberr.shared.generated.resources.arrow_left
+import emberr.shared.generated.resources.dot_grid
+import emberr.shared.generated.resources.dot_grid_off
 import emberr.shared.generated.resources.ellipsis
 import emberr.shared.generated.resources.minus
 import emberr.shared.generated.resources.palette
@@ -527,6 +529,19 @@ fun CanvasUndoRedoButtons(hazeState: HazeState, onUndo: () -> Unit, onRedo: () -
         hazeState = hazeState,
         hazeStyle = EmberrBlur.Regular,
         isVertical = isVertical
+    )
+}
+
+@Composable
+fun CanvasDotGridButton(hazeState: HazeState, isDotGridVisible: Boolean, onToggle: () -> Unit) {
+    TopBarIconButton(
+        icon = painterResource(if (isDotGridVisible) Res.drawable.dot_grid else Res.drawable.dot_grid_off),
+        contentDescription = if (isDotGridVisible) "Hide dots" else "Show dots",
+        bgColor = Color.Transparent,
+        tint = MaterialTheme.colorScheme.primary,
+        hazeState = hazeState,
+        hazeStyle = EmberrBlur.Regular,
+        onClick = onToggle
     )
 }
 

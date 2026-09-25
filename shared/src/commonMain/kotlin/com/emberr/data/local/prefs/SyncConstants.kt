@@ -94,4 +94,7 @@ object SyncConstants {
     // Folder tree
     const val KEY_EXPANDED_FOLDER_IDS_JSON = "expanded_folder_ids_json"
     const val DEFAULT_EXPANDED_FOLDER_IDS_JSON = ""
+    // Canvas
+    const val KEY_CANVAS_VIEW_POSITION_PREFIX = "canvas_view_position_"
+    const val KEY_CANVAS_DOT_GRID_VISIBLE_PREFIX = "canvas_dot_grid_visible_"
 }

@@ -79,6 +79,29 @@ class DesktopSettingsManager(private val secretStore: DesktopSecretStore) : Sett
         prefs.put(SyncConstants.KEY_EXPANDED_FOLDER_IDS_JSON, json)
     }
 
+    override fun getCanvasViewPositionJson(canvasNoteId: String): String? =
+        prefs.get(SyncConstants.KEY_CANVAS_VIEW_POSITION_PREFIX + canvasNoteId, null)
+
+    override fun saveCanvasViewPositionJson(canvasNoteId: String, json: String) {
+        prefs.put(SyncConstants.KEY_CANVAS_VIEW_POSITION_PREFIX + canvasNoteId, json)
+    }
+
+    override fun getCanvasIdsWithSavedViewPosition(): Set<String> =
+        prefs.keys()
+            .filter { it.startsWith(SyncConstants.KEY_CANVAS_VIEW_POSITION_PREFIX) }
+            .mapTo(HashSet()) { it.removePrefix(SyncConstants.KEY_CANVAS_VIEW_POSITION_PREFIX) }
+
+    override fun removeCanvasViewPosition(canvasNoteId: String) {
+        prefs.remove(SyncConstants.KEY_CANVAS_VIEW_POSITION_PREFIX + canvasNoteId)
+    }
+
+    override fun isCanvasDotGridVisible(canvasNoteId: String): Boolean =
+        prefs.getBoolean(SyncConstants.KEY_CANVAS_DOT_GRID_VISIBLE_PREFIX + canvasNoteId, true)
+
+    override fun saveCanvasDotGridVisible(canvasNoteId: String, isVisible: Boolean) {
+        prefs.putBoolean(SyncConstants.KEY_CANVAS_DOT_GRID_VISIBLE_PREFIX + canvasNoteId, isVisible)
+    }
+
     override fun getLastSyncTimestamp(): Long {
         return prefs.getLong(SyncConstants.KEY_SYNC_TIMESTAMP, 0L)
     }

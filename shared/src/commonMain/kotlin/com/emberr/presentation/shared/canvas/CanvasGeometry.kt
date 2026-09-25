@@ -48,6 +48,11 @@ data class CanvasViewport(
     }
 }
 
+fun canvasViewportCenteredOn(worldCenter: Offset, zoom: Float, screenCenter: Offset, density: Float): CanvasViewport {
+    val clampedZoom = zoom.coerceIn(CANVAS_MIN_ZOOM, CANVAS_MAX_ZOOM)
+    return CanvasViewport(panOffset = screenCenter - worldCenter * (clampedZoom * density), zoom = clampedZoom)
+}
+
 val CanvasNodeEntity.worldRect: Rect
     get() = Rect(left = x, top = y, right = x + width, bottom = y + height)
 

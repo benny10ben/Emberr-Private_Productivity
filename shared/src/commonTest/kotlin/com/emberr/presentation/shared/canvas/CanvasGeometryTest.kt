@@ -36,6 +36,24 @@ class CanvasGeometryTest {
     }
 
     @Test
+    fun aRestoredViewShowsTheSavedPointInTheMiddleEvenOnADifferentBoardSize() {
+        val viewport = CanvasViewport(panOffset = Offset(-340f, 125f), zoom = 1.6f)
+        val savedCenter = viewport.screenToWorld(Offset(400f, 300f), density)
+
+        val restored = canvasViewportCenteredOn(savedCenter, viewport.zoom, screenCenter = Offset(640f, 360f), density = density)
+
+        assertEquals(1.6f, restored.zoom)
+        assertClose(Offset(640f, 360f), restored.worldToScreen(savedCenter, density))
+    }
+
+    @Test
+    fun aRestoredViewNeverGoesPastTheZoomLimits() {
+        val restored = canvasViewportCenteredOn(Offset.Zero, zoom = 40f, screenCenter = Offset(100f, 100f), density = density)
+
+        assertEquals(CANVAS_MAX_ZOOM, restored.zoom)
+    }
+
+    @Test
     fun zoomStaysWithinItsLimits() {
         val viewport = CanvasViewport()
 

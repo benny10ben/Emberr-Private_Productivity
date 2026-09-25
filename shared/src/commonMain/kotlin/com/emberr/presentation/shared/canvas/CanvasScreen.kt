@@ -37,6 +37,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -45,6 +46,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -99,6 +101,7 @@ import com.emberr.data.local.room.entity.CanvasEdgeEntity
 import com.emberr.data.local.room.entity.CanvasNodeEntity
 import com.emberr.data.local.room.entity.CanvasNodeShape
 import com.emberr.data.local.room.entity.CanvasSide
+import com.emberr.domain.canvas.CanvasViewPosition
 import com.emberr.domain.canvas.isGroup
 import com.emberr.domain.util.system.isDesktopPlatform
 import com.emberr.domain.util.system.triggerHapticFeedback
@@ -111,6 +114,8 @@ import emberr.shared.generated.resources.square
 import emberr.shared.generated.resources.trash
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import org.koin.compose.viewmodel.koinViewModel
 import kotlin.math.pow
@@ -133,6 +138,7 @@ private val TOUCH_EDGE_HIT_DISTANCE = 14.dp
 private val TOUCH_EDGE_SNAP_RADIUS = 32.dp
 private val KEYBOARD_CLEARANCE = 24.dp
 private const val ZOOM_BUTTON_STEP = 1.25f
+private const val VIEW_POSITION_SAVE_DELAY_MILLIS = 500L
 private val EDGE_HIT_DISTANCE = 6.dp
 private val EDGE_STROKE_WIDTH = 1.5.dp
 private val SELECTED_EDGE_STROKE_WIDTH = 2.5.dp
@@ -194,8 +200,10 @@ fun CanvasScreen(
     var contextMenuRequest by remember(noteId) { mutableStateOf<CanvasContextMenuRequest?>(null) }
     var isSelectingMultiple by remember(noteId) { mutableStateOf(false) }
     var isShapePickerOpen by remember(noteId) { mutableStateOf(false) }
+    var isDotGridVisible by remember(noteId) { mutableStateOf(viewModel.isDotGridVisible(noteId)) }
     var pointerIcon by remember(noteId) { mutableStateOf(PointerIcon.Default) }
     var boardSize by remember(noteId) { mutableStateOf(IntSize.Zero) }
+    var hasRestoredViewPosition by remember(noteId) { mutableStateOf(false) }
     val zoomAnimation = remember(noteId) { Animatable(1f) }
     val panAnimation = remember(noteId) { Animatable(Offset.Zero, Offset.VectorConverter) }
     val zoomScope = rememberCoroutineScope()
@@ -218,6 +226,38 @@ fun CanvasScreen(
     }
 
     val pixelDensity = LocalDensity.current.density
+
+    fun currentViewPosition(): CanvasViewPosition {
+        val worldCenter = viewport.screenToWorld(Offset(boardSize.width / 2f, boardSize.height / 2f), pixelDensity)
+        return CanvasViewPosition(centerX = worldCenter.x, centerY = worldCenter.y, zoom = viewport.zoom)
+    }
+
+    LaunchedEffect(noteId, boardSize) {
+        if (hasRestoredViewPosition || boardSize == IntSize.Zero) return@LaunchedEffect
+        viewModel.savedViewPosition(noteId)?.let { saved ->
+            viewport = canvasViewportCenteredOn(
+                worldCenter = Offset(saved.centerX, saved.centerY),
+                zoom = saved.zoom,
+                screenCenter = Offset(boardSize.width / 2f, boardSize.height / 2f),
+                density = pixelDensity
+            )
+        }
+        hasRestoredViewPosition = true
+    }
+
+    LaunchedEffect(noteId, hasRestoredViewPosition) {
+        if (!hasRestoredViewPosition) return@LaunchedEffect
+        snapshotFlow { currentViewPosition() }.collectLatest { position ->
+            delay(VIEW_POSITION_SAVE_DELAY_MILLIS)
+            viewModel.saveViewPosition(noteId, position)
+        }
+    }
+
+    DisposableEffect(noteId) {
+        onDispose {
+            if (hasRestoredViewPosition) viewModel.saveViewPosition(noteId, currentViewPosition())
+        }
+    }
     val backgroundColor = MaterialTheme.colorScheme.background
     val dotColor = MaterialTheme.colorScheme.onSurface.copy(alpha = DOT_ALPHA)
     val edgeColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f)
@@ -843,7 +883,7 @@ fun CanvasScreen(
                 }
         ) {
             Canvas(Modifier.fillMaxSize()) {
-                drawDotGrid(viewport, pixelDensity, dotColor)
+                if (isDotGridVisible) drawDotGrid(viewport, pixelDensity, dotColor)
             }
 
             canvas.nodes.filter { it.isGroup }.sortedByDescending { it.width * it.height }.forEach { group ->
@@ -1005,6 +1045,14 @@ fun CanvasScreen(
                         hazeState = hazeState,
                         onUndo = { undoCanvasStep() },
                         onRedo = { redoCanvasStep() }
+                    )
+                    CanvasDotGridButton(
+                        hazeState = hazeState,
+                        isDotGridVisible = isDotGridVisible,
+                        onToggle = {
+                            isDotGridVisible = !isDotGridVisible
+                            viewModel.saveDotGridVisible(noteId, isDotGridVisible)
+                        }
                     )
                 }
             }

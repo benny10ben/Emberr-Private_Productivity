@@ -407,6 +407,7 @@ class HomeViewModel(
             delay(2_000.milliseconds)
             localMediaGarbageCollector.collectAndDeleteOrphanedMedia()
             embeddedCanvasCleaner.deleteCanvasesOfRemovedBlocks()
+            embeddedCanvasCleaner.forgetViewPositionsOfDeletedCanvases()
             com.emberr.domain.ai.models.cleanupPendingModelDeletions()
         }
         viewModelScope.launch {

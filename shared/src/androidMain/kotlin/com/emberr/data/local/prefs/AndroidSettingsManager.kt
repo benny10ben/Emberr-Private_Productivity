@@ -119,6 +119,29 @@ class AndroidSettingsManager(
         sharedPreferences.edit { putString(SyncConstants.KEY_EXPANDED_FOLDER_IDS_JSON, json) }
     }
 
+    override fun getCanvasViewPositionJson(canvasNoteId: String): String? =
+        sharedPreferences.getString(SyncConstants.KEY_CANVAS_VIEW_POSITION_PREFIX + canvasNoteId, null)
+
+    override fun saveCanvasViewPositionJson(canvasNoteId: String, json: String) {
+        sharedPreferences.edit { putString(SyncConstants.KEY_CANVAS_VIEW_POSITION_PREFIX + canvasNoteId, json) }
+    }
+
+    override fun getCanvasIdsWithSavedViewPosition(): Set<String> =
+        sharedPreferences.all.keys
+            .filter { it.startsWith(SyncConstants.KEY_CANVAS_VIEW_POSITION_PREFIX) }
+            .mapTo(HashSet()) { it.removePrefix(SyncConstants.KEY_CANVAS_VIEW_POSITION_PREFIX) }
+
+    override fun removeCanvasViewPosition(canvasNoteId: String) {
+        sharedPreferences.edit { remove(SyncConstants.KEY_CANVAS_VIEW_POSITION_PREFIX + canvasNoteId) }
+    }
+
+    override fun isCanvasDotGridVisible(canvasNoteId: String): Boolean =
+        sharedPreferences.getBoolean(SyncConstants.KEY_CANVAS_DOT_GRID_VISIBLE_PREFIX + canvasNoteId, true)
+
+    override fun saveCanvasDotGridVisible(canvasNoteId: String, isVisible: Boolean) {
+        sharedPreferences.edit { putBoolean(SyncConstants.KEY_CANVAS_DOT_GRID_VISIBLE_PREFIX + canvasNoteId, isVisible) }
+    }
+
     override fun getLastSyncTimestamp(): Long {
         return sharedPreferences.getLong(SyncConstants.KEY_SYNC_TIMESTAMP, 0L)
     }
