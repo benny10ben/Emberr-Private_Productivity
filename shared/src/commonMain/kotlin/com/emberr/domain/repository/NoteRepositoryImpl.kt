@@ -4,6 +4,7 @@ import com.emberr.data.local.room.dao.BlockDao
 import com.emberr.data.local.room.dao.BookmarkBlockDao
 import com.emberr.data.local.room.dao.CalendarEventExceptionDao
 import com.emberr.data.local.room.dao.CalendarTaskDao
+import com.emberr.data.local.room.dao.CanvasDao
 import com.emberr.data.local.room.dao.CategoryDao
 import com.emberr.data.local.room.dao.DatabaseTemplateDao
 import com.emberr.data.local.room.dao.DocumentBlockDao
@@ -127,7 +128,8 @@ class NoteRepositoryImpl(
     private val databaseTemplateDao: DatabaseTemplateDao,
     private val categoryDao: CategoryDao,
     private val selfHostDeletedNoteDao: SelfHostDeletedNoteDao,
-    private val mediaReferenceDao: MediaReferenceDao
+    private val mediaReferenceDao: MediaReferenceDao,
+    private val canvasDao: CanvasDao
 ) : NoteRepository {
 
     private val jsonFormat = Json {
@@ -662,6 +664,8 @@ class NoteRepositoryImpl(
             deleteCalendarProjectionsForNote(metadata)
             noteDao.deleteNoteMetadata(noteId)
             blockDao.deleteAllBlocksForNote(noteId)
+            canvasDao.deleteAllNodesForNote(noteId)
+            canvasDao.deleteAllEdgesForNote(noteId)
             mediaReferenceDao.deleteByNoteId(noteId)
             noteIndexer.deleteNoteFromIndex(noteId)
             VaultMirrorTrigger.requestNoteRefresh(noteId)
