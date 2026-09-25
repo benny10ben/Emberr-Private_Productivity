@@ -80,7 +80,7 @@ class DesktopSettingsManager(private val secretStore: DesktopSecretStore) : Sett
     }
 
     override fun getCanvasViewPositionJson(canvasNoteId: String): String? =
-        prefs.get(SyncConstants.KEY_CANVAS_VIEW_POSITION_PREFIX + canvasNoteId, null)
+        prefs.getOrNull(SyncConstants.KEY_CANVAS_VIEW_POSITION_PREFIX + canvasNoteId)
 
     override fun saveCanvasViewPositionJson(canvasNoteId: String, json: String) {
         prefs.put(SyncConstants.KEY_CANVAS_VIEW_POSITION_PREFIX + canvasNoteId, json)

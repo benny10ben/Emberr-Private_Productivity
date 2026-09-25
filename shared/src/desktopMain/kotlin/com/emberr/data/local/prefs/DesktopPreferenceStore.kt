@@ -26,6 +26,8 @@ class DesktopPreferenceStore(storageDirectory: File) {
 
     fun getOrNull(key: String): String? = values.getProperty(key)
 
+    fun keys(): Set<String> = values.stringPropertyNames()
+
     fun put(key: String, value: String) {
         values.setProperty(key, value)
         persist()
