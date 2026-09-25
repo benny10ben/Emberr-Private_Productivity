@@ -1,11 +1,16 @@
 package com.emberr.presentation.shared.canvas
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.expandIn
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.LocalIndication
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -39,15 +44,20 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.layout.layout
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import com.emberr.data.local.room.entity.CanvasNodeShape
 import com.emberr.domain.util.system.isDesktopPlatform
 import com.emberr.presentation.home.RenameBottomSheet
 import com.emberr.presentation.home.note.BottomSheetOptionItem
@@ -92,6 +102,13 @@ private val SelectionPillGap = 8.dp
 private const val PALETTE_SWATCHES_PER_ROW = 5
 private val SelectionBarShape = RoundedCornerShape(12.dp)
 private val TitlePillShape = RoundedCornerShape(50)
+private val ShapePickerButtonSize = 44.dp
+private val ShapePickerOpenCornerRadius = 16.dp
+private const val SHAPE_PICKER_COLUMNS = 4
+private val ShapeOptionSize = 40.dp
+private val ShapeOptionShape = RoundedCornerShape(10.dp)
+private val ShapeIconSize = 22.dp
+private const val MAX_SHAPE_ICON_RATIO = 1.6f
 
 @Composable
 fun canvasNodeBackgroundFor(colorName: String?): Color {
@@ -298,19 +315,121 @@ fun CanvasBackButton(hazeState: HazeState, onClick: () -> Unit, modifier: Modifi
 }
 
 @Composable
-fun CanvasAddBoxButton(hazeState: HazeState, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    Box(modifier) {
-        TopBarIconButton(
-            icon = painterResource(Res.drawable.plus),
-            contentDescription = "New box",
-            bgColor = Color.Transparent,
-            tint = MaterialTheme.colorScheme.primary,
-            hazeState = hazeState,
-            hazeStyle = EmberrBlur.Regular,
-            onClick = onClick
-        )
+fun CanvasAddShapeButton(
+    isOpen: Boolean,
+    hazeState: HazeState,
+    onToggle: () -> Unit,
+    onShapeSelected: (CanvasNodeShape) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val tint = MaterialTheme.colorScheme.primary
+    val iconRotation by animateFloatAsState(if (isOpen) 45f else 0f)
+    val cornerRadius by animateDpAsState(if (isOpen) ShapePickerOpenCornerRadius else ShapePickerButtonSize / 2)
+    val pickerShape = RoundedCornerShape(cornerRadius)
+
+    Surface(
+        shape = pickerShape,
+        color = Color.Transparent,
+        modifier = modifier
+            .customEmberrShadow(pickerShape)
+            .clip(pickerShape)
+            .emberrBlur(hazeState, EmberrBlur.Regular)
+            .border(
+                width = 0.5.dp,
+                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
+                shape = pickerShape
+            )
+    ) {
+        Column(horizontalAlignment = Alignment.End) {
+            AnimatedVisibility(
+                visible = isOpen,
+                enter = expandIn(expandFrom = Alignment.BottomEnd) + fadeIn(),
+                exit = shrinkOut(shrinkTowards = Alignment.BottomEnd) + fadeOut()
+            ) {
+                CanvasShapeGrid(tint = tint, onShapeSelected = onShapeSelected)
+            }
+            Box(
+                modifier = Modifier
+                    .size(ShapePickerButtonSize)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = NoRippleIndicationNodeFactory,
+                        onClick = onToggle
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    painter = painterResource(Res.drawable.plus),
+                    contentDescription = if (isOpen) "Close shapes" else "Add shape",
+                    tint = tint,
+                    modifier = Modifier.size(22.dp).rotate(iconRotation)
+                )
+            }
+        }
     }
 }
+
+@Composable
+private fun CanvasShapeGrid(tint: Color, onShapeSelected: (CanvasNodeShape) -> Unit) {
+    Column(
+        modifier = Modifier.padding(start = 8.dp, top = 8.dp, end = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        CanvasNodeShape.entries.chunked(SHAPE_PICKER_COLUMNS).forEach { rowOfShapes ->
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                rowOfShapes.forEach { shape ->
+                    CanvasShapeOption(shape = shape, tint = tint, onClick = { onShapeSelected(shape) })
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CanvasShapeOption(shape: CanvasNodeShape, tint: Color, onClick: () -> Unit) {
+    val label = shape.label
+    val shapeRatio = shape.defaultWorldSize.width / shape.defaultWorldSize.height
+    val iconWidth = if (shapeRatio >= 1f) ShapeIconSize else ShapeIconSize * shapeRatio
+    val iconHeight = if (shapeRatio >= 1f) ShapeIconSize / shapeRatio.coerceAtMost(MAX_SHAPE_ICON_RATIO) else ShapeIconSize
+
+    Box(
+        modifier = Modifier
+            .size(ShapeOptionSize)
+            .clip(ShapeOptionShape)
+            .clickable(onClick = onClick)
+            .semantics { contentDescription = label },
+        contentAlignment = Alignment.Center
+    ) {
+        Canvas(Modifier.size(iconWidth, iconHeight)) {
+            val lineStyle = Stroke(width = 1.5.dp.toPx())
+            val cornerRadius = 3.dp.toPx()
+            drawPath(shape.outlinePath(size, cornerRadius), tint, style = lineStyle)
+            shape.detailLinePath(size, doubleLineGap = 3.dp.toPx(), cornerRadius = cornerRadius)?.let { detailLine ->
+                drawPath(detailLine, tint, style = lineStyle)
+            }
+        }
+    }
+}
+
+private val CanvasNodeShape.label: String
+    get() = when (this) {
+        CanvasNodeShape.RECTANGLE -> "Rectangle"
+        CanvasNodeShape.SQUARE -> "Square"
+        CanvasNodeShape.CIRCLE -> "Circle"
+        CanvasNodeShape.OVAL -> "Oval"
+        CanvasNodeShape.TRIANGLE -> "Triangle"
+        CanvasNodeShape.DIAMOND -> "Diamond"
+        CanvasNodeShape.PENTAGON -> "Pentagon"
+        CanvasNodeShape.HEXAGON -> "Hexagon"
+        CanvasNodeShape.PARALLELOGRAM -> "Parallelogram"
+        CanvasNodeShape.TRAPEZOID -> "Trapezoid"
+        CanvasNodeShape.PILL -> "Pill"
+        CanvasNodeShape.DATABASE -> "Database"
+        CanvasNodeShape.DOUBLE_RECTANGLE -> "Double rectangle"
+        CanvasNodeShape.DOUBLE_SQUARE -> "Double square"
+        CanvasNodeShape.DOUBLE_CIRCLE -> "Double circle"
+        CanvasNodeShape.DOUBLE_TRIANGLE -> "Double triangle"
+    }
 
 @Composable
 fun CanvasSelectionActionBar(

@@ -2,6 +2,7 @@ package com.emberr.domain.canvas
 
 import com.emberr.data.local.room.entity.CanvasEdgeEntity
 import com.emberr.data.local.room.entity.CanvasNodeEntity
+import com.emberr.data.local.room.entity.CanvasNodeShape
 import com.emberr.data.local.room.entity.CanvasNodeType
 import com.emberr.data.local.room.entity.CanvasSide
 import kotlin.test.Test
@@ -103,6 +104,17 @@ class CanvasMergeTest {
 
         assertEquals(CanvasNodeType.GROUP, winner.type)
         assertEquals("Moved", winner.text)
+    }
+
+    @Test
+    fun aShapeKeepsItsShapeWhenAnOlderAppSendsItBackWithoutOne() {
+        val local = CanvasContent(nodes = listOf(node("s", updatedAt = 100L).copy(shape = CanvasNodeShape.DATABASE)))
+        val remoteFromOlderApp = CanvasContent(nodes = listOf(node("s", updatedAt = 200L, text = "Users")))
+
+        val winner = CanvasMerge.remoteItemsNewerThanLocal(local, remoteFromOlderApp).nodes.single()
+
+        assertEquals(CanvasNodeShape.DATABASE, winner.shape)
+        assertEquals("Users", winner.text)
     }
 
     @Test

@@ -66,7 +66,7 @@ object CanvasMerge {
                 localNode == null || remoteNode.updatedAt > localNode.updatedAt
             }.map { remoteNode ->
                 val localNode = localNodesById[remoteNode.nodeId]
-                if (localNode == null) remoteNode else remoteNode.copy(type = localNode.type)
+                if (localNode == null) remoteNode else remoteNode.copy(type = localNode.type, shape = localNode.shape)
             },
             edges = remote.edges.filter { remoteEdge ->
                 val localEdge = localEdgesById[remoteEdge.edgeId]

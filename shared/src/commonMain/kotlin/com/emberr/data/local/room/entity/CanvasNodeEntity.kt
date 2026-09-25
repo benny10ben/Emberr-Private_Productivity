@@ -12,6 +12,26 @@ enum class CanvasNodeType {
 }
 
 @Serializable
+enum class CanvasNodeShape {
+    RECTANGLE,
+    SQUARE,
+    CIRCLE,
+    OVAL,
+    TRIANGLE,
+    DIAMOND,
+    PENTAGON,
+    HEXAGON,
+    PARALLELOGRAM,
+    TRAPEZOID,
+    PILL,
+    DATABASE,
+    DOUBLE_RECTANGLE,
+    DOUBLE_SQUARE,
+    DOUBLE_CIRCLE,
+    DOUBLE_TRIANGLE
+}
+
+@Serializable
 @Entity(
     tableName = "canvas_nodes",
     primaryKeys = ["noteId", "nodeId"],
@@ -36,5 +56,6 @@ data class CanvasNodeEntity(
     val updatedAt: Long,
     val isDeleted: Boolean = false,
     val color: String? = null,
-    @ColumnInfo(defaultValue = "TEXT") val type: CanvasNodeType = CanvasNodeType.TEXT
+    @ColumnInfo(defaultValue = "TEXT") val type: CanvasNodeType = CanvasNodeType.TEXT,
+    @ColumnInfo(defaultValue = "RECTANGLE") val shape: CanvasNodeShape = CanvasNodeShape.RECTANGLE
 )

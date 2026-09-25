@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -48,6 +49,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
@@ -86,6 +88,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.Density
@@ -94,6 +97,7 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import com.emberr.data.local.room.entity.CanvasEdgeEntity
 import com.emberr.data.local.room.entity.CanvasNodeEntity
+import com.emberr.data.local.room.entity.CanvasNodeShape
 import com.emberr.data.local.room.entity.CanvasSide
 import com.emberr.domain.canvas.isGroup
 import com.emberr.domain.util.system.isDesktopPlatform
@@ -139,6 +143,7 @@ private const val DOT_ALPHA = 0.18f
 private const val COLORED_GROUP_FILL_ALPHA = 0.35f
 private const val GROUP_TITLE_ALPHA = 0.75f
 private const val GROUP_BORDER_ALPHA = 0.35f
+private const val SHAPE_LINE_ALPHA = 0.45f
 
 private sealed interface CanvasSelection {
     data object None : CanvasSelection
@@ -188,6 +193,7 @@ fun CanvasScreen(
     var dragPreview by remember(noteId) { mutableStateOf<CanvasDragPreview?>(null) }
     var contextMenuRequest by remember(noteId) { mutableStateOf<CanvasContextMenuRequest?>(null) }
     var isSelectingMultiple by remember(noteId) { mutableStateOf(false) }
+    var isShapePickerOpen by remember(noteId) { mutableStateOf(false) }
     var pointerIcon by remember(noteId) { mutableStateOf(PointerIcon.Default) }
     var boardSize by remember(noteId) { mutableStateOf(IntSize.Zero) }
     val zoomAnimation = remember(noteId) { Animatable(1f) }
@@ -205,6 +211,7 @@ fun CanvasScreen(
             editingNodeId = null
             selection = CanvasSelection.None
             isSelectingMultiple = false
+            isShapePickerOpen = false
             hoveredNodeId = null
             pointerIcon = PointerIcon.Default
         }
@@ -273,6 +280,10 @@ fun CanvasScreen(
         leaveEditingAndSelection()
     }
 
+    KmpBackHandler(enabled = !isDesktopPlatform && isShapePickerOpen) {
+        isShapePickerOpen = false
+    }
+
     fun deleteItems(target: CanvasSelection) {
         when (target) {
             is CanvasSelection.Nodes -> viewModel.deleteNodes(target.nodeIds)
@@ -283,10 +294,12 @@ fun CanvasScreen(
         selection = CanvasSelection.None
     }
 
-    fun createBoxAt(worldCenter: Offset, groupToGrowId: String?) {
+    fun createBoxAt(worldCenter: Offset, groupToGrowId: String?, shape: CanvasNodeShape = CanvasNodeShape.RECTANGLE) {
+        val shapeSize = shape.defaultWorldSize
         val newNodeId = viewModel.createNode(
-            worldRect = rectCenteredOn(worldCenter, CANVAS_DEFAULT_NODE_WIDTH, CANVAS_DEFAULT_NODE_HEIGHT),
-            groupToGrowId = groupToGrowId
+            worldRect = rectCenteredOn(worldCenter, shapeSize.width, shapeSize.height),
+            groupToGrowId = groupToGrowId,
+            shape = shape
         )
         selection = CanvasSelection.Nodes(setOf(newNodeId))
         editingNodeId = newNodeId
@@ -331,6 +344,10 @@ fun CanvasScreen(
                     val isEditingGroupTitle = canvas.nodes.any { it.nodeId == editingNodeId && it.isGroup }
                     val isCommandPressed = event.isCtrlPressed || event.isMetaPressed
                     when {
+                        event.key == Key.Escape && isShapePickerOpen -> {
+                            isShapePickerOpen = false
+                            true
+                        }
                         editingNodeId == null && isCommandPressed && event.key == Key.Z && !event.isShiftPressed -> {
                             viewModel.undo()
                             true
@@ -387,6 +404,7 @@ fun CanvasScreen(
 
                     awaitEachGesture {
                         val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                        isShapePickerOpen = false
                         val downPosition = down.position
                         val tester = hitTester()
                         val editingArea = tester.editingAreaOf(editingNodeId, TOUCH_RESIZE_GRAB_DISTANCE.toPx())
@@ -515,7 +533,7 @@ fun CanvasScreen(
                                         val startBounds = nodeToResize.worldRect
                                         trackDragUntilRelease(isStillHeld = { event -> event.changes.any { it.pressed } }) { position ->
                                             val pointerTravel = viewport.screenToWorld(position, density) - downWorld
-                                            val newBounds = startBounds.resizedBy(grabbedEdges, pointerTravel, CANVAS_MIN_NODE_WIDTH, CANVAS_MIN_NODE_HEIGHT)
+                                            val newBounds = startBounds.resizedForShape(nodeToResize.shape, grabbedEdges, pointerTravel)
                                             viewModel.setNodeBounds(nodeToResize.nodeId, newBounds)
                                         }
                                     }
@@ -643,6 +661,7 @@ fun CanvasScreen(
                         )
                         val pressChange = pressEvent.changes.first()
                         val pressPosition = pressChange.position
+                        isShapePickerOpen = false
 
                         if (pressEvent.buttons.isBackPressed || pressEvent.buttons.isForwardPressed) {
                             if (horizontalScrollArrivesAsBackAndForwardButtons) {
@@ -720,7 +739,7 @@ fun CanvasScreen(
                             val startBounds = nodeToResize.worldRect
                             trackDragUntilRelease(isStillHeld = { it.changes.first().pressed }) { position ->
                                 val pointerTravel = viewport.screenToWorld(position, density) - pressWorld
-                                val newBounds = startBounds.resizedBy(grabbedEdges, pointerTravel, CANVAS_MIN_NODE_WIDTH, CANVAS_MIN_NODE_HEIGHT)
+                                val newBounds = startBounds.resizedForShape(nodeToResize.shape, grabbedEdges, pointerTravel)
                                 viewModel.setNodeBounds(nodeToResize.nodeId, newBounds)
                             }
                             return@awaitEachGesture
@@ -1064,11 +1083,14 @@ fun CanvasScreen(
                         }
                     )
             ) {
-                CanvasAddBoxButton(
+                CanvasAddShapeButton(
+                    isOpen = isShapePickerOpen,
                     hazeState = hazeState,
-                    onClick = {
+                    onToggle = { isShapePickerOpen = !isShapePickerOpen },
+                    onShapeSelected = { shape ->
+                        isShapePickerOpen = false
                         val boardCenter = Offset(boardSize.width / 2f, boardSize.height / 2f)
-                        createBoxAt(viewport.screenToWorld(boardCenter, pixelDensity), groupToGrowId = null)
+                        createBoxAt(viewport.screenToWorld(boardCenter, pixelDensity), groupToGrowId = null, shape = shape)
                     }
                 )
             }
@@ -1154,10 +1176,19 @@ private fun CanvasNodeCard(
     val baseDensity = LocalDensity.current
     val screenTopLeft = viewport.worldToScreen(Offset(node.x, node.y), baseDensity.density)
     val zoomedDensity = Density(baseDensity.density * viewport.zoom, baseDensity.fontScale)
-    val cardShape = RoundedCornerShape(CARD_CORNER_RADIUS)
+    val shape = node.shape
+    val cardShape = remember(shape) {
+        if (shape.isPlainCard) RoundedCornerShape(CARD_CORNER_RADIUS) else CanvasNodeOutlineShape(shape, CARD_CORNER_RADIUS)
+    }
     val selectionBorderWidth = (2f / viewport.zoom).dp
+    val shapeLineWidth = (1f / viewport.zoom).dp
+    val shapeLineColor = MaterialTheme.colorScheme.onSurface.copy(alpha = SHAPE_LINE_ALPHA)
     val backgroundColor = canvasNodeBackgroundFor(node.color)
-    val textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface)
+    val textStyle = MaterialTheme.typography.bodyLarge.copy(
+        color = MaterialTheme.colorScheme.onSurface,
+        textAlign = if (shape.hasRectangularTextArea) TextAlign.Start else TextAlign.Center
+    )
+    val textPadding = shape.textPadding(node.width, node.height)
 
     Box(
         Modifier
@@ -1166,20 +1197,44 @@ private fun CanvasNodeCard(
     ) {
         CompositionLocalProvider(LocalDensity provides zoomedDensity) {
             Box(
-                Modifier
+                modifier = Modifier
                     .size(node.width.dp, node.height.dp)
                     .then(if (isSelected) Modifier.border(selectionBorderWidth, CanvasSelectionColor, cardShape) else Modifier)
                     .clip(cardShape)
                     .background(backgroundColor)
-                    .padding(horizontal = 12.dp, vertical = 10.dp)
+                    .then(
+                        if (shape.isPlainCard) Modifier
+                        else Modifier.drawBehind { drawShapeLines(shape, shapeLineColor, shapeLineWidth.toPx()) }
+                    )
+                    .padding(
+                        start = textPadding.start.dp,
+                        top = textPadding.top.dp,
+                        end = textPadding.end.dp,
+                        bottom = textPadding.bottom.dp
+                    ),
+                contentAlignment = if (shape.hasRectangularTextArea) Alignment.TopStart else Alignment.Center
             ) {
                 if (isEditing) {
-                    CanvasNodeTextField(text = node.text, textStyle = textStyle, cursorColor = cursorColor, onTextChange = onTextChange)
+                    CanvasNodeTextField(
+                        text = node.text,
+                        textStyle = textStyle,
+                        cursorColor = cursorColor,
+                        onTextChange = onTextChange,
+                        modifier = if (shape.hasRectangularTextArea) Modifier.fillMaxSize() else Modifier.fillMaxWidth()
+                    )
                 } else {
                     Text(text = node.text, style = textStyle, modifier = Modifier.verticalScroll(scrollState))
                 }
             }
         }
+    }
+}
+
+private fun DrawScope.drawShapeLines(shape: CanvasNodeShape, color: Color, lineWidth: Float) {
+    val cornerRadius = CARD_CORNER_RADIUS.toPx()
+    drawPath(shape.outlinePath(size, cornerRadius), color, style = Stroke(width = lineWidth * 2f))
+    shape.detailLinePath(size, CANVAS_DOUBLE_LINE_GAP.dp.toPx(), cornerRadius)?.let { detailLine ->
+        drawPath(detailLine, color, style = Stroke(width = lineWidth))
     }
 }
 
@@ -1189,7 +1244,8 @@ private fun CanvasNodeTextField(
     textStyle: TextStyle,
     cursorColor: Color,
     onTextChange: (String) -> Unit,
-    singleLine: Boolean = false
+    singleLine: Boolean = false,
+    modifier: Modifier = Modifier.fillMaxSize()
 ) {
     val focusRequester = remember { FocusRequester() }
     var fieldValue by remember { mutableStateOf(TextFieldValue(text, TextRange(text.length))) }
@@ -1203,7 +1259,7 @@ private fun CanvasNodeTextField(
         textStyle = textStyle,
         singleLine = singleLine,
         cursorBrush = SolidColor(cursorColor),
-        modifier = Modifier.fillMaxSize().focusRequester(focusRequester)
+        modifier = modifier.focusRequester(focusRequester)
     )
 }
 

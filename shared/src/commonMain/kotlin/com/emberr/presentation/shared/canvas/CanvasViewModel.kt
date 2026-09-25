@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.emberr.data.local.room.entity.CanvasEdgeEntity
 import com.emberr.data.local.room.entity.CanvasNodeEntity
+import com.emberr.data.local.room.entity.CanvasNodeShape
 import com.emberr.data.local.room.entity.CanvasNodeType
 import com.emberr.data.local.room.entity.CanvasSide
 import com.emberr.domain.canvas.CanvasContent
@@ -145,7 +146,11 @@ class CanvasViewModel(
         restoreStates(step.nodesAfter, step.edgesAfter)
     }
 
-    fun createNode(worldRect: Rect, groupToGrowId: String? = null): String {
+    fun createNode(
+        worldRect: Rect,
+        groupToGrowId: String? = null,
+        shape: CanvasNodeShape = CanvasNodeShape.RECTANGLE
+    ): String {
         beginUndoStep()
         val now = System.currentTimeMillis()
         val node = CanvasNodeEntity(
@@ -157,7 +162,8 @@ class CanvasViewModel(
             height = worldRect.height.coerceAtLeast(CANVAS_MIN_NODE_HEIGHT),
             text = "",
             createdAt = now,
-            updatedAt = now
+            updatedAt = now,
+            shape = shape
         )
         _canvas.value = _canvas.value.copy(nodes = _canvas.value.nodes + node)
         rememberUnsavedNode(node)
