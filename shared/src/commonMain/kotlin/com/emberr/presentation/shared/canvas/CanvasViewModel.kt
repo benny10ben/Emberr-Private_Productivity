@@ -19,10 +19,16 @@ import com.emberr.domain.util.sync.SyncCoordinator
 import com.emberr.domain.util.sync.NoteSyncEvent
 import com.emberr.domain.util.sync.SyncEventBus
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.filterIsInstance
@@ -44,6 +50,13 @@ class CanvasViewModel(
     val canvas: StateFlow<CanvasContent> = _canvas.asStateFlow()
 
     private var noteId: String? = null
+    private val loadedNoteId = MutableStateFlow<String?>(null)
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val title: StateFlow<String> = loadedNoteId
+        .flatMapLatest { id -> if (id == null) flowOf(null) else noteRepository.observeNoteMetadata(id) }
+        .map { it?.title.orEmpty() }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), "")
     private val unsavedNodes = LinkedHashMap<String, CanvasNodeEntity>()
     private val unsavedEdges = LinkedHashMap<String, CanvasEdgeEntity>()
     private val nodesBeingSaved = LinkedHashMap<String, CanvasNodeEntity>()
@@ -81,11 +94,29 @@ class CanvasViewModel(
         }
     }
 
+    fun moveCanvasToTrash(onMoved: () -> Unit) {
+        val targetNoteId = noteId ?: return
+        saveJob?.cancel()
+        saveUnsavedChanges()
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) {
+                SyncCoordinator.mutex.withLock {
+                    val metadata = noteRepository.getNoteById(targetNoteId) ?: return@withLock
+                    val content = noteRepository.getNoteContent(targetNoteId) ?: NoteContent(blocks = emptyList())
+                    val now = System.currentTimeMillis()
+                    noteRepository.saveNote(metadata.copy(trashedAt = now, updatedAt = now), content)
+                }
+            }
+            onMoved()
+        }
+    }
+
     fun loadCanvas(noteId: String) {
         if (this.noteId != noteId) {
             saveJob?.cancel()
             saveUnsavedChanges()
             this.noteId = noteId
+            loadedNoteId.value = noteId
             history.clear()
             textEditStepNodeId = null
             _canvas.value = CanvasContent()

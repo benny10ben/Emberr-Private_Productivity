@@ -41,6 +41,7 @@ class NoteBlockSerializationTest {
         "DatabaseBlock" to "database",
         "TableBlock" to "table",
         "VoiceBlock" to "voice",
+        "CanvasBlock" to "canvas",
         "SolidDividerBlock" to "solid_divider",
         "ThreeDotDividerBlock" to "dot_divider"
     )

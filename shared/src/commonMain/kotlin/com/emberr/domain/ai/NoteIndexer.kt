@@ -316,6 +316,7 @@ class NoteIndexer(
         is SolidDividerBlock    -> null
         is ThreeDotDividerBlock    -> null
         is LinkedNoteBlock -> null
+        is CanvasBlock -> null
     }
 
     fun deleteNoteFromIndex(noteId: String) {

@@ -21,6 +21,7 @@ import com.emberr.domain.model.GalleryCardSize
 import com.emberr.domain.model.InlineSpan
 import com.emberr.domain.model.MediaItem
 import com.emberr.domain.model.LinkedNoteBlock
+import com.emberr.domain.model.CanvasBlock
 import com.emberr.domain.model.NoteBlock
 import com.emberr.domain.model.NumberedListBlock
 import com.emberr.domain.model.RecurrenceFrequency
@@ -114,6 +115,28 @@ class NoteMarkdownRoundTripTest {
         assertEquals(metadata.createdAt, frontMatter.createdAt)
         assertEquals(metadata.updatedAt, frontMatter.updatedAt)
         assertEquals(true, frontMatter.isFavorite)
+    }
+
+    @Test
+    fun aCanvasFenceTypedInTheVaultBecomesACanvasBlock() {
+        val markdown = NoteMarkdownWriter.writeNote(
+            VaultNoteWriteRequest(metadata = noteMetadata(), blocks = emptyList())
+        ) + "```emberr-canvas\nnote: canvas-note-9\n```\n"
+
+        val blocks = readBack(markdown, emptyList()).blocks
+
+        assertEquals(listOf<NoteBlock>(CanvasBlock(id = "generated-0", canvasNoteId = "canvas-note-9", updatedAt = 9_999L)), blocks)
+    }
+
+    @Test
+    fun aCanvasFenceWithoutANoteIdStaysACodeBlock() {
+        val markdown = NoteMarkdownWriter.writeNote(
+            VaultNoteWriteRequest(metadata = noteMetadata(), blocks = emptyList())
+        ) + "```emberr-canvas\n```\n"
+
+        val blocks = readBack(markdown, emptyList()).blocks
+
+        assertEquals(listOf<NoteBlock>(CodeBlock(id = "generated-0", code = "", language = "emberr-canvas", updatedAt = 9_999L)), blocks)
     }
 
     private fun readBack(markdown: String, existingBlocks: List<NoteBlock>): VaultNoteReadResult {
@@ -409,6 +432,12 @@ class NoteMarkdownRoundTripTest {
                 durationSeconds = 34,
                 isPinned = true,
                 updatedAt = 117L
+            ),
+            CanvasBlock(
+                id = "block-canvas",
+                canvasNoteId = "canvas-note-1",
+                isPinned = true,
+                updatedAt = 118L
             ),
             LinkedNoteBlock(
                 id = "block-linked",

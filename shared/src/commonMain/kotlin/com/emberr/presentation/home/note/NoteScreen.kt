@@ -228,6 +228,7 @@ fun NoteScreen(
     val databaseTemplates by viewModel.databaseTemplates.collectAsState()
     var showDatabasePicker by remember { mutableStateOf(false) }
     var showNoteLinkMenu by remember { mutableStateOf(false) }
+    var showCanvasLinkMenu by remember { mutableStateOf(false) }
     var eventOptionsTargetBlockId by remember { mutableStateOf<String?>(null) }
     var eventOptionsOccurrenceDate by remember { mutableStateOf<String?>(null) }
 
@@ -412,11 +413,15 @@ fun NoteScreen(
                 when (type) {
                     "database" -> handoff.run { showDatabasePicker = true }
                     "linked_note" -> showNoteLinkMenu = true
+                    "linked_canvas" -> showCanvasLinkMenu = true
                     else -> viewModel.insertNewMediaBlock(type)
                 }
             }
             override fun onInsertLinkedNoteBlock(noteId: String) =
                 viewModel.insertNewMediaBlock("linked_note", linkedNoteId = noteId)
+            override fun onInsertCanvasBlock(canvasNoteId: String) =
+                viewModel.insertNewMediaBlock("canvas", canvasNoteId = canvasNoteId)
+            override suspend fun getLinkableCanvases() = viewModel.getLinkableCanvases()
             override fun onSaveDatabaseAsTemplate(blockId: String, templateName: String) =
                 viewModel.saveDatabaseAsTemplate(blockId, templateName)
             override fun onOutsideTap() {}
@@ -576,6 +581,8 @@ fun NoteScreen(
                     onSlashQueryChange = { slashQuery = it },
                     showNoteLinkMenu = showNoteLinkMenu,
                     onDismissNoteLinkMenu = { showNoteLinkMenu = false },
+                    showCanvasLinkMenu = showCanvasLinkMenu,
+                    onDismissCanvasLinkMenu = { showCanvasLinkMenu = false },
                     onMentionQueryChange = { newQuery ->
                         mentionQuery = newQuery
                         if (!isDesktopPlatform) {
@@ -663,6 +670,8 @@ fun NoteScreen(
                             editorActions.onInsertLinkedNoteBlock(newNoteId)
                             editorActions.onNoteLinkClick(newNoteId)
                         },
+                        onCanvasLinkSelected = { canvasNoteId -> editorActions.onInsertCanvasBlock(canvasNoteId) },
+                        loadLinkableCanvases = { editorActions.getLinkableCanvases() },
                         onSelectCurrentBlock = {
                             GlobalEditorState.currentlyFocusedBlockId?.let { id ->
                                 editorActions.onToggleSelection(id)
@@ -1804,7 +1813,7 @@ private fun BottomSheetOptionItem(
 }
 
 @Composable
-private fun BottomSheetOptionItem(
+internal fun BottomSheetOptionItem(
     icon: Painter,
     text: String,
     isDestructive: Boolean = false,

@@ -33,6 +33,9 @@ interface BlockDao {
     )
     suspend fun findMatchingBlocksForNote(noteId: String, query: String): List<NoteBlockEntity>
 
+    @Query("SELECT * FROM note_blocks WHERE blockDataJson LIKE '%' || :text || '%'")
+    suspend fun findBlocksContainingIncludingDeleted(text: String): List<NoteBlockEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertOrUpdateBlock(block: NoteBlockEntity)
 

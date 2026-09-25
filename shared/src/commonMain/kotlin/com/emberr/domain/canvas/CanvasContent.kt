@@ -25,6 +25,25 @@ data class CanvasContent(
             edges = edges.filter { !it.isDeleted && it.fromNodeId in liveNodeIds && it.toNodeId in liveNodeIds }
         )
     }
+
+    fun copiedForNote(noteId: String, now: Long, newId: () -> String): CanvasContent {
+        val live = liveOnly()
+        val copiedNodeIds = live.nodes.associate { it.nodeId to newId() }
+        return CanvasContent(
+            nodes = live.nodes.map { node ->
+                node.copy(nodeId = copiedNodeIds.getValue(node.nodeId), noteId = noteId, updatedAt = now)
+            },
+            edges = live.edges.map { edge ->
+                edge.copy(
+                    edgeId = newId(),
+                    noteId = noteId,
+                    fromNodeId = copiedNodeIds.getValue(edge.fromNodeId),
+                    toNodeId = copiedNodeIds.getValue(edge.toNodeId),
+                    updatedAt = now
+                )
+            }
+        )
+    }
 }
 
 val CanvasNodeEntity.isGroup: Boolean

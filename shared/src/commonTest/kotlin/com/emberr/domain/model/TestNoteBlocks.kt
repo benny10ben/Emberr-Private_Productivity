@@ -238,6 +238,13 @@ object TestNoteBlocks {
             indentationLevel = 1,
             updatedAt = 114L
         ),
+        CanvasBlock(
+            id = "canvas-1",
+            canvasNoteId = "canvas-note-7",
+            indentationLevel = 1,
+            isPinned = true,
+            updatedAt = 115L
+        ),
         SolidDividerBlock(
             id = "solid-divider-1",
             indentationLevel = 1,

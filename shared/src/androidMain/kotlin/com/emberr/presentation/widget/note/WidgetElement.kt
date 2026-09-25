@@ -3,6 +3,7 @@ package com.emberr.presentation.widget.note
 
 import com.emberr.domain.model.BookmarkBlock
 import com.emberr.domain.model.BulletedListBlock
+import com.emberr.domain.model.CanvasBlock
 import com.emberr.domain.model.CheckboxBlock
 import com.emberr.domain.model.CodeBlock
 import com.emberr.domain.model.DatabaseBlock
@@ -156,6 +157,8 @@ private fun convertBlockToElements(
     )
 
     is ImageBlock -> textLine(block, "Image", WidgetTextStyleName.SUBTLE)
+
+    is CanvasBlock -> textLine(block, "Canvas", WidgetTextStyleName.SUBTLE)
 
     is DocumentBlock -> textLine(block, block.fileName, WidgetTextStyleName.SUBTLE)
 

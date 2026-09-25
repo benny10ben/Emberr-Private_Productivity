@@ -132,8 +132,26 @@ interface NoteDao {
     @Query("SELECT COUNT(*) FROM calendar_tasks WHERE spaceId = :spaceId AND isChecked = 0")
     fun getIncompleteTasksCount(spaceId: String): Flow<Int>
 
-    @Query("SELECT * FROM notes_metadata WHERE spaceId = :spaceId AND isDaily = 0 AND trashedAt IS NULL AND isTemplate = 0")
+    @Query("SELECT * FROM notes_metadata WHERE spaceId = :spaceId AND isDaily = 0 AND trashedAt IS NULL AND isTemplate = 0 AND NOT (isSubNote = 1 AND kind = 'CANVAS')")
     fun getAllLinkableNotes(spaceId: String): Flow<List<NoteMetadataEntity>>
+
+    @Query(
+        """
+        SELECT canvas.* FROM notes_metadata AS canvas
+        WHERE canvas.spaceId = :spaceId AND canvas.kind = 'CANVAS' AND canvas.trashedAt IS NULL AND canvas.isTemplate = 0
+        AND (
+            canvas.isSubNote = 0 OR EXISTS (
+                SELECT 1 FROM note_blocks
+                INNER JOIN notes_metadata AS owner ON owner.noteId = note_blocks.noteId
+                WHERE note_blocks.isDeleted = 0
+                AND owner.trashedAt IS NULL
+                AND note_blocks.blockDataJson LIKE '%' || canvas.noteId || '%'
+            )
+        )
+        ORDER BY canvas.updatedAt DESC
+        """
+    )
+    suspend fun getLinkableCanvases(spaceId: String): List<NoteMetadataEntity>
 
     @Query("SELECT * FROM notes_metadata WHERE isDaily = 0 AND trashedAt IS NULL AND isSubNote = 0 AND isTemplate = 0 ORDER BY updatedAt DESC")
     suspend fun getAllNotesAcrossSpaces(): List<NoteMetadataEntity>

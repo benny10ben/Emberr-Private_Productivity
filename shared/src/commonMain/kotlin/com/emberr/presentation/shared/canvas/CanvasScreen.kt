@@ -1,9 +1,12 @@
 package com.emberr.presentation.shared.canvas
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.VectorConverter
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
@@ -170,6 +173,8 @@ fun CanvasScreen(
     noteId: String,
     modifier: Modifier = Modifier,
     isStickyNote: Boolean = false,
+    isEmbedded: Boolean = false,
+    isActive: Boolean = true,
     onNavigateBack: () -> Unit = {},
     viewModel: CanvasViewModel = koinViewModel(key = "canvas:$noteId")
 ) {
@@ -192,6 +197,18 @@ fun CanvasScreen(
     val hazeState = remember { HazeState() }
     val nodeScrollStates = remember(noteId) { mutableMapOf<String, ScrollState>() }
     LaunchedEffect(editingNodeId) { viewModel.finishTextEditStep() }
+    LaunchedEffect(isActive) {
+        if (!isEmbedded) return@LaunchedEffect
+        if (isActive) {
+            canvasFocusRequester.requestFocus()
+        } else {
+            editingNodeId = null
+            selection = CanvasSelection.None
+            isSelectingMultiple = false
+            hoveredNodeId = null
+            pointerIcon = PointerIcon.Default
+        }
+    }
 
     val pixelDensity = LocalDensity.current.density
     val backgroundColor = MaterialTheme.colorScheme.background
@@ -242,7 +259,7 @@ fun CanvasScreen(
     val keyboardHeightPx = WindowInsets.ime.getBottom(LocalDensity.current)
     val keyboardClearancePx = with(LocalDensity.current) { KEYBOARD_CLEARANCE.toPx() }
     LaunchedEffect(editingNodeId, keyboardHeightPx, boardSize) {
-        if (isDesktopPlatform || keyboardHeightPx == 0) return@LaunchedEffect
+        if (isDesktopPlatform || isEmbedded || keyboardHeightPx == 0) return@LaunchedEffect
         val editingNode = canvas.nodes.firstOrNull { it.nodeId == editingNodeId } ?: return@LaunchedEffect
         val editingRect = viewport.worldRectToScreen(editingNode.worldRect, pixelDensity)
         val visibleBottom = boardSize.height - keyboardHeightPx - keyboardClearancePx
@@ -919,46 +936,101 @@ fun CanvasScreen(
             )
         }
 
-        Column(
+        val areControlsVisible = !isEmbedded || isActive
+        val isSelectionBarVisible = !isDesktopPlatform && isSelectingMultiple && selection != CanvasSelection.None
+
+        fun undoCanvasStep() {
+            editingNodeId = null
+            viewModel.undo()
+        }
+
+        fun redoCanvasStep() {
+            editingNodeId = null
+            viewModel.redo()
+        }
+
+        AnimatedVisibility(
+            visible = areControlsVisible,
+            enter = fadeIn(),
+            exit = fadeOut(),
             modifier = Modifier
                 .align(Alignment.TopEnd)
-                .then(if (isDesktopPlatform) Modifier.padding(top = 20.dp, end = 22.dp) else Modifier.statusBarsPadding().padding(top = 10.dp, end = 16.dp)),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+                .then(
+                    when {
+                        isDesktopPlatform -> Modifier.padding(top = 20.dp, end = 22.dp)
+                        isEmbedded -> Modifier.padding(top = 10.dp, end = 16.dp)
+                        else -> Modifier.statusBarsPadding().padding(top = 10.dp, end = 16.dp)
+                    }
+                )
         ) {
-            CanvasOptionsButton(
-                hazeState = hazeState,
-                showStickyNoteOption = !isStickyNote && isDesktopPlatform,
-                loadCurrentTitle = { viewModel.currentTitle() },
-                onRename = { newTitle -> viewModel.renameCanvas(newTitle) },
-                onOpenAsStickyNote = { StickyNoteWindowBus.open(noteId) }
-            )
-            CanvasZoomButtons(
-                hazeState = hazeState,
-                onZoomIn = { zoomAroundBoardCenter(ZOOM_BUTTON_STEP) },
-                onShowBusiestArea = { showBusiestArea() },
-                onZoomOut = { zoomAroundBoardCenter(1f / ZOOM_BUTTON_STEP) }
-            )
-            CanvasUndoRedoButtons(
-                hazeState = hazeState,
-                onUndo = {
-                    editingNodeId = null
-                    viewModel.undo()
-                },
-                onRedo = {
-                    editingNodeId = null
-                    viewModel.redo()
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                CanvasOptionsButton(
+                    hazeState = hazeState,
+                    showStickyNoteOption = !isStickyNote && isDesktopPlatform,
+                    showMoveToTrashOption = !isEmbedded,
+                    loadCurrentTitle = { viewModel.currentTitle() },
+                    onRename = { newTitle -> viewModel.renameCanvas(newTitle) },
+                    onOpenAsStickyNote = { StickyNoteWindowBus.open(noteId) },
+                    onMoveToTrash = { viewModel.moveCanvasToTrash(onMoved = onNavigateBack) }
+                )
+                CanvasZoomButtons(
+                    hazeState = hazeState,
+                    onZoomIn = { zoomAroundBoardCenter(ZOOM_BUTTON_STEP) },
+                    onShowBusiestArea = { showBusiestArea() },
+                    onZoomOut = { zoomAroundBoardCenter(1f / ZOOM_BUTTON_STEP) }
+                )
+                if (!isEmbedded) {
+                    CanvasUndoRedoButtons(
+                        hazeState = hazeState,
+                        onUndo = { undoCanvasStep() },
+                        onRedo = { redoCanvasStep() }
+                    )
                 }
+            }
+        }
+
+        if (isEmbedded) {
+            val canvasTitle by viewModel.title.collectAsState()
+            CanvasTitlePill(
+                title = canvasTitle,
+                hazeState = hazeState,
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .then(
+                        if (isDesktopPlatform) Modifier.padding(start = 22.dp, top = 20.dp, end = 82.dp)
+                        else Modifier.padding(start = 16.dp, top = 10.dp, end = 76.dp)
+                    )
             )
+
+            AnimatedVisibility(
+                visible = isActive && !isSelectionBarVisible,
+                enter = fadeIn(),
+                exit = fadeOut(),
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .then(
+                        if (isDesktopPlatform) Modifier.padding(start = 22.dp, bottom = 20.dp)
+                        else Modifier.padding(start = 16.dp, bottom = 16.dp)
+                    )
+            ) {
+                CanvasUndoRedoButtons(
+                    hazeState = hazeState,
+                    onUndo = { undoCanvasStep() },
+                    onRedo = { redoCanvasStep() },
+                    isVertical = false
+                )
+            }
         }
 
         if (!isDesktopPlatform) {
-            CanvasBackButton(
-                hazeState = hazeState,
-                onClick = onNavigateBack,
-                modifier = Modifier.align(Alignment.TopStart).statusBarsPadding().padding(top = 10.dp, start = 16.dp)
-            )
+            if (!isEmbedded) {
+                CanvasBackButton(
+                    hazeState = hazeState,
+                    onClick = onNavigateBack,
+                    modifier = Modifier.align(Alignment.TopStart).statusBarsPadding().padding(top = 10.dp, start = 16.dp)
+                )
+            }
 
-            val isSelectionBarVisible = isSelectingMultiple && selection != CanvasSelection.None
             CanvasSelectionActionBar(
                 isVisible = isSelectionBarVisible,
                 selectedCount = if (selection is CanvasSelection.Edge) 1 else selection.selectedNodeIds.size,
@@ -970,16 +1042,31 @@ fun CanvasScreen(
                 },
                 onClose = { leaveEditingAndSelection() },
                 hazeState = hazeState,
-                modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding()
+                modifier = Modifier.align(Alignment.BottomCenter).then(if (isEmbedded) Modifier else Modifier.navigationBarsPadding())
             )
-            if (!isSelectionBarVisible && editingNodeId == null) {
+        }
+
+        if (isDesktopPlatform || (!isSelectionBarVisible && editingNodeId == null)) {
+            AnimatedVisibility(
+                visible = areControlsVisible,
+                enter = fadeIn(),
+                exit = fadeOut(),
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .then(
+                        when {
+                            isDesktopPlatform -> Modifier.padding(end = 22.dp, bottom = 20.dp)
+                            isEmbedded -> Modifier.padding(end = 16.dp, bottom = 16.dp)
+                            else -> Modifier.navigationBarsPadding().padding(end = 16.dp, bottom = 16.dp)
+                        }
+                    )
+            ) {
                 CanvasAddBoxButton(
                     hazeState = hazeState,
                     onClick = {
                         val boardCenter = Offset(boardSize.width / 2f, boardSize.height / 2f)
                         createBoxAt(viewport.screenToWorld(boardCenter, pixelDensity), groupToGrowId = null)
-                    },
-                    modifier = Modifier.align(Alignment.BottomEnd).navigationBarsPadding().padding(end = 16.dp, bottom = 16.dp)
+                    }
                 )
             }
         }

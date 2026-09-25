@@ -24,6 +24,7 @@ import com.emberr.data.local.room.entity.FolderEntity
 import com.emberr.data.local.room.entity.ImageBlockEntity
 import com.emberr.data.local.room.entity.MediaReferenceEntity
 import com.emberr.data.local.room.entity.NoteBlockEntity
+import com.emberr.data.local.room.entity.NoteKind
 import com.emberr.data.local.room.entity.NoteMetadataEntity
 import com.emberr.data.local.room.entity.SelfHostDeletedNoteEntity
 import com.emberr.data.local.room.entity.TagEntity
@@ -31,8 +32,12 @@ import com.emberr.data.local.room.entity.TaskSource
 import com.emberr.data.local.room.entity.toEntityColumns
 import com.emberr.data.local.room.entity.toRecurrenceRule
 import com.emberr.domain.ai.NoteIndexer
+import com.emberr.domain.canvas.CanvasContent
+import com.emberr.domain.canvas.EmbeddedCanvasCleanup
+import com.emberr.domain.canvas.isEmbeddedCanvas
 import com.emberr.domain.model.BookmarkBlock
 import com.emberr.domain.model.BulletedListBlock
+import com.emberr.domain.model.CanvasBlock
 import com.emberr.domain.model.CheckboxBlock
 import com.emberr.domain.model.CodeBlock
 import com.emberr.domain.model.DocumentBlock
@@ -612,6 +617,9 @@ class NoteRepositoryImpl(
             // so its own next manifest upload would silently resurrect the note everywhere.
             val metadata = noteDao.getNoteById(noteId)
             val previousTombstone = selfHostDeletedNoteDao.getTombstoneByNoteId(noteId)
+            val embeddedCanvasIds = blockDao.getAllBlocksForNoteIncludingDeleted(noteId)
+                .mapNotNull { (decodeBlockOrNull(it.blockDataJson) as? CanvasBlock)?.canvasNoteId }
+                .toSet()
             hardDeleteLocalNote(noteId)
             selfHostDeletedNoteDao.upsertTombstone(
                 SelfHostDeletedNoteEntity(
@@ -623,7 +631,17 @@ class NoteRepositoryImpl(
                 )
             )
             AutoSyncTrigger.requestSync()
+            deleteEmbeddedCanvasesNoLongerShown(embeddedCanvasIds)
         }
+    }
+
+    private suspend fun deleteEmbeddedCanvasesNoLongerShown(candidateCanvasIds: Set<String>) {
+        if (candidateCanvasIds.isEmpty()) return
+        val remainingCanvasBlocks = blockDao.findBlocksContainingIncludingDeleted(EmbeddedCanvasCleanup.CANVAS_NOTE_ID_FIELD)
+            .mapNotNull { decodeBlockOrNull(it.blockDataJson) as? CanvasBlock }
+        EmbeddedCanvasCleanup.canvasesNoLiveBlockUses(candidateCanvasIds, remainingCanvasBlocks)
+            .filter { canvasNoteId -> noteDao.getNoteById(canvasNoteId)?.isEmbeddedCanvas == true }
+            .forEach { canvasNoteId -> deleteNote(canvasNoteId, "") }
     }
 
     override suspend fun deleteAllContentInSpace(spaceId: String) {
@@ -1442,6 +1460,51 @@ class NoteRepositoryImpl(
 
     override fun getAllLinkableNotes(): Flow<List<NoteMetadataEntity>> =
         inActiveSpace { noteDao.getAllLinkableNotes(it) }
+
+    override suspend fun getLinkableCanvases(): List<NoteMetadataEntity> =
+        withContext(Dispatchers.IO) { noteDao.getLinkableCanvases(activeSpaceId()) }
+
+    override fun observeNoteMetadata(noteId: String): Flow<NoteMetadataEntity?> = noteDao.observeNoteById(noteId)
+
+    override suspend fun copyEmbeddedCanvasesIn(content: NoteContent): NoteContent = withContext(Dispatchers.IO) {
+        val copyIdsBySourceCanvasId = mutableMapOf<String, String>()
+        val blocks = content.blocks.map { block ->
+            if (block !is CanvasBlock || block.isDeleted) return@map block
+            val copiedCanvasNoteId = copyIdsBySourceCanvasId.getOrPut(block.canvasNoteId) {
+                copyEmbeddedCanvas(block.canvasNoteId) ?: block.canvasNoteId
+            }
+            block.copy(canvasNoteId = copiedCanvasNoteId)
+        }
+        content.copy(blocks = blocks)
+    }
+
+    private suspend fun copyEmbeddedCanvas(sourceCanvasNoteId: String): String? {
+        val source = noteDao.getNoteById(sourceCanvasNoteId)?.takeIf { it.isEmbeddedCanvas } ?: return null
+        val copyNoteId = UUID.randomUUID().toString()
+        val now = System.currentTimeMillis()
+        val copiedCanvas = CanvasContent(
+            nodes = canvasDao.getAllNodesForNoteIncludingDeleted(sourceCanvasNoteId),
+            edges = canvasDao.getAllEdgesForNoteIncludingDeleted(sourceCanvasNoteId)
+        ).copiedForNote(copyNoteId, now) { UUID.randomUUID().toString() }
+        val copyMetadata = NoteMetadataEntity(
+            noteId = copyNoteId,
+            title = source.title,
+            folderId = null,
+            isDaily = false,
+            dateString = null,
+            createdAt = now,
+            updatedAt = now,
+            filePath = "note_$copyNoteId.json",
+            isSubNote = true,
+            kind = NoteKind.CANVAS
+        )
+        SyncCoordinator.mutex.withLock {
+            saveNote(copyMetadata, NoteContent(blocks = emptyList()))
+            canvasDao.upsertNodes(copiedCanvas.nodes)
+            canvasDao.upsertEdges(copiedCanvas.edges)
+        }
+        return copyNoteId
+    }
 
     override suspend fun updateNoteSortOrder(noteId: String, order: Int) =
         withContext(Dispatchers.IO) {

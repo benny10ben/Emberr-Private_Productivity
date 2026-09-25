@@ -64,6 +64,7 @@ object ExportEngine {
                     }
                 }
                 is VoiceBlock -> { /* Ignored */ }
+                is CanvasBlock -> builder.appendLine("${indent}[Canvas]")
                 is LinkedNoteBlock -> { /* Ignored - only linkedNoteId is available here, no title to render */ }
             }
         }

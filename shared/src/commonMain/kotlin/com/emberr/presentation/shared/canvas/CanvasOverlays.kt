@@ -5,6 +5,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -21,11 +22,15 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalRippleConfiguration
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -39,15 +44,17 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import com.emberr.domain.util.system.isDesktopPlatform
 import com.emberr.presentation.home.RenameBottomSheet
+import com.emberr.presentation.home.note.BottomSheetOptionItem
 import com.emberr.presentation.home.note.DesktopMenuItem
 import com.emberr.presentation.shared.components.EmberrBlur
 import com.emberr.presentation.shared.components.EmberrBottomSheet
-import com.emberr.presentation.shared.components.EmberrBottomSheetOption
+import com.emberr.presentation.shared.components.NoRippleIndicationNodeFactory
 import com.emberr.presentation.shared.components.EmberrButtonPrimary
 import com.emberr.presentation.shared.components.EmberrButtonSecondary
 import com.emberr.presentation.shared.components.EmberrDesktopMenu
@@ -84,6 +91,7 @@ private val SelectionPillShape = RoundedCornerShape(50)
 private val SelectionPillGap = 8.dp
 private const val PALETTE_SWATCHES_PER_ROW = 5
 private val SelectionBarShape = RoundedCornerShape(12.dp)
+private val TitlePillShape = RoundedCornerShape(50)
 
 @Composable
 fun canvasNodeBackgroundFor(colorName: String?): Color {
@@ -96,9 +104,11 @@ fun canvasNodeBackgroundFor(colorName: String?): Color {
 fun CanvasOptionsButton(
     hazeState: HazeState,
     showStickyNoteOption: Boolean,
+    showMoveToTrashOption: Boolean,
     loadCurrentTitle: suspend () -> String,
     onRename: (String) -> Unit,
     onOpenAsStickyNote: () -> Unit,
+    onMoveToTrash: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var showOptionsMenu by remember { mutableStateOf(false) }
@@ -118,20 +128,7 @@ fun CanvasOptionsButton(
             CanvasMobileOptionsSheets(
                 showOptionsSheet = showOptionsMenu,
                 showRenameSheet = showRenamePopup,
-                loadCurrentTitle = loadCurrentTitle,
-                onOpenRename = {
-                    showOptionsMenu = false
-                    showRenamePopup = true
-                },
-                onDismissOptions = { showOptionsMenu = false },
-                onDismissRename = { showRenamePopup = false },
-                onRename = onRename
-            )
-        } else {
-            CanvasDesktopOptionsMenus(
-                showOptionsMenu = showOptionsMenu,
-                showRenamePopup = showRenamePopup,
-                showStickyNoteOption = showStickyNoteOption,
+                showMoveToTrashOption = showMoveToTrashOption,
                 loadCurrentTitle = loadCurrentTitle,
                 onOpenRename = {
                     showOptionsMenu = false
@@ -140,7 +137,24 @@ fun CanvasOptionsButton(
                 onDismissOptions = { showOptionsMenu = false },
                 onDismissRename = { showRenamePopup = false },
                 onRename = onRename,
-                onOpenAsStickyNote = onOpenAsStickyNote
+                onMoveToTrash = onMoveToTrash
+            )
+        } else {
+            CanvasDesktopOptionsMenus(
+                showOptionsMenu = showOptionsMenu,
+                showRenamePopup = showRenamePopup,
+                showStickyNoteOption = showStickyNoteOption,
+                showMoveToTrashOption = showMoveToTrashOption,
+                loadCurrentTitle = loadCurrentTitle,
+                onOpenRename = {
+                    showOptionsMenu = false
+                    showRenamePopup = true
+                },
+                onDismissOptions = { showOptionsMenu = false },
+                onDismissRename = { showRenamePopup = false },
+                onRename = onRename,
+                onOpenAsStickyNote = onOpenAsStickyNote,
+                onMoveToTrash = onMoveToTrash
             )
         }
     }
@@ -151,12 +165,14 @@ private fun CanvasDesktopOptionsMenus(
     showOptionsMenu: Boolean,
     showRenamePopup: Boolean,
     showStickyNoteOption: Boolean,
+    showMoveToTrashOption: Boolean,
     loadCurrentTitle: suspend () -> String,
     onOpenRename: () -> Unit,
     onDismissOptions: () -> Unit,
     onDismissRename: () -> Unit,
     onRename: (String) -> Unit,
-    onOpenAsStickyNote: () -> Unit
+    onOpenAsStickyNote: () -> Unit,
+    onMoveToTrash: () -> Unit
 ) {
     EmberrDesktopMenu(expanded = showOptionsMenu, onDismissRequest = onDismissOptions) {
         Column(Modifier.width(240.dp).padding(vertical = 4.dp)) {
@@ -165,6 +181,12 @@ private fun CanvasDesktopOptionsMenus(
                 DesktopMenuItem(painterResource(Res.drawable.square_arrow_out_up_right), "Open as Sticky Note") {
                     onDismissOptions()
                     onOpenAsStickyNote()
+                }
+            }
+            if (showMoveToTrashOption) {
+                DesktopMenuItem(painterResource(Res.drawable.trash), "Move to Trash", isDestructive = true) {
+                    onDismissOptions()
+                    onMoveToTrash()
                 }
             }
         }
@@ -185,15 +207,18 @@ private fun CanvasDesktopOptionsMenus(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun CanvasMobileOptionsSheets(
     showOptionsSheet: Boolean,
     showRenameSheet: Boolean,
+    showMoveToTrashOption: Boolean,
     loadCurrentTitle: suspend () -> String,
     onOpenRename: () -> Unit,
     onDismissOptions: () -> Unit,
     onDismissRename: () -> Unit,
-    onRename: (String) -> Unit
+    onRename: (String) -> Unit,
+    onMoveToTrash: () -> Unit
 ) {
     var currentTitle by remember { mutableStateOf("") }
     LaunchedEffect(showRenameSheet) {
@@ -201,18 +226,19 @@ private fun CanvasMobileOptionsSheets(
     }
 
     EmberrBottomSheet(expanded = showOptionsSheet, onDismiss = onDismissOptions, title = "Canvas") { closeAnd ->
-        EmberrBottomSheetOption(
-            label = "Rename",
-            icon = {
-                Icon(
-                    painter = painterResource(Res.drawable.pen),
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.size(20.dp)
-                )
-            },
-            onClick = { closeAnd(onOpenRename) }
-        )
+        CompositionLocalProvider(
+            LocalIndication provides NoRippleIndicationNodeFactory,
+            LocalRippleConfiguration provides null
+        ) {
+            Column(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)) {
+                BottomSheetOptionItem(painterResource(Res.drawable.pen), "Rename") { closeAnd(onOpenRename) }
+                if (showMoveToTrashOption) {
+                    BottomSheetOptionItem(painterResource(Res.drawable.trash), "Move to Trash", isDestructive = true) {
+                        closeAnd(onMoveToTrash)
+                    }
+                }
+            }
+        }
     }
     RenameBottomSheet(
         expanded = showRenameSheet,
@@ -225,6 +251,35 @@ private fun CanvasMobileOptionsSheets(
         title = "Rename Canvas",
         placeholder = "Canvas title..."
     )
+}
+
+@Composable
+fun CanvasTitlePill(title: String, hazeState: HazeState, modifier: Modifier = Modifier) {
+    Surface(
+        shape = TitlePillShape,
+        color = Color.Transparent,
+        modifier = modifier
+            .height(44.dp)
+            .customEmberrShadow(TitlePillShape)
+            .clip(TitlePillShape)
+            .emberrBlur(hazeState, EmberrBlur.Regular)
+            .border(
+                width = 0.5.dp,
+                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
+                shape = TitlePillShape
+            )
+    ) {
+        Box(modifier = Modifier.padding(horizontal = 16.dp), contentAlignment = Alignment.CenterStart) {
+            Text(
+                text = title.ifBlank { "Untitled canvas" },
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.primary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
 }
 
 @Composable
@@ -342,7 +397,7 @@ fun CanvasZoomButtons(
 }
 
 @Composable
-fun CanvasUndoRedoButtons(hazeState: HazeState, onUndo: () -> Unit, onRedo: () -> Unit) {
+fun CanvasUndoRedoButtons(hazeState: HazeState, onUndo: () -> Unit, onRedo: () -> Unit, isVertical: Boolean = true) {
     TopBarIconButtonGroup(
         items = listOf(
             TopBarIconButtonItem(painterResource(Res.drawable.undo_circle), "Undo", onUndo),
@@ -352,7 +407,7 @@ fun CanvasUndoRedoButtons(hazeState: HazeState, onUndo: () -> Unit, onRedo: () -
         tint = MaterialTheme.colorScheme.primary,
         hazeState = hazeState,
         hazeStyle = EmberrBlur.Regular,
-        isVertical = true
+        isVertical = isVertical
     )
 }
 

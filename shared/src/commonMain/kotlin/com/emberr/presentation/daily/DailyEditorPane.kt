@@ -95,6 +95,7 @@ fun DailyEditorPane(
     val pendingRecurringDeletion by viewModel.pendingRecurringDeletion.collectAsState()
     var showDatabasePicker by remember { mutableStateOf(false) }
     var showNoteLinkMenu by remember { mutableStateOf(false) }
+    var showCanvasLinkMenu by remember { mutableStateOf(false) }
 
     val isSelectionMode = selectedBlockIds.isNotEmpty()
     val selectedBlocksList = blocks.filter { it.id in selectedBlockIds }
@@ -189,11 +190,15 @@ fun DailyEditorPane(
                 when (type) {
                     "database" -> showDatabasePicker = true
                     "linked_note" -> showNoteLinkMenu = true
+                    "linked_canvas" -> showCanvasLinkMenu = true
                     else -> viewModel.insertNewMediaBlock(type)
                 }
             }
             override fun onInsertLinkedNoteBlock(noteId: String) =
                 viewModel.insertNewMediaBlock("linked_note", linkedNoteId = noteId)
+            override fun onInsertCanvasBlock(canvasNoteId: String) =
+                viewModel.insertNewMediaBlock("canvas", canvasNoteId = canvasNoteId)
+            override suspend fun getLinkableCanvases() = viewModel.getLinkableCanvases()
             override fun onSaveDatabaseAsTemplate(blockId: String, templateName: String) =
                 viewModel.saveDatabaseAsTemplate(blockId, templateName)
             override fun onOutsideTap() {}
@@ -349,6 +354,8 @@ fun DailyEditorPane(
             onSlashQueryChange = { slashQuery = it },
             showNoteLinkMenu = showNoteLinkMenu,
             onDismissNoteLinkMenu = { showNoteLinkMenu = false },
+            showCanvasLinkMenu = showCanvasLinkMenu,
+            onDismissCanvasLinkMenu = { showCanvasLinkMenu = false },
             onMentionQueryChange = { newQuery ->
                 mentionQuery = newQuery
                 if (!isDesktopPlatform) {
@@ -425,6 +432,8 @@ fun DailyEditorPane(
                     actions.onInsertLinkedNoteBlock(newNoteId)
                     actions.onNoteLinkClick(newNoteId)
                 },
+                onCanvasLinkSelected = { canvasNoteId -> actions.onInsertCanvasBlock(canvasNoteId) },
+                loadLinkableCanvases = { actions.getLinkableCanvases() },
                 onSelectCurrentBlock = {
                     GlobalEditorState.currentlyFocusedBlockId?.let { id ->
                         actions.onToggleSelection(id)

@@ -5,6 +5,7 @@ package com.emberr.domain.vault
 import com.emberr.data.local.room.entity.NoteMetadataEntity
 import com.emberr.domain.model.BookmarkBlock
 import com.emberr.domain.model.BulletedListBlock
+import com.emberr.domain.model.CanvasBlock
 import com.emberr.domain.model.CheckboxBlock
 import com.emberr.domain.model.CodeBlock
 import com.emberr.domain.model.DatabaseBlock
@@ -171,6 +172,7 @@ object NoteMarkdownWriter {
             is ImageBlock -> renderImage(block, tag, options)
             is DocumentBlock -> renderDocument(block, tag, options)
             is VoiceBlock -> renderVoice(block, tag, options)
+            is CanvasBlock -> renderCanvas(block, tag, options)
             is TableBlock -> renderTable(block, tag)
             is DatabaseBlock -> renderDatabase(block, tag, options)
             is SolidDividerBlock -> withTagOnItsOwnLine(VaultFormat.SOLID_DIVIDER_LINE, tag)
@@ -281,6 +283,16 @@ object NoteMarkdownWriter {
             appendLine("```${VaultFormat.VOICE_FENCE_NAME}")
             if (fileName != null) appendLine("file: ${options.mediaPathPrefix}$fileName")
             appendLine("seconds: ${block.durationSeconds}")
+            append("```")
+        }
+        return withTagOnItsOwnLine(fence, tag)
+    }
+
+    private fun renderCanvas(block: CanvasBlock, tag: String?, options: RenderOptions): String {
+        if (!options.isVault) return ""
+        val fence = buildString {
+            appendLine("```${VaultFormat.CANVAS_FENCE_NAME}")
+            appendLine("note: ${block.canvasNoteId}")
             append("```")
         }
         return withTagOnItsOwnLine(fence, tag)

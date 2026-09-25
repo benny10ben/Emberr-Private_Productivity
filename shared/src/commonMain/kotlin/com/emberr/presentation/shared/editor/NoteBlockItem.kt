@@ -61,6 +61,7 @@ import androidx.compose.ui.unit.sp
 import com.emberr.data.local.room.entity.TagEntity
 import com.emberr.domain.model.BookmarkBlock
 import com.emberr.domain.model.BulletedListBlock
+import com.emberr.domain.model.CanvasBlock
 import com.emberr.domain.model.CheckboxBlock
 import com.emberr.domain.util.system.triggerHapticFeedback
 import com.emberr.domain.model.CodeBlock
@@ -108,6 +109,7 @@ import com.emberr.presentation.shared.editor.blockViews.DocumentBlockView
 import com.emberr.presentation.shared.editor.blockViews.ImageBlockView
 import com.emberr.presentation.shared.editor.blockViews.AudioBlockView
 import com.emberr.presentation.shared.editor.blockViews.BookmarkBlockView
+import com.emberr.presentation.shared.editor.blockViews.CanvasBlockView
 import com.emberr.presentation.shared.editor.blockViews.LinkedNoteBlockView
 import com.emberr.presentation.shared.editor.blockViews.TableBlockView
 import androidx.compose.ui.text.input.VisualTransformation
@@ -160,6 +162,8 @@ fun NoteBlockItem(
     onDismissSlashMenu: () -> Unit = {},
     showNoteLinkMenu: Boolean = false,
     onDismissNoteLinkMenu: () -> Unit = {},
+    showCanvasLinkMenu: Boolean = false,
+    onDismissCanvasLinkMenu: () -> Unit = {},
     isFirstToggleChild: Boolean = false,
     selectionRequest: SelectionRequest? = null,
     validNoteIds: Set<String> = emptySet(),
@@ -252,7 +256,7 @@ fun NoteBlockItem(
         }
     }
 
-    val isTextBased = block !is BookmarkBlock && block !is ImageBlock && block !is DocumentBlock && block !is DatabaseBlock && block !is TableBlock && block !is VoiceBlock && block !is SolidDividerBlock && block !is ThreeDotDividerBlock && block !is LinkedNoteBlock
+    val isTextBased = block !is BookmarkBlock && block !is ImageBlock && block !is DocumentBlock && block !is DatabaseBlock && block !is TableBlock && block !is VoiceBlock && block !is SolidDividerBlock && block !is ThreeDotDividerBlock && block !is LinkedNoteBlock && block !is CanvasBlock
     LaunchedEffect(focusRequest?.nonce) {
         if (focusRequest == null || focusRequest.id != block.id) return@LaunchedEffect
 
@@ -349,6 +353,7 @@ fun NoteBlockItem(
 
     val isSlashMenuActiveHere = isDesktopPlatform && isActiveBlock && showSlashMenu
     val isNoteLinkMenuActiveHere = isDesktopPlatform && isActiveBlock && showNoteLinkMenu
+    val isCanvasLinkMenuActiveHere = isDesktopPlatform && isActiveBlock && showCanvasLinkMenu
 
     var isChoosingHighlightColor by remember { mutableStateOf(false) }
 
@@ -478,6 +483,18 @@ fun NoteBlockItem(
                     actions.onInsertLinkedNoteBlock(newNoteId)
                     onDismissNoteLinkMenu()
                     actions.onNoteLinkClick(newNoteId)
+                }
+            )
+        }
+
+        if (isCanvasLinkMenuActiveHere) {
+            CanvasLinkMenu(
+                expanded = true,
+                onDismissRequest = onDismissCanvasLinkMenu,
+                loadCanvases = { actions.getLinkableCanvases() },
+                onCanvasSelected = { canvasNoteId ->
+                    actions.onInsertCanvasBlock(canvasNoteId)
+                    onDismissCanvasLinkMenu()
                 }
             )
         }
@@ -882,6 +899,11 @@ fun NoteBlockItem(
                                     }
                                 )
                             }
+                            is CanvasBlock -> CanvasBlockView(
+                                block = block,
+                                inSelectionMode = inSelectionMode,
+                                onToggleSelection = { actions.onToggleSelection(block.id) }
+                            )
                             is VoiceBlock -> AudioBlockView(
                                 block = block,
                                 inSelectionMode = inSelectionMode,

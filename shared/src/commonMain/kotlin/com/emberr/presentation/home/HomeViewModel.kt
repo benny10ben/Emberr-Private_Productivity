@@ -7,6 +7,7 @@ import com.emberr.data.local.prefs.SyncConstants
 import com.emberr.data.local.room.entity.FolderEntity
 import com.emberr.data.local.room.entity.NoteKind
 import com.emberr.data.local.room.entity.NoteMetadataEntity
+import com.emberr.domain.canvas.EmbeddedCanvasCleaner
 import com.emberr.domain.media.LocalMediaGarbageCollector
 import com.emberr.domain.model.*
 import com.emberr.domain.repository.FavoriteNoteOrderStore
@@ -40,6 +41,7 @@ class HomeViewModel(
     private val templateSeeder: DefaultTemplateSeeder,
     private val sampleNotesSeeder: SampleNotesSeeder,
     private val localMediaGarbageCollector: LocalMediaGarbageCollector,
+    private val embeddedCanvasCleaner: EmbeddedCanvasCleaner,
     private val favoriteNoteOrderStore: FavoriteNoteOrderStore,
     private val activeSpaceStore: ActiveSpaceStore
 ) : ViewModel() {
@@ -404,6 +406,7 @@ class HomeViewModel(
         viewModelScope.launch(Dispatchers.IO) {
             delay(2_000.milliseconds)
             localMediaGarbageCollector.collectAndDeleteOrphanedMedia()
+            embeddedCanvasCleaner.deleteCanvasesOfRemovedBlocks()
             com.emberr.domain.ai.models.cleanupPendingModelDeletions()
         }
         viewModelScope.launch {
@@ -674,7 +677,7 @@ class HomeViewModel(
                 isTemplate = false
             )
 
-            repository.saveNote(metadata, templateContent.deepCopyWithNewIds())
+            repository.saveNote(metadata, repository.copyEmbeddedCanvasesIn(templateContent.deepCopyWithNewIds()))
 
             withContext(Dispatchers.Main) {
                 onNoteCreated(newNoteId)

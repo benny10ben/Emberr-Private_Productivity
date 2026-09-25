@@ -4,6 +4,7 @@ package com.emberr.domain.vault
 
 import com.emberr.domain.model.BookmarkBlock
 import com.emberr.domain.model.BulletedListBlock
+import com.emberr.domain.model.CanvasBlock
 import com.emberr.domain.model.CellData
 import com.emberr.domain.model.CheckboxBlock
 import com.emberr.domain.model.CodeBlock
@@ -415,6 +416,7 @@ object NoteMarkdownReader {
     ): NoteBlock = when (chunk.fenceInfo) {
         VaultFormat.DATABASE_FENCE_NAME -> buildDatabaseBlock(chunk, existing, request)
         VaultFormat.VOICE_FENCE_NAME -> buildVoiceBlock(chunk, existing, request)
+        VaultFormat.CANVAS_FENCE_NAME -> buildCanvasBlock(chunk, existing, request)
         else -> buildCodeBlock(chunk, existing, request)
     }
 
@@ -447,6 +449,19 @@ object NoteMarkdownReader {
             existing,
             request.timestamp
         )
+    }
+
+    private fun buildCanvasBlock(
+        chunk: VaultMarkdownChunk,
+        existing: NoteBlock?,
+        request: VaultNoteReadRequest
+    ): NoteBlock {
+        val fields = VaultMarkdownScanner.parseKeyValueLines(chunk.lines)
+        val canvasNoteId = fields["note"]?.takeIf { it.isNotBlank() }
+            ?: (existing as? CanvasBlock)?.canvasNoteId
+            ?: return buildCodeBlock(chunk, existing, request)
+        val base = existing as? CanvasBlock ?: CanvasBlock(id = idFor(existing, request), canvasNoteId = canvasNoteId)
+        return settle(base.copy(canvasNoteId = canvasNoteId), existing, request.timestamp)
     }
 
     private fun buildTableBlock(

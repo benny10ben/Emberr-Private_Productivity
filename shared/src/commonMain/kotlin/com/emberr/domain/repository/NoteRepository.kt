@@ -178,6 +178,12 @@ interface NoteRepository {
 
     fun getAllLinkableNotes(): Flow<List<NoteMetadataEntity>>
 
+    suspend fun getLinkableCanvases(): List<NoteMetadataEntity>
+
+    suspend fun copyEmbeddedCanvasesIn(content: NoteContent): NoteContent
+
+    fun observeNoteMetadata(noteId: String): Flow<NoteMetadataEntity?>
+
     fun observeNoteContent(noteId: String): Flow<NoteContent?>
     fun observeDailyNote(dateString: String): Flow<NoteContent?>
 

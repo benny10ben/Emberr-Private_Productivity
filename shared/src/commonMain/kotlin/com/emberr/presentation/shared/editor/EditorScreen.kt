@@ -58,6 +58,7 @@ import androidx.compose.ui.window.PopupProperties
 import com.emberr.data.local.room.entity.TagEntity
 import com.emberr.domain.model.BookmarkBlock
 import com.emberr.domain.model.BulletedListBlock
+import com.emberr.domain.model.CanvasBlock
 import com.emberr.domain.model.CellData
 import com.emberr.domain.model.CheckboxBlock
 import com.emberr.domain.model.ColumnType
@@ -91,6 +92,7 @@ import androidx.compose.foundation.gestures.animateScrollBy
 import kotlin.time.Duration.Companion.milliseconds
 import androidx.compose.ui.platform.LocalDensity
 import kotlinx.coroutines.flow.MutableSharedFlow
+import com.emberr.data.local.room.entity.NoteKind
 import com.emberr.data.local.room.entity.NoteMetadataEntity
 import com.emberr.presentation.BOTTOM_BAR_BOTTOM_PADDING
 import com.emberr.presentation.shared.components.EmberrBlur
@@ -127,6 +129,7 @@ import emberr.shared.generated.resources.redo_circle
 import emberr.shared.generated.resources.scissor2
 import emberr.shared.generated.resources.square_kanban
 import emberr.shared.generated.resources.table
+import emberr.shared.generated.resources.group
 import emberr.shared.generated.resources.text_tool_2
 import emberr.shared.generated.resources.text_x
 import emberr.shared.generated.resources.textalign_center2
@@ -200,12 +203,14 @@ data class SlashMenuSectionData(
 // MAIN  = the quick-action strip
 // SLASH = the menu shown while typing "/" (driven by the typed query)
 // MENU  = the full "everything" menu opened from the + button
-enum class MobileMenuState { MAIN, SLASH, MENU, MENTION, LINK_TO_NOTE }
+enum class MobileMenuState { MAIN, SLASH, MENU, MENTION, LINK_TO_NOTE, LINK_TO_CANVAS }
 
 object GlobalEditorState {
     var currentlyFocusedBlockId: String? = null
 
     var currentlyFocusedTableCellKey: String? = null
+
+    var focusedCanvasBlockId: String? = null
 
     var hasTextSelection by mutableStateOf(false)
         private set
@@ -320,6 +325,8 @@ interface EditorActions {
     suspend fun getNoteTitle(noteId: String): String
     fun onCreateLinkedNote(title: String): String
     fun onInsertLinkedNoteBlock(noteId: String) {}
+    fun onInsertCanvasBlock(canvasNoteId: String) {}
+    suspend fun getLinkableCanvases(): List<NoteMetadataEntity> = emptyList()
     fun onRequestCamera(blockId: String)
     suspend fun getNoteMetadata(noteId: String): NoteMetadataEntity?
     fun onUpdateLinkedNoteOptions(id: String, showIcon: Boolean, showCoverImage: Boolean)
@@ -349,6 +356,8 @@ fun EditorScreen(
     onSlashQueryChange: (String) -> Unit = {},
     showNoteLinkMenu: Boolean = false,
     onDismissNoteLinkMenu: () -> Unit = {},
+    showCanvasLinkMenu: Boolean = false,
+    onDismissCanvasLinkMenu: () -> Unit = {},
     onMentionQueryChange: (String?) -> Unit = {},
     allLinkableNotes: List<NoteMetadataEntity> = emptyList(),
     isCurrentActivePage: Boolean = true,
@@ -417,14 +426,13 @@ fun EditorScreen(
     var isSlashKilled by remember { mutableStateOf(false) }
     val previousTextMap = remember { mutableMapOf<String, String>() }
     val slashMenuLabels = remember {
-        listOf(
-            "Text", "Heading 1", "Heading 2", "To-do List", "Bulleted List",
-            "Numbered List", "Toggle List", "Quote", "Code Block",
-            "Voice Note", "Image", "Document / File", "Web Bookmark",
-            "Database / Table", "Simple Table", "Link to Note", "Bold Text", "Italic Text", "Underline Text",
-            "Strikethrough Text", "Decrease Indent", "Increase Indent",
-            "Solid Line", "Three Dots"
-        )
+        buildSlashMenuSections(
+            onChangeBlockType = {},
+            onToggleFormat = {},
+            onAdjustIndentation = {},
+            onSetAlignment = {},
+            onInsertMediaBlock = {}
+        ).flatMap { section -> section.items.map { it.label } }
     }
 
     val isScrolled by remember {
@@ -747,7 +755,7 @@ fun EditorScreen(
                                 latestOnClearSelection()
                                 return@onPreviewKeyEvent true
                             }
-                            if (!keyEvent.isCtrlPressed) return@onPreviewKeyEvent false
+                            if (!keyEvent.isCtrlPressed || GlobalEditorState.focusedCanvasBlockId != null) return@onPreviewKeyEvent false
                             when (keyEvent.key) {
                                 Key.Z -> {
                                     if (keyEvent.isShiftPressed) latestOnRedo() else latestOnUndo()
@@ -796,6 +804,7 @@ fun EditorScreen(
                                         || lastBlock is DocumentBlock
                                         || lastBlock is DatabaseBlock
                                         || lastBlock is VoiceBlock
+                                        || lastBlock is CanvasBlock
 
                                 if (isMediaBlock) {
                                     wrappedActions.onFocusBlock(lastBlock.id)
@@ -885,6 +894,8 @@ fun EditorScreen(
                             onDismissSlashMenu = onDismissSlash,
                             showNoteLinkMenu = showNoteLinkMenu,
                             onDismissNoteLinkMenu = onDismissNoteLinkMenu,
+                            showCanvasLinkMenu = showCanvasLinkMenu,
+                            onDismissCanvasLinkMenu = onDismissCanvasLinkMenu,
                             isFirstToggleChild = isFirstToggleChild,
                             selectionRequest = selectionRequest,
                             validNoteIds = validNoteIds,
@@ -908,6 +919,7 @@ fun EditorScreen(
                                                     || lastBlock is DocumentBlock
                                                     || lastBlock is DatabaseBlock
                                                     || lastBlock is VoiceBlock
+                                                    || lastBlock is CanvasBlock
 
                                             if (isMediaBlock) {
                                                 wrappedActions.onFocusBlock(lastBlock.id)
@@ -1014,6 +1026,8 @@ fun EditorToolbar(
     onNoteLinkSelected: (String) -> Unit = {},
     onNoteLinkCreateNote: (String) -> Unit = {},
     onNoteLinkCreateBlank: () -> Unit = {},
+    onCanvasLinkSelected: (String) -> Unit = {},
+    loadLinkableCanvases: suspend () -> List<NoteMetadataEntity> = { emptyList() },
     hazeState: HazeState
 ) {
     if (isDesktopPlatform) return
@@ -1204,9 +1218,7 @@ fun EditorToolbar(
                                         onInsertMediaBlock = {
                                             onClearSlashQuery()
                                             onInsertMediaBlock(it)
-                                            onMenuStateChange(
-                                                if (it == "linked_note") MobileMenuState.LINK_TO_NOTE else MobileMenuState.MAIN
-                                            )
+                                            onMenuStateChange(mobileMenuStateAfterInserting(it))
                                         }
                                     )
                                 }
@@ -1236,9 +1248,7 @@ fun EditorToolbar(
                                         },
                                         onInsertMediaBlock = {
                                             onInsertMediaBlock(it)
-                                            onMenuStateChange(
-                                                if (it == "linked_note") MobileMenuState.LINK_TO_NOTE else MobileMenuState.MAIN
-                                            )
+                                            onMenuStateChange(mobileMenuStateAfterInserting(it))
                                         }
                                     )
                                 }
@@ -1296,11 +1306,30 @@ fun EditorToolbar(
                                 )
                             }
                         }
+                        MobileMenuState.LINK_TO_CANVAS -> {
+                            Column(modifier = Modifier.fillMaxWidth()) {
+                                MenuDragHandle(onClose = { onMenuStateChange(MobileMenuState.MAIN) })
+                                CanvasLinkMenuContent(
+                                    loadCanvases = loadLinkableCanvases,
+                                    onCanvasSelected = {
+                                        onCanvasLinkSelected(it)
+                                        onMenuStateChange(MobileMenuState.MAIN)
+                                    },
+                                    autoFocusSearch = false
+                                )
+                            }
+                        }
                     }
                 }
             }
         }
     }
+}
+
+private fun mobileMenuStateAfterInserting(type: String): MobileMenuState = when (type) {
+    "linked_note" -> MobileMenuState.LINK_TO_NOTE
+    "linked_canvas" -> MobileMenuState.LINK_TO_CANVAS
+    else -> MobileMenuState.MAIN
 }
 
 @Composable
@@ -1484,7 +1513,9 @@ fun buildSlashMenuSections(
         SlashMenuItemData("Web Bookmark", Res.drawable.bookmark) { onInsertMediaBlock("bookmark") },
         SlashMenuItemData("Database / Table", Res.drawable.square_kanban) { onInsertMediaBlock("database") },
         SlashMenuItemData("Simple Table", Res.drawable.table) { onInsertMediaBlock("table") },
-        SlashMenuItemData("Link to Note", Res.drawable.link) { onInsertMediaBlock("linked_note") }
+        SlashMenuItemData("Canvas", Res.drawable.group) { onInsertMediaBlock("canvas") },
+        SlashMenuItemData("Link to Note", Res.drawable.link) { onInsertMediaBlock("linked_note") },
+        SlashMenuItemData("Link to Canvas", Res.drawable.group) { onInsertMediaBlock("linked_canvas") }
     )),
     SlashMenuSectionData("Inline Text Formatting", listOf(
         SlashMenuItemData("Bold Text", Res.drawable.format_bold, 13.dp) { onToggleFormat("bold") },
@@ -1728,10 +1759,9 @@ fun NoteLinkMenuContent(
     autoFocusSearch: Boolean = true
 ) {
     var query by remember { mutableStateOf("") }
-    var selectedIndex by remember(query) { mutableIntStateOf(0) }
 
     val filteredNotes = remember(query, allLinkableNotes) {
-        allLinkableNotes.filter { it.title.contains(query, ignoreCase = true) }
+        allLinkableNotes.filter { it.kind == NoteKind.NOTE && it.title.contains(query, ignoreCase = true) }
     }
 
     val entries = remember(query, filteredNotes) {
@@ -1755,6 +1785,82 @@ fun NoteLinkMenuContent(
         }
     }
 
+    SearchableLinkList(
+        query = query,
+        onQueryChange = { query = it },
+        searchPlaceholder = "Search notes...",
+        sectionTitle = "Link to Note",
+        entries = entries,
+        onDismissRequest = onDismissRequest,
+        autoFocusSearch = autoFocusSearch
+    )
+}
+
+@Composable
+fun CanvasLinkMenu(
+    expanded: Boolean,
+    onDismissRequest: () -> Unit,
+    loadCanvases: suspend () -> List<NoteMetadataEntity>,
+    onCanvasSelected: (canvasNoteId: String) -> Unit
+) {
+    if (!expanded) return
+
+    EmberrDesktopMenu(
+        expanded = true,
+        onDismissRequest = onDismissRequest,
+        properties = PopupProperties(focusable = true),
+        modifier = Modifier
+            .width(290.dp)
+            .heightIn(max = 400.dp)
+    ) {
+        CanvasLinkMenuContent(
+            loadCanvases = loadCanvases,
+            onCanvasSelected = onCanvasSelected,
+            onDismissRequest = onDismissRequest
+        )
+    }
+}
+
+@Composable
+fun CanvasLinkMenuContent(
+    loadCanvases: suspend () -> List<NoteMetadataEntity>,
+    onCanvasSelected: (canvasNoteId: String) -> Unit,
+    onDismissRequest: () -> Unit = {},
+    autoFocusSearch: Boolean = true
+) {
+    var query by remember { mutableStateOf("") }
+    val canvases by produceState(initialValue = emptyList<NoteMetadataEntity>()) { value = loadCanvases() }
+
+    val entries = remember(query, canvases) {
+        canvases
+            .map { canvas -> canvas.noteId to canvas.title.ifBlank { "Untitled canvas" } }
+            .filter { (_, title) -> title.contains(query, ignoreCase = true) }
+            .map { (canvasNoteId, title) -> SlashMenuItemData(title, Res.drawable.group) { onCanvasSelected(canvasNoteId) } }
+    }
+
+    SearchableLinkList(
+        query = query,
+        onQueryChange = { query = it },
+        searchPlaceholder = "Search canvases...",
+        sectionTitle = "Link to Canvas",
+        entries = entries,
+        onDismissRequest = onDismissRequest,
+        autoFocusSearch = autoFocusSearch
+    )
+}
+
+@Composable
+private fun SearchableLinkList(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    searchPlaceholder: String,
+    sectionTitle: String,
+    entries: List<SlashMenuItemData>,
+    onDismissRequest: () -> Unit,
+    autoFocusSearch: Boolean
+) {
+    var selectedIndex by remember(query) { mutableIntStateOf(0) }
+
     val searchFocusRequester = remember { FocusRequester() }
     LaunchedEffect(autoFocusSearch) {
         if (autoFocusSearch) searchFocusRequester.requestFocus()
@@ -1762,8 +1868,8 @@ fun NoteLinkMenuContent(
 
     EmberrTextField(
         value = query,
-        onValueChange = { query = it },
-        placeholder = "Search notes...",
+        onValueChange = onQueryChange,
+        placeholder = searchPlaceholder,
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 12.dp, vertical = 8.dp)
@@ -1792,7 +1898,7 @@ fun NoteLinkMenuContent(
             }
     )
     SlashMenuList(
-        sections = listOf(SlashMenuSectionData("Link to Note", entries)),
+        sections = listOf(SlashMenuSectionData(sectionTitle, entries)),
         selectedIndex = selectedIndex
     )
 }

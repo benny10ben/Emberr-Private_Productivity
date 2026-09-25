@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.emberr.data.local.room.entity.DatabaseTemplateEntity
 import com.emberr.data.local.room.entity.FolderEntity
+import com.emberr.data.local.room.entity.NoteKind
 import com.emberr.data.local.room.entity.NoteMetadataEntity
 import com.emberr.data.local.room.entity.TagEntity
 import com.emberr.domain.model.*
@@ -1963,7 +1964,16 @@ abstract class BaseEditorViewModel(
         }
     }
 
-    fun insertNewMediaBlock(type: String, databaseTemplate: DatabaseTemplateEntity? = null, linkedNoteId: String? = null) {
+    fun insertNewMediaBlock(
+        type: String,
+        databaseTemplate: DatabaseTemplateEntity? = null,
+        linkedNoteId: String? = null,
+        canvasNoteId: String? = null
+    ) {
+        if (type == "canvas" && canvasNoteId == null) {
+            createEmbeddedCanvasThenInsertBlock()
+            return
+        }
         val activeBlockId = currentlyFocusedBlockId ?: _focusRequest.value?.id ?: _selectedBlockIds.value.firstOrNull()
         var newIdToFocus: String? = null
         val now = System.currentTimeMillis()
@@ -1988,6 +1998,10 @@ abstract class BaseEditorViewModel(
                 "voice" -> VoiceBlock(id = newId, indentationLevel = indent, isPinned = isPinnedContext, updatedAt = now)
                 "database" -> buildDatabaseBlock(newId, indent, isPinnedContext, now, databaseTemplate)
                 "table" -> TableBlock(id = newId, indentationLevel = indent, isPinned = isPinnedContext, updatedAt = now)
+                "canvas" -> {
+                    if (canvasNoteId == null) return@modifyBlocks list
+                    CanvasBlock(id = newId, canvasNoteId = canvasNoteId, indentationLevel = indent, isPinned = isPinnedContext, updatedAt = now)
+                }
                 else -> return@modifyBlocks list
             }
 
@@ -2015,6 +2029,36 @@ abstract class BaseEditorViewModel(
         }
         newIdToFocus?.let { _focusRequest.value = FocusRequest(id = it) }
         scheduleAutosave()
+    }
+
+    private fun createEmbeddedCanvasThenInsertBlock() {
+        val canvasNoteId = UUID.randomUUID().toString()
+        val now = System.currentTimeMillis()
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val canvasMetadata = NoteMetadataEntity(
+                    noteId = canvasNoteId,
+                    title = "",
+                    folderId = null,
+                    isDaily = false,
+                    dateString = null,
+                    createdAt = now,
+                    updatedAt = now,
+                    filePath = "note_$canvasNoteId.json",
+                    isSubNote = true,
+                    kind = NoteKind.CANVAS
+                )
+                SyncCoordinator.mutex.withLock {
+                    repository.saveNote(canvasMetadata, NoteContent(blocks = emptyList()))
+                }
+                withContext(Dispatchers.Main) {
+                    insertNewMediaBlock("canvas", canvasNoteId = canvasNoteId)
+                    flushPendingSave()
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
     }
 
     fun updateTable(blockId: String, rows: List<List<String>>) {
@@ -2164,6 +2208,8 @@ abstract class BaseEditorViewModel(
     suspend fun getNoteMetadata(noteId: String): NoteMetadataEntity? {
         return repository.getNoteById(noteId)
     }
+
+    suspend fun getLinkableCanvases(): List<NoteMetadataEntity> = repository.getLinkableCanvases()
 
     fun updateLinkedNoteOptions(blockId: String, showIcon: Boolean, showCoverImage: Boolean) {
         val now = System.currentTimeMillis()

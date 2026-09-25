@@ -151,6 +151,15 @@ val sharedModule = module {
         )
     }
 
+    single {
+        com.emberr.domain.canvas.EmbeddedCanvasCleaner(
+            noteDao = get(),
+            blockDao = get(),
+            canvasRepository = get(),
+            noteRepository = get()
+        )
+    }
+
     single<com.emberr.domain.ai.external.AiSettingsRepository> {
         com.emberr.domain.ai.external.AiSettingsRepositoryImpl(
             settingsManager = get(),
@@ -220,6 +229,7 @@ val sharedModule = module {
             templateSeeder = get(),
             sampleNotesSeeder = get(),
             localMediaGarbageCollector = get(),
+            embeddedCanvasCleaner = get(),
             favoriteNoteOrderStore = get(),
             activeSpaceStore = get()
         )
