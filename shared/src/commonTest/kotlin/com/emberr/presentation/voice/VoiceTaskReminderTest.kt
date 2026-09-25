@@ -1,9 +1,5 @@
-package com.emberr.presentation.mobile.voice
+package com.emberr.presentation.voice
 
-import com.emberr.presentation.voice.reminderMovedToDate
-import com.emberr.presentation.voice.reminderMovedToTime
-import com.emberr.presentation.voice.voiceTaskDayLabel
-import com.emberr.presentation.voice.voiceTaskTimeLabel
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone

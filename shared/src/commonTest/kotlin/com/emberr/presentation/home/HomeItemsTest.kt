@@ -1,15 +1,7 @@
-package com.emberr.presentation.mobile.home
+package com.emberr.presentation.home
 
 import com.emberr.data.local.room.entity.FolderEntity
 import com.emberr.data.local.room.entity.NoteMetadataEntity
-import com.emberr.presentation.home.HomeItem
-import com.emberr.presentation.home.HomeItemKey
-import com.emberr.presentation.home.SortOrder
-import com.emberr.presentation.home.SortType
-import com.emberr.presentation.home.homeItemComparator
-import com.emberr.presentation.home.lastEditedAt
-import com.emberr.presentation.home.movedTo
-import com.emberr.presentation.home.sortedHomeItems
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
