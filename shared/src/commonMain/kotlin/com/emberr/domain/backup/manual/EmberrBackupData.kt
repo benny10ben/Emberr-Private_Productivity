@@ -3,6 +3,8 @@ package com.emberr.domain.backup.manual
 import com.emberr.data.local.room.entity.BookmarkBlockEntity
 import com.emberr.data.local.room.entity.CalendarEventExceptionEntity
 import com.emberr.data.local.room.entity.CalendarTaskEntity
+import com.emberr.data.local.room.entity.CanvasEdgeEntity
+import com.emberr.data.local.room.entity.CanvasNodeEntity
 import com.emberr.data.local.room.entity.CategoryEntity
 import com.emberr.data.local.room.entity.ChatSessionEntity
 import com.emberr.data.local.room.entity.DatabaseTemplateEntity
@@ -33,5 +35,7 @@ data class EmberrBackupData(
     val chatSessions: List<ChatSessionEntity> = emptyList(),
     val databaseTemplates: List<DatabaseTemplateEntity> = emptyList(),
     val calendarEventExceptions: List<CalendarEventExceptionEntity> = emptyList(),
-    val noteTombstones: List<SelfHostDeletedNoteEntity> = emptyList()
+    val noteTombstones: List<SelfHostDeletedNoteEntity> = emptyList(),
+    val canvasNodes: List<CanvasNodeEntity> = emptyList(),
+    val canvasEdges: List<CanvasEdgeEntity> = emptyList()
 )

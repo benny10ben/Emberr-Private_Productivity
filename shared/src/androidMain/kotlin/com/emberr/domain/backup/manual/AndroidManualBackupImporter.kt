@@ -79,6 +79,7 @@ class AndroidManualBackupImporter(
                 databaseTemplateDao = tempDatabase.databaseTemplateDao(),
                 calendarEventExceptionDao = tempDatabase.calendarEventExceptionDao(),
                 selfHostDeletedNoteDao = tempDatabase.selfHostDeletedNoteDao(),
+                canvasDao = tempDatabase.canvasDao(),
                 settingsManager = settingsManager
             )
             val backupData = importedRepository.createBackupData()

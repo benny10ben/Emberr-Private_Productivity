@@ -5,6 +5,7 @@ import com.emberr.data.local.room.dao.BlockDao
 import com.emberr.data.local.room.dao.BookmarkBlockDao
 import com.emberr.data.local.room.dao.CalendarEventExceptionDao
 import com.emberr.data.local.room.dao.CalendarTaskDao
+import com.emberr.data.local.room.dao.CanvasDao
 import com.emberr.data.local.room.dao.CategoryDao
 import com.emberr.data.local.room.dao.ChatSessionDao
 import com.emberr.data.local.room.dao.DatabaseTemplateDao
@@ -20,6 +21,8 @@ import com.emberr.data.local.room.entity.CalendarEventExceptionEntity
 import com.emberr.data.local.room.entity.ChatSessionEntity
 import com.emberr.data.local.room.entity.DatabaseTemplateEntity
 import com.emberr.data.local.room.entity.SelfHostDeletedNoteEntity
+import com.emberr.domain.canvas.CanvasContent
+import com.emberr.domain.canvas.CanvasMerge
 import kotlinx.coroutines.flow.first
 
 class BackupRepositoryImpl(
@@ -38,6 +41,7 @@ class BackupRepositoryImpl(
     private val databaseTemplateDao: DatabaseTemplateDao,
     private val calendarEventExceptionDao: CalendarEventExceptionDao,
     private val selfHostDeletedNoteDao: SelfHostDeletedNoteDao,
+    private val canvasDao: CanvasDao,
     private val settingsManager: SettingsManager
 ) : BackupRepository {
 
@@ -79,7 +83,9 @@ class BackupRepositoryImpl(
             chatSessions = allChatSessions,
             databaseTemplates = allDatabaseTemplates,
             calendarEventExceptions = allEventExceptions,
-            noteTombstones = allNoteTombstones
+            noteTombstones = allNoteTombstones,
+            canvasNodes = canvasDao.getAllNodesForBackup(),
+            canvasEdges = canvasDao.getAllEdgesForBackup()
         )
     }
 
@@ -183,9 +189,28 @@ class BackupRepositoryImpl(
         restoreDatabaseTemplates(backupData.databaseTemplates)
         restoreEventExceptions(backupData.calendarEventExceptions)
         restoreNoteTombstones(backupData.noteTombstones)
+        restoreCanvases(CanvasContent(nodes = backupData.canvasNodes, edges = backupData.canvasEdges))
 
         settingsManager.saveMediaReferenceListBuilt(false)
         mediaReferenceDao.deleteAllReferences()
+    }
+
+    private suspend fun restoreCanvases(backupCanvas: CanvasContent) {
+        val noteIds = backupCanvas.nodes.map { it.noteId } + backupCanvas.edges.map { it.noteId }
+        for (noteId in noteIds.distinct()) {
+            if (noteDao.getNoteById(noteId) == null) continue
+            val localCanvas = CanvasContent(
+                nodes = canvasDao.getAllNodesForNoteIncludingDeleted(noteId),
+                edges = canvasDao.getAllEdgesForNoteIncludingDeleted(noteId)
+            )
+            val backupCanvasForNote = CanvasContent(
+                nodes = backupCanvas.nodes.filter { it.noteId == noteId },
+                edges = backupCanvas.edges.filter { it.noteId == noteId }
+            )
+            val newerBackupItems = CanvasMerge.remoteItemsNewerThanLocal(localCanvas, backupCanvasForNote)
+            canvasDao.upsertNodes(newerBackupItems.nodes)
+            canvasDao.upsertEdges(newerBackupItems.edges)
+        }
     }
 
     private suspend fun restoreChatSessions(sessions: List<ChatSessionEntity>) {
