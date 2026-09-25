@@ -47,6 +47,7 @@ import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.emberr.data.local.prefs.SyncConstants
 import com.emberr.data.local.room.entity.FolderEntity
+import com.emberr.data.local.room.entity.NoteKind
 import com.emberr.data.local.room.entity.NoteMetadataEntity
 import com.emberr.domain.model.NoteContent
 import com.emberr.domain.util.eventbus.WidgetComposeRequest
@@ -60,6 +61,7 @@ import com.emberr.presentation.shared.components.EmberrDesktopMenuOption
 import com.emberr.presentation.shared.components.EmberrBottomSheetAction
 import com.emberr.presentation.shared.components.EmberrDesktopMenu
 import com.emberr.presentation.shared.components.KmpBackHandler
+import com.emberr.presentation.shared.components.NoteKindTabs
 import com.emberr.presentation.shared.components.EmberrPillShadowAmbientColor
 import com.emberr.presentation.shared.components.EmberrPillShadowSpotColor
 import com.emberr.presentation.shared.components.EmberrTopHeaderBar
@@ -340,8 +342,8 @@ fun HomeScreen(
         showAddFolderDialog = false
     }
 
-    val handleCreateNote = { title: String ->
-        viewModel.createNoteInParent(addNoteTargetFolderId, title = title) { newNoteId ->
+    val handleCreateNote = { title: String, kind: NoteKind ->
+        viewModel.createNoteInParent(addNoteTargetFolderId, title = title, kind = kind) { newNoteId ->
             onNavigateToEditor(newNoteId)
         }
         showAddNoteDialog = false
@@ -656,7 +658,7 @@ fun HomeScreen(
                                                             modifier = Modifier.fillMaxWidth(),
                                                             onSubmit = {
                                                                 if (addNoteInput.isNotBlank()) {
-                                                                    handleCreateNote(addNoteInput.trim())
+                                                                    handleCreateNote(addNoteInput.trim(), NoteKind.NOTE)
                                                                     showAddNotePopup = false
                                                                 }
                                                             }
@@ -679,7 +681,8 @@ fun HomeScreen(
                                                                 onClick = {
                                                                     if (addNoteInput.isNotBlank()) {
                                                                         handleCreateNote(
-                                                                            addNoteInput.trim()
+                                                                            addNoteInput.trim(),
+                                                                            NoteKind.NOTE
                                                                         ); showAddNotePopup = false
                                                                     }
                                                                 },
@@ -840,7 +843,7 @@ fun HomeScreen(
                                                 onDismiss = { addNoteMenuFolderId = null },
                                                 onCreate = { title ->
                                                     addNoteMenuFolderId = null
-                                                    handleCreateNote(title)
+                                                    handleCreateNote(title, NoteKind.NOTE)
                                                 }
                                             )
                                         }
@@ -1548,11 +1551,12 @@ fun AddFolderBottomSheet(
 fun AddNoteBottomSheet(
     expanded: Boolean,
     onDismiss: () -> Unit,
-    onCreate: (String) -> Unit,
+    onCreate: (String, NoteKind) -> Unit,
     onOpenTemplates: () -> Unit = {},
     destinationFolderName: String? = null
 ) {
     var noteTitle by remember { mutableStateOf("") }
+    var noteKind by remember(expanded) { mutableStateOf(NoteKind.NOTE) }
     EmberrBottomSheet(
         expanded = expanded,
         onDismiss = onDismiss,
@@ -1566,12 +1570,17 @@ fun AddNoteBottomSheet(
         )
     ) { closeAnd ->
         Column(modifier = Modifier.fillMaxWidth().padding(top = 10.dp,bottom = 16.dp)) {
+            NoteKindTabs(
+                selectedKind = noteKind,
+                onKindSelected = { noteKind = it },
+                modifier = Modifier.padding(bottom = 12.dp)
+            )
             EmberrTextField(
                 value = noteTitle,
                 onValueChange = { noteTitle = it },
                 placeholder = "Note title...",
                 modifier = Modifier.fillMaxWidth(),
-                onSubmit = { closeAnd { onCreate(noteTitle.trim()) } }
+                onSubmit = { closeAnd { onCreate(noteTitle.trim(), noteKind) } }
             )
             Row(
                 modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
@@ -1584,7 +1593,7 @@ fun AddNoteBottomSheet(
                 )
                 EmberrButtonPrimary(
                     text = "Create",
-                    onClick = { closeAnd { onCreate(noteTitle.trim()) } },
+                    onClick = { closeAnd { onCreate(noteTitle.trim(), noteKind) } },
                     modifier = Modifier.weight(1f)
                 )
             }

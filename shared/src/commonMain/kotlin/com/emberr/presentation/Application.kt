@@ -42,6 +42,9 @@ import dev.chrisbanes.haze.HazeState
 import com.emberr.presentation.splash.LoadingScreen
 import com.emberr.domain.model.NoteBlock
 import com.emberr.domain.repository.EmojiRepository
+import com.emberr.domain.repository.NoteRepository
+import com.emberr.data.local.room.entity.NoteKind
+import com.emberr.presentation.shared.canvas.CanvasScreen
 import com.emberr.domain.util.system.AppPermission
 import com.emberr.domain.util.system.rememberAppPermissionCoordinator
 import kotlinx.coroutines.Dispatchers
@@ -97,6 +100,7 @@ fun EmberrApp(
     }
 
     val navController = rememberNavController()
+    val noteRepository: NoteRepository = koinInject()
 
     LaunchedEffect(Unit) {
         com.emberr.domain.util.eventbus.WidgetNavigationBus.requestedRoutes.collect { requestedRoute ->
@@ -545,24 +549,34 @@ fun EmberrApp(
                                 )
                             }
                         ) { backStackEntry ->
-                            com.emberr.presentation.home.note.NoteScreen(
-                                noteId = backStackEntry.savedStateHandle.get<String>("noteId")
-                                    ?: "",
-                                onNavigateBack = { if (!navController.popBackStack()) onExitApp() },
-                                onNavigateToEditor = { subNoteId ->
-                                    navController.navigate(Screen.Note.createRoute(subNoteId))
-                                },
-                                onSelectionModeChange = { isActive ->
-                                    isSelectionActive = isActive
-                                },
-                                onPickImage = onPickImage,
-                                onTakePhoto = onTakePhoto,
-                                onPickDocument = onPickDocument,
-                                onOpenFile = onOpenFile,
-                                onExportMarkdown = onExportMarkdown,
-                                onExportPdf = onExportPdf,
-                                isSearchActive = isSearchBarOpen
-                            )
+                            val routedNoteId = backStackEntry.savedStateHandle.get<String>("noteId") ?: ""
+                            val routedNoteKind by produceState<NoteKind?>(initialValue = null, routedNoteId) {
+                                value = noteRepository.getNoteById(routedNoteId)?.kind ?: NoteKind.NOTE
+                            }
+                            when (routedNoteKind) {
+                                NoteKind.CANVAS -> CanvasScreen(
+                                    noteId = routedNoteId,
+                                    onNavigateBack = { if (!navController.popBackStack()) onExitApp() }
+                                )
+                                NoteKind.NOTE -> com.emberr.presentation.home.note.NoteScreen(
+                                    noteId = routedNoteId,
+                                    onNavigateBack = { if (!navController.popBackStack()) onExitApp() },
+                                    onNavigateToEditor = { subNoteId ->
+                                        navController.navigate(Screen.Note.createRoute(subNoteId))
+                                    },
+                                    onSelectionModeChange = { isActive ->
+                                        isSelectionActive = isActive
+                                    },
+                                    onPickImage = onPickImage,
+                                    onTakePhoto = onTakePhoto,
+                                    onPickDocument = onPickDocument,
+                                    onOpenFile = onOpenFile,
+                                    onExportMarkdown = onExportMarkdown,
+                                    onExportPdf = onExportPdf,
+                                    isSearchActive = isSearchBarOpen
+                                )
+                                null -> Unit
+                            }
                         }
 
                         composable(
