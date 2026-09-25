@@ -95,6 +95,7 @@ val desktopModule = module {
     single<com.emberr.data.local.room.dao.ChatSessionDao> { get<AppDatabase>().chatSessionDao() }
     single<com.emberr.data.local.room.dao.SelfHostDeletedApiConfigDao> { get<AppDatabase>().selfHostDeletedApiConfigDao() }
     single<com.emberr.data.local.room.dao.MediaReferenceDao> { get<AppDatabase>().mediaReferenceDao() }
+    single<com.emberr.data.local.room.dao.CanvasDao> { get<AppDatabase>().canvasDao() }
     single<VoiceRecognizer> { DesktopVoiceRecognizer() }
 
     // SQLDelight
@@ -135,7 +136,7 @@ val desktopModule = module {
     single<SyncDiscoveryManager> { DesktopDiscoveryManager() }
     single { com.emberr.domain.sync.SyncServerAvailability() }
     single<com.emberr.domain.sync.SyncClient> { com.emberr.domain.sync.SyncClient(get(), get(), get()) }
-    single<SyncRepository> { SyncRepositoryImpl(get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get()) }
+    single<SyncRepository> { SyncRepositoryImpl(get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get()) }
     single<com.emberr.domain.sync.LanSyncServerController> {
         com.emberr.domain.sync.DesktopLanSyncServerController(
             settingsManager = get(),
@@ -172,6 +173,7 @@ val desktopModule = module {
             spaceDao = get(),
             categoryDao = get(),
             noteRepository = get(),
+            canvasRepository = get(),
             fileLedger = get(),
             pathMemory = get()
         )

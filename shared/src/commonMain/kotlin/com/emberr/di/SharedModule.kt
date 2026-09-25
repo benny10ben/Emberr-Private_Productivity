@@ -90,7 +90,15 @@ val sharedModule = module {
             databaseTemplateDao = get(),
             categoryDao = get(),
             selfHostDeletedNoteDao = get(),
-            mediaReferenceDao = get()
+            mediaReferenceDao = get(),
+            canvasDao = get()
+        )
+    }
+
+    single {
+        com.emberr.domain.canvas.CanvasRepository(
+            canvasDao = get(),
+            noteDao = get()
         )
     }
 
@@ -182,6 +190,7 @@ val sharedModule = module {
             databaseTemplateDao = get(),
             calendarEventExceptionDao = get(),
             selfHostDeletedNoteDao = get(),
+            canvasDao = get(),
             settingsManager = get()
         )
     }
@@ -282,6 +291,14 @@ val sharedModule = module {
         )
     }
 
+    viewModel {
+        com.emberr.presentation.shared.canvas.CanvasViewModel(
+            canvasRepository = get(),
+            noteRepository = get(),
+            appScope = get(named("AppScope"))
+        )
+    }
+
     viewModel { TrashViewModel(repository = get()) }
     viewModel { SearchViewModel(repository = get(), activeSpaceStore = get()) }
     viewModel {
@@ -330,7 +347,8 @@ val sharedModule = module {
             database = get(),
             bookmarkCategoryOrderStore = get(),
             favoriteNoteOrderStore = get(),
-            mediaReferenceIndex = get()
+            mediaReferenceIndex = get(),
+            canvasRepository = get()
         )
     }
     single {

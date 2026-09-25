@@ -234,6 +234,7 @@ val androidModule = module {
     single<com.emberr.data.local.room.dao.ChatSessionDao> { get<AppDatabase>().chatSessionDao() }
     single<com.emberr.data.local.room.dao.SelfHostDeletedApiConfigDao> { get<AppDatabase>().selfHostDeletedApiConfigDao() }
     single<com.emberr.data.local.room.dao.MediaReferenceDao> { get<AppDatabase>().mediaReferenceDao() }
+    single<com.emberr.data.local.room.dao.CanvasDao> { get<AppDatabase>().canvasDao() }
 
     // SQLDelight
     single<SqlDriver> { DatabaseDriverFactory(androidContext(), get<ByteArray>()).createDriver() }
@@ -294,7 +295,7 @@ val androidModule = module {
     single<com.emberr.core.security.SyncHmacSigner> { com.emberr.core.security.HmacSha256Signer() }
     single<SyncDiscoveryManager> { AndroidDiscoveryManager(androidContext()) }
     single<com.emberr.domain.sync.SyncClient> { com.emberr.domain.sync.SyncClient(get(), get(), get()) }
-    single<SyncRepository> { SyncRepositoryImpl(get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get()) }
+    single<SyncRepository> { SyncRepositoryImpl(get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get()) }
     single<com.emberr.domain.sync.LanSyncServerController> {
         com.emberr.domain.sync.AndroidLanSyncServerController()
     }
@@ -354,6 +355,7 @@ val androidModule = module {
             spaceDao = get(),
             categoryDao = get(),
             noteRepository = get(),
+            canvasRepository = get(),
             fileLedger = get(),
             pathMemory = get()
         )
