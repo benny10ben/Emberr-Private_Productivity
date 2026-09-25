@@ -1442,7 +1442,10 @@ fun DesktopMainScreen(
                         value = noteRepository.getNoteById(d.noteId)?.kind ?: NoteKind.NOTE
                     }
                     when (noteKind) {
-                        NoteKind.CANVAS -> CanvasScreen(noteId = d.noteId)
+                        NoteKind.CANVAS -> CanvasScreen(
+                            noteId = d.noteId,
+                            onNavigateBack = { detail = DetailPane.Daily(selectedDate) }
+                        )
                         NoteKind.NOTE -> NoteScreen(
                             noteId = d.noteId,
                             onNavigateBack = { detail = DetailPane.Daily(selectedDate) },
