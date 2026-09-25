@@ -8,6 +8,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.BringIntoViewSpec
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.LocalBringIntoViewSpec
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
@@ -43,6 +45,7 @@ import androidx.compose.ui.input.key.isShiftPressed
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInParent
@@ -211,6 +214,8 @@ object GlobalEditorState {
     var currentlyFocusedTableCellKey: String? = null
 
     var focusedCanvasBlockId: String? = null
+
+    var pressStartedOnCanvasBlock: Boolean = false
 
     var hasTextSelection by mutableStateOf(false)
         private set
@@ -769,7 +774,26 @@ fun EditorScreen(
                             }
                         }
                 } else {
-                    Modifier
+                    Modifier.pointerInput(Unit) {
+                        awaitEachGesture {
+                            val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                            GlobalEditorState.pressStartedOnCanvasBlock = false
+                            if (GlobalEditorState.focusedCanvasBlockId == null) return@awaitEachGesture
+                            while (true) {
+                                val change = awaitPointerEvent(PointerEventPass.Initial).changes
+                                    .firstOrNull { it.id == down.id } ?: return@awaitEachGesture
+                                if ((change.position - down.position).getDistance() > viewConfiguration.touchSlop) return@awaitEachGesture
+                                if (!change.pressed) {
+                                    if (!GlobalEditorState.pressStartedOnCanvasBlock) {
+                                        change.consume()
+                                        focusManager.clearFocus()
+                                        keyboardController?.hide()
+                                    }
+                                    return@awaitEachGesture
+                                }
+                            }
+                        }
+                    }
                 }
             )
     ) {
