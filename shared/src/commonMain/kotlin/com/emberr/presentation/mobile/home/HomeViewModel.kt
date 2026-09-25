@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.emberr.data.local.prefs.SettingsManager
 import com.emberr.data.local.prefs.SyncConstants
 import com.emberr.data.local.room.entity.FolderEntity
+import com.emberr.data.local.room.entity.NoteKind
 import com.emberr.data.local.room.entity.NoteMetadataEntity
 import com.emberr.domain.media.LocalMediaGarbageCollector
 import com.emberr.domain.model.*
@@ -589,9 +590,14 @@ class HomeViewModel(
         }
     }
 
-    fun createNewNote(title: String = "", forceHomeFolder: Boolean = false, onNoteCreated: (String) -> Unit) {
+    fun createNewNote(
+        title: String = "",
+        forceHomeFolder: Boolean = false,
+        kind: NoteKind = NoteKind.NOTE,
+        onNoteCreated: (String) -> Unit
+    ) {
         val target = if (forceHomeFolder) null else _selectedFolderId.value
-        createNoteInParent(parentFolderId = target, title = title, autoExpand = false, onNoteCreated = onNoteCreated)
+        createNoteInParent(parentFolderId = target, title = title, autoExpand = false, kind = kind, onNoteCreated = onNoteCreated)
     }
 
     // Used by the sidebar tree's per-folder "+" action.
@@ -599,6 +605,7 @@ class HomeViewModel(
         parentFolderId: String?,
         title: String = "",
         autoExpand: Boolean = true,
+        kind: NoteKind = NoteKind.NOTE,
         onNoteCreated: (String) -> Unit
     ) {
         if (autoExpand) parentFolderId?.let { fid -> updateExpandedFolderIds { it + fid } }
@@ -616,7 +623,8 @@ class HomeViewModel(
                 createdAt = System.currentTimeMillis(),
                 updatedAt = System.currentTimeMillis(),
                 filePath = fileName,
-                snippet = ""
+                snippet = "",
+                kind = kind
             )
 
             repository.saveNote(metadata, NoteContent(blocks = emptyList()))

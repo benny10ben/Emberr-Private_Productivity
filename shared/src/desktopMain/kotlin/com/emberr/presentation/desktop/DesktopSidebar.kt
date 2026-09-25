@@ -58,6 +58,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import com.emberr.data.local.room.entity.FolderEntity
+import com.emberr.data.local.room.entity.NoteKind
 import com.emberr.data.local.room.entity.NoteMetadataEntity
 import com.emberr.presentation.mobile.home.DropInsertPosition
 import com.emberr.presentation.mobile.home.HomeItemKey
@@ -70,8 +71,10 @@ import com.emberr.presentation.shared.components.EmberrButtonPrimary
 import com.emberr.presentation.shared.components.EmberrButtonSecondary
 import com.emberr.presentation.shared.components.EmberrDesktopMenu
 import com.emberr.presentation.shared.components.EmberrTextField
+import com.emberr.presentation.shared.components.NoteKindTabs
 import emberr.shared.generated.resources.Res
 import emberr.shared.generated.resources.file_text
+import emberr.shared.generated.resources.group
 import emberr.shared.generated.resources.plus
 import emberr.shared.generated.resources.star
 import emberr.shared.generated.resources.template
@@ -174,7 +177,9 @@ internal fun DesktopNamePopup(
     onConfirm: (String) -> Unit,
     onDismiss: () -> Unit,
     placeholder: String = "Name...",
-    onOpenTemplates: (() -> Unit)? = null
+    onOpenTemplates: (() -> Unit)? = null,
+    noteKind: NoteKind? = null,
+    onNoteKindChange: (NoteKind) -> Unit = {}
 ) {
     var input by remember(initialValue) { mutableStateOf(initialValue) }
     val onSubmit: () -> Unit = { if (input.isNotBlank()) onConfirm(input.trim()) }
@@ -197,6 +202,9 @@ internal fun DesktopNamePopup(
                 )
             }
         }
+        if (noteKind != null) {
+            NoteKindTabs(selectedKind = noteKind, onKindSelected = onNoteKindChange, modifier = Modifier.padding(bottom = 12.dp))
+        }
         EmberrTextField(value = input, onValueChange = { input = it }, placeholder = placeholder, modifier = Modifier.fillMaxWidth(), onSubmit = onSubmit)
         Row(modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             EmberrButtonSecondary(text = "Cancel", onClick = onDismiss, modifier = Modifier.weight(1f))
@@ -218,7 +226,7 @@ fun SidebarFolderRow(
     menu: TreeSelectionMenu = SINGLE_ITEM_TREE_MENU,
     onClick: (SidebarClickModifiers) -> Unit,
     onToggleFavorite: () -> Unit = {},
-    onAddNote: (String) -> Unit,
+    onAddNote: (String, NoteKind) -> Unit,
     onOpenTemplates: () -> Unit,
     templatesMenu: @Composable (isExpanded: Boolean, onDismiss: () -> Unit) -> Unit,
     onAddSubfolder: (String) -> Unit,
@@ -232,6 +240,7 @@ fun SidebarFolderRow(
     var showContextMenu by remember { mutableStateOf(false) }
     var contextMenuOffset by remember { mutableStateOf(DpOffset.Zero) }
     var showAddNotePopup by remember { mutableStateOf(false) }
+    var addNoteKind by remember { mutableStateOf(NoteKind.NOTE) }
     var showTemplatesMenu by remember { mutableStateOf(false) }
     var showAddSubfolderPopup by remember { mutableStateOf(false) }
     var showRenamePopup by remember { mutableStateOf(false) }
@@ -360,7 +369,7 @@ fun SidebarFolderRow(
             when {
                 isSelected -> SidebarTrailingCheck()
                 isHovered && !dragState.dragging -> {
-                    SidebarHoverAction(painterResource(Res.drawable.plus), "New note here") { showAddNotePopup = true }
+                    SidebarHoverAction(painterResource(Res.drawable.plus), "New note here") { addNoteKind = NoteKind.NOTE; showAddNotePopup = true }
                     Spacer(Modifier.width(2.dp))
                 }
             }
@@ -371,9 +380,11 @@ fun SidebarFolderRow(
                         title = "New Note in ${folder.name}",
                         initialValue = "",
                         confirmLabel = "Create",
-                        onConfirm = { title -> onAddNote(title); showAddNotePopup = false },
+                        onConfirm = { title -> onAddNote(title, addNoteKind); showAddNotePopup = false },
                         onDismiss = { showAddNotePopup = false },
                         placeholder = "Note title...",
+                        noteKind = addNoteKind,
+                        onNoteKindChange = { addNoteKind = it },
                         onOpenTemplates = {
                             showAddNotePopup = false
                             onOpenTemplates()
@@ -550,7 +561,7 @@ fun SidebarNoteRow(
                     Text(text = note.icon, fontSize = 18.sp, textAlign = TextAlign.Center)
                 } else {
                     Icon(
-                        painterResource(Res.drawable.file_text),
+                        painterResource(if (note.kind == NoteKind.CANVAS) Res.drawable.group else Res.drawable.file_text),
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.onSurface.copy(
                             alpha = if (isActive || isHovered || isSelected) 0.9f else 0.55f

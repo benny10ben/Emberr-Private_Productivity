@@ -6,6 +6,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
@@ -28,6 +29,8 @@ import com.emberr.core.desktop.DesktopSingleInstance
 import com.emberr.core.security.secrets.DesktopSecretStore
 import com.emberr.data.local.prefs.SettingsManager
 import com.emberr.data.local.prefs.SyncConstants
+import com.emberr.data.local.room.entity.NoteKind
+import com.emberr.domain.repository.NoteRepository
 import com.emberr.di.desktopModule
 import com.emberr.di.sharedModule
 import com.emberr.domain.media.LocalMediaGarbageCollector
@@ -55,6 +58,7 @@ import com.emberr.presentation.desktop.window.MatchWindowsTitleBarToAppTheme
 import com.emberr.presentation.desktop.window.raiseWindowToFront
 import com.emberr.presentation.desktop.window.WindowFrameSize
 import com.emberr.presentation.mobile.home.note.NoteScreen
+import com.emberr.presentation.shared.canvas.CanvasScreen
 import com.emberr.presentation.shared.StickyNoteWindowBus
 import com.emberr.domain.sync.LanSyncServerController
 import com.emberr.domain.theme.resolveLinuxSystemIsDark
@@ -461,69 +465,76 @@ private fun runEmberrDesktopApp() = application {
                         autoHideTitleBar = autoHideTitleBar,
                         onCloseRequest = { StickyNoteWindowBus.close(stickyNoteId) }
                     ) {
-                    NoteScreen(
-                        noteId = stickyNoteId,
-                        isStickyNote = true,
-                        showBackButton = false,
-                        onNavigateBack = {},
-                        onPickImage = { onPathSelected ->
-                            val dialog = java.awt.FileDialog(stickyWindow, "Select Image", java.awt.FileDialog.LOAD)
-                            dialog.file = "*.png;*.jpg;*.jpeg;*.webp"
-                            dialog.isVisible = true
-                            dialog.files.firstOrNull()?.let { file -> onPathSelected(file.absolutePath) }
-                        },
-                        onPickDocument = { onPathSelected ->
-                            val dialog = java.awt.FileDialog(stickyWindow, "Select Document", java.awt.FileDialog.LOAD)
-                            dialog.isVisible = true
-                            dialog.files.firstOrNull()?.let { file -> onPathSelected(file.absolutePath) }
-                        },
-                        onOpenFile = { path, _ ->
-                            try {
-                                val cleanPath = path.removePrefix("file://")
-                                val originalFile = if (cleanPath.contains("/") || cleanPath.contains("\\")) {
-                                    java.io.File(cleanPath)
-                                } else {
-                                    java.io.File(System.getProperty("user.home"), ".emberr/media/$cleanPath")
-                                }
+                    val stickyNoteKind by produceState<NoteKind?>(initialValue = null, stickyNoteId) {
+                        value = GlobalContext.get().get<NoteRepository>().getNoteById(stickyNoteId)?.kind ?: NoteKind.NOTE
+                    }
+                    when (stickyNoteKind) {
+                        NoteKind.CANVAS -> CanvasScreen(noteId = stickyNoteId, isStickyNote = true)
+                        NoteKind.NOTE -> NoteScreen(
+                            noteId = stickyNoteId,
+                            isStickyNote = true,
+                            showBackButton = false,
+                            onNavigateBack = {},
+                            onPickImage = { onPathSelected ->
+                                val dialog = java.awt.FileDialog(stickyWindow, "Select Image", java.awt.FileDialog.LOAD)
+                                dialog.file = "*.png;*.jpg;*.jpeg;*.webp"
+                                dialog.isVisible = true
+                                dialog.files.firstOrNull()?.let { file -> onPathSelected(file.absolutePath) }
+                            },
+                            onPickDocument = { onPathSelected ->
+                                val dialog = java.awt.FileDialog(stickyWindow, "Select Document", java.awt.FileDialog.LOAD)
+                                dialog.isVisible = true
+                                dialog.files.firstOrNull()?.let { file -> onPathSelected(file.absolutePath) }
+                            },
+                            onOpenFile = { path, _ ->
+                                try {
+                                    val cleanPath = path.removePrefix("file://")
+                                    val originalFile = if (cleanPath.contains("/") || cleanPath.contains("\\")) {
+                                        java.io.File(cleanPath)
+                                    } else {
+                                        java.io.File(System.getProperty("user.home"), ".emberr/media/$cleanPath")
+                                    }
 
-                                if (!originalFile.exists()) {
+                                    if (!originalFile.exists()) {
+                                        SwingUtilities.invokeLater {
+                                            JOptionPane.showMessageDialog(
+                                                stickyWindow,
+                                                "This file is no longer available on this device.",
+                                                "File Not Found",
+                                                JOptionPane.WARNING_MESSAGE
+                                            )
+                                        }
+                                    } else {
+                                        val tmpDir = java.io.File(System.getProperty("java.io.tmpdir"), "emberr_view").apply { mkdirs() }
+                                        val viewFile = java.io.File(tmpDir, originalFile.name)
+
+                                        if (!viewFile.exists() || viewFile.length() != originalFile.length()) {
+                                            originalFile.copyTo(viewFile, overwrite = true)
+                                        }
+
+                                        java.awt.Desktop.getDesktop().open(viewFile)
+                                    }
+                                } catch (e: Exception) {
+                                    e.printStackTrace()
                                     SwingUtilities.invokeLater {
                                         JOptionPane.showMessageDialog(
                                             stickyWindow,
-                                            "This file is no longer available on this device.",
-                                            "File Not Found",
-                                            JOptionPane.WARNING_MESSAGE
+                                            "Failed to open file: ${e.message}",
+                                            "Error",
+                                            JOptionPane.ERROR_MESSAGE
                                         )
                                     }
-                                } else {
-                                    val tmpDir = java.io.File(System.getProperty("java.io.tmpdir"), "emberr_view").apply { mkdirs() }
-                                    val viewFile = java.io.File(tmpDir, originalFile.name)
-
-                                    if (!viewFile.exists() || viewFile.length() != originalFile.length()) {
-                                        originalFile.copyTo(viewFile, overwrite = true)
-                                    }
-
-                                    java.awt.Desktop.getDesktop().open(viewFile)
                                 }
-                            } catch (e: Exception) {
-                                e.printStackTrace()
-                                SwingUtilities.invokeLater {
-                                    JOptionPane.showMessageDialog(
-                                        stickyWindow,
-                                        "Failed to open file: ${e.message}",
-                                        "Error",
-                                        JOptionPane.ERROR_MESSAGE
-                                    )
-                                }
+                            },
+                            onExportMarkdown = { fileName, content ->
+                                Thread { handleExportMarkdown(stickyWindow, fileName, content) }.start()
+                            },
+                            onExportPdf = { fileName, title, blocks ->
+                                Thread { handleExportPdf(stickyWindow, fileName, title, blocks) }.start()
                             }
-                        },
-                        onExportMarkdown = { fileName, content ->
-                            Thread { handleExportMarkdown(stickyWindow, fileName, content) }.start()
-                        },
-                        onExportPdf = { fileName, title, blocks ->
-                            Thread { handleExportPdf(stickyWindow, fileName, title, blocks) }.start()
-                        }
-                    )
+                        )
+                        null -> Unit
+                    }
                     }
                 }
             }

@@ -45,6 +45,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import com.emberr.data.local.prefs.SettingsManager
+import com.emberr.data.local.room.entity.NoteKind
 import com.emberr.domain.model.CellData
 import com.emberr.domain.model.ColumnType
 import com.emberr.domain.model.FilterConfig
@@ -62,6 +63,8 @@ import com.emberr.presentation.shared.components.EmberrButtonSecondary
 import com.emberr.presentation.shared.components.EmberrDesktopMenu
 import com.emberr.presentation.shared.components.EmberrTextField
 import com.emberr.presentation.shared.components.EmberrVerticalScrollbar
+import com.emberr.presentation.shared.canvas.CanvasScreen
+import com.emberr.presentation.shared.components.NoteKindTabs
 import com.emberr.presentation.shared.components.smoothWheelScroll
 import com.emberr.presentation.sync.SyncViewModel
 import com.emberr.presentation.calendar.CalendarScreen
@@ -500,6 +503,7 @@ fun DesktopMainScreen(
     searchViewModel: SearchViewModel = koinViewModel(),
     reminderTargetResolver: com.emberr.presentation.reminders.ReminderTargetResolver = koinInject(),
     settingsManager: SettingsManager = koinInject(),
+    noteRepository: com.emberr.domain.repository.NoteRepository = koinInject(),
     isSidebarVisible: Boolean = true,
     sidebarWidth: Dp = 340.dp,
     onToggleSidebar: () -> Unit = {},
@@ -593,6 +597,7 @@ fun DesktopMainScreen(
     var showAddNotePopup by remember { mutableStateOf(false) }
     var showAddFolderPopup by remember { mutableStateOf(false) }
     var addNoteInput by remember { mutableStateOf("") }
+    var addNoteKind by remember { mutableStateOf(NoteKind.NOTE) }
     var addFolderInput by remember { mutableStateOf("") }
     var showTemplatesMenu by remember { mutableStateOf(false) }
 
@@ -647,7 +652,7 @@ fun DesktopMainScreen(
     LaunchedEffect(isSelectionMode) { onSelectionModeChange(isSelectionMode) }
 
     val handleCreateNote = { title: String ->
-        homeViewModel.createNewNote(title = title, forceHomeFolder = false) { newId -> openNote(newId) }
+        homeViewModel.createNewNote(title = title, forceHomeFolder = false, kind = addNoteKind) { newId -> openNote(newId) }
     }
     val handleCreateFolder = { name: String -> homeViewModel.createNewFolder(name) }
 
@@ -1057,7 +1062,7 @@ fun DesktopMainScreen(
                                                         TopBarIconButtonItem(
                                                             icon = painterResource(Res.drawable.pen_square),
                                                             contentDescription = "New note",
-                                                            onClick = { addNoteInput = ""; showAddNotePopup = true }
+                                                            onClick = { addNoteInput = ""; addNoteKind = NoteKind.NOTE; showAddNotePopup = true }
                                                         )
                                                     )
                                                 )
@@ -1107,6 +1112,11 @@ fun DesktopMainScreen(
                                                                     .noRippleClickable { handleOpenTemplates() }
                                                             )
                                                         }
+                                                        NoteKindTabs(
+                                                            selectedKind = addNoteKind,
+                                                            onKindSelected = { addNoteKind = it },
+                                                            modifier = Modifier.padding(bottom = 12.dp)
+                                                        )
                                                         EmberrTextField(
                                                             value = addNoteInput,
                                                             onValueChange = { addNoteInput = it },
@@ -1238,7 +1248,7 @@ fun DesktopMainScreen(
                                 if (isNotesExpanded && treeRows.isEmpty()) {
                                     item(key = "sidebar_empty_notes") {
                                         SidebarEmptyNotesHint(
-                                            onCreateNote = { addNoteInput = ""; showAddNotePopup = true },
+                                            onCreateNote = { addNoteInput = ""; addNoteKind = NoteKind.NOTE; showAddNotePopup = true },
                                             onCreateFolder = { addFolderInput = ""; showAddFolderPopup = true }
                                         )
                                     }
@@ -1266,7 +1276,7 @@ fun DesktopMainScreen(
                                                         homeViewModel.toggleFolderExpansion(row.folder.folderId)
                                                     }
                                                 },
-                                                onAddNote = { title -> homeViewModel.createNoteInParent(row.folder.folderId, title = title, autoExpand = true) { newId -> openNote(newId) } },
+                                                onAddNote = { title, kind -> homeViewModel.createNoteInParent(row.folder.folderId, title = title, autoExpand = true, kind = kind) { newId -> openNote(newId) } },
                                                 onOpenTemplates = { homeViewModel.onTemplatesMenuOpened() },
                                                 templatesMenu = { isExpanded, onDismiss ->
                                                     TemplatesDesktopMenu(
@@ -1427,16 +1437,23 @@ fun DesktopMainScreen(
                     )
                 }
                 is DetailPane.Note -> key(d.noteId) {
-                    NoteScreen(
-                        noteId = d.noteId,
-                        onNavigateBack = { detail = DetailPane.Daily(selectedDate) },
-                        showBackButton = isSidebarVisible,
-                        onSelectionModeChange = onSelectionModeChange,
-                        onPickImage = onPickImage, onTakePhoto = onTakePhoto, onPickDocument = onPickDocument,
-                        onOpenFile = onOpenFile, onExportMarkdown = onExportMarkdown, onExportPdf = onExportPdf,
-                        onNavigateToEditor = { openNote(it) },
-                        desktopTopMargin = 0.dp
-                    )
+                    val noteKind by produceState<NoteKind?>(initialValue = null) {
+                        value = noteRepository.getNoteById(d.noteId)?.kind ?: NoteKind.NOTE
+                    }
+                    when (noteKind) {
+                        NoteKind.CANVAS -> CanvasScreen(noteId = d.noteId)
+                        NoteKind.NOTE -> NoteScreen(
+                            noteId = d.noteId,
+                            onNavigateBack = { detail = DetailPane.Daily(selectedDate) },
+                            showBackButton = isSidebarVisible,
+                            onSelectionModeChange = onSelectionModeChange,
+                            onPickImage = onPickImage, onTakePhoto = onTakePhoto, onPickDocument = onPickDocument,
+                            onOpenFile = onOpenFile, onExportMarkdown = onExportMarkdown, onExportPdf = onExportPdf,
+                            onNavigateToEditor = { openNote(it) },
+                            desktopTopMargin = 0.dp
+                        )
+                        null -> Box(Modifier.fillMaxSize())
+                    }
                 }
                 DetailPane.Settings -> key("settings") {
                     Box(Modifier.fillMaxSize()) {
