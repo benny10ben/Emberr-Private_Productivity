@@ -126,6 +126,9 @@ interface NoteDao {
     @Query("UPDATE notes_metadata SET selfHostSyncedAt = :syncedAt WHERE noteId = :noteId")
     suspend fun updateSelfHostSyncedAt(noteId: String, syncedAt: Long)
 
+    @Query("UPDATE notes_metadata SET updatedAt = :updatedAt WHERE noteId = :noteId")
+    suspend fun updateNoteUpdatedAt(noteId: String, updatedAt: Long)
+
     @Query("SELECT COUNT(*) FROM calendar_tasks WHERE spaceId = :spaceId AND isChecked = 0")
     fun getIncompleteTasksCount(spaceId: String): Flow<Int>
 

@@ -1,5 +1,6 @@
 package com.emberr.data.local.room.entity
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
@@ -38,5 +39,6 @@ data class NoteMetadataEntity(
     val sortOrder: Int = 0,
     val isTemplate: Boolean = false,
     val selfHostSyncedAt: Long = 0L,
-    val spaceId: String = DEFAULT_SPACE_ID
+    val spaceId: String = DEFAULT_SPACE_ID,
+    @ColumnInfo(defaultValue = "NOTE") val kind: NoteKind = NoteKind.NOTE
 )

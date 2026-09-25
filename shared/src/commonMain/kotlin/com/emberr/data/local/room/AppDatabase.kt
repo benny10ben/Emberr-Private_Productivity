@@ -1,5 +1,6 @@
 package com.emberr.data.local.room
 
+import androidx.room.AutoMigration
 import androidx.room.ConstructedBy
 import androidx.room.Database
 import androidx.room.RoomDatabase
@@ -7,6 +8,7 @@ import androidx.room.RoomDatabaseConstructor
 import com.emberr.data.local.room.dao.BlockDao
 import com.emberr.data.local.room.dao.BookmarkBlockDao
 import com.emberr.data.local.room.dao.CalendarEventExceptionDao
+import com.emberr.data.local.room.dao.CanvasDao
 import com.emberr.data.local.room.dao.CalendarTaskDao
 import com.emberr.data.local.room.dao.CategoryDao
 import com.emberr.data.local.room.dao.ChatSessionDao
@@ -23,6 +25,8 @@ import com.emberr.data.local.room.dao.TagDao
 import com.emberr.data.local.room.entity.BookmarkBlockEntity
 import com.emberr.data.local.room.entity.CalendarEventExceptionEntity
 import com.emberr.data.local.room.entity.CalendarTaskEntity
+import com.emberr.data.local.room.entity.CanvasEdgeEntity
+import com.emberr.data.local.room.entity.CanvasNodeEntity
 import com.emberr.data.local.room.entity.CategoryEntity
 import com.emberr.data.local.room.entity.ChatSessionEntity
 import com.emberr.data.local.room.entity.DatabaseTemplateEntity
@@ -54,10 +58,17 @@ import com.emberr.data.local.room.entity.TagEntity
         ChatSessionEntity::class,
         SelfHostDeletedApiConfigEntity::class,
         CalendarEventExceptionEntity::class,
-        MediaReferenceEntity::class
+        MediaReferenceEntity::class,
+        CanvasNodeEntity::class,
+        CanvasEdgeEntity::class
     ],
-    version = 1,
+    version = 4,
     exportSchema = true,
+    autoMigrations = [
+        AutoMigration(from = 1, to = 2),
+        AutoMigration(from = 2, to = 3),
+        AutoMigration(from = 3, to = 4)
+    ]
 )
 @ConstructedBy(AppDatabaseConstructor::class)
 abstract class AppDatabase : RoomDatabase() {
@@ -77,6 +88,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun chatSessionDao(): ChatSessionDao
     abstract fun selfHostDeletedApiConfigDao(): SelfHostDeletedApiConfigDao
     abstract fun mediaReferenceDao(): MediaReferenceDao
+    abstract fun canvasDao(): CanvasDao
 }
 
 @Suppress("NO_ACTUAL_FOR_EXPECT")
