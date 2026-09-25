@@ -2,6 +2,7 @@ package com.emberr.domain.selfhost.translation
 
 import com.emberr.data.local.room.entity.NoteBlockEntity
 import com.emberr.data.local.room.entity.NoteMetadataEntity
+import com.emberr.domain.canvas.CanvasContent
 import com.emberr.domain.selfhost.sync.PreparedSyncOperations
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
@@ -48,7 +49,8 @@ object NoteJsonParser {
             showWordCount = payload.showWordCount,
             sortOrder = payload.sortOrder,
             isTemplate = payload.isTemplate,
-            spaceId = payload.spaceId
+            spaceId = payload.spaceId,
+            kind = payload.kind
         )
 
         val blockUpserts = payload.blocks.map { block ->
@@ -66,7 +68,8 @@ object NoteJsonParser {
             metadataUpsert = metadataUpsert,
             blockUpserts = blockUpserts,
             blockDeletions = dedupedTombstones,
-            embeddedBlocks = payload.embeddedBlocks
+            embeddedBlocks = payload.embeddedBlocks,
+            canvas = CanvasContent(nodes = payload.canvasNodes, edges = payload.canvasEdges).withNoteId(payload.noteId)
         )
     }
 

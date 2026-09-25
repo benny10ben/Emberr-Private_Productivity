@@ -2,6 +2,7 @@ package com.emberr.domain.selfhost.translation
 
 import com.emberr.data.local.room.entity.NoteBlockEntity
 import com.emberr.data.local.room.entity.NoteMetadataEntity
+import com.emberr.domain.canvas.CanvasContent
 import com.emberr.domain.selfhost.sync.SelfHostSyncLog
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
@@ -16,7 +17,8 @@ object NoteJsonCompiler {
     fun compileNoteToJson(
         metadata: NoteMetadataEntity,
         blocks: List<NoteBlockEntity>,
-        embeddedBlocks: List<EmbeddedBlockPayload> = emptyList()
+        embeddedBlocks: List<EmbeddedBlockPayload> = emptyList(),
+        canvas: CanvasContent = CanvasContent()
     ): String {
         val foreignBlocks = blocks.filter { it.noteId != metadata.noteId }
         if (foreignBlocks.isNotEmpty()) {
@@ -49,7 +51,10 @@ object NoteJsonCompiler {
             blocks = ownBlocks.filter { !it.isDeleted }.map { it.toPayload() },
             tombstones = ownBlocks.filter { it.isDeleted }
                 .map { BlockTombstone(it.blockId, it.updatedAt) },
-            embeddedBlocks = embeddedBlocks
+            embeddedBlocks = embeddedBlocks,
+            kind = metadata.kind,
+            canvasNodes = canvas.nodes.filter { it.noteId == metadata.noteId },
+            canvasEdges = canvas.edges.filter { it.noteId == metadata.noteId }
         )
 
         return try {

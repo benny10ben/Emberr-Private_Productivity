@@ -23,6 +23,7 @@ import com.emberr.data.local.room.entity.TagEntity
 import com.emberr.domain.ai.external.AiSettingsRepository
 import com.emberr.domain.ai.external.ExternalAiProvider
 import com.emberr.domain.ai.external.ExternalAiProviderConfig
+import com.emberr.domain.canvas.CanvasRepository
 import com.emberr.domain.model.BookmarkCategoryOrderBySpace
 import com.emberr.domain.model.FavoriteNoteOrderBySpace
 import com.emberr.domain.repository.BookmarkCategoryOrderStore
@@ -84,7 +85,8 @@ class SelfHostSyncEngine(
     private val database: EmberrDatabase,
     private val bookmarkCategoryOrderStore: BookmarkCategoryOrderStore,
     private val favoriteNoteOrderStore: FavoriteNoteOrderStore,
-    private val mediaReferenceIndex: MediaReferenceIndex
+    private val mediaReferenceIndex: MediaReferenceIndex,
+    private val canvasRepository: CanvasRepository
 ) {
 
     private enum class ReconcileOutcome { SYNCED, CONFLICT_SKIPPED, LOCK_BUSY, UNCHANGED }
@@ -955,7 +957,8 @@ class SelfHostSyncEngine(
 
             val mergedMetadata = newerMetadata.copy(
                 noteId = noteId,
-                spaceId = targetSpaceId
+                spaceId = targetSpaceId,
+                kind = localMetadata?.kind ?: newerMetadata.kind
             )
 
             val localBlocks = blockDao.getAllBlocksForNoteIncludingDeleted(noteId).filter { block ->
@@ -980,6 +983,9 @@ class SelfHostSyncEngine(
             spaceRepository.ensureSpaceExists(mergedMetadata.spaceId)
             noteDao.insertOrUpdateMetadata(mergedMetadata.copy(filePath = ""))
             blockDao.insertOrUpdateBlocks(mergedBlocks)
+            remoteOps?.canvas?.let { remoteCanvas ->
+                canvasRepository.applyRemoteCanvasWhileSyncLockHeld(noteId, remoteCanvas)
+            }
 
             // Explicitly sort blocks by displayOrder.
             // This ensures live UI caches reflect the correct order immediately,
@@ -1112,7 +1118,8 @@ class SelfHostSyncEngine(
     ) {
         val embeddedBlocks = database.vectorStoreQueries.getBlocksForNote(metadata.noteId).executeAsList()
             .map { EmbeddedBlockPayload(blockId = it.block_id, chunkText = it.chunk_text, embedding = it.embedding) }
-        val json = NoteJsonCompiler.compileNoteToJson(metadata, blocks, embeddedBlocks)
+        val canvas = canvasRepository.loadCanvasIncludingDeleted(metadata.noteId)
+        val json = NoteJsonCompiler.compileNoteToJson(metadata, blocks, embeddedBlocks, canvas)
 
         if (metadata.isDaily) {
             webDavSyncClient.uploadDaily(

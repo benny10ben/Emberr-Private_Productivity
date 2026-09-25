@@ -1,8 +1,13 @@
 package com.emberr.domain.selfhost.translation
 
+import com.emberr.data.local.room.entity.CanvasEdgeEntity
+import com.emberr.data.local.room.entity.CanvasNodeEntity
+import com.emberr.data.local.room.entity.CanvasSide
 import com.emberr.data.local.room.entity.DEFAULT_SPACE_ID
 import com.emberr.data.local.room.entity.NoteBlockEntity
+import com.emberr.data.local.room.entity.NoteKind
 import com.emberr.data.local.room.entity.NoteMetadataEntity
+import com.emberr.domain.canvas.CanvasContent
 import com.emberr.domain.model.NoteBlock
 import com.emberr.domain.model.TestNoteBlocks
 import kotlinx.serialization.json.Json
@@ -77,6 +82,38 @@ class NotePayloadRoundTripTest {
         val restored = NoteJsonParser.parseJsonToDatabaseOperations(payloadJson).metadataUpsert
 
         assertEquals(metadata.copy(filePath = "", selfHostSyncedAt = 0L), restored)
+    }
+
+    @Test
+    fun aCanvasKeepsItsKindBoxesArrowsAndDeletedItemsOnTheTripToAnotherDevice() {
+        val canvasMetadata = metadata.copy(kind = NoteKind.CANVAS)
+        val liveNode = CanvasNodeEntity(
+            nodeId = "node-1", noteId = metadata.noteId, x = 10f, y = 20f, width = 250f, height = 60f,
+            text = "Idea", createdAt = 100L, updatedAt = 200L
+        )
+        val deletedNode = liveNode.copy(nodeId = "node-2", text = "", updatedAt = 300L, isDeleted = true)
+        val edge = CanvasEdgeEntity(
+            edgeId = "edge-1", noteId = metadata.noteId, fromNodeId = "node-1", fromSide = CanvasSide.RIGHT,
+            toNodeId = "node-2", toSide = CanvasSide.LEFT, createdAt = 100L, updatedAt = 250L
+        )
+        val canvas = CanvasContent(nodes = listOf(liveNode, deletedNode), edges = listOf(edge))
+
+        val operations = NoteJsonParser.parseJsonToDatabaseOperations(
+            NoteJsonCompiler.compileNoteToJson(canvasMetadata, emptyList(), canvas = canvas)
+        )
+
+        assertEquals(NoteKind.CANVAS, operations.metadataUpsert.kind)
+        assertEquals(canvas, operations.canvas)
+    }
+
+    @Test
+    fun aPayloadFromAnOlderAppWithoutCanvasFieldsReadsAsAnOrdinaryNote() {
+        val payloadJson = "{\"noteId\":\"note-1\",\"title\":\"Old\",\"createdAt\":1,\"updatedAt\":2,\"filePath\":\"\"}"
+
+        val operations = NoteJsonParser.parseJsonToDatabaseOperations(payloadJson)
+
+        assertEquals(NoteKind.NOTE, operations.metadataUpsert.kind)
+        assertTrue(operations.canvas.isEmpty())
     }
 
     @Test

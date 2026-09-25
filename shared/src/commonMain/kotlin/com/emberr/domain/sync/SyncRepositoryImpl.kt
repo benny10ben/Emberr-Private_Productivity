@@ -10,10 +10,13 @@ import com.emberr.data.local.room.entity.CalendarEventExceptionEntity
 import com.emberr.data.local.room.entity.CategoryEntity
 import com.emberr.data.local.room.entity.ChatSessionEntity
 import com.emberr.data.local.room.entity.FolderEntity
+import com.emberr.data.local.room.entity.NoteKind
 import com.emberr.data.local.room.entity.NoteMetadataEntity
 import com.emberr.data.local.room.entity.SpaceEntity
 import com.emberr.data.local.room.entity.TagEntity
 import com.emberr.domain.ai.external.AiSettingsRepository
+import com.emberr.domain.canvas.CanvasContent
+import com.emberr.domain.canvas.CanvasRepository
 import com.emberr.domain.ai.external.ExternalAiProvider
 import com.emberr.domain.ai.external.ExternalAiProviderConfig
 import com.emberr.domain.model.CellData
@@ -66,7 +69,8 @@ class SyncRepositoryImpl(
     private val database: EmberrDatabase,
     private val bookmarkCategoryOrderStore: BookmarkCategoryOrderStore,
     private val favoriteNoteOrderStore: FavoriteNoteOrderStore,
-    private val mediaReferenceIndex: MediaReferenceIndex
+    private val mediaReferenceIndex: MediaReferenceIndex,
+    private val canvasRepository: CanvasRepository
 ) : SyncRepository {
 
     private val json = Json { ignoreUnknownKeys = true }
@@ -275,6 +279,17 @@ class SyncRepositoryImpl(
         }
     }
 
+    private suspend fun applyRemoteCanvasIfPresent(envelope: SyncEnvelope, syncKey: String) {
+        if (envelope.canvasJson.isEmpty()) return
+        val localMeta = repository.getNoteById(envelope.entityId) ?: return
+        val remoteCanvas = json.decodeFromString<CanvasContent>(
+            encryptionManager.decryptPayload(envelope.canvasJson, syncKey)
+        )
+        if (canvasRepository.applyRemoteCanvasWhileSyncLockHeld(localMeta.noteId, remoteCanvas, envelope.updatedAt)) {
+            SyncEventBus.emitSyncCompleted(localMeta.noteId, localMeta.spaceId)
+        }
+    }
+
     override suspend fun applyRemoteChanges(changes: List<SyncEnvelope>): Boolean =
         withContext(Dispatchers.IO) {
             val syncKey = settingsManager.getSyncEncryptionKey()
@@ -335,7 +350,8 @@ class SyncRepositoryImpl(
                                 } else if (envelope.isDeleted && envelope.updatedAt > localMeta.updatedAt) {
                                     val trashedMeta = remoteMeta.copy(
                                         trashedAt = System.currentTimeMillis(),
-                                        selfHostSyncedAt = localMeta.selfHostSyncedAt
+                                        selfHostSyncedAt = localMeta.selfHostSyncedAt,
+                                        kind = localMeta.kind
                                     )
                                     repository.saveNote(
                                         trashedMeta,
@@ -371,7 +387,8 @@ class SyncRepositoryImpl(
                                     val metadataChanged = localMeta.copy(
                                         updatedAt = remoteMeta.updatedAt,
                                         filePath = remoteMeta.filePath,
-                                        selfHostSyncedAt = remoteMeta.selfHostSyncedAt
+                                        selfHostSyncedAt = remoteMeta.selfHostSyncedAt,
+                                        kind = remoteMeta.kind
                                     ) != remoteMeta
                                     if (contentChanged || metadataChanged) {
                                         val resolvedUpdatedAt =
@@ -380,7 +397,8 @@ class SyncRepositoryImpl(
                                             if (envelope.updatedAt > localMeta.updatedAt) {
                                                 remoteMeta.copy(
                                                     updatedAt = resolvedUpdatedAt,
-                                                    selfHostSyncedAt = localMeta.selfHostSyncedAt
+                                                    selfHostSyncedAt = localMeta.selfHostSyncedAt,
+                                                    kind = localMeta.kind
                                                 )
                                             } else {
                                                 localMeta.copy(updatedAt = resolvedUpdatedAt)
@@ -406,6 +424,7 @@ class SyncRepositoryImpl(
                                         SyncEventBus.emitSyncCompleted(envelope.entityId, savedMeta.spaceId)
                                     }
                                 }
+                                applyRemoteCanvasIfPresent(envelope, syncKey)
                             }
 
                             // Daily notes
@@ -725,6 +744,15 @@ class SyncRepositoryImpl(
                     )
                 }
 
+                val encryptedCanvas = if (meta.kind == NoteKind.CANVAS) {
+                    encryptionManager.encryptPayload(
+                        json.encodeToString(canvasRepository.loadCanvasIncludingDeleted(meta.noteId)),
+                        syncKey
+                    )
+                } else {
+                    ""
+                }
+
                 changes.add(
                     SyncEnvelope(
                         entityId = eId,
@@ -733,7 +761,8 @@ class SyncRepositoryImpl(
                         contentJson = encryptedContent,
                         updatedAt = meta.updatedAt,
                         isDeleted = meta.trashedAt != null,
-                        embeddedBlocksJson = encryptedEmbeddedBlocks
+                        embeddedBlocksJson = encryptedEmbeddedBlocks,
+                        canvasJson = encryptedCanvas
                     )
                 )
             }

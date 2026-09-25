@@ -48,7 +48,8 @@ data class SyncEnvelope(
     // Only populated for NOTE/DAILY_NOTE envelopes that have local embeddings to offer - lets a peer
     // without the embedding model installed (or one that just never opened this note) adopt already-
     // computed vectors instead of having no index entry for it at all until it can embed locally.
-    val embeddedBlocksJson: String = ""
+    val embeddedBlocksJson: String = "",
+    val canvasJson: String = ""
 )
 
 @Serializable
