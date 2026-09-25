@@ -7,7 +7,9 @@ import com.emberr.data.local.room.dao.FolderDao
 import com.emberr.data.local.room.dao.NoteDao
 import com.emberr.data.local.room.dao.SpaceDao
 import com.emberr.data.local.room.entity.FolderEntity
+import com.emberr.data.local.room.entity.NoteKind
 import com.emberr.data.local.room.entity.NoteMetadataEntity
+import com.emberr.domain.canvas.CanvasRepository
 import com.emberr.domain.repository.NoteRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -56,6 +58,7 @@ class VaultExporter(
     private val spaceDao: SpaceDao,
     private val categoryDao: CategoryDao,
     private val noteRepository: NoteRepository,
+    private val canvasRepository: CanvasRepository,
     private val fileLedger: VaultFileLedger,
     private val pathMemory: VaultPathMemory
 ) {
@@ -194,7 +197,7 @@ class VaultExporter(
             snapshot.spaceFolderNamesBySpaceId
         )
         folderDirectoriesByFolderId = folderDirectories
-        val filesRemoved = removeStaleFiles(writtenFilePaths, failures)
+        val filesRemoved = removeStaleFiles(writtenFilePaths, failures) + removeCanvasFilesWeNoLongerWrite(writtenFilePaths)
         removeDirectoriesWeNoLongerOwn(folderDirectories.values.toSet())
 
         fileLedger.replaceEverything(freshWrites)
@@ -316,6 +319,9 @@ class VaultExporter(
     )
 
     private suspend fun buildMarkdownFor(planned: PlannedNoteFile, snapshot: VaultSnapshot): String {
+        if (planned.note.kind == NoteKind.CANVAS) {
+            return JsonCanvasWriter.write(canvasRepository.loadCanvasIncludingDeleted(planned.note.noteId))
+        }
         val content = noteRepository.getNoteContent(planned.note.noteId)
         return NoteMarkdownWriter.writeNote(
             VaultNoteWriteRequest(
@@ -364,15 +370,16 @@ class VaultExporter(
         }
 
         val notesPerTargetPath = drafts
-            .groupingBy { (_, segments, baseName) -> (segments + baseName).joinToString("/").lowercase() }
+            .groupingBy { (note, segments, baseName) -> (segments + baseName + fileExtensionFor(note)).joinToString("/").lowercase() }
             .eachCount()
 
         return drafts.map { (note, segments, baseName) ->
-            val targetPathKey = (segments + baseName).joinToString("/").lowercase()
+            val extension = fileExtensionFor(note)
+            val targetPathKey = (segments + baseName + extension).joinToString("/").lowercase()
             val fileName = if (notesPerTargetPath.getValue(targetPathKey) > 1) {
-                "$baseName (${VaultBlockTags.shortTagFor(note.noteId)})${VaultPaths.MARKDOWN_EXTENSION}"
+                "$baseName (${VaultBlockTags.shortTagFor(note.noteId)})$extension"
             } else {
-                "$baseName${VaultPaths.MARKDOWN_EXTENSION}"
+                "$baseName$extension"
             }
 
             var directory = vaultRootDirectory
@@ -397,6 +404,9 @@ class VaultExporter(
         else -> VaultPaths.folderSegmentsFor(note.folderId, foldersById)
     }
 
+    private fun fileExtensionFor(note: NoteMetadataEntity): String =
+        if (note.kind == NoteKind.CANVAS) VaultPaths.CANVAS_EXTENSION else VaultPaths.MARKDOWN_EXTENSION
+
     private fun baseFileNameFor(note: NoteMetadataEntity): String {
         val dateString = note.dateString
         return if (note.isDaily && !dateString.isNullOrBlank()) VaultPaths.sanitiseFileName(dateString)
@@ -419,7 +429,8 @@ class VaultExporter(
         if (contentOnDisk == markdown) return VaultFileWriteOutcome.ALREADY_MATCHING
 
         val markdownWeLastWrote = fileLedger.baseMarkdownForPath(targetFile.absolutePath)
-        if (contentOnDisk != null && markdownWeLastWrote != null && contentOnDisk != markdownWeLastWrote) {
+        val isOneWayCanvasFile = targetFile.name.endsWith(VaultPaths.CANVAS_EXTENSION)
+        if (!isOneWayCanvasFile && contentOnDisk != null && markdownWeLastWrote != null && contentOnDisk != markdownWeLastWrote) {
             return VaultFileWriteOutcome.SKIPPED_OUTSIDE_EDIT
         }
 
@@ -452,6 +463,11 @@ class VaultExporter(
         }
         return filesRemoved
     }
+
+    private fun removeCanvasFilesWeNoLongerWrite(writtenFilePaths: Set<String>): Int =
+        fileLedger.pathsByNote().values
+            .filter { it.endsWith(VaultPaths.CANVAS_EXTENSION) && it !in writtenFilePaths }
+            .count { File(it).delete() }
 
     private fun isRemovableVaultFile(file: File, writtenFilePaths: Set<String>): Boolean {
         if (file.name == VaultPaths.VAULT_RULES_FILE_NAME) return false

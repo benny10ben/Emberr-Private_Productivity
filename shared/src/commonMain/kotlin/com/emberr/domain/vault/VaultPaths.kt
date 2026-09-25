@@ -16,6 +16,7 @@ object VaultPaths {
     const val SUB_NOTE_FOLDER_NAME = "Subnotes"
     const val VAULT_RULES_FILE_NAME = "CLAUDE.md"
     const val MARKDOWN_EXTENSION = ".md"
+    const val CANVAS_EXTENSION = ".canvas"
     const val TEMPORARY_EXTENSION = ".tmp"
     const val CONFLICT_MARKDOWN_SUFFIX = ".conflict.md"
 

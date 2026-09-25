@@ -61,6 +61,7 @@ class VaultImporter(
         var removals = 0
 
         for ((_, path) in expected.noteFilesByNoteId) {
+            if (path.endsWith(VaultPaths.CANVAS_EXTENSION)) continue
             if (File(path).isFile) continue
             if (importFile(File(path)).outcome == VaultImportOutcome.IMPORTED) removals++
         }
