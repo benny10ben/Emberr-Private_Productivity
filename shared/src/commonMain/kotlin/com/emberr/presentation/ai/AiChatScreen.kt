@@ -1,4 +1,4 @@
-package com.emberr.presentation.rag
+package com.emberr.presentation.ai
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.AnimatedVisibilityScope
@@ -47,18 +47,18 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
 import com.emberr.domain.util.eventbus.AiEventBus
 import com.emberr.domain.util.system.isDesktopPlatform
-import com.emberr.presentation.rag.chat.ChatBubble
-import com.emberr.presentation.rag.chat.ChatEmptyState
-import com.emberr.presentation.rag.chat.ChatInputBar
-import com.emberr.presentation.rag.chat.ModelUnavailablePrompt
-import com.emberr.presentation.rag.chat.ThinkingIndicator
-import com.emberr.presentation.rag.chat.VaultAccessPill
-import com.emberr.presentation.rag.history.ChatHistoryMenuContent
-import com.emberr.presentation.rag.history.ChatHistorySheet
-import com.emberr.presentation.rag.settings.AiSettingsSheet
-import com.emberr.presentation.rag.settings.ExternalAiSettingsSheet
-import com.emberr.presentation.rag.settings.FineTuningSheet
-import com.emberr.presentation.rag.settings.LocalAiSettingsSheet
+import com.emberr.presentation.ai.chat.ChatBubble
+import com.emberr.presentation.ai.chat.ChatEmptyState
+import com.emberr.presentation.ai.chat.ChatInputBar
+import com.emberr.presentation.ai.chat.ModelUnavailablePrompt
+import com.emberr.presentation.ai.chat.ThinkingIndicator
+import com.emberr.presentation.ai.chat.VaultAccessPill
+import com.emberr.presentation.ai.history.ChatHistoryMenuContent
+import com.emberr.presentation.ai.history.ChatHistorySheet
+import com.emberr.presentation.ai.settings.AiSettingsSheet
+import com.emberr.presentation.ai.settings.ExternalAiSettingsSheet
+import com.emberr.presentation.ai.settings.FineTuningSheet
+import com.emberr.presentation.ai.settings.LocalAiSettingsSheet
 import com.emberr.presentation.shared.components.EmberrBlur
 import com.emberr.presentation.shared.components.EmberrDesktopMenu
 import com.emberr.presentation.shared.components.EmberrShadowElevation
@@ -80,7 +80,7 @@ private val VaultAccessPillGap = 4.dp
 
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
-fun RagChatScreen(
+fun AiChatScreen(
     onDismiss: () -> Unit,
     viewModel: RagViewModel,
     sharedTransitionScope: SharedTransitionScope,
@@ -93,7 +93,7 @@ fun RagChatScreen(
         tonalElevation = 0.dp,
         shadowElevation = EmberrShadowElevation.None
     ) {
-        RagChatContent(
+        AiChatContent(
             viewModel = viewModel,
             onDismiss = onDismiss,
             isVisible = true,
@@ -107,7 +107,7 @@ fun RagChatScreen(
 
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
-fun RagChatPanel(
+fun AiChatPanel(
     onDismiss: () -> Unit,
     viewModel: RagViewModel,
     modifier: Modifier = Modifier,
@@ -119,7 +119,7 @@ fun RagChatPanel(
         tonalElevation = 0.dp,
         shadowElevation = EmberrShadowElevation.None
     ) {
-        RagChatContent(
+        AiChatContent(
             viewModel = viewModel,
             onDismiss = onDismiss,
             isVisible = true,
@@ -131,7 +131,7 @@ fun RagChatPanel(
 
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
-private fun RagChatContent(
+private fun AiChatContent(
     modifier: Modifier,
     viewModel: RagViewModel,
     onDismiss: () -> Unit,

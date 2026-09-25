@@ -55,9 +55,9 @@ import com.emberr.domain.vault.VaultImporter
 import com.emberr.domain.vault.VaultMirrorService
 import com.emberr.domain.vault.VaultPathMemory
 import com.emberr.domain.vault.VaultStartupReconciler
-import com.emberr.presentation.rag.RagViewModel
 import com.emberr.presentation.reminders.DesktopReminderScheduler
 import com.emberr.presentation.reminders.ReminderScheduler
+import com.emberr.presentation.ai.RagViewModel
 import com.emberr.presentation.sync.SyncViewModel
 import com.emberr.domain.sync.discovery.DesktopDiscoveryManager
 import com.emberr.domain.sync.discovery.SyncDiscoveryManager

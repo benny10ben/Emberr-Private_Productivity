@@ -3,7 +3,7 @@ package com.emberr.presentation
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.unit.Dp
 import com.emberr.domain.model.NoteBlock
-import com.emberr.presentation.rag.RagViewModel
+import com.emberr.presentation.ai.RagViewModel
 
 @Composable
 actual fun DesktopMainScreenWrapper(
@@ -20,7 +20,7 @@ actual fun DesktopMainScreenWrapper(
     onExportBackup: () -> Unit,
     onImportBackupClick: () -> Unit,
     onAiIconTap: () -> Unit,
-    isRagChatVisible: Boolean,
+    isAiChatVisible: Boolean,
     ragViewModel: RagViewModel?,
-    onDismissRagChat: () -> Unit
+    onDismissAiChat: () -> Unit
 ) {}

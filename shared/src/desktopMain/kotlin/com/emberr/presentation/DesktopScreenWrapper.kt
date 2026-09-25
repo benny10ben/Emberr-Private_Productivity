@@ -4,7 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.unit.Dp
 import com.emberr.domain.model.NoteBlock
 import com.emberr.presentation.desktop.DesktopMainScreen
-import com.emberr.presentation.rag.RagViewModel
+import com.emberr.presentation.ai.RagViewModel
 
 @Composable
 actual fun DesktopMainScreenWrapper(
@@ -21,9 +21,9 @@ actual fun DesktopMainScreenWrapper(
     onExportBackup: () -> Unit,
     onImportBackupClick: () -> Unit,
     onAiIconTap: () -> Unit,
-    isRagChatVisible: Boolean,
+    isAiChatVisible: Boolean,
     ragViewModel: RagViewModel?,
-    onDismissRagChat: () -> Unit
+    onDismissAiChat: () -> Unit
 ) {
     DesktopMainScreen(
         isSidebarVisible = isSidebarVisible,
@@ -39,8 +39,8 @@ actual fun DesktopMainScreenWrapper(
         onExportBackup = onExportBackup,
         onImportBackupClick = onImportBackupClick,
         onAiIconTap = onAiIconTap,
-        isRagChatVisible = isRagChatVisible,
+        isAiChatVisible = isAiChatVisible,
         ragViewModel = ragViewModel,
-        onDismissRagChat = onDismissRagChat
+        onDismissAiChat = onDismissAiChat
     )
 }

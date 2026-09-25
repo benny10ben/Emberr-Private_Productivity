@@ -1,4 +1,4 @@
-package com.emberr.presentation.rag.components
+package com.emberr.presentation.ai.components
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Row

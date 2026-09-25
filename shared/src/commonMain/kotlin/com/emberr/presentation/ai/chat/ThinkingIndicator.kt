@@ -1,4 +1,4 @@
-package com.emberr.presentation.rag.chat
+package com.emberr.presentation.ai.chat
 
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode

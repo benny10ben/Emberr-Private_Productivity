@@ -1,4 +1,4 @@
-package com.emberr.presentation.rag.settings
+package com.emberr.presentation.ai.settings
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
@@ -18,8 +18,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.emberr.domain.ai.AiGenerationMode
 import com.emberr.domain.ai.KnowledgeMode
-import com.emberr.presentation.rag.RagViewModel
-import com.emberr.presentation.rag.components.RagDesktopMenuItem
+import com.emberr.presentation.ai.RagViewModel
+import com.emberr.presentation.ai.components.RagDesktopMenuItem
 import com.emberr.presentation.shared.components.EmberrDesktopMenuOption
 import emberr.shared.generated.resources.Res
 import emberr.shared.generated.resources.chevron_left

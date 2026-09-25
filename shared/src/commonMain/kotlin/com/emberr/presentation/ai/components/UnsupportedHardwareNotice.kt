@@ -1,4 +1,4 @@
-package com.emberr.presentation.rag.components
+package com.emberr.presentation.ai.components
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer

@@ -1,4 +1,4 @@
-package com.emberr.presentation.rag.settings
+package com.emberr.presentation.ai.settings
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -31,10 +31,10 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
 import com.emberr.domain.ai.models.ModelDownloadProgress
 import com.emberr.domain.ai.models.ModelFileNames
-import com.emberr.presentation.rag.LocalModelUploadState
-import com.emberr.presentation.rag.RagViewModel
-import com.emberr.presentation.rag.components.ModelOptionCard
-import com.emberr.presentation.rag.components.UnsupportedHardwareNotice
+import com.emberr.presentation.ai.LocalModelUploadState
+import com.emberr.presentation.ai.RagViewModel
+import com.emberr.presentation.ai.components.ModelOptionCard
+import com.emberr.presentation.ai.components.UnsupportedHardwareNotice
 import com.emberr.presentation.shared.components.EmberrAlertDialog
 import com.emberr.presentation.shared.components.EmberrBottomSheet
 import com.emberr.presentation.shared.components.EmberrBottomSheetOption

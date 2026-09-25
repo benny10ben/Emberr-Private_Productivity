@@ -1,4 +1,4 @@
-package com.emberr.presentation.rag.chat
+package com.emberr.presentation.ai.chat
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -34,7 +34,7 @@ import com.emberr.domain.ai.AiGenerationMode
 import com.emberr.domain.ai.external.ExternalAiProvider
 import com.emberr.domain.ai.external.ExternalAiProviderConfig
 import com.emberr.domain.util.system.isDesktopPlatform
-import com.emberr.presentation.rag.RagViewModel
+import com.emberr.presentation.ai.RagViewModel
 import com.emberr.presentation.shared.components.EmberrBottomSheet
 import com.emberr.presentation.shared.components.EmberrBottomSheetOption
 import com.emberr.presentation.shared.components.EmberrButtonPrimary

@@ -1,4 +1,4 @@
-package com.emberr.presentation.rag.settings
+package com.emberr.presentation.ai.settings
 
 internal data class ResponseLengthOption(val label: String, val subtitle: String, val tokens: Int)
 

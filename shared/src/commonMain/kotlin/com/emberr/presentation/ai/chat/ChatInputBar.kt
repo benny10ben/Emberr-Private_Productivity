@@ -1,4 +1,4 @@
-package com.emberr.presentation.rag.chat
+package com.emberr.presentation.ai.chat
 
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.ExperimentalSharedTransitionApi
@@ -50,8 +50,8 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import com.emberr.domain.util.system.isDesktopPlatform
 import com.emberr.presentation.BOTTOM_BAR_BOTTOM_PADDING
-import com.emberr.presentation.rag.RagViewModel
-import com.emberr.presentation.rag.settings.AiSettingsMenuContent
+import com.emberr.presentation.ai.RagViewModel
+import com.emberr.presentation.ai.settings.AiSettingsMenuContent
 import com.emberr.presentation.shared.components.EmberrBlur
 import com.emberr.presentation.shared.components.EmberrDesktopMenu
 import com.emberr.presentation.shared.components.EmberrShadowElevation

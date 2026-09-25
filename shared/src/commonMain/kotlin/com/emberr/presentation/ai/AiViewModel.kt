@@ -1,4 +1,4 @@
-package com.emberr.presentation.rag
+package com.emberr.presentation.ai
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope

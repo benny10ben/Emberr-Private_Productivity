@@ -517,9 +517,9 @@ fun DesktopMainScreen(
     onExportBackup: () -> Unit = {},
     onImportBackupClick: () -> Unit = {},
     onAiIconTap: () -> Unit = {},
-    isRagChatVisible: Boolean = false,
-    ragViewModel: com.emberr.presentation.rag.RagViewModel? = null,
-    onDismissRagChat: () -> Unit = {},
+    isAiChatVisible: Boolean = false,
+    ragViewModel: com.emberr.presentation.ai.RagViewModel? = null,
+    onDismissAiChat: () -> Unit = {},
 ) {
     val hazeState = remember { HazeState() }
     val savedWidth by settingsManager.desktopSidebarWidthFlow.collectAsState(initial = sidebarWidth.value)
@@ -1553,7 +1553,7 @@ fun DesktopMainScreen(
                         rightPanel()
                     }
 
-                    val isRagPanelVisible = isRagChatVisible && ragViewModel != null
+                    val isRagPanelVisible = isAiChatVisible && ragViewModel != null
 
                     AnimatedVisibility(
                         visible = isRagPanelVisible,
@@ -1591,8 +1591,8 @@ fun DesktopMainScreen(
                                 )
                         ) {
                             if (ragViewModel != null) {
-                                com.emberr.presentation.rag.RagChatPanel(
-                                    onDismiss = onDismissRagChat,
+                                com.emberr.presentation.ai.AiChatPanel(
+                                    onDismiss = onDismissAiChat,
                                     viewModel = ragViewModel,
                                     modifier = Modifier.fillMaxSize(),
                                     onPickDocument = onPickDocument

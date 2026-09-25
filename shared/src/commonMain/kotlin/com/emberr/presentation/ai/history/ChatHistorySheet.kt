@@ -1,4 +1,4 @@
-package com.emberr.presentation.rag.history
+package com.emberr.presentation.ai.history
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -21,9 +21,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.emberr.domain.util.system.isDesktopPlatform
-import com.emberr.presentation.rag.RagViewModel
-import com.emberr.presentation.rag.components.DesktopMenuRowHorizontalPadding
-import com.emberr.presentation.rag.components.RagDesktopMenuItem
+import com.emberr.presentation.ai.RagViewModel
+import com.emberr.presentation.ai.components.DesktopMenuRowHorizontalPadding
+import com.emberr.presentation.ai.components.RagDesktopMenuItem
 import com.emberr.presentation.shared.components.EmberrBottomSheet
 import com.emberr.presentation.shared.components.EmberrBottomSheetOption
 import com.emberr.presentation.shared.components.EmberrButtonPrimary

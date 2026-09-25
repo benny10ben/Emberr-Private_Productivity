@@ -1,4 +1,4 @@
-package com.emberr.presentation.rag.history
+package com.emberr.presentation.ai.history
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -29,8 +29,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.emberr.domain.ai.chat.ChatSession
 import com.emberr.domain.util.system.isDesktopPlatform
-import com.emberr.presentation.rag.components.ModelOptionCard
-import com.emberr.presentation.rag.components.clickableWithoutMobileRipple
+import com.emberr.presentation.ai.components.ModelOptionCard
+import com.emberr.presentation.ai.components.clickableWithoutMobileRipple
 import com.emberr.presentation.shared.components.EmberrAlertDialog
 import com.emberr.presentation.shared.components.EmberrBottomSheet
 import com.emberr.presentation.shared.components.EmberrBottomSheetOption

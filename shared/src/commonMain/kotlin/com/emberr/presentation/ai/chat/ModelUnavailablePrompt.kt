@@ -1,4 +1,4 @@
-package com.emberr.presentation.rag.chat
+package com.emberr.presentation.ai.chat
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -20,8 +20,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.emberr.domain.ai.models.ModelDownloadProgress
-import com.emberr.presentation.rag.components.ModelOptionCard
-import com.emberr.presentation.rag.components.UnsupportedHardwareNotice
+import com.emberr.presentation.ai.components.ModelOptionCard
+import com.emberr.presentation.ai.components.UnsupportedHardwareNotice
 
 @Composable
 internal fun ModelUnavailablePrompt(

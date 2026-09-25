@@ -1,6 +1,6 @@
 // Chat card that previews an AI-proposed vault write and lets the user confirm or reject it.
 
-package com.emberr.presentation.rag.chat
+package com.emberr.presentation.ai.chat
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border

@@ -1,4 +1,4 @@
-package com.emberr.presentation.rag.settings
+package com.emberr.presentation.ai.settings
 
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -37,8 +37,8 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.emberr.domain.ai.external.ExternalAiProvider
 import com.emberr.domain.ai.external.ExternalAiProviderConfig
-import com.emberr.presentation.rag.RagViewModel
-import com.emberr.presentation.rag.components.clickableWithoutMobileRipple
+import com.emberr.presentation.ai.RagViewModel
+import com.emberr.presentation.ai.components.clickableWithoutMobileRipple
 import com.emberr.presentation.settings.SettingsToggleRow
 import com.emberr.presentation.shared.components.EmberrAlertDialog
 import com.emberr.presentation.shared.components.EmberrBottomSheet

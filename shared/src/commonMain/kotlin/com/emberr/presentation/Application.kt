@@ -187,7 +187,7 @@ fun EmberrApp(
     }
 
     // AI chat ViewModel
-    val ragViewModel: com.emberr.presentation.rag.RagViewModel = koinViewModel()
+    val ragViewModel: com.emberr.presentation.ai.RagViewModel = koinViewModel()
 
     val settingsManager = koinInject<com.emberr.data.local.prefs.SettingsManager>()
     val isAiDisabled by settingsManager.aiFeaturesDisabledFlow.collectAsState(
@@ -195,7 +195,7 @@ fun EmberrApp(
     )
 
     // Controls the AI chat overlay
-    var showRagChatOverlay by remember { mutableStateOf(false) }
+    var showAiChatOverlay by remember { mutableStateOf(false) }
 
     var isSelectionActive by remember { mutableStateOf(false) }
 
@@ -241,13 +241,13 @@ fun EmberrApp(
         }
     }
 
-    val ragChatCoroutineScope = rememberCoroutineScope()
-    var pendingRagChatClearJob by remember { mutableStateOf<Job?>(null) }
+    val aiChatCoroutineScope = rememberCoroutineScope()
+    var pendingAiChatClearJob by remember { mutableStateOf<Job?>(null) }
 
-    val dismissRagChat: () -> Unit = {
-        showRagChatOverlay = false
-        pendingRagChatClearJob?.cancel()
-        pendingRagChatClearJob = ragChatCoroutineScope.launch {
+    val dismissAiChat: () -> Unit = {
+        showAiChatOverlay = false
+        pendingAiChatClearJob?.cancel()
+        pendingAiChatClearJob = aiChatCoroutineScope.launch {
             delay(2000.milliseconds)
             ragViewModel.clearChat()
         }
@@ -255,34 +255,34 @@ fun EmberrApp(
 
     val openAiChat: () -> Unit = {
         if (isAiDisabled) {
-            if (showRagChatOverlay) dismissRagChat()
+            if (showAiChatOverlay) dismissAiChat()
         } else if (isDesktopPlatform) {
-            if (showRagChatOverlay) {
-                dismissRagChat()
+            if (showAiChatOverlay) {
+                dismissAiChat()
             } else {
-                pendingRagChatClearJob?.cancel()
-                pendingRagChatClearJob = null
+                pendingAiChatClearJob?.cancel()
+                pendingAiChatClearJob = null
                 ragViewModel.clearChat()
                 AiEventBus.requestImmediateIndex()
-                showRagChatOverlay = true
+                showAiChatOverlay = true
             }
         } else {
-            if (currentRoute == Screen.RagChat.route) {
+            if (currentRoute == Screen.AiChat.route) {
                 navController.popBackStack()
             } else {
-                pendingRagChatClearJob?.cancel()
-                pendingRagChatClearJob = null
+                pendingAiChatClearJob?.cancel()
+                pendingAiChatClearJob = null
                 ragViewModel.clearChat()
                 AiEventBus.requestImmediateIndex()
-                navController.navigate(Screen.RagChat.route)
+                navController.navigate(Screen.AiChat.route)
             }
         }
     }
 
     LaunchedEffect(isAiDisabled) {
         if (isAiDisabled) {
-            showRagChatOverlay = false
-            if (!isDesktopPlatform && currentRoute == Screen.RagChat.route) navController.popBackStack()
+            showAiChatOverlay = false
+            if (!isDesktopPlatform && currentRoute == Screen.AiChat.route) navController.popBackStack()
             ragViewModel.clearChat()
         }
     }
@@ -345,9 +345,9 @@ fun EmberrApp(
                             onExportBackup = onExportBackup,
                             onImportBackupClick = onImportBackupClick,
                             onAiIconTap = openAiChat,
-                            isRagChatVisible = showRagChatOverlay,
+                            isAiChatVisible = showAiChatOverlay,
                             ragViewModel = ragViewModel,
-                            onDismissRagChat = dismissRagChat
+                            onDismissAiChat = dismissAiChat
                         )
                     } else if (hasFirstFrameRendered) {
                         OnboardingScreen(onFinished = { isOnboardingCompleted = true })
@@ -824,7 +824,7 @@ fun EmberrApp(
                         }
 
                         composable(
-                            route = Screen.RagChat.route,
+                            route = Screen.AiChat.route,
                             enterTransition = {
                                 slideIntoContainer(
                                     AnimatedContentTransitionScope.SlideDirection.Left,
@@ -852,15 +852,15 @@ fun EmberrApp(
                         ) {
                             DisposableEffect(Unit) {
                                 onDispose {
-                                    pendingRagChatClearJob?.cancel()
-                                    pendingRagChatClearJob = ragChatCoroutineScope.launch {
+                                    pendingAiChatClearJob?.cancel()
+                                    pendingAiChatClearJob = aiChatCoroutineScope.launch {
                                         delay(2000.milliseconds)
                                         ragViewModel.clearChat()
                                     }
                                 }
                             }
 
-                            com.emberr.presentation.rag.RagChatScreen(
+                            com.emberr.presentation.ai.AiChatScreen(
                                 onDismiss = { navController.popBackStack() },
                                 viewModel = ragViewModel,
                                 sharedTransitionScope = sharedTransitionScope,

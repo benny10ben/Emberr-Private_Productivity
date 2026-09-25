@@ -1,4 +1,4 @@
-package com.emberr.presentation.rag.settings
+package com.emberr.presentation.ai.settings
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -13,7 +13,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.emberr.domain.ai.KnowledgeMode
-import com.emberr.presentation.rag.RagViewModel
+import com.emberr.presentation.ai.RagViewModel
 import com.emberr.presentation.shared.components.EmberrBottomSheet
 import com.emberr.presentation.shared.components.EmberrBottomSheetOption
 import com.emberr.presentation.shared.components.EmberrButtonPrimary

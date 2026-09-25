@@ -59,9 +59,9 @@ import com.emberr.domain.util.media.ImageDownloader
 import com.emberr.domain.util.media.MediaStorageHelper
 import com.emberr.domain.util.voice.NativeVoiceRecognizer
 import com.emberr.domain.util.voice.VoiceRecognizer
-import com.emberr.presentation.rag.RagViewModel
 import com.emberr.presentation.reminders.AndroidReminderScheduler
 import com.emberr.presentation.reminders.ReminderScheduler
+import com.emberr.presentation.ai.RagViewModel
 import com.emberr.presentation.sync.SyncViewModel
 import com.emberr.domain.sync.discovery.AndroidDiscoveryManager
 import com.emberr.domain.sync.discovery.SyncDiscoveryManager
