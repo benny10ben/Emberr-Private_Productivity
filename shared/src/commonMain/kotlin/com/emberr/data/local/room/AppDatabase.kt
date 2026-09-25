@@ -1,6 +1,5 @@
 package com.emberr.data.local.room
 
-import androidx.room.AutoMigration
 import androidx.room.ConstructedBy
 import androidx.room.Database
 import androidx.room.RoomDatabase
@@ -62,13 +61,8 @@ import com.emberr.data.local.room.entity.TagEntity
         CanvasNodeEntity::class,
         CanvasEdgeEntity::class
     ],
-    version = 4,
-    exportSchema = true,
-    autoMigrations = [
-        AutoMigration(from = 1, to = 2),
-        AutoMigration(from = 2, to = 3),
-        AutoMigration(from = 3, to = 4)
-    ]
+    version = 1,
+    exportSchema = true
 )
 @ConstructedBy(AppDatabaseConstructor::class)
 abstract class AppDatabase : RoomDatabase() {
