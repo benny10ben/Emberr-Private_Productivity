@@ -3,6 +3,7 @@ package com.emberr.presentation.shared.editor.blockViews
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -70,6 +71,7 @@ fun CanvasBlockView(
                     isActive = false
                 }
             }
+            .focusGroup()
             .onKeyEvent { event ->
                 val isEscapePressed = event.type == KeyEventType.KeyDown && event.key == Key.Escape
                 if (isActive && isEscapePressed) {
