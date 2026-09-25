@@ -6,11 +6,13 @@ import androidx.compose.foundation.IndicationNodeFactory
 import androidx.compose.foundation.interaction.InteractionSource
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
@@ -192,7 +194,8 @@ fun TopBarIconButtonGroup(
     iconSize: Dp = 22.dp,
     shadowElevation: Dp = EmberrShadowElevation.Standard,
     shadowSpotColor: Color = EmberrShadowSpotColor,
-    shadowAmbientColor: Color = EmberrShadowAmbientColor
+    shadowAmbientColor: Color = EmberrShadowAmbientColor,
+    isVertical: Boolean = false
 ) {
     val resolvedStyle = hazeStyle ?: EmberrBlur.Regular
     Surface(
@@ -200,7 +203,7 @@ fun TopBarIconButtonGroup(
         color = bgColor,
         contentColor = tint,
         modifier = Modifier
-            .height(44.dp)
+            .then(if (isVertical) Modifier.width(44.dp) else Modifier.height(44.dp))
             .customEmberrShadow(CircleShape, shadowElevation, shadowSpotColor, shadowAmbientColor)
             .clip(CircleShape)
             .emberrBlur(hazeState, resolvedStyle)
@@ -210,29 +213,41 @@ fun TopBarIconButtonGroup(
                 shape = CircleShape
             )
     ) {
-        Row(
-            modifier = Modifier.padding(horizontal = horizontalPadding),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            items.forEach { item ->
-                Box(
-                    modifier = Modifier
-                        .size(44.dp)
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = NoRippleIndicationNodeFactory,
-                            onClick = item.onClick
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        painter = item.icon,
-                        contentDescription = item.contentDescription,
-                        tint = tint,
-                        modifier = Modifier.size(iconSize)
-                    )
-                }
+        if (isVertical) {
+            Column(
+                modifier = Modifier.padding(vertical = horizontalPadding),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                items.forEach { item -> TopBarIconButtonGroupItem(item, tint, iconSize) }
+            }
+        } else {
+            Row(
+                modifier = Modifier.padding(horizontal = horizontalPadding),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                items.forEach { item -> TopBarIconButtonGroupItem(item, tint, iconSize) }
             }
         }
+    }
+}
+
+@Composable
+private fun TopBarIconButtonGroupItem(item: TopBarIconButtonItem, tint: Color, iconSize: Dp) {
+    Box(
+        modifier = Modifier
+            .size(44.dp)
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = NoRippleIndicationNodeFactory,
+                onClick = item.onClick
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            painter = item.icon,
+            contentDescription = item.contentDescription,
+            tint = tint,
+            modifier = Modifier.size(iconSize)
+        )
     }
 }

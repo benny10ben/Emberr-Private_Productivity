@@ -1459,7 +1459,7 @@ fun NoteOptionsDesktopMenu(
 }
 
 @Composable
-private fun DesktopMenuItem(
+internal fun DesktopMenuItem(
     icon: Painter,
     text: String,
     isDestructive: Boolean = false,
