@@ -825,6 +825,22 @@ fun CanvasScreen(
         ) {
             Canvas(Modifier.fillMaxSize()) {
                 drawDotGrid(viewport, pixelDensity, dotColor)
+            }
+
+            canvas.nodes.filter { it.isGroup }.sortedByDescending { it.width * it.height }.forEach { group ->
+                key(group.nodeId) {
+                    CanvasGroupCard(
+                        group = group,
+                        viewport = viewport,
+                        isSelected = group.nodeId in selection.selectedNodeIds,
+                        isEditingTitle = editingNodeId == group.nodeId,
+                        cursorColor = accentColor,
+                        onTitleChange = { title -> viewModel.updateNodeText(group.nodeId, title) }
+                    )
+                }
+            }
+
+            Canvas(Modifier.fillMaxSize()) {
                 val nodesById = canvas.nodes.associateBy { it.nodeId }
                 val draggingEdgeEnd = dragPreview as? CanvasDragPreview.DraggingEdgeEnd
                 canvas.edges.forEach { edge ->
@@ -852,19 +868,6 @@ fun CanvasScreen(
                         edgeCurve(loosePoint, looseSide, anchoredPoint, preview.anchoredSide, controlDistance)
                     }
                     drawCanvasEdge(worldCurve.toScreen(viewport, pixelDensity), CanvasSelectionColor, SELECTED_EDGE_STROKE_WIDTH.toPx(), ARROW_SIZE.toPx())
-                }
-            }
-
-            canvas.nodes.filter { it.isGroup }.sortedByDescending { it.width * it.height }.forEach { group ->
-                key(group.nodeId) {
-                    CanvasGroupCard(
-                        group = group,
-                        viewport = viewport,
-                        isSelected = group.nodeId in selection.selectedNodeIds,
-                        isEditingTitle = editingNodeId == group.nodeId,
-                        cursorColor = accentColor,
-                        onTitleChange = { title -> viewModel.updateNodeText(group.nodeId, title) }
-                    )
                 }
             }
 
