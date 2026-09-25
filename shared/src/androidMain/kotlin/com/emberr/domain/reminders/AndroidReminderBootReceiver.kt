@@ -1,8 +1,9 @@
-package com.emberr.presentation.reminders
+package com.emberr.domain.reminders
 
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import com.emberr.domain.reminders.ReminderRescheduler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch

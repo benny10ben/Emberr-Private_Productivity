@@ -1,5 +1,6 @@
-package com.emberr.presentation.reminders
+package com.emberr.domain.reminders
 
+import android.R
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.BroadcastReceiver
@@ -7,6 +8,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import androidx.core.app.NotificationCompat
+import com.emberr.domain.reminders.ReminderRescheduler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -39,7 +41,7 @@ class AndroidReminderReceiver : BroadcastReceiver(), KoinComponent {
         }
 
         val notification = NotificationCompat.Builder(context, channelId)
-            .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
+            .setSmallIcon(R.drawable.ic_lock_idle_alarm)
             .setContentTitle(noteTitle)
             .setContentText(blockText)
             .setPriority(NotificationCompat.PRIORITY_HIGH)

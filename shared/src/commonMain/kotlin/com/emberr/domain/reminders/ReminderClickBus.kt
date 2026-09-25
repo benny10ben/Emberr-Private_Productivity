@@ -1,4 +1,4 @@
-package com.emberr.presentation.reminders
+package com.emberr.domain.reminders
 
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow

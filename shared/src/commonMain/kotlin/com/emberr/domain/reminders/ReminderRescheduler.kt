@@ -1,4 +1,4 @@
-package com.emberr.presentation.reminders
+package com.emberr.domain.reminders
 
 import com.emberr.data.local.room.dao.CalendarEventExceptionDao
 import com.emberr.data.local.room.dao.CalendarTaskDao

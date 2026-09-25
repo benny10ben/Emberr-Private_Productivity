@@ -16,7 +16,7 @@ import com.emberr.domain.util.formula.FormulaEngine
 import com.emberr.domain.util.network.HtmlMetadataFetcher
 import com.emberr.domain.util.media.MediaStorageHelper
 import com.emberr.domain.util.sync.SyncCoordinator
-import com.emberr.presentation.reminders.ReminderScheduler
+import com.emberr.domain.reminders.ReminderScheduler
 import com.emberr.ui.theme.HighlightColor
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers

@@ -82,12 +82,12 @@
         </activity>
 
         <receiver
-            android:name=".presentation.reminders.AndroidReminderReceiver"
+            android:name=".domain.reminders.AndroidReminderReceiver"
             android:enabled="true"
             android:exported="false" />
 
         <receiver
-            android:name=".presentation.reminders.AndroidReminderBootReceiver"
+            android:name=".domain.reminders.AndroidReminderBootReceiver"
             android:enabled="true"
             android:exported="false"
             android:directBootAware="false">

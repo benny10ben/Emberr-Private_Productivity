@@ -9,7 +9,7 @@ import com.emberr.domain.ai.LocalAiEngine
 import com.emberr.domain.backup.automatic.BackupScheduler
 import com.emberr.domain.selfhost.sync.SelfHostSyncScheduler
 import com.emberr.domain.vault.VaultMirrorService
-import com.emberr.presentation.reminders.ReminderRescheduler
+import com.emberr.domain.reminders.ReminderRescheduler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob

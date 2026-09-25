@@ -12,7 +12,7 @@ import com.emberr.domain.util.eventbus.VoiceTaskEventBus
 import com.emberr.domain.util.sync.SyncCoordinator
 import com.emberr.domain.util.task.TaskExtractor
 import com.emberr.domain.util.voice.VoiceRecognizer
-import com.emberr.presentation.reminders.ReminderScheduler
+import com.emberr.domain.reminders.ReminderScheduler
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch

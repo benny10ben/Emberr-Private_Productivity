@@ -6,6 +6,8 @@ import org.koin.dsl.module
 import com.emberr.domain.repository.NoteRepository
 import com.emberr.domain.repository.NoteRepositoryImpl
 import com.emberr.domain.ai.NoteIndexer
+import com.emberr.domain.reminders.ReminderRescheduler
+import com.emberr.domain.reminders.ReminderTargetResolver
 import com.emberr.domain.selfhost.sync.ForegroundSyncPoller
 import com.emberr.domain.selfhost.sync.SelfHostSyncEngine
 import com.emberr.domain.selfhost.webdav.WebDavSyncClient
@@ -125,7 +127,7 @@ val sharedModule = module {
     }
 
     single {
-        com.emberr.presentation.reminders.ReminderRescheduler(
+        ReminderRescheduler(
             calendarTaskDao = get(),
             calendarEventExceptionDao = get(),
             noteDao = get(),
@@ -286,7 +288,7 @@ val sharedModule = module {
         )
     }
     single {
-        com.emberr.presentation.reminders.ReminderTargetResolver(
+        ReminderTargetResolver(
             calendarTaskDao = get(),
             noteDao = get()
         )

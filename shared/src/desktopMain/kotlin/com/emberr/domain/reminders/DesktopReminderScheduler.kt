@@ -1,4 +1,4 @@
-package com.emberr.presentation.reminders
+package com.emberr.domain.reminders
 
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors

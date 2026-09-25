@@ -15,7 +15,7 @@ import com.emberr.domain.util.sync.NoteSyncEvent
 import com.emberr.domain.util.sync.SyncCoordinator
 import com.emberr.domain.util.sync.SyncEventBus
 import com.emberr.domain.util.eventbus.VoiceTaskEventBus
-import com.emberr.presentation.reminders.ReminderScheduler
+import com.emberr.domain.reminders.ReminderScheduler
 import com.emberr.presentation.shared.FirstContentRenderSignal
 import com.emberr.presentation.shared.editor.BaseEditorViewModel
 import com.emberr.presentation.shared.editor.FocusRequest

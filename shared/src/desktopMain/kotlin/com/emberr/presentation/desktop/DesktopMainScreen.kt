@@ -97,7 +97,7 @@ import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.HazeTint
 import kotlin.time.Clock
 import kotlinx.datetime.DateTimeUnit
-import com.emberr.presentation.reminders.ReminderClickBus
+import com.emberr.domain.reminders.ReminderClickBus
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.filterNotNull
@@ -130,6 +130,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.onPointerEvent
+import com.emberr.domain.reminders.ReminderTargetResolver
 import com.emberr.presentation.shared.components.EmberrBlur
 import com.emberr.presentation.shared.components.LocalEmberrBlurSource
 import com.emberr.presentation.shared.components.emberrBlur
@@ -501,7 +502,7 @@ fun DesktopMainScreen(
     syncViewModel: SyncViewModel = koinViewModel(),
     spaceViewModel: com.emberr.presentation.space.SpaceViewModel = koinViewModel(),
     searchViewModel: SearchViewModel = koinViewModel(),
-    reminderTargetResolver: com.emberr.presentation.reminders.ReminderTargetResolver = koinInject(),
+    reminderTargetResolver: ReminderTargetResolver = koinInject(),
     settingsManager: SettingsManager = koinInject(),
     noteRepository: com.emberr.domain.repository.NoteRepository = koinInject(),
     isSidebarVisible: Boolean = true,

@@ -15,7 +15,7 @@ import com.emberr.domain.repository.NoteRepository
 import com.emberr.domain.space.ActiveSpaceStore
 import com.emberr.domain.util.sync.SyncCoordinator
 import com.emberr.domain.util.sync.SyncEventBus
-import com.emberr.presentation.reminders.ReminderScheduler
+import com.emberr.domain.reminders.ReminderScheduler
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted

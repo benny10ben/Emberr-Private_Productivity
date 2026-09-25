@@ -1,4 +1,4 @@
-package com.emberr.presentation.reminders
+package com.emberr.domain.reminders
 
 import android.app.AlarmManager
 import android.app.PendingIntent

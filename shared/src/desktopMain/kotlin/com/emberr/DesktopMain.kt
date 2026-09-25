@@ -75,7 +75,7 @@ import com.emberr.presentation.shared.editor.ActiveEditorRegistry
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.FlowPreview
-import com.emberr.presentation.reminders.ReminderClickBus
+import com.emberr.domain.reminders.ReminderClickBus
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.filterNotNull
