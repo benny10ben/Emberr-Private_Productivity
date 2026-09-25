@@ -694,9 +694,13 @@ private fun TableGridCell(
     }
 
     var editorValue by remember { mutableStateOf(TextFieldValue(value, TextRange(value.length))) }
+    val textsSentButNotYetEchoed = remember { mutableListOf<String>() }
 
     LaunchedEffect(value) {
-        if (editorValue.text != value) {
+        if (editorValue.text == value) {
+            textsSentButNotYetEchoed.clear()
+        } else if (value !in textsSentButNotYetEchoed) {
+            textsSentButNotYetEchoed.clear()
             val caret = editorValue.selection.start.coerceAtMost(value.length)
             editorValue = editorValue.copy(text = value, selection = TextRange(caret))
         }
@@ -766,7 +770,10 @@ private fun TableGridCell(
             onValueChange = { newValue ->
                 editorValue = newValue
                 GlobalEditorState.currentSelection = newValue.selection
-                if (newValue.text != value) onValueChange(newValue.text)
+                if (newValue.text != value) {
+                    textsSentButNotYetEchoed += newValue.text
+                    onValueChange(newValue.text)
+                }
             },
             enabled = !inSelectionMode,
             visualTransformation = webLinkTransformation,

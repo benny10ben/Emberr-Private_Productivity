@@ -1025,6 +1025,7 @@ fun IsolatedEditorTextField(
 ) {
     var tfv by remember { mutableStateOf(TextFieldValue(initialText, TextRange.Zero)) }
     var lastSentText by remember { mutableStateOf(initialText) }
+    val textsSentButNotYetEchoed = remember { mutableListOf<String>() }
 
     var mentionQuery by remember { mutableStateOf<String?>(null) }
     var mentionStartIndex by remember { mutableIntStateOf(-1) }
@@ -1051,8 +1052,11 @@ fun IsolatedEditorTextField(
     LaunchedEffect(initialText) {
         if (tfv.text == initialText) {
             lastSentText = initialText
+            textsSentButNotYetEchoed.clear()
             return@LaunchedEffect
         }
+        if (initialText in textsSentButNotYetEchoed) return@LaunchedEffect
+        textsSentButNotYetEchoed.clear()
         val wasAtEnd = tfv.selection.start == tfv.text.length
         val safeStart = if (wasAtEnd) initialText.length else tfv.selection.start.coerceAtMost(initialText.length)
         val safeEnd = if (wasAtEnd) initialText.length else tfv.selection.end.coerceAtMost(initialText.length)
@@ -1078,6 +1082,7 @@ fun IsolatedEditorTextField(
 
         tfv = tfv.copy(text = newText, selection = TextRange(newCursor), composition = null)
         lastSentText = newText          // keeps LaunchedEffect(initialText) from clobbering us
+        textsSentButNotYetEchoed += newText
         mentionStartIndex = newCursor - 1
         mentionQuery = ""
         onUpdateText(blockId, newText)
@@ -1227,10 +1232,12 @@ fun IsolatedEditorTextField(
 
                     tfv = newValue.copy(text = textBefore, selection = TextRange(textBefore.length))
                     lastSentText = textBefore
+                    textsSentButNotYetEchoed += textBefore
                     onEnterPressed(blockId, textBefore, textAfter)
                 } else {
                     tfv = newValue
                     lastSentText = newText
+                    textsSentButNotYetEchoed += newText
                     onUpdateText(blockId, newText)
                 }
             },
