@@ -1,13 +1,20 @@
 package com.emberr.presentation.shared.canvas
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -16,6 +23,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -34,8 +42,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import com.emberr.domain.util.system.isDesktopPlatform
+import com.emberr.presentation.home.RenameBottomSheet
 import com.emberr.presentation.home.note.DesktopMenuItem
 import com.emberr.presentation.shared.components.EmberrBlur
+import com.emberr.presentation.shared.components.EmberrBottomSheet
+import com.emberr.presentation.shared.components.EmberrBottomSheetOption
 import com.emberr.presentation.shared.components.EmberrButtonPrimary
 import com.emberr.presentation.shared.components.EmberrButtonSecondary
 import com.emberr.presentation.shared.components.EmberrDesktopMenu
@@ -45,10 +57,12 @@ import com.emberr.presentation.shared.components.TopBarIconButton
 import com.emberr.presentation.shared.components.TopBarIconButtonGroup
 import com.emberr.presentation.shared.components.TopBarIconButtonItem
 import com.emberr.presentation.shared.components.customEmberrShadow
+import com.emberr.presentation.shared.components.emberrBlur
 import com.emberr.ui.theme.HighlightColor
 import com.emberr.ui.theme.LocalAppIsDark
 import dev.chrisbanes.haze.HazeState
 import emberr.shared.generated.resources.Res
+import emberr.shared.generated.resources.arrow_left
 import emberr.shared.generated.resources.ellipsis
 import emberr.shared.generated.resources.minus
 import emberr.shared.generated.resources.palette
@@ -59,6 +73,7 @@ import emberr.shared.generated.resources.scan_line
 import emberr.shared.generated.resources.square_arrow_out_up_right
 import emberr.shared.generated.resources.trash
 import emberr.shared.generated.resources.undo_circle
+import emberr.shared.generated.resources.x
 import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
 import kotlin.math.roundToInt
@@ -68,6 +83,7 @@ val CanvasSelectionColor = Color(0xFF4F5B8A)
 private val SelectionPillShape = RoundedCornerShape(50)
 private val SelectionPillGap = 8.dp
 private const val PALETTE_SWATCHES_PER_ROW = 5
+private val SelectionBarShape = RoundedCornerShape(12.dp)
 
 @Composable
 fun canvasNodeBackgroundFor(colorName: String?): Color {
@@ -98,35 +114,210 @@ fun CanvasOptionsButton(
             hazeStyle = EmberrBlur.Regular,
             onClick = { showOptionsMenu = true }
         )
-        EmberrDesktopMenu(expanded = showOptionsMenu, onDismissRequest = { showOptionsMenu = false }) {
-            Column(Modifier.width(240.dp).padding(vertical = 4.dp)) {
-                DesktopMenuItem(painterResource(Res.drawable.pen), "Rename") {
+        if (!isDesktopPlatform) {
+            CanvasMobileOptionsSheets(
+                showOptionsSheet = showOptionsMenu,
+                showRenameSheet = showRenamePopup,
+                loadCurrentTitle = loadCurrentTitle,
+                onOpenRename = {
                     showOptionsMenu = false
                     showRenamePopup = true
-                }
-                if (showStickyNoteOption) {
-                    DesktopMenuItem(painterResource(Res.drawable.square_arrow_out_up_right), "Open as Sticky Note") {
-                        showOptionsMenu = false
-                        onOpenAsStickyNote()
-                    }
-                }
-            }
-        }
-        EmberrDesktopMenu(
-            expanded = showRenamePopup,
-            onDismissRequest = { showRenamePopup = false },
-            modifier = Modifier.width(280.dp)
-        ) {
-            CanvasRenamePopup(
-                loadCurrentTitle = loadCurrentTitle,
-                onConfirm = { newTitle ->
-                    onRename(newTitle)
-                    showRenamePopup = false
                 },
-                onDismiss = { showRenamePopup = false }
+                onDismissOptions = { showOptionsMenu = false },
+                onDismissRename = { showRenamePopup = false },
+                onRename = onRename
+            )
+        } else {
+            CanvasDesktopOptionsMenus(
+                showOptionsMenu = showOptionsMenu,
+                showRenamePopup = showRenamePopup,
+                showStickyNoteOption = showStickyNoteOption,
+                loadCurrentTitle = loadCurrentTitle,
+                onOpenRename = {
+                    showOptionsMenu = false
+                    showRenamePopup = true
+                },
+                onDismissOptions = { showOptionsMenu = false },
+                onDismissRename = { showRenamePopup = false },
+                onRename = onRename,
+                onOpenAsStickyNote = onOpenAsStickyNote
             )
         }
     }
+}
+
+@Composable
+private fun CanvasDesktopOptionsMenus(
+    showOptionsMenu: Boolean,
+    showRenamePopup: Boolean,
+    showStickyNoteOption: Boolean,
+    loadCurrentTitle: suspend () -> String,
+    onOpenRename: () -> Unit,
+    onDismissOptions: () -> Unit,
+    onDismissRename: () -> Unit,
+    onRename: (String) -> Unit,
+    onOpenAsStickyNote: () -> Unit
+) {
+    EmberrDesktopMenu(expanded = showOptionsMenu, onDismissRequest = onDismissOptions) {
+        Column(Modifier.width(240.dp).padding(vertical = 4.dp)) {
+            DesktopMenuItem(painterResource(Res.drawable.pen), "Rename") { onOpenRename() }
+            if (showStickyNoteOption) {
+                DesktopMenuItem(painterResource(Res.drawable.square_arrow_out_up_right), "Open as Sticky Note") {
+                    onDismissOptions()
+                    onOpenAsStickyNote()
+                }
+            }
+        }
+    }
+    EmberrDesktopMenu(
+        expanded = showRenamePopup,
+        onDismissRequest = onDismissRename,
+        modifier = Modifier.width(280.dp)
+    ) {
+        CanvasRenamePopup(
+            loadCurrentTitle = loadCurrentTitle,
+            onConfirm = { newTitle ->
+                onRename(newTitle)
+                onDismissRename()
+            },
+            onDismiss = onDismissRename
+        )
+    }
+}
+
+@Composable
+private fun CanvasMobileOptionsSheets(
+    showOptionsSheet: Boolean,
+    showRenameSheet: Boolean,
+    loadCurrentTitle: suspend () -> String,
+    onOpenRename: () -> Unit,
+    onDismissOptions: () -> Unit,
+    onDismissRename: () -> Unit,
+    onRename: (String) -> Unit
+) {
+    var currentTitle by remember { mutableStateOf("") }
+    LaunchedEffect(showRenameSheet) {
+        if (showRenameSheet) currentTitle = loadCurrentTitle()
+    }
+
+    EmberrBottomSheet(expanded = showOptionsSheet, onDismiss = onDismissOptions, title = "Canvas") { closeAnd ->
+        EmberrBottomSheetOption(
+            label = "Rename",
+            icon = {
+                Icon(
+                    painter = painterResource(Res.drawable.pen),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.size(20.dp)
+                )
+            },
+            onClick = { closeAnd(onOpenRename) }
+        )
+    }
+    RenameBottomSheet(
+        expanded = showRenameSheet,
+        currentName = currentTitle,
+        onDismiss = onDismissRename,
+        onRename = { newTitle ->
+            onRename(newTitle)
+            onDismissRename()
+        },
+        title = "Rename Canvas",
+        placeholder = "Canvas title..."
+    )
+}
+
+@Composable
+fun CanvasBackButton(hazeState: HazeState, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Box(modifier) {
+        TopBarIconButton(
+            icon = painterResource(Res.drawable.arrow_left),
+            contentDescription = "Back",
+            bgColor = Color.Transparent,
+            tint = MaterialTheme.colorScheme.primary,
+            hazeState = hazeState,
+            hazeStyle = EmberrBlur.Regular,
+            onClick = onClick
+        )
+    }
+}
+
+@Composable
+fun CanvasAddBoxButton(hazeState: HazeState, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Box(modifier) {
+        TopBarIconButton(
+            icon = painterResource(Res.drawable.plus),
+            contentDescription = "New box",
+            bgColor = Color.Transparent,
+            tint = MaterialTheme.colorScheme.primary,
+            hazeState = hazeState,
+            hazeStyle = EmberrBlur.Regular,
+            onClick = onClick
+        )
+    }
+}
+
+@Composable
+fun CanvasSelectionActionBar(
+    isVisible: Boolean,
+    selectedCount: Int,
+    options: List<CanvasMenuOption>,
+    onClose: () -> Unit,
+    hazeState: HazeState,
+    modifier: Modifier = Modifier
+) {
+    val tint = MaterialTheme.colorScheme.primary
+
+    AnimatedVisibility(
+        visible = isVisible,
+        enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
+        exit = slideOutVertically(targetOffsetY = { it }) + fadeOut(),
+        modifier = modifier.padding(horizontal = 24.dp)
+    ) {
+        Surface(
+            shape = SelectionBarShape,
+            color = Color.Transparent,
+            modifier = Modifier
+                .padding(bottom = 32.dp)
+                .customEmberrShadow(SelectionBarShape)
+                .clip(SelectionBarShape)
+                .emberrBlur(hazeState, EmberrBlur.Regular)
+                .border(
+                    width = 0.5.dp,
+                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
+                    shape = SelectionBarShape
+                )
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(20.dp)
+            ) {
+                SelectionBarIcon(painterResource(Res.drawable.x), "Clear", tint, onClose)
+                Text(
+                    text = "$selectedCount",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = tint
+                )
+                Box(Modifier.width(1.dp).height(18.dp).background(tint.copy(alpha = 0.2f)))
+                options.forEach { option ->
+                    SelectionBarIcon(painterResource(option.icon), option.label, tint, option.onClick)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SelectionBarIcon(icon: Painter, contentDescription: String, tint: Color, onClick: () -> Unit) {
+    Icon(
+        painter = icon,
+        contentDescription = contentDescription,
+        tint = tint,
+        modifier = Modifier
+            .size(18.dp)
+            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onClick)
+    )
 }
 
 @Composable

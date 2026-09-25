@@ -10,9 +10,17 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.calculateCentroid
+import androidx.compose.foundation.gestures.calculatePan
+import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -61,6 +69,7 @@ import androidx.compose.ui.input.pointer.PointerEvent
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.PointerIcon
+import androidx.compose.ui.input.pointer.PointerId
 import androidx.compose.ui.input.pointer.isBackPressed
 import androidx.compose.ui.input.pointer.isCtrlPressed
 import androidx.compose.ui.input.pointer.isForwardPressed
@@ -84,8 +93,11 @@ import com.emberr.data.local.room.entity.CanvasEdgeEntity
 import com.emberr.data.local.room.entity.CanvasNodeEntity
 import com.emberr.data.local.room.entity.CanvasSide
 import com.emberr.domain.canvas.isGroup
+import com.emberr.domain.util.system.isDesktopPlatform
+import com.emberr.domain.util.system.triggerHapticFeedback
 import com.emberr.domain.canvas.membersOf
 import com.emberr.presentation.shared.StickyNoteWindowBus
+import com.emberr.presentation.shared.components.KmpBackHandler
 import emberr.shared.generated.resources.Res
 import emberr.shared.generated.resources.group
 import emberr.shared.generated.resources.square
@@ -107,6 +119,12 @@ private val HANDLE_HIT_RADIUS = 10.dp
 private val EDGE_SNAP_RADIUS = 24.dp
 private const val SNAPPED_HANDLE_SCALE = 1.5f
 private val RESIZE_GRAB_DISTANCE = 6.dp
+private val TOUCH_HANDLE_RADIUS = 7.dp
+private val TOUCH_HANDLE_HIT_RADIUS = 22.dp
+private val TOUCH_RESIZE_GRAB_DISTANCE = 14.dp
+private val TOUCH_EDGE_HIT_DISTANCE = 14.dp
+private val TOUCH_EDGE_SNAP_RADIUS = 32.dp
+private val KEYBOARD_CLEARANCE = 24.dp
 private const val ZOOM_BUTTON_STEP = 1.25f
 private val EDGE_HIT_DISTANCE = 6.dp
 private val EDGE_STROKE_WIDTH = 1.5.dp
@@ -147,13 +165,12 @@ private sealed interface CanvasDragPreview {
     ) : CanvasDragPreview
 }
 
-private data class CanvasHandle(val nodeId: String, val side: CanvasSide)
-
 @Composable
 fun CanvasScreen(
     noteId: String,
     modifier: Modifier = Modifier,
     isStickyNote: Boolean = false,
+    onNavigateBack: () -> Unit = {},
     viewModel: CanvasViewModel = koinViewModel(key = "canvas:$noteId")
 ) {
     LaunchedEffect(noteId) { viewModel.loadCanvas(noteId) }
@@ -165,6 +182,7 @@ fun CanvasScreen(
     var hoveredNodeId by remember(noteId) { mutableStateOf<String?>(null) }
     var dragPreview by remember(noteId) { mutableStateOf<CanvasDragPreview?>(null) }
     var contextMenuRequest by remember(noteId) { mutableStateOf<CanvasContextMenuRequest?>(null) }
+    var isSelectingMultiple by remember(noteId) { mutableStateOf(false) }
     var pointerIcon by remember(noteId) { mutableStateOf(PointerIcon.Default) }
     var boardSize by remember(noteId) { mutableStateOf(IntSize.Zero) }
     val zoomAnimation = remember(noteId) { Animatable(1f) }
@@ -184,8 +202,10 @@ fun CanvasScreen(
     val handleBorderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
 
     fun animateZoom(zoomFactor: Float, anchorOnScreen: Offset) {
-        val targetZoom = (zoomAnimation.targetValue * zoomFactor).coerceIn(CANVAS_MIN_ZOOM, CANVAS_MAX_ZOOM)
+        val startingZoom = if (zoomAnimation.isRunning) zoomAnimation.targetValue else viewport.zoom
+        val targetZoom = (startingZoom * zoomFactor).coerceIn(CANVAS_MIN_ZOOM, CANVAS_MAX_ZOOM)
         zoomScope.launch {
+            if (!zoomAnimation.isRunning) zoomAnimation.snapTo(viewport.zoom)
             zoomAnimation.animateTo(targetZoom, spring(stiffness = Spring.StiffnessMediumLow)) {
                 viewport = viewport.zoomedAround(anchorOnScreen, value / viewport.zoom, pixelDensity)
             }
@@ -195,18 +215,45 @@ fun CanvasScreen(
     fun zoomAroundBoardCenter(zoomFactor: Float) =
         animateZoom(zoomFactor, Offset(boardSize.width / 2f, boardSize.height / 2f))
 
-    fun showBusiestArea() {
-        val textBoxes = canvas.nodes.filter { !it.isGroup }
-        val boxesToConsider = textBoxes.ifEmpty { canvas.nodes }
-        val busiestCenter = busiestAreaCenter(boxesToConsider.map { it.worldRect }, CANVAS_CLUSTER_RADIUS) ?: return
-        val boardCenter = Offset(boardSize.width / 2f, boardSize.height / 2f)
-        val targetPanOffset = viewport.panOffsetCentering(busiestCenter, boardCenter, pixelDensity)
+    fun animatePanTo(targetPanOffset: Offset) {
         zoomScope.launch {
             panAnimation.snapTo(viewport.panOffset)
             panAnimation.animateTo(targetPanOffset, spring(stiffness = Spring.StiffnessMediumLow)) {
                 viewport = viewport.copy(panOffset = value)
             }
         }
+    }
+
+    fun showBusiestArea() {
+        val textBoxes = canvas.nodes.filter { !it.isGroup }
+        val boxesToConsider = textBoxes.ifEmpty { canvas.nodes }
+        val busiestCenter = busiestAreaCenter(boxesToConsider.map { it.worldRect }, CANVAS_CLUSTER_RADIUS) ?: return
+        val boardCenter = Offset(boardSize.width / 2f, boardSize.height / 2f)
+        animatePanTo(viewport.panOffsetCentering(busiestCenter, boardCenter, pixelDensity))
+    }
+
+    fun leaveEditingAndSelection() {
+        editingNodeId = null
+        selection = CanvasSelection.None
+        isSelectingMultiple = false
+        canvasFocusRequester.requestFocus()
+    }
+
+    val keyboardHeightPx = WindowInsets.ime.getBottom(LocalDensity.current)
+    val keyboardClearancePx = with(LocalDensity.current) { KEYBOARD_CLEARANCE.toPx() }
+    LaunchedEffect(editingNodeId, keyboardHeightPx, boardSize) {
+        if (isDesktopPlatform || keyboardHeightPx == 0) return@LaunchedEffect
+        val editingNode = canvas.nodes.firstOrNull { it.nodeId == editingNodeId } ?: return@LaunchedEffect
+        val editingRect = viewport.worldRectToScreen(editingNode.worldRect, pixelDensity)
+        val visibleBottom = boardSize.height - keyboardHeightPx - keyboardClearancePx
+        val hiddenBelowKeyboard = editingRect.bottom - visibleBottom
+        if (hiddenBelowKeyboard <= 0f) return@LaunchedEffect
+        val roomAboveBox = (editingRect.top - keyboardClearancePx).coerceAtLeast(0f)
+        animatePanTo(viewport.panOffset - Offset(0f, minOf(hiddenBelowKeyboard, roomAboveBox)))
+    }
+
+    KmpBackHandler(enabled = !isDesktopPlatform && (editingNodeId != null || selection != CanvasSelection.None)) {
+        leaveEditingAndSelection()
     }
 
     fun deleteItems(target: CanvasSelection) {
@@ -294,6 +341,210 @@ fun CanvasScreen(
                     }
                 }
                 .pointerInput(noteId) {
+                    if (isDesktopPlatform) return@pointerInput
+                    var lastTap: CanvasClick? = null
+
+                    fun registerTap(targetKey: String, uptimeMillis: Long, position: Offset): Boolean {
+                        val previousTap = lastTap
+                        val isDoubleTap = previousTap != null &&
+                            previousTap.targetKey == targetKey &&
+                            uptimeMillis - previousTap.uptimeMillis <= viewConfiguration.doubleTapTimeoutMillis &&
+                            (position - previousTap.position).getDistance() <= viewConfiguration.touchSlop * 2
+                        lastTap = if (isDoubleTap) null else CanvasClick(targetKey, uptimeMillis, position)
+                        return isDoubleTap
+                    }
+
+                    fun hitTester() = CanvasHitTester(canvas, viewport, density)
+
+                    fun movedLooseEnd(dragging: CanvasDragPreview.DraggingEdgeEnd, screenPoint: Offset) = dragging.copy(
+                        looseEndWorld = viewport.screenToWorld(screenPoint, density),
+                        snapTarget = hitTester().snapTargetNear(screenPoint, dragging.anchoredNodeId, TOUCH_EDGE_SNAP_RADIUS.toPx())
+                    )
+
+                    fun startPositionsOfSelectionAndGroupContents(): Map<String, Offset> {
+                        val selectedIds = selection.selectedNodeIds
+                        val selectedGroups = canvas.nodes.filter { it.nodeId in selectedIds && it.isGroup }
+                        val movingNodeIds = selectedIds + selectedGroups.flatMap { canvas.membersOf(it) }.map { it.nodeId }
+                        return canvas.nodes.filter { it.nodeId in movingNodeIds }.associate { it.nodeId to Offset(it.x, it.y) }
+                    }
+
+                    awaitEachGesture {
+                        val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                        val downPosition = down.position
+                        val tester = hitTester()
+                        val editingArea = tester.editingAreaOf(editingNodeId, TOUCH_RESIZE_GRAB_DISTANCE.toPx())
+                        if (editingArea != null && editingArea.contains(downPosition)) return@awaitEachGesture
+
+                        down.consume()
+                        val downWorld = viewport.screenToWorld(downPosition, density)
+                        val singleSelectedIds = if (isSelectingMultiple) emptyList() else listOfNotNull(selection.singleSelectedNodeId)
+                        val handle = tester.handleAt(downPosition, singleSelectedIds, TOUCH_HANDLE_HIT_RADIUS.toPx())
+                        val resizeZone = if (handle == null && singleSelectedIds.isNotEmpty()) {
+                            tester.resizeZoneAt(downPosition, TOUCH_RESIZE_GRAB_DISTANCE.toPx(), onlyNodeIds = singleSelectedIds.toSet())
+                        } else {
+                            null
+                        }
+                        val pressedTextNode = tester.textNodeAt(downPosition)
+                        val pressedEdge = if (pressedTextNode == null) tester.edgeAt(downPosition, TOUCH_EDGE_HIT_DISTANCE.toPx()) else null
+                        val pressedGroup = if (pressedTextNode == null && pressedEdge == null) tester.groupAt(downPosition) else null
+                        val pressedNode = pressedTextNode ?: pressedGroup
+
+                        val touchStart = withTimeoutOrNull(viewConfiguration.longPressTimeoutMillis) {
+                            awaitTouchStart(down.id, downPosition)
+                        } ?: CanvasTouchStart.LongPress
+
+                        when (touchStart) {
+                            CanvasTouchStart.Pinch -> trackPinchAndPan { centroid, pan, zoom ->
+                                viewport = viewport.pannedBy(pan).zoomedAround(centroid, zoom, density)
+                            }
+
+                            CanvasTouchStart.Tap -> {
+                                if (isSelectingMultiple) {
+                                    if (pressedNode != null) {
+                                        val currentlySelected = selection.selectedNodeIds
+                                        val toggledSelection = if (pressedNode.nodeId in currentlySelected) {
+                                            currentlySelected - pressedNode.nodeId
+                                        } else {
+                                            currentlySelected + pressedNode.nodeId
+                                        }
+                                        selection = if (toggledSelection.isEmpty()) CanvasSelection.None else CanvasSelection.Nodes(toggledSelection)
+                                        if (toggledSelection.isEmpty()) isSelectingMultiple = false
+                                    } else {
+                                        selection = CanvasSelection.None
+                                        isSelectingMultiple = false
+                                    }
+                                    return@awaitEachGesture
+                                }
+                                editingNodeId = null
+                                canvasFocusRequester.requestFocus()
+                                when {
+                                    pressedNode != null -> {
+                                        selection = CanvasSelection.Nodes(setOf(pressedNode.nodeId))
+                                        val pressedGroupTitle = pressedNode.isGroup && tester.groupTitleScreenRectOf(pressedNode).contains(downPosition)
+                                        val tapTargetKey = when {
+                                            !pressedNode.isGroup -> "box:${pressedNode.nodeId}"
+                                            pressedGroupTitle -> "group-title:${pressedNode.nodeId}"
+                                            else -> "group-body:${pressedNode.nodeId}"
+                                        }
+                                        if (registerTap(tapTargetKey, down.uptimeMillis, downPosition)) {
+                                            if (pressedNode.isGroup && !pressedGroupTitle) {
+                                                createBoxAt(downWorld, groupToGrowId = pressedNode.nodeId)
+                                            } else {
+                                                editingNodeId = pressedNode.nodeId
+                                            }
+                                        }
+                                    }
+                                    pressedEdge != null -> selection = CanvasSelection.Edge(pressedEdge.edgeId)
+                                    else -> {
+                                        selection = CanvasSelection.None
+                                        if (registerTap("empty", down.uptimeMillis, downPosition)) {
+                                            createBoxAt(downWorld, groupToGrowId = null)
+                                        }
+                                    }
+                                }
+                            }
+
+                            CanvasTouchStart.LongPress -> {
+                                when {
+                                    pressedNode != null -> {
+                                        triggerHapticFeedback()
+                                        editingNodeId = null
+                                        val alreadySelected = if (isSelectingMultiple) selection.selectedNodeIds else emptySet()
+                                        selection = CanvasSelection.Nodes(alreadySelected + pressedNode.nodeId)
+                                        isSelectingMultiple = true
+                                        val startPositions = startPositionsOfSelectionAndGroupContents()
+                                        var hasMoved = false
+                                        viewModel.beginUndoStep()
+                                        trackDragUntilRelease(isStillHeld = { event -> event.changes.any { it.pressed } }) { position ->
+                                            if ((position - downPosition).getDistance() > viewConfiguration.touchSlop) hasMoved = true
+                                            if (hasMoved) {
+                                                viewModel.moveNodes(startPositions, viewport.screenToWorld(position, density) - downWorld)
+                                            }
+                                        }
+                                    }
+                                    pressedEdge != null -> {
+                                        triggerHapticFeedback()
+                                        editingNodeId = null
+                                        selection = CanvasSelection.Edge(pressedEdge.edgeId)
+                                        isSelectingMultiple = true
+                                    }
+                                }
+                            }
+
+                            CanvasTouchStart.Drag -> {
+                                editingNodeId = null
+                                canvasFocusRequester.requestFocus()
+                                when {
+                                    handle != null -> {
+                                        val newEdgeEnd = CanvasDragPreview.DraggingEdgeEnd(
+                                            anchoredNodeId = handle.nodeId,
+                                            anchoredSide = handle.side,
+                                            isDraggingArrowHead = true,
+                                            looseEndWorld = downWorld
+                                        )
+                                        dragPreview = newEdgeEnd
+                                        trackDragUntilRelease(isStillHeld = { event -> event.changes.any { it.pressed } }) { position ->
+                                            dragPreview = movedLooseEnd(newEdgeEnd, position)
+                                        }
+                                        val snapTarget = (dragPreview as? CanvasDragPreview.DraggingEdgeEnd)?.snapTarget
+                                        dragPreview = null
+                                        if (snapTarget != null) {
+                                            viewModel.createEdge(handle.nodeId, handle.side, snapTarget.nodeId, snapTarget.side)
+                                        }
+                                    }
+                                    resizeZone != null -> {
+                                        val (nodeToResize, grabbedEdges) = resizeZone
+                                        viewModel.beginUndoStep()
+                                        val startBounds = nodeToResize.worldRect
+                                        trackDragUntilRelease(isStillHeld = { event -> event.changes.any { it.pressed } }) { position ->
+                                            val pointerTravel = viewport.screenToWorld(position, density) - downWorld
+                                            val newBounds = startBounds.resizedBy(grabbedEdges, pointerTravel, CANVAS_MIN_NODE_WIDTH, CANVAS_MIN_NODE_HEIGHT)
+                                            viewModel.setNodeBounds(nodeToResize.nodeId, newBounds)
+                                        }
+                                    }
+                                    pressedNode != null -> {
+                                        if (pressedNode.nodeId !in selection.selectedNodeIds) {
+                                            selection = CanvasSelection.Nodes(setOf(pressedNode.nodeId))
+                                            isSelectingMultiple = false
+                                        }
+                                        val startPositions = startPositionsOfSelectionAndGroupContents()
+                                        viewModel.beginUndoStep()
+                                        trackDragUntilRelease(isStillHeld = { event -> event.changes.any { it.pressed } }) { position ->
+                                            viewModel.moveNodes(startPositions, viewport.screenToWorld(position, density) - downWorld)
+                                        }
+                                    }
+                                    pressedEdge != null -> {
+                                        selection = CanvasSelection.Edge(pressedEdge.edgeId)
+                                        isSelectingMultiple = false
+                                        val pressedCurve = screenCurveFor(pressedEdge, canvas.nodes.associateBy { it.nodeId }, viewport, density)
+                                        val grabbedArrowHead = (pressedCurve?.closestProgressTo(downPosition) ?: 1f) >= 0.5f
+                                        val detachedEnd = CanvasDragPreview.DraggingEdgeEnd(
+                                            anchoredNodeId = if (grabbedArrowHead) pressedEdge.fromNodeId else pressedEdge.toNodeId,
+                                            anchoredSide = if (grabbedArrowHead) pressedEdge.fromSide else pressedEdge.toSide,
+                                            isDraggingArrowHead = grabbedArrowHead,
+                                            looseEndWorld = downWorld,
+                                            detachedEdgeId = pressedEdge.edgeId
+                                        )
+                                        dragPreview = detachedEnd
+                                        trackDragUntilRelease(isStillHeld = { event -> event.changes.any { it.pressed } }) { position ->
+                                            dragPreview = movedLooseEnd(detachedEnd, position)
+                                        }
+                                        val snapTarget = (dragPreview as? CanvasDragPreview.DraggingEdgeEnd)?.snapTarget
+                                        dragPreview = null
+                                        if (snapTarget != null) {
+                                            viewModel.reconnectEdge(pressedEdge.edgeId, grabbedArrowHead, snapTarget.nodeId, snapTarget.side)
+                                        }
+                                    }
+                                    else -> trackPinchAndPan { centroid, pan, zoom ->
+                                        viewport = viewport.pannedBy(pan).zoomedAround(centroid, zoom, density)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                .pointerInput(noteId) {
+                    if (!isDesktopPlatform) return@pointerInput
                     var lastClick: CanvasClick? = null
 
                     fun registerClick(targetKey: String, uptimeMillis: Long, position: Offset): Boolean {
@@ -306,72 +557,33 @@ fun CanvasScreen(
                         return isDoubleClick
                     }
 
-                    fun screenRectOf(node: CanvasNodeEntity): Rect = viewport.worldRectToScreen(node.worldRect, density)
+                    fun hitTester() = CanvasHitTester(canvas, viewport, density)
 
-                    fun groupTitleScreenRectOf(group: CanvasNodeEntity): Rect =
-                        viewport.worldRectToScreen(group.groupTitleWorldRect, density)
-
-                    fun textNodesTopFirst(): List<CanvasNodeEntity> = canvas.nodes.filter { !it.isGroup }.asReversed()
-
-                    fun groupsSmallestFirst(): List<CanvasNodeEntity> =
-                        canvas.nodes.filter { it.isGroup }.sortedBy { it.width * it.height }
+                    fun groupTitleScreenRectOf(group: CanvasNodeEntity): Rect = hitTester().groupTitleScreenRectOf(group)
 
                     fun textNodeAt(screenPoint: Offset, margin: Float = 0f): CanvasNodeEntity? =
-                        textNodesTopFirst().firstOrNull { screenRectOf(it).inflate(margin).contains(screenPoint) }
+                        hitTester().textNodeAt(screenPoint, margin)
 
                     fun groupAt(screenPoint: Offset, margin: Float = 0f): CanvasNodeEntity? =
-                        groupsSmallestFirst().firstOrNull { group ->
-                            screenRectOf(group).inflate(margin).contains(screenPoint) ||
-                                groupTitleScreenRectOf(group).contains(screenPoint)
-                        }
+                        hitTester().groupAt(screenPoint, margin)
 
                     fun nodeAt(screenPoint: Offset, margin: Float = 0f): CanvasNodeEntity? =
-                        textNodeAt(screenPoint, margin) ?: groupAt(screenPoint, margin)
+                        hitTester().nodeAt(screenPoint, margin)
 
-                    fun handleAt(screenPoint: Offset): CanvasHandle? {
-                        val candidateIds = listOfNotNull(hoveredNodeId, selection.singleSelectedNodeId)
-                        for (node in canvas.nodes.filter { it.nodeId in candidateIds }) {
-                            val screenRect = screenRectOf(node)
-                            val side = CanvasSide.entries.firstOrNull { side ->
-                                (screenRect.anchorOn(side) - screenPoint).getDistance() <= HANDLE_HIT_RADIUS.toPx()
-                            }
-                            if (side != null) return CanvasHandle(node.nodeId, side)
-                        }
-                        return null
-                    }
+                    fun handleAt(screenPoint: Offset): CanvasHandle? = hitTester().handleAt(
+                        screenPoint,
+                        candidateNodeIds = listOfNotNull(hoveredNodeId, selection.singleSelectedNodeId),
+                        hitRadius = HANDLE_HIT_RADIUS.toPx()
+                    )
 
-                    fun resizeZoneAt(screenPoint: Offset): Pair<CanvasNodeEntity, CanvasResizeEdges>? {
-                        for (node in textNodesTopFirst() + groupsSmallestFirst()) {
-                            val screenRect = screenRectOf(node)
-                            val edges = screenRect.resizeEdgesAt(screenPoint, RESIZE_GRAB_DISTANCE.toPx())
-                            if (edges != null) return node to edges
-                            if (screenRect.contains(screenPoint)) return null
-                        }
-                        return null
-                    }
+                    fun resizeZoneAt(screenPoint: Offset): Pair<CanvasNodeEntity, CanvasResizeEdges>? =
+                        hitTester().resizeZoneAt(screenPoint, RESIZE_GRAB_DISTANCE.toPx())
 
-                    fun edgeAt(screenPoint: Offset): CanvasEdgeEntity? {
-                        val nodesById = canvas.nodes.associateBy { it.nodeId }
-                        return canvas.edges.lastOrNull { edge ->
-                            val curve = screenCurveFor(edge, nodesById, viewport, density) ?: return@lastOrNull false
-                            curve.distanceTo(screenPoint) <= EDGE_HIT_DISTANCE.toPx()
-                        }
-                    }
+                    fun edgeAt(screenPoint: Offset): CanvasEdgeEntity? =
+                        hitTester().edgeAt(screenPoint, EDGE_HIT_DISTANCE.toPx())
 
-                    fun snapTargetNear(screenPoint: Offset, anchoredNodeId: String): CanvasHandle? {
-                        val candidateNodes = (textNodesTopFirst() + groupsSmallestFirst()).filter { it.nodeId != anchoredNodeId }
-                        val nearestPoint = candidateNodes.flatMap { node ->
-                            val screenRect = screenRectOf(node)
-                            CanvasSide.entries.map { side ->
-                                CanvasHandle(node.nodeId, side) to (screenRect.anchorOn(side) - screenPoint).getDistance()
-                            }
-                        }.minByOrNull { (_, distance) -> distance }
-                        if (nearestPoint != null && nearestPoint.second <= EDGE_SNAP_RADIUS.toPx()) return nearestPoint.first
-
-                        val nodeUnderPointer = candidateNodes.firstOrNull { screenRectOf(it).contains(screenPoint) } ?: return null
-                        val closestSide = nodeUnderPointer.worldRect.sideClosestTo(viewport.screenToWorld(screenPoint, density))
-                        return CanvasHandle(nodeUnderPointer.nodeId, closestSide)
-                    }
+                    fun snapTargetNear(screenPoint: Offset, anchoredNodeId: String): CanvasHandle? =
+                        hitTester().snapTargetNear(screenPoint, anchoredNodeId, EDGE_SNAP_RADIUS.toPx())
 
                     fun movedLooseEnd(dragging: CanvasDragPreview.DraggingEdgeEnd, screenPoint: Offset) = dragging.copy(
                         looseEndWorld = viewport.screenToWorld(screenPoint, density),
@@ -434,11 +646,7 @@ fun CanvasScreen(
                             return@awaitEachGesture
                         }
 
-                        val editingNode = canvas.nodes.firstOrNull { it.nodeId == editingNodeId }
-                        val editingArea = editingNode?.let { node ->
-                            if (node.isGroup) groupTitleScreenRectOf(node)
-                            else screenRectOf(node).deflate(RESIZE_GRAB_DISTANCE.toPx())
-                        }
+                        val editingArea = hitTester().editingAreaOf(editingNodeId, RESIZE_GRAB_DISTANCE.toPx())
                         if (editingArea != null && editingArea.contains(pressPosition)) {
                             return@awaitEachGesture
                         }
@@ -668,7 +876,8 @@ fun CanvasScreen(
                     )
                 }
                 val draggingEdgeEnd = dragPreview as? CanvasDragPreview.DraggingEdgeEnd
-                val handleNodeIds = listOfNotNull(hoveredNodeId, selection.singleSelectedNodeId)
+                val handleRadius = (if (isDesktopPlatform) HANDLE_RADIUS else TOUCH_HANDLE_RADIUS).toPx()
+                val handleNodeIds = listOfNotNull(hoveredNodeId, selection.singleSelectedNodeId.takeUnless { isSelectingMultiple })
                 val nodesShowingHandles = if (draggingEdgeEnd != null) {
                     canvas.nodes.filter { it.nodeId != draggingEdgeEnd.anchoredNodeId }
                 } else {
@@ -678,20 +887,20 @@ fun CanvasScreen(
                     val screenRect = viewport.worldRectToScreen(node.worldRect, pixelDensity)
                     CanvasSide.entries.forEach { side ->
                         val center = screenRect.anchorOn(side)
-                        drawCircle(color = handleFillColor, radius = HANDLE_RADIUS.toPx(), center = center)
-                        drawCircle(color = handleBorderColor, radius = HANDLE_RADIUS.toPx(), center = center, style = Stroke(width = 1.dp.toPx()))
+                        drawCircle(color = handleFillColor, radius = handleRadius, center = center)
+                        drawCircle(color = handleBorderColor, radius = handleRadius, center = center, style = Stroke(width = 1.dp.toPx()))
                     }
                 }
                 draggingEdgeEnd?.snapTarget?.let { snapTarget ->
                     val snappedNode = canvas.nodes.firstOrNull { it.nodeId == snapTarget.nodeId } ?: return@let
                     val center = viewport.worldRectToScreen(snappedNode.worldRect, pixelDensity).anchorOn(snapTarget.side)
-                    drawCircle(color = CanvasSelectionColor, radius = HANDLE_RADIUS.toPx() * SNAPPED_HANDLE_SCALE, center = center)
+                    drawCircle(color = CanvasSelectionColor, radius = handleRadius * SNAPPED_HANDLE_SCALE, center = center)
                 }
             }
         }
 
         val selectedNode = selection.singleSelectedNodeId?.let { nodeId -> canvas.nodes.firstOrNull { it.nodeId == nodeId } }
-        if (selectedNode != null && dragPreview == null) {
+        if (selectedNode != null && dragPreview == null && !isSelectingMultiple) {
             val pillAnchorWorldRect = if (selectedNode.isGroup) selectedNode.groupTitleWorldRect else selectedNode.worldRect
             val pillAnchorRect = viewport.worldRectToScreen(pillAnchorWorldRect, pixelDensity)
             CanvasSelectionPill(
@@ -711,12 +920,14 @@ fun CanvasScreen(
         }
 
         Column(
-            modifier = Modifier.align(Alignment.TopEnd).padding(top = 20.dp, end = 22.dp),
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .then(if (isDesktopPlatform) Modifier.padding(top = 20.dp, end = 22.dp) else Modifier.statusBarsPadding().padding(top = 10.dp, end = 16.dp)),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             CanvasOptionsButton(
                 hazeState = hazeState,
-                showStickyNoteOption = !isStickyNote,
+                showStickyNoteOption = !isStickyNote && isDesktopPlatform,
                 loadCurrentTitle = { viewModel.currentTitle() },
                 onRename = { newTitle -> viewModel.renameCanvas(newTitle) },
                 onOpenAsStickyNote = { StickyNoteWindowBus.open(noteId) }
@@ -738,6 +949,39 @@ fun CanvasScreen(
                     viewModel.redo()
                 }
             )
+        }
+
+        if (!isDesktopPlatform) {
+            CanvasBackButton(
+                hazeState = hazeState,
+                onClick = onNavigateBack,
+                modifier = Modifier.align(Alignment.TopStart).statusBarsPadding().padding(top = 10.dp, start = 16.dp)
+            )
+
+            val isSelectionBarVisible = isSelectingMultiple && selection != CanvasSelection.None
+            CanvasSelectionActionBar(
+                isVisible = isSelectionBarVisible,
+                selectedCount = if (selection is CanvasSelection.Edge) 1 else selection.selectedNodeIds.size,
+                options = contextMenuOptionsFor(selection).map { option ->
+                    option.copy(onClick = {
+                        option.onClick()
+                        isSelectingMultiple = false
+                    })
+                },
+                onClose = { leaveEditingAndSelection() },
+                hazeState = hazeState,
+                modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding()
+            )
+            if (!isSelectionBarVisible && editingNodeId == null) {
+                CanvasAddBoxButton(
+                    hazeState = hazeState,
+                    onClick = {
+                        val boardCenter = Offset(boardSize.width / 2f, boardSize.height / 2f)
+                        createBoxAt(viewport.screenToWorld(boardCenter, pixelDensity), groupToGrowId = null)
+                    },
+                    modifier = Modifier.align(Alignment.BottomEnd).navigationBarsPadding().padding(end = 16.dp, bottom = 16.dp)
+                )
+            }
         }
     }
 }
@@ -890,6 +1134,29 @@ private suspend fun AwaitPointerEventScope.awaitPressWhileTrackingHoverAndWheel(
     }
 }
 
+private enum class CanvasTouchStart { Tap, Drag, LongPress, Pinch }
+
+private suspend fun AwaitPointerEventScope.awaitTouchStart(downId: PointerId, downPosition: Offset): CanvasTouchStart {
+    while (true) {
+        val event = awaitPointerEvent(PointerEventPass.Initial)
+        event.changes.forEach { it.consume() }
+        if (event.changes.count { it.pressed } >= 2) return CanvasTouchStart.Pinch
+        val change = event.changes.firstOrNull { it.id == downId } ?: return CanvasTouchStart.Tap
+        if (!change.pressed) return CanvasTouchStart.Tap
+        if ((change.position - downPosition).getDistance() > viewConfiguration.touchSlop) return CanvasTouchStart.Drag
+    }
+}
+
+private suspend fun AwaitPointerEventScope.trackPinchAndPan(onTransform: (centroid: Offset, pan: Offset, zoom: Float) -> Unit) {
+    while (true) {
+        val event = awaitPointerEvent(PointerEventPass.Initial)
+        if (event.changes.none { it.pressed }) return
+        val centroid = event.calculateCentroid(useCurrent = true)
+        if (centroid != Offset.Unspecified) onTransform(centroid, event.calculatePan(), event.calculateZoom())
+        event.changes.forEach { it.consume() }
+    }
+}
+
 private suspend fun AwaitPointerEventScope.trackDragUntilRelease(
     isStillHeld: (PointerEvent) -> Boolean,
     onMove: (Offset) -> Unit
@@ -903,7 +1170,7 @@ private suspend fun AwaitPointerEventScope.trackDragUntilRelease(
     }
 }
 
-private fun screenCurveFor(
+internal fun screenCurveFor(
     edge: CanvasEdgeEntity,
     nodesById: Map<String, CanvasNodeEntity>,
     viewport: CanvasViewport,
