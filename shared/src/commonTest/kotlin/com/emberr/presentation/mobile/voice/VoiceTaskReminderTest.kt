@@ -1,5 +1,9 @@
 package com.emberr.presentation.mobile.voice
 
+import com.emberr.presentation.voice.reminderMovedToDate
+import com.emberr.presentation.voice.reminderMovedToTime
+import com.emberr.presentation.voice.voiceTaskDayLabel
+import com.emberr.presentation.voice.voiceTaskTimeLabel
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
@@ -30,7 +34,9 @@ class VoiceTaskReminderTest {
 
     @Test
     fun aReminderForTomorrowShowsTomorrow() {
-        assertEquals("Tomorrow", voiceTaskDayLabel(timestampAt(2026, 9, 24, 9, 0), today, TimeZone.UTC))
+        assertEquals("Tomorrow",
+            voiceTaskDayLabel(timestampAt(2026, 9, 24, 9, 0), today, TimeZone.UTC)
+        )
     }
 
     @Test
@@ -46,14 +52,18 @@ class VoiceTaskReminderTest {
         val reminder = timestampAt(2026, 9, 24, 17, 45)
         val pickedDate = timestampAt(2026, 10, 2, 0, 0)
 
-        assertEquals(timestampAt(2026, 10, 2, 17, 45), reminderMovedToDate(reminder, pickedDate, TimeZone.UTC))
+        assertEquals(timestampAt(2026, 10, 2, 17, 45),
+            reminderMovedToDate(reminder, pickedDate, TimeZone.UTC)
+        )
     }
 
     @Test
     fun pickingADateForATaskWithNoTimeUsesNineInTheMorning() {
         val pickedDate = timestampAt(2026, 10, 2, 0, 0)
 
-        assertEquals(timestampAt(2026, 10, 2, 9, 0), reminderMovedToDate(null, pickedDate, TimeZone.UTC))
+        assertEquals(timestampAt(2026, 10, 2, 9, 0),
+            reminderMovedToDate(null, pickedDate, TimeZone.UTC)
+        )
     }
 
     @Test

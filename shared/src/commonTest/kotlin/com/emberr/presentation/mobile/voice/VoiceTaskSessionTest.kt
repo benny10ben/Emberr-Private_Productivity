@@ -4,6 +4,8 @@ import com.emberr.domain.model.ParsedTask
 import com.emberr.domain.util.task.HeuristicTaskExtractor
 import com.emberr.domain.util.task.TaskExtractor
 import com.emberr.domain.util.voice.VoiceRecognizer
+import com.emberr.presentation.voice.VoiceTaskSession
+import com.emberr.presentation.voice.VoiceTaskSessionState
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
@@ -16,7 +18,6 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
-import kotlin.time.Duration.Companion.seconds
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class VoiceTaskSessionTest {

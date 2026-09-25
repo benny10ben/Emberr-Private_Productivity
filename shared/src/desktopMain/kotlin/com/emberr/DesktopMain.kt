@@ -57,7 +57,7 @@ import com.emberr.presentation.desktop.window.EmberrWindowFrame
 import com.emberr.presentation.desktop.window.MatchWindowsTitleBarToAppTheme
 import com.emberr.presentation.desktop.window.raiseWindowToFront
 import com.emberr.presentation.desktop.window.WindowFrameSize
-import com.emberr.presentation.mobile.home.note.NoteScreen
+import com.emberr.presentation.home.note.NoteScreen
 import com.emberr.presentation.shared.canvas.CanvasScreen
 import com.emberr.presentation.shared.StickyNoteWindowBus
 import com.emberr.domain.sync.LanSyncServerController

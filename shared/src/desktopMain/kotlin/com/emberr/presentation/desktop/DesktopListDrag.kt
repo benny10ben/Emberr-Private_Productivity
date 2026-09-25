@@ -31,8 +31,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import com.emberr.presentation.mobile.home.DropInsertPosition
-import com.emberr.presentation.mobile.home.HomeItemKey
+import com.emberr.presentation.home.DropInsertPosition
+import com.emberr.presentation.home.HomeItemKey
 import com.emberr.presentation.shared.components.EmberrShadowElevation
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow

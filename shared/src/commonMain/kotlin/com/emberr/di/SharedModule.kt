@@ -12,9 +12,10 @@ import com.emberr.domain.selfhost.webdav.WebDavSyncClient
 import com.emberr.domain.util.task.HeuristicTaskExtractor
 import com.emberr.domain.util.task.TaskExtractor
 import com.emberr.presentation.settings.selfhost.SelfHostSetupViewModel
-import com.emberr.presentation.mobile.daily.DailyEditorViewModel
+import com.emberr.presentation.daily.DailyEditorViewModel
 import com.emberr.presentation.search.SearchViewModel
 import com.emberr.presentation.trash.TrashViewModel
+import com.emberr.presentation.voice.VoiceTaskViewModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -211,7 +212,7 @@ val sharedModule = module {
     }
 
     viewModel {
-        com.emberr.presentation.mobile.home.HomeViewModel(
+        com.emberr.presentation.home.HomeViewModel(
             repository = get(),
             settingsManager = get(),
             templateSeeder = get(),
@@ -222,7 +223,7 @@ val sharedModule = module {
         )
     }
     viewModel {
-        com.emberr.presentation.mobile.voice.VoiceTaskViewModel(
+        VoiceTaskViewModel(
             repository = get(),
             reminderScheduler = get(),
             voiceRecognizer = get(),
@@ -230,28 +231,28 @@ val sharedModule = module {
         )
     }
     viewModel {
-        com.emberr.presentation.mobile.home.overview.tasks.TasksViewModel(
+        com.emberr.presentation.home.overview.tasks.TasksViewModel(
             repository = get(),
             reminderScheduler = get(),
             activeSpaceStore = get()
         )
     }
     viewModel {
-        com.emberr.presentation.mobile.home.overview.images.ImagesViewModel(
+        com.emberr.presentation.home.overview.images.ImagesViewModel(
             repository = get(),
             mediaStorageHelper = get(),
             activeSpaceStore = get()
         )
     }
     viewModel {
-        com.emberr.presentation.mobile.home.overview.documents.DocumentsViewModel(
+        com.emberr.presentation.home.overview.documents.DocumentsViewModel(
             repository = get(),
             mediaStorageHelper = get(),
             activeSpaceStore = get()
         )
     }
     viewModel {
-        com.emberr.presentation.mobile.home.overview.bookmarks.BookmarksViewModel(
+        com.emberr.presentation.home.overview.bookmarks.BookmarksViewModel(
             repository = get(),
             bookmarkCategoryOrderStore = get(),
             activeSpaceStore = get()
@@ -265,7 +266,7 @@ val sharedModule = module {
         )
     }
     viewModel {
-        com.emberr.presentation.mobile.home.note.NoteEditorViewModel(
+        com.emberr.presentation.home.note.NoteEditorViewModel(
             repository = get(),
             mediaStorageHelper = get(),
             reminderScheduler = get(),

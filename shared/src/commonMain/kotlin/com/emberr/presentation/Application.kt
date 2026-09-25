@@ -7,7 +7,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
-import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -33,7 +32,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.emberr.domain.util.eventbus.AiEventBus
 import com.emberr.domain.util.system.isDesktopPlatform
-import com.emberr.presentation.mobile.daily.DailyScreen
+import com.emberr.presentation.daily.DailyScreen
 import com.emberr.presentation.navigation.Screen
 import com.emberr.presentation.onboarding.OnboardingScreen
 import com.emberr.presentation.shared.components.KmpBackHandler
@@ -49,9 +48,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import com.emberr.presentation.mobile.home.HomeScreen
-import com.emberr.presentation.mobile.voice.VoiceTaskDialog
-import com.emberr.presentation.mobile.voice.VoiceTaskViewModel
+import com.emberr.presentation.voice.VoiceTaskDialog
+import com.emberr.presentation.voice.VoiceTaskViewModel
 import com.emberr.presentation.search.SearchResultsList
 import com.emberr.presentation.search.SearchViewModel
 import com.emberr.presentation.share.ShareReceiverSheet
@@ -74,7 +72,7 @@ val LocalImageOverlay = staticCompositionLocalOf<( (@Composable () -> Unit)? ) -
 @Composable
 fun EmberrApp(
     startRoute: String,
-    HomeViewModel: com.emberr.presentation.mobile.home.HomeViewModel = koinViewModel(),
+    HomeViewModel: com.emberr.presentation.home.HomeViewModel = koinViewModel(),
     onPickImage: (onPathSelected: (String) -> Unit) -> Unit = {},
     onPickDocument: (onPathSelected: (String) -> Unit) -> Unit = {},
     onOpenFile: (filePath: String, mimeType: String) -> Unit = { _, _ -> },
@@ -458,7 +456,7 @@ fun EmberrApp(
                         }
 
                         composable(Screen.Home.route) {
-                            HomeScreen(
+                            com.emberr.presentation.home.HomeScreen(
                                 bottomContentPadding = if (isBottomBarVisible) bottomBarHeightDp else 0.dp,
                                 onNavigateToEditor = { noteId ->
                                     navController.navigate(
@@ -467,7 +465,9 @@ fun EmberrApp(
                                         )
                                     )
                                 },
-                                onSelectionModeChange = { isActive -> isSelectionActive = isActive },
+                                onSelectionModeChange = { isActive ->
+                                    isSelectionActive = isActive
+                                },
                                 onNavigateToCalendar = { navController.navigate(Screen.Calendar.route) },
                                 onNavigateToReminders = { navController.navigate(Screen.Reminders.route) },
                                 onNavigateToBookmarks = { navController.navigate(Screen.Bookmarks.route) },
@@ -545,13 +545,16 @@ fun EmberrApp(
                                 )
                             }
                         ) { backStackEntry ->
-                            com.emberr.presentation.mobile.home.note.NoteScreen(
-                                noteId = backStackEntry.savedStateHandle.get<String>("noteId") ?: "",
+                            com.emberr.presentation.home.note.NoteScreen(
+                                noteId = backStackEntry.savedStateHandle.get<String>("noteId")
+                                    ?: "",
                                 onNavigateBack = { if (!navController.popBackStack()) onExitApp() },
                                 onNavigateToEditor = { subNoteId ->
                                     navController.navigate(Screen.Note.createRoute(subNoteId))
                                 },
-                                onSelectionModeChange = { isActive -> isSelectionActive = isActive },
+                                onSelectionModeChange = { isActive ->
+                                    isSelectionActive = isActive
+                                },
                                 onPickImage = onPickImage,
                                 onTakePhoto = onTakePhoto,
                                 onPickDocument = onPickDocument,
@@ -589,7 +592,7 @@ fun EmberrApp(
                                 )
                             }
                         ) {
-                            com.emberr.presentation.mobile.home.overview.tasks.TasksScreen(
+                            com.emberr.presentation.home.overview.tasks.TasksScreen(
                                 onNavigateBack = { if (!navController.popBackStack()) onExitApp() },
                                 onNavigateToEditor = { noteId ->
                                     navController.navigate(
@@ -662,7 +665,7 @@ fun EmberrApp(
                                 )
                             }
                         ) {
-                            com.emberr.presentation.mobile.home.overview.bookmarks.BookmarksScreen(
+                            com.emberr.presentation.home.overview.bookmarks.BookmarksScreen(
                                 onNavigateBack = { navController.popBackStack() })
                         }
 
@@ -693,12 +696,16 @@ fun EmberrApp(
                                 )
                             }
                         ) {
-                            val imagesViewModel: com.emberr.presentation.mobile.home.overview.images.ImagesViewModel =
+                            val imagesViewModel: com.emberr.presentation.home.overview.images.ImagesViewModel =
                                 koinViewModel()
-                            com.emberr.presentation.mobile.home.overview.images.ImagesScreen(
+                            com.emberr.presentation.home.overview.images.ImagesScreen(
                                 onNavigateBack = { navController.popBackStack() },
                                 onTriggerImagePicker = {
-                                    onPickImage { path -> imagesViewModel.createNewImageWithFile(path) }
+                                    onPickImage { path ->
+                                        imagesViewModel.createNewImageWithFile(
+                                            path
+                                        )
+                                    }
                                 },
                                 viewModel = imagesViewModel
                             )
@@ -731,9 +738,9 @@ fun EmberrApp(
                                 )
                             }
                         ) {
-                            val documentsViewModel: com.emberr.presentation.mobile.home.overview.documents.DocumentsViewModel =
+                            val documentsViewModel: com.emberr.presentation.home.overview.documents.DocumentsViewModel =
                                 koinViewModel()
-                            com.emberr.presentation.mobile.home.overview.documents.DocumentsScreen(
+                            com.emberr.presentation.home.overview.documents.DocumentsScreen(
                                 onNavigateBack = { navController.popBackStack() },
                                 onTriggerDocumentPicker = {
                                     onPickDocument { path ->
