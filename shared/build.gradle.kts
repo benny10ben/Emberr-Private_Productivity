@@ -226,6 +226,10 @@ tasks.withType<Test>().configureEach {
     }
 }
 
+tasks.matching { it.name == "generateAndroidHostTestLintModel" || it.name == "lintAnalyzeAndroidHostTest" }.configureEach {
+    dependsOn("kspAndroidHostTest")
+}
+
 configurations.named("desktopRuntimeClasspath") {
     exclude(mapOf("group" to "com.llamatik", "module" to "library-jvm"))
 }
