@@ -11,7 +11,9 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
+import com.emberr.data.local.room.entity.CanvasNodeEntity
 import com.emberr.data.local.room.entity.CanvasNodeShape
+import com.emberr.data.local.room.entity.CanvasSide
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
@@ -125,6 +127,36 @@ fun CanvasNodeShape.polygonCorners(size: Size): List<Offset>? {
             listOf(Offset(slant, 0f), Offset(width - slant, 0f), Offset(width, height), Offset(0f, height))
         }
         else -> null
+    }
+}
+
+fun CanvasNodeEntity.anchorOn(side: CanvasSide): Offset =
+    Offset(x, y) + shape.anchorOffsetOn(side, Size(width, height))
+
+fun CanvasNodeShape.anchorOffsetOn(side: CanvasSide, size: Size): Offset {
+    val boxAnchor = Rect(Offset.Zero, size).anchorOn(side)
+    val corners = polygonCorners(size) ?: return boxAnchor
+    val isVerticalLine = side == CanvasSide.TOP || side == CanvasSide.BOTTOM
+    val crossings = outlineCrossings(corners, lineAt = if (isVerticalLine) boxAnchor.x else boxAnchor.y, isVerticalLine)
+    return when (side) {
+        CanvasSide.TOP -> crossings.minOrNull()?.let { Offset(boxAnchor.x, it) }
+        CanvasSide.BOTTOM -> crossings.maxOrNull()?.let { Offset(boxAnchor.x, it) }
+        CanvasSide.LEFT -> crossings.minOrNull()?.let { Offset(it, boxAnchor.y) }
+        CanvasSide.RIGHT -> crossings.maxOrNull()?.let { Offset(it, boxAnchor.y) }
+    } ?: boxAnchor
+}
+
+private fun outlineCrossings(corners: List<Offset>, lineAt: Float, isVerticalLine: Boolean): List<Float> {
+    fun Offset.alongLine() = if (isVerticalLine) x else y
+    fun Offset.acrossLine() = if (isVerticalLine) y else x
+    return corners.indices.mapNotNull { index ->
+        val start = corners[index]
+        val end = corners[(index + 1) % corners.size]
+        val isParallelToLine = start.alongLine() == end.alongLine()
+        val missesLine = lineAt < min(start.alongLine(), end.alongLine()) || lineAt > max(start.alongLine(), end.alongLine())
+        if (isParallelToLine || missesLine) return@mapNotNull null
+        val progress = (lineAt - start.alongLine()) / (end.alongLine() - start.alongLine())
+        start.acrossLine() + (end.acrossLine() - start.acrossLine()) * progress
     }
 }
 

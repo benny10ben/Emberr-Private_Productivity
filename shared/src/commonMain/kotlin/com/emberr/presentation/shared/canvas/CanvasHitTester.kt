@@ -18,6 +18,8 @@ internal class CanvasHitTester(
 
     fun screenRectOf(node: CanvasNodeEntity): Rect = viewport.worldRectToScreen(node.worldRect, density)
 
+    fun screenAnchorOf(node: CanvasNodeEntity, side: CanvasSide): Offset = viewport.worldToScreen(node.anchorOn(side), density)
+
     fun groupTitleScreenRectOf(group: CanvasNodeEntity): Rect =
         viewport.worldRectToScreen(group.groupTitleWorldRect, density)
 
@@ -40,9 +42,8 @@ internal class CanvasHitTester(
 
     fun handleAt(screenPoint: Offset, candidateNodeIds: Collection<String>, hitRadius: Float): CanvasHandle? {
         for (node in canvas.nodes.filter { it.nodeId in candidateNodeIds }) {
-            val screenRect = screenRectOf(node)
             val side = CanvasSide.entries.firstOrNull { side ->
-                (screenRect.anchorOn(side) - screenPoint).getDistance() <= hitRadius
+                (screenAnchorOf(node, side) - screenPoint).getDistance() <= hitRadius
             }
             if (side != null) return CanvasHandle(node.nodeId, side)
         }
@@ -75,9 +76,8 @@ internal class CanvasHitTester(
     fun snapTargetNear(screenPoint: Offset, anchoredNodeId: String, snapRadius: Float): CanvasHandle? {
         val candidateNodes = (textNodesTopFirst() + groupsSmallestFirst()).filter { it.nodeId != anchoredNodeId }
         val nearestPoint = candidateNodes.flatMap { node ->
-            val screenRect = screenRectOf(node)
             CanvasSide.entries.map { side ->
-                CanvasHandle(node.nodeId, side) to (screenRect.anchorOn(side) - screenPoint).getDistance()
+                CanvasHandle(node.nodeId, side) to (screenAnchorOf(node, side) - screenPoint).getDistance()
             }
         }.minByOrNull { (_, distance) -> distance }
         if (nearestPoint != null && nearestPoint.second <= snapRadius) return nearestPoint.first

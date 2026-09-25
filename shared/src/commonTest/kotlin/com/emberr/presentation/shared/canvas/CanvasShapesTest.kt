@@ -3,7 +3,9 @@ package com.emberr.presentation.shared.canvas
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
+import com.emberr.data.local.room.entity.CanvasNodeEntity
 import com.emberr.data.local.room.entity.CanvasNodeShape
+import com.emberr.data.local.room.entity.CanvasSide
 import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -91,5 +93,51 @@ class CanvasShapesTest {
         CanvasNodeShape.entries.filter { it.keepsEqualSides }.forEach { shape ->
             assertEquals(shape.defaultWorldSize.width, shape.defaultWorldSize.height, "$shape")
         }
+    }
+
+    @Test
+    fun arrowsMeetATriangleOnItsSlantedSidesNotOnItsBox() {
+        val size = Size(200f, 160f)
+
+        assertClose(Offset(100f, 0f), CanvasNodeShape.TRIANGLE.anchorOffsetOn(CanvasSide.TOP, size))
+        assertClose(Offset(150f, 80f), CanvasNodeShape.TRIANGLE.anchorOffsetOn(CanvasSide.RIGHT, size))
+        assertClose(Offset(100f, 160f), CanvasNodeShape.TRIANGLE.anchorOffsetOn(CanvasSide.BOTTOM, size))
+        assertClose(Offset(50f, 80f), CanvasNodeShape.TRIANGLE.anchorOffsetOn(CanvasSide.LEFT, size))
+    }
+
+    @Test
+    fun arrowsMeetAParallelogramHalfwayAlongItsSlantedSides() {
+        val size = Size(240f, 100f)
+
+        assertClose(Offset(25f, 50f), CanvasNodeShape.PARALLELOGRAM.anchorOffsetOn(CanvasSide.LEFT, size))
+        assertClose(Offset(215f, 50f), CanvasNodeShape.PARALLELOGRAM.anchorOffsetOn(CanvasSide.RIGHT, size))
+        assertClose(Offset(120f, 0f), CanvasNodeShape.PARALLELOGRAM.anchorOffsetOn(CanvasSide.TOP, size))
+    }
+
+    @Test
+    fun roundShapesAndBoxesKeepTheMiddleOfEachBoxSide() {
+        val size = Size(240f, 150f)
+        listOf(CanvasNodeShape.RECTANGLE, CanvasNodeShape.OVAL, CanvasNodeShape.PILL, CanvasNodeShape.DIAMOND).forEach { shape ->
+            assertClose(Offset(0f, 75f), shape.anchorOffsetOn(CanvasSide.LEFT, size))
+            assertClose(Offset(120f, 0f), shape.anchorOffsetOn(CanvasSide.TOP, size))
+        }
+    }
+
+    @Test
+    fun aNodeAnchorIsPlacedInWorldSpace() {
+        val triangle = CanvasNodeEntity(
+            nodeId = "t",
+            noteId = "canvas-1",
+            x = 1000f,
+            y = 500f,
+            width = 200f,
+            height = 160f,
+            text = "",
+            createdAt = 1L,
+            updatedAt = 1L,
+            shape = CanvasNodeShape.TRIANGLE
+        )
+
+        assertClose(Offset(1050f, 580f), triangle.anchorOn(CanvasSide.LEFT))
     }
 }

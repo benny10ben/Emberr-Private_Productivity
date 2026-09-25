@@ -875,10 +875,10 @@ fun CanvasScreen(
                 }
                 draggingEdgeEnd?.let { preview ->
                     val anchoredNode = nodesById[preview.anchoredNodeId] ?: return@let
-                    val anchoredPoint = anchoredNode.worldRect.anchorOn(preview.anchoredSide)
+                    val anchoredPoint = anchoredNode.anchorOn(preview.anchoredSide)
                     val snapTarget = preview.snapTarget
                     val snappedNode = snapTarget?.let { nodesById[it.nodeId] }
-                    val loosePoint = if (snapTarget != null && snappedNode != null) snappedNode.worldRect.anchorOn(snapTarget.side) else preview.looseEndWorld
+                    val loosePoint = if (snapTarget != null && snappedNode != null) snappedNode.anchorOn(snapTarget.side) else preview.looseEndWorld
                     val looseSide = if (snappedNode != null) snapTarget?.side else null
                     val controlDistance = edgeControlDistance(anchoredPoint, loosePoint, EDGE_MIN_CONTROL_UNITS, EDGE_MAX_CONTROL_UNITS)
                     val worldCurve = if (preview.isDraggingArrowHead) {
@@ -923,16 +923,15 @@ fun CanvasScreen(
                     canvas.nodes.filter { it.nodeId in handleNodeIds && it.nodeId != editingNodeId }
                 }
                 nodesShowingHandles.forEach { node ->
-                    val screenRect = viewport.worldRectToScreen(node.worldRect, pixelDensity)
                     CanvasSide.entries.forEach { side ->
-                        val center = screenRect.anchorOn(side)
+                        val center = viewport.worldToScreen(node.anchorOn(side), pixelDensity)
                         drawCircle(color = handleFillColor, radius = handleRadius, center = center)
                         drawCircle(color = handleBorderColor, radius = handleRadius, center = center, style = Stroke(width = 1.dp.toPx()))
                     }
                 }
                 draggingEdgeEnd?.snapTarget?.let { snapTarget ->
                     val snappedNode = canvas.nodes.firstOrNull { it.nodeId == snapTarget.nodeId } ?: return@let
-                    val center = viewport.worldRectToScreen(snappedNode.worldRect, pixelDensity).anchorOn(snapTarget.side)
+                    val center = viewport.worldToScreen(snappedNode.anchorOn(snapTarget.side), pixelDensity)
                     drawCircle(color = CanvasSelectionColor, radius = handleRadius * SNAPPED_HANDLE_SCALE, center = center)
                 }
             }
@@ -1324,8 +1323,8 @@ internal fun screenCurveFor(
 ): CanvasCurve? {
     val fromNode = nodesById[edge.fromNodeId] ?: return null
     val toNode = nodesById[edge.toNodeId] ?: return null
-    val startWorld = fromNode.worldRect.anchorOn(edge.fromSide)
-    val endWorld = toNode.worldRect.anchorOn(edge.toSide)
+    val startWorld = fromNode.anchorOn(edge.fromSide)
+    val endWorld = toNode.anchorOn(edge.toSide)
     return edgeCurve(
         start = startWorld,
         startSide = edge.fromSide,
