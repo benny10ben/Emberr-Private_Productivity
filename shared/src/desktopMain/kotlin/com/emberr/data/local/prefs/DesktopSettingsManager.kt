@@ -102,6 +102,13 @@ class DesktopSettingsManager(private val secretStore: DesktopSecretStore) : Sett
         prefs.putBoolean(SyncConstants.KEY_CANVAS_DOT_GRID_VISIBLE_PREFIX + canvasNoteId, isVisible)
     }
 
+    override fun getCanvasToolSettingsJson(toolName: String): String? =
+        prefs.getOrNull(SyncConstants.KEY_CANVAS_TOOL_SETTINGS_PREFIX + toolName)
+
+    override fun saveCanvasToolSettingsJson(toolName: String, json: String) {
+        prefs.put(SyncConstants.KEY_CANVAS_TOOL_SETTINGS_PREFIX + toolName, json)
+    }
+
     override fun getLastSyncTimestamp(): Long {
         return prefs.getLong(SyncConstants.KEY_SYNC_TIMESTAMP, 0L)
     }

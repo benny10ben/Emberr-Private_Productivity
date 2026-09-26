@@ -142,6 +142,13 @@ class AndroidSettingsManager(
         sharedPreferences.edit { putBoolean(SyncConstants.KEY_CANVAS_DOT_GRID_VISIBLE_PREFIX + canvasNoteId, isVisible) }
     }
 
+    override fun getCanvasToolSettingsJson(toolName: String): String? =
+        sharedPreferences.getString(SyncConstants.KEY_CANVAS_TOOL_SETTINGS_PREFIX + toolName, null)
+
+    override fun saveCanvasToolSettingsJson(toolName: String, json: String) {
+        sharedPreferences.edit { putString(SyncConstants.KEY_CANVAS_TOOL_SETTINGS_PREFIX + toolName, json) }
+    }
+
     override fun getLastSyncTimestamp(): Long {
         return sharedPreferences.getLong(SyncConstants.KEY_SYNC_TIMESTAMP, 0L)
     }

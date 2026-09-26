@@ -30,6 +30,8 @@ interface SettingsManager {
     fun removeCanvasViewPosition(canvasNoteId: String)
     fun isCanvasDotGridVisible(canvasNoteId: String): Boolean
     fun saveCanvasDotGridVisible(canvasNoteId: String, isVisible: Boolean)
+    fun getCanvasToolSettingsJson(toolName: String): String?
+    fun saveCanvasToolSettingsJson(toolName: String, json: String)
 
     fun getLastSyncTimestamp(): Long
     fun saveLastSyncTimestamp(timestamp: Long)
