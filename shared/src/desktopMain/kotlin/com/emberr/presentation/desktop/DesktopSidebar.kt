@@ -95,9 +95,6 @@ private val GUIDE_COLUMN_START   = ROW_ICON_START + 4.dp
 private val GUIDE_WIDTH          = 1.5.dp
 private val GUIDE_END_GAP        = 3.dp
 private val GUIDE_CORNER         = 6.dp
-private val ACTIVE_ACCENT_WIDTH  = 3.dp
-private val ACTIVE_ACCENT_HEIGHT = 18.dp
-private val ACTIVE_ACCENT_START  = 2.dp
 
 val SIDEBAR_ROW_HEIGHT = ROW_MIN_HEIGHT + ROW_VERTICAL_PADDING * 2
 
@@ -116,21 +113,6 @@ fun sidebarRowBackground(isActive: Boolean, isSelected: Boolean, isHovered: Bool
     isActive || isSelected -> MaterialTheme.colorScheme.onSurface.copy(alpha = SIDEBAR_SELECTED_ALPHA)
     isHovered              -> MaterialTheme.colorScheme.onSurface.copy(alpha = SIDEBAR_HOVER_ALPHA)
     else                   -> Color.Transparent
-}
-
-@Composable
-fun SidebarActiveAccent(isActive: Boolean, modifier: Modifier = Modifier) {
-    val accentProgress by animateFloatAsState(if (isActive) 1f else 0f, RowFloatSpec, label = "sidebar_accent")
-    if (accentProgress <= 0f) return
-    Box(
-        modifier = modifier
-            .padding(start = ACTIVE_ACCENT_START)
-            .width(ACTIVE_ACCENT_WIDTH)
-            .height(ACTIVE_ACCENT_HEIGHT)
-            .scale(scaleX = 1f, scaleY = accentProgress)
-            .clip(RoundedCornerShape(2.dp))
-            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = accentProgress))
-    )
 }
 
 data class SidebarClickModifiers(
@@ -496,8 +478,6 @@ fun SidebarNoteRow(
             .fillMaxWidth()
             .drawBehind { drawSidebarGuideLines(level, guideLines, guideColor) }
     ) {
-        SidebarActiveAccent(isActive = isActive, modifier = Modifier.align(Alignment.CenterStart).zIndex(2f))
-
         if (beforeAlpha > 0f) {
             Box(
                 modifier = Modifier

@@ -435,42 +435,39 @@ private fun OverviewRow(
         tween(180, easing = FastOutSlowInEasing),
         label = "overview_bg_$title"
     )
-    Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterStart) {
-        SidebarActiveAccent(isActive = isSelected)
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 2.dp)
-                .clip(RoundedCornerShape(8.dp))
-                .background(rowBackground)
-                .noRippleClickable(interactionSource, onClick)
-                .heightIn(min = 42.dp)
-                .padding(start = 4.dp, end = 12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Spacer(Modifier.width(8.dp))
-            Box(Modifier.width(24.dp), contentAlignment = Alignment.Center) {
-                Icon(
-                    icon,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = if (isSelected || isHovered) 0.9f else 0.55f),
-                    modifier = Modifier.size(iconSize)
-                )
-            }
-            Spacer(Modifier.width(10.dp))
-            Text(
-                title,
-                style = sidebarRowTextStyle,
-                fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = if (isSelected) 1f else 0.82f),
-                modifier = Modifier.weight(1f)
-            )
-            Text(
-                subtitle,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp, vertical = 2.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .background(rowBackground)
+            .noRippleClickable(interactionSource, onClick)
+            .heightIn(min = 42.dp)
+            .padding(start = 4.dp, end = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Spacer(Modifier.width(8.dp))
+        Box(Modifier.width(24.dp), contentAlignment = Alignment.Center) {
+            Icon(
+                icon,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = if (isSelected || isHovered) 0.9f else 0.55f),
+                modifier = Modifier.size(iconSize)
             )
         }
+        Spacer(Modifier.width(10.dp))
+        Text(
+            title,
+            style = sidebarRowTextStyle,
+            fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = if (isSelected) 1f else 0.82f),
+            modifier = Modifier.weight(1f)
+        )
+        Text(
+            subtitle,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f)
+        )
     }
 }
 
