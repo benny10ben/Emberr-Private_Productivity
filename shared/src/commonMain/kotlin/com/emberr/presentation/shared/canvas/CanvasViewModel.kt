@@ -10,13 +10,23 @@ import com.emberr.data.local.room.entity.CanvasNodeEntity
 import com.emberr.data.local.room.entity.CanvasNodeShape
 import com.emberr.data.local.room.entity.CanvasNodeType
 import com.emberr.data.local.room.entity.CanvasSide
+import com.emberr.data.local.room.entity.CanvasStrokeEntity
+import com.emberr.data.local.room.entity.CanvasStrokeTool
 import com.emberr.domain.canvas.CanvasContent
+import com.emberr.domain.canvas.CanvasLineStyle
+import com.emberr.domain.canvas.CanvasStrokeStyle
+import com.emberr.domain.canvas.CanvasTextStyle
+import com.emberr.domain.canvas.CanvasToolSettingsStore
 import com.emberr.domain.canvas.CanvasRepository
+import com.emberr.domain.canvas.CanvasStrokePoint
+import com.emberr.domain.canvas.CanvasStrokePoints
 import com.emberr.domain.canvas.CanvasViewPosition
 import com.emberr.domain.canvas.CanvasViewPositionStore
+import com.emberr.domain.canvas.isFreeText
 import com.emberr.domain.canvas.isGroup
 import com.emberr.domain.canvas.isInside
 import com.emberr.domain.canvas.membersOf
+import com.emberr.domain.canvas.withTextStyle
 import com.emberr.domain.model.NoteContent
 import com.emberr.domain.repository.NoteRepository
 import com.emberr.domain.util.sync.SyncCoordinator
@@ -48,6 +58,7 @@ class CanvasViewModel(
     private val canvasRepository: CanvasRepository,
     private val noteRepository: NoteRepository,
     private val viewPositionStore: CanvasViewPositionStore,
+    private val toolSettingsStore: CanvasToolSettingsStore,
     private val settingsManager: SettingsManager,
     private val appScope: CoroutineScope
 ) : ViewModel() {
@@ -65,11 +76,14 @@ class CanvasViewModel(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), "")
     private val unsavedNodes = LinkedHashMap<String, CanvasNodeEntity>()
     private val unsavedEdges = LinkedHashMap<String, CanvasEdgeEntity>()
+    private val unsavedStrokes = LinkedHashMap<String, CanvasStrokeEntity>()
     private val nodesBeingSaved = LinkedHashMap<String, CanvasNodeEntity>()
     private val edgesBeingSaved = LinkedHashMap<String, CanvasEdgeEntity>()
+    private val strokesBeingSaved = LinkedHashMap<String, CanvasStrokeEntity>()
     private var saveJob: Job? = null
     private val history = CanvasHistory()
     private var textEditStepNodeId: String? = null
+    private var freeTextCreatedInOpenStepId: String? = null
 
     init {
         viewModelScope.launch {
@@ -136,6 +150,30 @@ class CanvasViewModel(
         viewPositionStore.save(canvasNoteId, position)
     }
 
+    fun savedStrokeStyle(tool: CanvasStrokeTool): CanvasStrokeStyle = toolSettingsStore.loadStrokeStyle(tool)
+
+    fun saveStrokeStyle(tool: CanvasStrokeTool, style: CanvasStrokeStyle) {
+        toolSettingsStore.saveStrokeStyle(tool, style)
+    }
+
+    fun savedEraserRadius(): Float = toolSettingsStore.loadEraserRadius()
+
+    fun savedTextStyle(): CanvasTextStyle = toolSettingsStore.loadTextStyle()
+
+    fun savedLineStyle(): CanvasLineStyle = toolSettingsStore.loadLineStyle()
+
+    fun saveLineStyle(style: CanvasLineStyle) {
+        toolSettingsStore.saveLineStyle(style)
+    }
+
+    fun saveTextStyle(style: CanvasTextStyle) {
+        toolSettingsStore.saveTextStyle(style)
+    }
+
+    fun saveEraserRadius(radius: Float) {
+        toolSettingsStore.saveEraserRadius(radius)
+    }
+
     fun isDotGridVisible(canvasNoteId: String): Boolean = settingsManager.isCanvasDotGridVisible(canvasNoteId)
 
     fun saveDotGridVisible(canvasNoteId: String, isVisible: Boolean) {
@@ -145,22 +183,26 @@ class CanvasViewModel(
     fun beginUndoStep() {
         history.beginStep(_canvas.value)
         textEditStepNodeId = null
+        freeTextCreatedInOpenStepId = null
     }
 
-    fun finishTextEditStep() {
+    fun finishTextEditing(nodeId: String) {
         textEditStepNodeId = null
+        freeTextCreatedInOpenStepId = null
+        val node = _canvas.value.nodes.firstOrNull { it.nodeId == nodeId } ?: return
+        if (node.isFreeText && node.text.isBlank()) deleteExactly(setOf(nodeId))
     }
 
     fun undo() {
         val step = history.takeStepToUndo(_canvas.value) ?: return
         textEditStepNodeId = null
-        restoreStates(step.nodesBefore, step.edgesBefore)
+        restoreStates(step.nodesBefore, step.edgesBefore, step.strokesBefore)
     }
 
     fun redo() {
         val step = history.takeStepToRedo(_canvas.value) ?: return
         textEditStepNodeId = null
-        restoreStates(step.nodesAfter, step.edgesAfter)
+        restoreStates(step.nodesAfter, step.edgesAfter, step.strokesAfter)
     }
 
     fun createNode(
@@ -190,6 +232,36 @@ class CanvasViewModel(
             setNodeBounds(groupToGrow.nodeId, grownBounds)
         }
         return node.nodeId
+    }
+
+    fun createFreeText(worldTopLeft: Offset, startingHeight: Float, style: CanvasTextStyle): String {
+        beginUndoStep()
+        val now = System.currentTimeMillis()
+        val node = CanvasNodeEntity(
+            nodeId = UUID.randomUUID().toString(),
+            noteId = noteId.orEmpty(),
+            x = worldTopLeft.x,
+            y = worldTopLeft.y,
+            width = CANVAS_FREE_TEXT_STARTING_WIDTH,
+            height = startingHeight,
+            text = "",
+            createdAt = now,
+            updatedAt = now,
+            type = CanvasNodeType.FREE_TEXT
+        ).withTextStyle(style)
+        _canvas.value = _canvas.value.copy(nodes = _canvas.value.nodes + node)
+        rememberUnsavedNode(node)
+        freeTextCreatedInOpenStepId = node.nodeId
+        return node.nodeId
+    }
+
+    fun setFreeTextStyle(nodeId: String, style: CanvasTextStyle) {
+        if (freeTextCreatedInOpenStepId != nodeId) beginUndoStep()
+        updateNode(nodeId) { it.withTextStyle(style) }
+    }
+
+    fun setFreeTextSize(nodeId: String, width: Float, height: Float) = updateNode(nodeId) {
+        it.copy(width = width, height = height)
     }
 
     fun createGroup(memberNodeIds: Set<String>): String? {
@@ -236,7 +308,7 @@ class CanvasViewModel(
 
     fun updateNodeText(nodeId: String, text: String) {
         if (textEditStepNodeId != nodeId) {
-            beginUndoStep()
+            if (freeTextCreatedInOpenStepId != nodeId) beginUndoStep()
             textEditStepNodeId = nodeId
         }
         updateNode(nodeId) { it.copy(text = text) }
@@ -266,7 +338,7 @@ class CanvasViewModel(
         val (deletedNodes, remainingNodes) = current.nodes.partition { it.nodeId in nodeIds }
         if (deletedNodes.isEmpty()) return
         val (connectedEdges, remainingEdges) = current.edges.partition { it.fromNodeId in nodeIds || it.toNodeId in nodeIds }
-        _canvas.value = CanvasContent(nodes = remainingNodes, edges = remainingEdges)
+        _canvas.value = current.copy(nodes = remainingNodes, edges = remainingEdges)
         deletedNodes.forEach { rememberUnsavedNode(it.copy(isDeleted = true, updatedAt = now)) }
         connectedEdges.forEach { rememberUnsavedEdge(it.copy(isDeleted = true, updatedAt = now)) }
     }
@@ -312,6 +384,68 @@ class CanvasViewModel(
         rememberUnsavedEdge(deletedEdge.copy(isDeleted = true, updatedAt = System.currentTimeMillis()))
     }
 
+    fun addStroke(
+        tool: CanvasStrokeTool,
+        worldPoints: List<CanvasStrokePoint>,
+        width: Float,
+        color: String?,
+        opacity: Float = 1f,
+        usesPressure: Boolean = true
+    ) {
+        val origin = worldPoints.firstOrNull() ?: return
+        beginUndoStep()
+        val now = System.currentTimeMillis()
+        val stroke = CanvasStrokeEntity(
+            strokeId = UUID.randomUUID().toString(),
+            noteId = noteId.orEmpty(),
+            tool = tool,
+            x = origin.x,
+            y = origin.y,
+            points = CanvasStrokePoints.encode(worldPoints.map { it.copy(x = it.x - origin.x, y = it.y - origin.y) }),
+            width = width,
+            createdAt = now,
+            updatedAt = now,
+            color = color,
+            opacity = opacity,
+            usesPressure = usesPressure
+        )
+        _canvas.value = _canvas.value.copy(strokes = _canvas.value.strokes + stroke)
+        rememberUnsavedStroke(stroke)
+    }
+
+    fun addLine(worldStart: Offset, worldEnd: Offset, lineStyle: CanvasLineStyle, strokeStyle: CanvasStrokeStyle) {
+        beginUndoStep()
+        val now = System.currentTimeMillis()
+        val relativeEnd = worldEnd - worldStart
+        val line = CanvasStrokeEntity(
+            strokeId = UUID.randomUUID().toString(),
+            noteId = noteId.orEmpty(),
+            tool = CanvasStrokeTool.LINE,
+            x = worldStart.x,
+            y = worldStart.y,
+            points = CanvasStrokePoints.encode(listOf(CanvasStrokePoint(0f, 0f), CanvasStrokePoint(relativeEnd.x, relativeEnd.y))),
+            width = strokeStyle.width,
+            createdAt = now,
+            updatedAt = now,
+            color = strokeStyle.colorName,
+            opacity = strokeStyle.opacity,
+            usesPressure = false,
+            linePattern = lineStyle.pattern,
+            hasArrowHead = lineStyle.hasArrowHead
+        )
+        _canvas.value = _canvas.value.copy(strokes = _canvas.value.strokes + line)
+        rememberUnsavedStroke(line)
+    }
+
+    fun eraseStrokes(strokeIds: Set<String>) {
+        val current = _canvas.value
+        val (erasedStrokes, remainingStrokes) = current.strokes.partition { it.strokeId in strokeIds }
+        if (erasedStrokes.isEmpty()) return
+        val now = System.currentTimeMillis()
+        _canvas.value = current.copy(strokes = remainingStrokes)
+        erasedStrokes.forEach { rememberUnsavedStroke(it.copy(isDeleted = true, updatedAt = now)) }
+    }
+
     private fun updateNode(nodeId: String, change: (CanvasNodeEntity) -> CanvasNodeEntity) {
         var updatedNode: CanvasNodeEntity? = null
         _canvas.value = _canvas.value.copy(
@@ -323,11 +457,16 @@ class CanvasViewModel(
         updatedNode?.let { rememberUnsavedNode(it) }
     }
 
-    private fun restoreStates(nodeStates: Map<String, CanvasNodeEntity?>, edgeStates: Map<String, CanvasEdgeEntity?>) {
+    private fun restoreStates(
+        nodeStates: Map<String, CanvasNodeEntity?>,
+        edgeStates: Map<String, CanvasEdgeEntity?>,
+        strokeStates: Map<String, CanvasStrokeEntity?>
+    ) {
         val now = System.currentTimeMillis()
         val current = _canvas.value
         val nodesById = current.nodes.associateByTo(LinkedHashMap<String, CanvasNodeEntity>()) { it.nodeId }
         val edgesById = current.edges.associateByTo(LinkedHashMap<String, CanvasEdgeEntity>()) { it.edgeId }
+        val strokesById = current.strokes.associateByTo(LinkedHashMap<String, CanvasStrokeEntity>()) { it.strokeId }
         nodeStates.forEach { (nodeId, restoredState) ->
             if (restoredState == null) {
                 val removedNode = nodesById.remove(nodeId) ?: return@forEach
@@ -348,9 +487,20 @@ class CanvasViewModel(
                 rememberUnsavedEdge(restoredEdge)
             }
         }
+        strokeStates.forEach { (strokeId, restoredState) ->
+            if (restoredState == null) {
+                val removedStroke = strokesById.remove(strokeId) ?: return@forEach
+                rememberUnsavedStroke(removedStroke.copy(isDeleted = true, updatedAt = now))
+            } else {
+                val restoredStroke = restoredState.copy(isDeleted = false, updatedAt = now)
+                strokesById[strokeId] = restoredStroke
+                rememberUnsavedStroke(restoredStroke)
+            }
+        }
         _canvas.value = CanvasContent(
             nodes = nodesById.values.sortedBy { it.createdAt },
-            edges = edgesById.values.sortedBy { it.createdAt }
+            edges = edgesById.values.sortedBy { it.createdAt },
+            strokes = strokesById.values.sortedBy { it.createdAt }
         ).liveOnly()
     }
 
@@ -366,6 +516,12 @@ class CanvasViewModel(
         scheduleSave()
     }
 
+    private fun rememberUnsavedStroke(stroke: CanvasStrokeEntity) {
+        unsavedStrokes[stroke.strokeId] = stroke
+        history.recordTouchedStroke(stroke.strokeId)
+        scheduleSave()
+    }
+
     private fun scheduleSave() {
         saveJob?.cancel()
         saveJob = viewModelScope.launch {
@@ -378,18 +534,25 @@ class CanvasViewModel(
         val targetNoteId = noteId ?: return
         val nodesToSave = unsavedNodes.values.toList()
         val edgesToSave = unsavedEdges.values.toList()
-        if (nodesToSave.isEmpty() && edgesToSave.isEmpty()) return
+        val strokesToSave = unsavedStrokes.values.toList()
+        if (nodesToSave.isEmpty() && edgesToSave.isEmpty() && strokesToSave.isEmpty()) return
         unsavedNodes.clear()
         unsavedEdges.clear()
+        unsavedStrokes.clear()
         nodesToSave.forEach { nodesBeingSaved[it.nodeId] = it }
         edgesToSave.forEach { edgesBeingSaved[it.edgeId] = it }
+        strokesToSave.forEach { strokesBeingSaved[it.strokeId] = it }
         appScope.launch {
             try {
-                canvasRepository.saveChanges(targetNoteId, CanvasContent(nodes = nodesToSave, edges = edgesToSave))
+                canvasRepository.saveChanges(
+                    targetNoteId,
+                    CanvasContent(nodes = nodesToSave, edges = edgesToSave, strokes = strokesToSave)
+                )
             } finally {
                 withContext(Dispatchers.Main) {
                     nodesToSave.forEach { if (nodesBeingSaved[it.nodeId] === it) nodesBeingSaved.remove(it.nodeId) }
                     edgesToSave.forEach { if (edgesBeingSaved[it.edgeId] === it) edgesBeingSaved.remove(it.edgeId) }
+                    strokesToSave.forEach { if (strokesBeingSaved[it.strokeId] === it) strokesBeingSaved.remove(it.strokeId) }
                 }
             }
         }
@@ -401,13 +564,17 @@ class CanvasViewModel(
         if (targetNoteId != noteId) return
         val nodesById = stored.nodes.associateByTo(LinkedHashMap<String, CanvasNodeEntity>()) { it.nodeId }
         val edgesById = stored.edges.associateByTo(LinkedHashMap<String, CanvasEdgeEntity>()) { it.edgeId }
+        val strokesById = stored.strokes.associateByTo(LinkedHashMap<String, CanvasStrokeEntity>()) { it.strokeId }
         nodesBeingSaved.values.filter { it.noteId == targetNoteId }.forEach { nodesById[it.nodeId] = it }
         edgesBeingSaved.values.filter { it.noteId == targetNoteId }.forEach { edgesById[it.edgeId] = it }
+        strokesBeingSaved.values.filter { it.noteId == targetNoteId }.forEach { strokesById[it.strokeId] = it }
         unsavedNodes.values.forEach { nodesById[it.nodeId] = it }
         unsavedEdges.values.forEach { edgesById[it.edgeId] = it }
+        unsavedStrokes.values.forEach { strokesById[it.strokeId] = it }
         _canvas.value = CanvasContent(
             nodes = nodesById.values.sortedBy { it.createdAt },
-            edges = edgesById.values.sortedBy { it.createdAt }
+            edges = edgesById.values.sortedBy { it.createdAt },
+            strokes = strokesById.values.sortedBy { it.createdAt }
         ).liveOnly()
     }
 

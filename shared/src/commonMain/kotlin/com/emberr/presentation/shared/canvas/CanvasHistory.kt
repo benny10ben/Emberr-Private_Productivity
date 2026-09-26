@@ -2,6 +2,7 @@ package com.emberr.presentation.shared.canvas
 
 import com.emberr.data.local.room.entity.CanvasEdgeEntity
 import com.emberr.data.local.room.entity.CanvasNodeEntity
+import com.emberr.data.local.room.entity.CanvasStrokeEntity
 import com.emberr.domain.canvas.CanvasContent
 
 private const val MAXIMUM_HISTORY_STEPS = 100
@@ -10,7 +11,9 @@ data class CanvasHistoryStep(
     val nodesBefore: Map<String, CanvasNodeEntity?>,
     val nodesAfter: Map<String, CanvasNodeEntity?>,
     val edgesBefore: Map<String, CanvasEdgeEntity?>,
-    val edgesAfter: Map<String, CanvasEdgeEntity?>
+    val edgesAfter: Map<String, CanvasEdgeEntity?>,
+    val strokesBefore: Map<String, CanvasStrokeEntity?>,
+    val strokesAfter: Map<String, CanvasStrokeEntity?>
 )
 
 class CanvasHistory {
@@ -20,6 +23,7 @@ class CanvasHistory {
     private var openStepStart: CanvasContent? = null
     private val openStepNodeIds = LinkedHashSet<String>()
     private val openStepEdgeIds = LinkedHashSet<String>()
+    private val openStepStrokeIds = LinkedHashSet<String>()
 
     fun beginStep(current: CanvasContent) {
         closeStep(current)
@@ -32,6 +36,10 @@ class CanvasHistory {
 
     fun recordTouchedEdge(edgeId: String) {
         if (openStepStart != null) openStepEdgeIds.add(edgeId)
+    }
+
+    fun recordTouchedStroke(strokeId: String) {
+        if (openStepStart != null) openStepStrokeIds.add(strokeId)
     }
 
     fun takeStepToUndo(current: CanvasContent): CanvasHistoryStep? {
@@ -54,6 +62,7 @@ class CanvasHistory {
         openStepStart = null
         openStepNodeIds.clear()
         openStepEdgeIds.clear()
+        openStepStrokeIds.clear()
     }
 
     private fun closeStep(current: CanvasContent) {
@@ -61,19 +70,25 @@ class CanvasHistory {
         openStepStart = null
         val touchedNodeIds = openStepNodeIds.toList()
         val touchedEdgeIds = openStepEdgeIds.toList()
+        val touchedStrokeIds = openStepStrokeIds.toList()
         openStepNodeIds.clear()
         openStepEdgeIds.clear()
-        if (touchedNodeIds.isEmpty() && touchedEdgeIds.isEmpty()) return
+        openStepStrokeIds.clear()
+        if (touchedNodeIds.isEmpty() && touchedEdgeIds.isEmpty() && touchedStrokeIds.isEmpty()) return
 
         val nodesAtStart = start.nodes.associateBy { it.nodeId }
         val nodesNow = current.nodes.associateBy { it.nodeId }
         val edgesAtStart = start.edges.associateBy { it.edgeId }
         val edgesNow = current.edges.associateBy { it.edgeId }
+        val strokesAtStart = start.strokes.associateBy { it.strokeId }
+        val strokesNow = current.strokes.associateBy { it.strokeId }
         val step = CanvasHistoryStep(
             nodesBefore = touchedNodeIds.associateWith { nodesAtStart[it] },
             nodesAfter = touchedNodeIds.associateWith { nodesNow[it] },
             edgesBefore = touchedEdgeIds.associateWith { edgesAtStart[it] },
-            edgesAfter = touchedEdgeIds.associateWith { edgesNow[it] }
+            edgesAfter = touchedEdgeIds.associateWith { edgesNow[it] },
+            strokesBefore = touchedStrokeIds.associateWith { strokesAtStart[it] },
+            strokesAfter = touchedStrokeIds.associateWith { strokesNow[it] }
         )
         if (step.changesNothing()) return
 
@@ -84,9 +99,12 @@ class CanvasHistory {
 
     private fun CanvasHistoryStep.changesNothing(): Boolean =
         nodesBefore.all { (nodeId, before) -> before.withoutTimestamp() == nodesAfter[nodeId].withoutTimestamp() } &&
-            edgesBefore.all { (edgeId, before) -> before.withoutTimestamp() == edgesAfter[edgeId].withoutTimestamp() }
+            edgesBefore.all { (edgeId, before) -> before.withoutTimestamp() == edgesAfter[edgeId].withoutTimestamp() } &&
+            strokesBefore.all { (strokeId, before) -> before.withoutTimestamp() == strokesAfter[strokeId].withoutTimestamp() }
 
     private fun CanvasNodeEntity?.withoutTimestamp(): CanvasNodeEntity? = this?.copy(updatedAt = 0L)
 
     private fun CanvasEdgeEntity?.withoutTimestamp(): CanvasEdgeEntity? = this?.copy(updatedAt = 0L)
+
+    private fun CanvasStrokeEntity?.withoutTimestamp(): CanvasStrokeEntity? = this?.copy(updatedAt = 0L)
 }

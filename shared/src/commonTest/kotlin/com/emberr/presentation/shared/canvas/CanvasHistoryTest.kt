@@ -3,6 +3,8 @@ package com.emberr.presentation.shared.canvas
 import com.emberr.data.local.room.entity.CanvasEdgeEntity
 import com.emberr.data.local.room.entity.CanvasNodeEntity
 import com.emberr.data.local.room.entity.CanvasSide
+import com.emberr.data.local.room.entity.CanvasStrokeEntity
+import com.emberr.data.local.room.entity.CanvasStrokeTool
 import com.emberr.domain.canvas.CanvasContent
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -127,5 +129,45 @@ class CanvasHistoryTest {
 
         assertNull(history.takeStepToUndo(CanvasContent()))
         assertNull(history.takeStepToRedo(CanvasContent()))
+    }
+
+    private fun stroke(strokeId: String) = CanvasStrokeEntity(
+        strokeId = strokeId,
+        noteId = "canvas-1",
+        tool = CanvasStrokeTool.PEN,
+        x = 0f,
+        y = 0f,
+        points = "0,0 10,10",
+        width = 4f,
+        createdAt = 1L,
+        updatedAt = 1L
+    )
+
+    @Test
+    fun aDrawnStrokeHasNoBeforeStateAndAnErasedStrokeHasNoAfterState() {
+        val history = CanvasHistory()
+        history.beginStep(CanvasContent(strokes = listOf(stroke("erased"))))
+        history.recordTouchedStroke("drawn")
+        history.recordTouchedStroke("erased")
+
+        val step = assertNotNull(history.takeStepToUndo(CanvasContent(strokes = listOf(stroke("drawn")))))
+
+        assertNull(step.strokesBefore.getValue("drawn"))
+        assertEquals(stroke("drawn"), step.strokesAfter.getValue("drawn"))
+        assertEquals(stroke("erased"), step.strokesBefore.getValue("erased"))
+        assertNull(step.strokesAfter.getValue("erased"))
+    }
+
+    @Test
+    fun erasingSeveralStrokesInOneDragIsOneStep() {
+        val history = CanvasHistory()
+        history.beginStep(CanvasContent(strokes = listOf(stroke("a"), stroke("b"))))
+        history.recordTouchedStroke("a")
+        history.recordTouchedStroke("b")
+
+        val step = assertNotNull(history.takeStepToUndo(CanvasContent()))
+
+        assertEquals(setOf("a", "b"), step.strokesBefore.keys)
+        assertNull(history.takeStepToUndo(CanvasContent()))
     }
 }

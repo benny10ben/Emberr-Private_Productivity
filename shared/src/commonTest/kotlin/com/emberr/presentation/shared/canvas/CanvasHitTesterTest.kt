@@ -75,4 +75,25 @@ class CanvasHitTesterTest {
         assertEquals(294f, area?.right)
         assertNull(tester.editingAreaOf(null, 6f))
     }
+
+    @Test
+    fun freeTextHasNoResizeEdgesAndStillBlocksResizingTheBoxUnderIt() {
+        val freeText = node("text", x = 400f, y = 200f, width = 120f, height = 32f, type = CanvasNodeType.FREE_TEXT)
+        val boxUnderText = node("under", x = 390f, y = 190f, width = 300f, height = 200f)
+        val textTester = CanvasHitTester(CanvasContent(nodes = listOf(boxUnderText, freeText)), CanvasViewport(), density = 1f)
+
+        assertNull(textTester.resizeZoneAt(Offset(519f, 215f), 6f))
+        assertEquals("under", textTester.resizeZoneAt(Offset(689f, 300f), 6f)?.first?.nodeId)
+    }
+
+    @Test
+    fun theWholeFreeTextIsItsEditingAreaBecauseItCannotBeResized() {
+        val freeText = node("text", x = 400f, y = 200f, width = 120f, height = 32f, type = CanvasNodeType.FREE_TEXT)
+        val textTester = CanvasHitTester(CanvasContent(nodes = listOf(freeText)), CanvasViewport(), density = 1f)
+
+        val area = textTester.editingAreaOf("text", edgeGrabDistance = 14f)
+
+        assertEquals(400f, area?.left)
+        assertEquals(232f, area?.bottom)
+    }
 }

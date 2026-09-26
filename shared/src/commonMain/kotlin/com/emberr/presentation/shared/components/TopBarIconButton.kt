@@ -1,16 +1,19 @@
 package com.emberr.presentation.shared.components
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.IndicationNodeFactory
 import androidx.compose.foundation.interaction.InteractionSource
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
@@ -178,7 +181,9 @@ fun TopBarIconButton(
 data class TopBarIconButtonItem(
     val icon: Painter,
     val contentDescription: String,
-    val onClick: () -> Unit
+    val onClick: () -> Unit,
+    val isSelected: Boolean = false,
+    val iconSize: Dp? = null
 )
 
 // Wraps multiple icons in a single pill Surface - shares one bg/shadow/border/haze instead of
@@ -195,7 +200,8 @@ fun TopBarIconButtonGroup(
     shadowElevation: Dp = EmberrShadowElevation.Standard,
     shadowSpotColor: Color = EmberrShadowSpotColor,
     shadowAmbientColor: Color = EmberrShadowAmbientColor,
-    isVertical: Boolean = false
+    isVertical: Boolean = false,
+    horizontalItemSpacing: Dp = 0.dp
 ) {
     val resolvedStyle = hazeStyle ?: EmberrBlur.Regular
     Surface(
@@ -218,21 +224,31 @@ fun TopBarIconButtonGroup(
                 modifier = Modifier.padding(vertical = horizontalPadding),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                items.forEach { item -> TopBarIconButtonGroupItem(item, tint, iconSize) }
+                items.forEach { item ->
+                    TopBarIconButtonGroupItem(item, tint, iconSize, selectedBackgroundWidth = 36.dp)
+                }
             }
         } else {
             Row(
                 modifier = Modifier.padding(horizontal = horizontalPadding),
+                horizontalArrangement = Arrangement.spacedBy(horizontalItemSpacing),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                items.forEach { item -> TopBarIconButtonGroupItem(item, tint, iconSize) }
+                items.forEach { item ->
+                    TopBarIconButtonGroupItem(item, tint, iconSize, selectedBackgroundWidth = 36.dp + horizontalPadding * 2)
+                }
             }
         }
     }
 }
 
 @Composable
-private fun TopBarIconButtonGroupItem(item: TopBarIconButtonItem, tint: Color, iconSize: Dp) {
+private fun TopBarIconButtonGroupItem(
+    item: TopBarIconButtonItem,
+    tint: Color,
+    iconSize: Dp,
+    selectedBackgroundWidth: Dp
+) {
     Box(
         modifier = Modifier
             .size(44.dp)
@@ -243,11 +259,14 @@ private fun TopBarIconButtonGroupItem(item: TopBarIconButtonItem, tint: Color, i
             ),
         contentAlignment = Alignment.Center
     ) {
+        if (item.isSelected) {
+            Box(Modifier.requiredSize(width = selectedBackgroundWidth, height = 36.dp).background(tint.copy(alpha = 0.15f), CircleShape))
+        }
         Icon(
             painter = item.icon,
             contentDescription = item.contentDescription,
             tint = tint,
-            modifier = Modifier.size(iconSize)
+            modifier = Modifier.size(item.iconSize ?: iconSize)
         )
     }
 }

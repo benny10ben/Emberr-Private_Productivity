@@ -20,15 +20,19 @@ import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -42,6 +46,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -63,6 +68,8 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.isCtrlPressed
 import androidx.compose.ui.input.key.isMetaPressed
@@ -77,6 +84,8 @@ import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.PointerId
+import androidx.compose.ui.input.pointer.PointerInputChange
+import androidx.compose.ui.input.pointer.PointerType
 import androidx.compose.ui.input.pointer.isBackPressed
 import androidx.compose.ui.input.pointer.isCtrlPressed
 import androidx.compose.ui.input.pointer.isForwardPressed
@@ -97,17 +106,26 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.emberr.data.local.room.entity.CanvasEdgeEntity
 import com.emberr.data.local.room.entity.CanvasNodeEntity
 import com.emberr.data.local.room.entity.CanvasNodeShape
 import com.emberr.data.local.room.entity.CanvasSide
+import com.emberr.data.local.room.entity.CanvasStrokeTool
+import com.emberr.domain.canvas.CanvasLineStyle
+import com.emberr.domain.canvas.CanvasStrokePoint
+import com.emberr.domain.canvas.CanvasStrokeStyle
 import com.emberr.domain.canvas.CanvasViewPosition
+import com.emberr.domain.canvas.isFreeText
+import com.emberr.domain.canvas.textStyle
 import com.emberr.domain.canvas.isGroup
 import com.emberr.domain.util.system.isDesktopPlatform
 import com.emberr.domain.util.system.triggerHapticFeedback
 import com.emberr.domain.canvas.membersOf
 import com.emberr.presentation.shared.StickyNoteWindowBus
 import com.emberr.presentation.shared.components.KmpBackHandler
+import com.emberr.ui.theme.LocalAppIsDark
+import com.emberr.ui.theme.highlightBackgroundFor
 import emberr.shared.generated.resources.Res
 import emberr.shared.generated.resources.group
 import emberr.shared.generated.resources.square
@@ -118,6 +136,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import org.koin.compose.viewmodel.koinViewModel
+import kotlin.math.abs
 import kotlin.math.pow
 import kotlin.math.roundToInt
 
@@ -136,9 +155,14 @@ private val TOUCH_HANDLE_HIT_RADIUS = 22.dp
 private val TOUCH_RESIZE_GRAB_DISTANCE = 14.dp
 private val TOUCH_EDGE_HIT_DISTANCE = 14.dp
 private val TOUCH_EDGE_SNAP_RADIUS = 32.dp
+private val FREE_TEXT_MIN_TEXT_WIDTH = 8.dp
+private val TOOL_PANEL_BOTTOM_CLEARANCE = 76.dp
+private val TOOL_PANEL_MIN_HEIGHT = 120.dp
+private const val FREE_TEXT_SIZE_CHANGE_TO_SAVE = 0.5f
 private val KEYBOARD_CLEARANCE = 24.dp
 private const val ZOOM_BUTTON_STEP = 1.25f
 private const val VIEW_POSITION_SAVE_DELAY_MILLIS = 500L
+private const val TOOL_SETTINGS_SAVE_DELAY_MILLIS = 300L
 private val EDGE_HIT_DISTANCE = 6.dp
 private val EDGE_STROKE_WIDTH = 1.5.dp
 private val SELECTED_EDGE_STROKE_WIDTH = 2.5.dp
@@ -186,6 +210,7 @@ fun CanvasScreen(
     isStickyNote: Boolean = false,
     isEmbedded: Boolean = false,
     isActive: Boolean = true,
+    showBackButton: Boolean = true,
     onNavigateBack: () -> Unit = {},
     viewModel: CanvasViewModel = koinViewModel(key = "canvas:$noteId")
 ) {
@@ -199,8 +224,23 @@ fun CanvasScreen(
     var dragPreview by remember(noteId) { mutableStateOf<CanvasDragPreview?>(null) }
     var contextMenuRequest by remember(noteId) { mutableStateOf<CanvasContextMenuRequest?>(null) }
     var isSelectingMultiple by remember(noteId) { mutableStateOf(false) }
-    var isShapePickerOpen by remember(noteId) { mutableStateOf(false) }
     var isDotGridVisible by remember(noteId) { mutableStateOf(viewModel.isDotGridVisible(noteId)) }
+    var activeTool by remember(noteId) { mutableStateOf<CanvasTool?>(null) }
+    val liveStrokePoints = remember(noteId) { mutableStateListOf<CanvasStrokePoint>() }
+    var liveStrokeTool by remember(noteId) { mutableStateOf(CanvasStrokeTool.PEN) }
+    var penStyle by remember { mutableStateOf(viewModel.savedStrokeStyle(CanvasStrokeTool.PEN)) }
+    var highlighterStyle by remember { mutableStateOf(viewModel.savedStrokeStyle(CanvasStrokeTool.HIGHLIGHTER)) }
+    var eraserRadius by remember { mutableStateOf(viewModel.savedEraserRadius()) }
+    var textToolStyle by remember { mutableStateOf(viewModel.savedTextStyle()) }
+    var lineStyle by remember { mutableStateOf(viewModel.savedLineStyle()) }
+    var lineStrokeStyle by remember { mutableStateOf(viewModel.savedStrokeStyle(CanvasStrokeTool.LINE)) }
+    var openLineSettingsCategory by remember(noteId) { mutableStateOf<CanvasLineSettingsCategory?>(null) }
+    var liveLine by remember(noteId) { mutableStateOf<Pair<Offset, Offset>?>(null) }
+    var openStrokeSettingsCategory by remember(noteId) { mutableStateOf<CanvasStrokeSettingsCategory?>(null) }
+    var openTextSettingsCategory by remember(noteId) { mutableStateOf<CanvasTextSettingsCategory?>(null) }
+    var isFinishedStrokeWaitingToAppear by remember(noteId) { mutableStateOf(false) }
+    var eraserScreenPosition by remember(noteId) { mutableStateOf<Offset?>(null) }
+    val strokeCache = remember(noteId) { CanvasStrokeCache() }
     var pointerIcon by remember(noteId) { mutableStateOf(PointerIcon.Default) }
     var boardSize by remember(noteId) { mutableStateOf(IntSize.Zero) }
     var hasRestoredViewPosition by remember(noteId) { mutableStateOf(false) }
@@ -210,7 +250,12 @@ fun CanvasScreen(
     val canvasFocusRequester = remember { FocusRequester() }
     val hazeState = remember { HazeState() }
     val nodeScrollStates = remember(noteId) { mutableMapOf<String, ScrollState>() }
-    LaunchedEffect(editingNodeId) { viewModel.finishTextEditStep() }
+    var previousEditingNodeId by remember(noteId) { mutableStateOf<String?>(null) }
+    LaunchedEffect(editingNodeId) {
+        val finishedNodeId = previousEditingNodeId
+        previousEditingNodeId = editingNodeId
+        if (finishedNodeId != null && finishedNodeId != editingNodeId) viewModel.finishTextEditing(finishedNodeId)
+    }
     LaunchedEffect(isActive) {
         if (!isEmbedded) return@LaunchedEffect
         if (isActive) {
@@ -219,9 +264,13 @@ fun CanvasScreen(
             editingNodeId = null
             selection = CanvasSelection.None
             isSelectingMultiple = false
-            isShapePickerOpen = false
             hoveredNodeId = null
             pointerIcon = PointerIcon.Default
+            activeTool = null
+            eraserScreenPosition = null
+            openStrokeSettingsCategory = null
+            openTextSettingsCategory = null
+            openLineSettingsCategory = null
         }
     }
 
@@ -264,6 +313,120 @@ fun CanvasScreen(
     val accentColor = MaterialTheme.colorScheme.primary
     val handleFillColor = MaterialTheme.colorScheme.surface
     val handleBorderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+    val strokeInkColor = MaterialTheme.colorScheme.onSurface
+    val isDarkTheme = LocalAppIsDark.current
+
+    LaunchedEffect(penStyle, highlighterStyle, eraserRadius, textToolStyle, lineStyle, lineStrokeStyle) {
+        delay(TOOL_SETTINGS_SAVE_DELAY_MILLIS)
+        viewModel.saveStrokeStyle(CanvasStrokeTool.PEN, penStyle)
+        viewModel.saveStrokeStyle(CanvasStrokeTool.HIGHLIGHTER, highlighterStyle)
+        viewModel.saveEraserRadius(eraserRadius)
+        viewModel.saveTextStyle(textToolStyle)
+        viewModel.saveLineStyle(lineStyle)
+        viewModel.saveStrokeStyle(CanvasStrokeTool.LINE, lineStrokeStyle)
+    }
+
+    fun styleFor(tool: CanvasStrokeTool): CanvasStrokeStyle = when (tool) {
+        CanvasStrokeTool.PEN -> penStyle
+        CanvasStrokeTool.HIGHLIGHTER -> highlighterStyle
+        CanvasStrokeTool.LINE -> lineStrokeStyle
+    }
+
+    fun eraserRadiusInPixels(): Float = eraserRadius * pixelDensity
+
+    fun penInkColorFor(colorName: String?, opacity: Float): Color =
+        (CanvasInkColor.named(colorName)?.color ?: strokeInkColor).copy(alpha = opacity)
+
+    LaunchedEffect(canvas.strokes) {
+        if (isFinishedStrokeWaitingToAppear) {
+            liveStrokePoints.clear()
+            liveLine = null
+            isFinishedStrokeWaitingToAppear = false
+        }
+    }
+
+    fun addLiveStrokePoint(screenPosition: Offset, pressure: Float?) {
+        val worldPosition = viewport.screenToWorld(screenPosition, pixelDensity)
+        val point = CanvasStrokePoint(worldPosition.x, worldPosition.y, pressure)
+        val minimumSpacing = MINIMUM_STROKE_POINT_SPACING_PIXELS / viewport.pixelsPerUnit(pixelDensity)
+        if (point.isFarEnoughFrom(liveStrokePoints.lastOrNull(), minimumSpacing)) liveStrokePoints.add(point)
+    }
+
+    fun startLiveStroke(screenPosition: Offset, pressure: Float?, tool: CanvasStrokeTool) {
+        liveStrokePoints.clear()
+        liveStrokeTool = tool
+        isFinishedStrokeWaitingToAppear = false
+        addLiveStrokePoint(screenPosition, pressure)
+    }
+
+    fun finishLiveStroke() {
+        val style = styleFor(liveStrokeTool)
+        viewModel.addStroke(
+            tool = liveStrokeTool,
+            worldPoints = liveStrokePoints.toList(),
+            width = style.width,
+            color = style.colorName,
+            opacity = style.opacity,
+            usesPressure = style.usesPressure
+        )
+        isFinishedStrokeWaitingToAppear = true
+    }
+
+    fun dropActiveTool() {
+        activeTool = null
+        eraserScreenPosition = null
+        pointerIcon = PointerIcon.Default
+    }
+
+    fun startTextAt(screenPosition: Offset) {
+        val pressedFreeText = CanvasHitTester(canvas, viewport, pixelDensity).textNodeAt(screenPosition)?.takeIf { it.isFreeText }
+        val textNodeId = pressedFreeText?.nodeId ?: run {
+            val pressedWorld = viewport.screenToWorld(screenPosition, pixelDensity)
+            val startingHeight = freeTextStartingHeight(textToolStyle.fontSize)
+            viewModel.createFreeText(pressedWorld - Offset(CANVAS_FREE_TEXT_PADDING, startingHeight / 2), startingHeight, textToolStyle)
+        }
+        selection = CanvasSelection.Nodes(setOf(textNodeId))
+        editingNodeId = textNodeId
+        activeTool = null
+        pointerIcon = PointerIcon.Default
+    }
+
+    fun startLiveLine(screenPosition: Offset) {
+        liveStrokePoints.clear()
+        isFinishedStrokeWaitingToAppear = false
+        val worldPosition = viewport.screenToWorld(screenPosition, pixelDensity)
+        liveLine = worldPosition to worldPosition
+    }
+
+    fun moveLiveLineEnd(screenPosition: Offset) {
+        val lineStart = liveLine?.first ?: return
+        liveLine = lineStart to viewport.screenToWorld(screenPosition, pixelDensity)
+    }
+
+    fun finishLiveLine(minimumScreenLength: Float) {
+        val (lineStart, lineEnd) = liveLine ?: return
+        val screenLength = (lineEnd - lineStart).getDistance() * viewport.pixelsPerUnit(pixelDensity)
+        if (screenLength < minimumScreenLength) {
+            liveLine = null
+            return
+        }
+        viewModel.addLine(lineStart, lineEnd, lineStyle, lineStrokeStyle)
+        isFinishedStrokeWaitingToAppear = true
+    }
+
+    fun eraseStrokesAlong(fromScreen: Offset, toScreen: Offset) {
+        eraserScreenPosition = toScreen
+        val eraserWorldRadius = eraserRadiusInPixels() / viewport.pixelsPerUnit(pixelDensity)
+        val eraserPositions = eraserPositionsBetween(
+            from = viewport.screenToWorld(fromScreen, pixelDensity),
+            to = viewport.screenToWorld(toScreen, pixelDensity),
+            spacing = eraserWorldRadius / 2
+        )
+        val touchedStrokeIds = canvas.strokes
+            .filter { stroke -> eraserPositions.any { strokeCache.isTouchedByEraser(stroke, it, eraserWorldRadius) } }
+            .mapTo(HashSet()) { it.strokeId }
+        if (touchedStrokeIds.isNotEmpty()) viewModel.eraseStrokes(touchedStrokeIds)
+    }
 
     fun animateZoom(zoomFactor: Float, anchorOnScreen: Offset) {
         val startingZoom = if (zoomAnimation.isRunning) zoomAnimation.targetValue else viewport.zoom
@@ -320,8 +483,8 @@ fun CanvasScreen(
         leaveEditingAndSelection()
     }
 
-    KmpBackHandler(enabled = !isDesktopPlatform && isShapePickerOpen) {
-        isShapePickerOpen = false
+    KmpBackHandler(enabled = !isDesktopPlatform && activeTool == CanvasTool.SHAPES) {
+        dropActiveTool()
     }
 
     fun deleteItems(target: CanvasSelection) {
@@ -343,6 +506,12 @@ fun CanvasScreen(
         )
         selection = CanvasSelection.Nodes(setOf(newNodeId))
         editingNodeId = newNodeId
+    }
+
+    fun placeShapeAtBoardCenter(shape: CanvasNodeShape) {
+        dropActiveTool()
+        val boardCenter = Offset(boardSize.width / 2f, boardSize.height / 2f)
+        createBoxAt(viewport.screenToWorld(boardCenter, pixelDensity), groupToGrowId = null, shape = shape)
     }
 
     fun contextMenuOptionsFor(target: CanvasSelection): List<CanvasMenuOption> {
@@ -384,8 +553,8 @@ fun CanvasScreen(
                     val isEditingGroupTitle = canvas.nodes.any { it.nodeId == editingNodeId && it.isGroup }
                     val isCommandPressed = event.isCtrlPressed || event.isMetaPressed
                     when {
-                        event.key == Key.Escape && isShapePickerOpen -> {
-                            isShapePickerOpen = false
+                        event.key == Key.Escape && activeTool != null -> {
+                            dropActiveTool()
                             true
                         }
                         editingNodeId == null && isCommandPressed && event.key == Key.Z && !event.isShiftPressed -> {
@@ -444,7 +613,56 @@ fun CanvasScreen(
 
                     awaitEachGesture {
                         val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
-                        isShapePickerOpen = false
+                        if (activeTool == CanvasTool.SHAPES) dropActiveTool()
+                        if (activeTool == CanvasTool.LINE) {
+                            down.consume()
+                            startLiveLine(down.position)
+                            val gestureEnd = if (currentEvent.changes.count { it.pressed } >= 2) {
+                                OnePointerGestureEnd.SecondFingerDown
+                            } else {
+                                trackOnePointerUntilLift(down.id) { position, _ -> moveLiveLineEnd(position) }
+                            }
+                            if (gestureEnd == OnePointerGestureEnd.Lifted) {
+                                finishLiveLine(viewConfiguration.touchSlop)
+                            } else {
+                                liveLine = null
+                                trackPinchAndPan { centroid, pan, zoom ->
+                                    viewport = viewport.pannedBy(pan).zoomedAround(centroid, zoom, density)
+                                }
+                            }
+                            return@awaitEachGesture
+                        }
+                        if (activeTool.drawsOrErases) {
+                            down.consume()
+                            val strokeTool = activeTool.strokeTool
+                            var previousPosition = down.position
+                            if (strokeTool != null) {
+                                startLiveStroke(down.position, down.penPressure, strokeTool)
+                            } else {
+                                viewModel.beginUndoStep()
+                                eraseStrokesAlong(down.position, down.position)
+                            }
+                            val gestureEnd = if (currentEvent.changes.count { it.pressed } >= 2) {
+                                OnePointerGestureEnd.SecondFingerDown
+                            } else {
+                                trackOnePointerUntilLift(down.id) { position, pressure ->
+                                    if (strokeTool != null) {
+                                        addLiveStrokePoint(position, pressure)
+                                    } else {
+                                        eraseStrokesAlong(previousPosition, position)
+                                        previousPosition = position
+                                    }
+                                }
+                            }
+                            eraserScreenPosition = null
+                            if (strokeTool != null && gestureEnd == OnePointerGestureEnd.Lifted) finishLiveStroke() else liveStrokePoints.clear()
+                            if (gestureEnd == OnePointerGestureEnd.SecondFingerDown) {
+                                trackPinchAndPan { centroid, pan, zoom ->
+                                    viewport = viewport.pannedBy(pan).zoomedAround(centroid, zoom, density)
+                                }
+                            }
+                            return@awaitEachGesture
+                        }
                         val downPosition = down.position
                         val tester = hitTester()
                         val editingArea = tester.editingAreaOf(editingNodeId, TOUCH_RESIZE_GRAB_DISTANCE.toPx())
@@ -474,6 +692,10 @@ fun CanvasScreen(
                             }
 
                             CanvasTouchStart.Tap -> {
+                                if (activeTool == CanvasTool.TEXT) {
+                                    startTextAt(downPosition)
+                                    return@awaitEachGesture
+                                }
                                 if (isSelectingMultiple) {
                                     if (pressedNode != null) {
                                         val currentlySelected = selection.selectedNodeIds
@@ -668,11 +890,20 @@ fun CanvasScreen(
                     awaitEachGesture {
                         val pressEvent = awaitPressWhileTrackingHoverAndWheel(
                             onHover = { screenPoint ->
-                                hoveredNodeId = screenPoint?.let { nodeAt(it, margin = HANDLE_HIT_RADIUS.toPx())?.nodeId }
-                                val resizeEdges = screenPoint
-                                    ?.takeIf { handleAt(it) == null }
-                                    ?.let { resizeZoneAt(it)?.second }
-                                pointerIcon = resizeEdges?.let { canvasResizePointerIcon(it) } ?: PointerIcon.Default
+                                if (activeTool.drawsOnBoard) {
+                                    hoveredNodeId = null
+                                    pointerIcon = PointerIcon.Crosshair
+                                    eraserScreenPosition = if (activeTool == CanvasTool.ERASER) screenPoint else null
+                                } else if (activeTool == CanvasTool.TEXT) {
+                                    hoveredNodeId = null
+                                    pointerIcon = PointerIcon.Text
+                                } else {
+                                    hoveredNodeId = screenPoint?.let { nodeAt(it, margin = HANDLE_HIT_RADIUS.toPx())?.nodeId }
+                                    val resizeEdges = screenPoint
+                                        ?.takeIf { handleAt(it) == null }
+                                        ?.let { resizeZoneAt(it)?.second }
+                                    pointerIcon = resizeEdges?.let { canvasResizePointerIcon(it) } ?: PointerIcon.Default
+                                }
                             },
                             onWheel = { event ->
                                 val wheelChange = event.changes.first()
@@ -701,7 +932,7 @@ fun CanvasScreen(
                         )
                         val pressChange = pressEvent.changes.first()
                         val pressPosition = pressChange.position
-                        isShapePickerOpen = false
+                        if (activeTool == CanvasTool.SHAPES) dropActiveTool()
 
                         if (pressEvent.buttons.isBackPressed || pressEvent.buttons.isForwardPressed) {
                             if (horizontalScrollArrivesAsBackAndForwardButtons) {
@@ -719,6 +950,42 @@ fun CanvasScreen(
                                 viewport = viewport.pannedBy(position - previousPosition)
                                 previousPosition = position
                             }
+                            return@awaitEachGesture
+                        }
+
+                        if (activeTool.drawsOrErases && !pressEvent.buttons.isSecondaryPressed) {
+                            pressChange.consume()
+                            canvasFocusRequester.requestFocus()
+                            val strokeTool = activeTool.strokeTool
+                            if (strokeTool != null) {
+                                startLiveStroke(pressPosition, pressChange.penPressure, strokeTool)
+                                trackOnePointerUntilLift(pressChange.id) { position, pressure -> addLiveStrokePoint(position, pressure) }
+                                finishLiveStroke()
+                            } else {
+                                viewModel.beginUndoStep()
+                                var previousPosition = pressPosition
+                                eraseStrokesAlong(pressPosition, pressPosition)
+                                trackOnePointerUntilLift(pressChange.id) { position, _ ->
+                                    eraseStrokesAlong(previousPosition, position)
+                                    previousPosition = position
+                                }
+                            }
+                            return@awaitEachGesture
+                        }
+
+                        if (activeTool == CanvasTool.LINE && !pressEvent.buttons.isSecondaryPressed) {
+                            pressChange.consume()
+                            canvasFocusRequester.requestFocus()
+                            startLiveLine(pressPosition)
+                            trackOnePointerUntilLift(pressChange.id) { position, _ -> moveLiveLineEnd(position) }
+                            finishLiveLine(viewConfiguration.touchSlop)
+                            return@awaitEachGesture
+                        }
+
+                        if (activeTool == CanvasTool.TEXT && !pressEvent.buttons.isSecondaryPressed) {
+                            pressChange.consume()
+                            trackDragUntilRelease(isStillHeld = { it.changes.first().pressed }) {}
+                            startTextAt(pressPosition)
                             return@awaitEachGesture
                         }
 
@@ -932,15 +1199,79 @@ fun CanvasScreen(
 
             canvas.nodes.filter { !it.isGroup }.forEach { node ->
                 key(node.nodeId) {
-                    CanvasNodeCard(
-                        node = node,
-                        viewport = viewport,
-                        isSelected = node.nodeId in selection.selectedNodeIds,
-                        isEditing = editingNodeId == node.nodeId,
-                        scrollState = nodeScrollStates.getOrPut(node.nodeId) { ScrollState(initial = 0) },
-                        cursorColor = accentColor,
-                        onTextChange = { text -> viewModel.updateNodeText(node.nodeId, text) }
-                    )
+                    if (node.isFreeText) {
+                        CanvasFreeTextCard(
+                            node = node,
+                            viewport = viewport,
+                            isSelected = node.nodeId in selection.selectedNodeIds,
+                            isEditing = editingNodeId == node.nodeId,
+                            cursorColor = accentColor,
+                            onTextChange = { text -> viewModel.updateNodeText(node.nodeId, text) },
+                            onSizeMeasured = { width, height -> viewModel.setFreeTextSize(node.nodeId, width, height) }
+                        )
+                    } else {
+                        CanvasNodeCard(
+                            node = node,
+                            viewport = viewport,
+                            isSelected = node.nodeId in selection.selectedNodeIds,
+                            isEditing = editingNodeId == node.nodeId,
+                            scrollState = nodeScrollStates.getOrPut(node.nodeId) { ScrollState(initial = 0) },
+                            cursorColor = accentColor,
+                            onTextChange = { text -> viewModel.updateNodeText(node.nodeId, text) }
+                        )
+                    }
+                }
+            }
+
+            Canvas(Modifier.fillMaxSize()) {
+                strokeCache.forgetStrokesNotIn(canvas.strokes)
+                val pixelsPerUnit = viewport.pixelsPerUnit(pixelDensity)
+                val (highlighterStrokes, penStrokes) = canvas.strokes.partition { it.tool == CanvasStrokeTool.HIGHLIGHTER }
+
+                val highlighterAlpha = if (isDarkTheme) HIGHLIGHTER_ALPHA_IN_DARK_THEME else HIGHLIGHTER_ALPHA_IN_LIGHT_THEME
+
+                fun highlighterColorFor(colorName: String?, opacity: Float) =
+                    highlightBackgroundFor(colorName, isDarkTheme).copy(alpha = highlighterAlpha * opacity)
+
+                fun DrawScope.drawLiveStrokeIfUsing(tool: CanvasStrokeTool, color: Color) {
+                    if (liveStrokeTool != tool || liveStrokePoints.isEmpty()) return
+                    val style = styleFor(tool)
+                    val outline = canvasStrokeOutline(liveStrokePoints, style.width, style.usesPressure, isComplete = false)
+                    drawPath(outline.toSmoothPath(), color)
+                }
+
+                withTransform({
+                    translate(viewport.panOffset.x, viewport.panOffset.y)
+                    scale(pixelsPerUnit, pixelsPerUnit, pivot = Offset.Zero)
+                }) {
+                    highlighterStrokes.forEach { stroke ->
+                        translate(stroke.x, stroke.y) { drawPath(strokeCache.pathFor(stroke), highlighterColorFor(stroke.color, stroke.opacity)) }
+                    }
+                    drawLiveStrokeIfUsing(CanvasStrokeTool.HIGHLIGHTER, highlighterColorFor(highlighterStyle.colorName, highlighterStyle.opacity))
+                    penStrokes.forEach { stroke ->
+                        val inkColor = penInkColorFor(stroke.color, stroke.opacity)
+                        if (stroke.tool == CanvasStrokeTool.LINE) {
+                            strokeCache.lineEndsOf(stroke)?.let { (lineStart, lineEnd) ->
+                                drawCanvasLine(lineStart, lineEnd, stroke.width, inkColor, stroke.linePattern, stroke.hasArrowHead)
+                            }
+                        } else {
+                            translate(stroke.x, stroke.y) { drawPath(strokeCache.pathFor(stroke), inkColor) }
+                        }
+                    }
+                    liveLine?.let { (lineStart, lineEnd) ->
+                        drawCanvasLine(
+                            start = lineStart,
+                            end = lineEnd,
+                            width = lineStrokeStyle.width,
+                            color = penInkColorFor(lineStrokeStyle.colorName, lineStrokeStyle.opacity),
+                            pattern = lineStyle.pattern,
+                            hasArrowHead = lineStyle.hasArrowHead
+                        )
+                    }
+                    drawLiveStrokeIfUsing(CanvasStrokeTool.PEN, penInkColorFor(penStyle.colorName, penStyle.opacity))
+                }
+                eraserScreenPosition?.let { center ->
+                    drawCircle(color = handleBorderColor, radius = eraserRadiusInPixels(), center = center, style = Stroke(width = 1.dp.toPx()))
                 }
             }
 
@@ -978,14 +1309,16 @@ fun CanvasScreen(
         }
 
         val selectedNode = selection.singleSelectedNodeId?.let { nodeId -> canvas.nodes.firstOrNull { it.nodeId == nodeId } }
-        if (selectedNode != null && dragPreview == null && !isSelectingMultiple) {
+        val isTypingInFreeText = selectedNode != null && selectedNode.isFreeText && editingNodeId == selectedNode.nodeId
+        if (selectedNode != null && dragPreview == null && !isSelectingMultiple && !isTypingInFreeText) {
             val pillAnchorWorldRect = if (selectedNode.isGroup) selectedNode.groupTitleWorldRect else selectedNode.worldRect
             val pillAnchorRect = viewport.worldRectToScreen(pillAnchorWorldRect, pixelDensity)
             CanvasSelectionPill(
                 boxTopCenterOnScreen = Offset(pillAnchorRect.center.x, pillAnchorRect.top),
                 currentColorName = selectedNode.color,
                 onDelete = { deleteItems(CanvasSelection.Nodes(setOf(selectedNode.nodeId))) },
-                onColorSelected = { colorName -> viewModel.setNodeColor(selectedNode.nodeId, colorName) }
+                onColorSelected = { colorName -> viewModel.setNodeColor(selectedNode.nodeId, colorName) },
+                showsColorOption = !selectedNode.isFreeText
             )
         }
 
@@ -1040,22 +1373,119 @@ fun CanvasScreen(
                     onShowBusiestArea = { showBusiestArea() },
                     onZoomOut = { zoomAroundBoardCenter(1f / ZOOM_BUTTON_STEP) }
                 )
-                if (!isEmbedded) {
-                    CanvasUndoRedoButtons(
-                        hazeState = hazeState,
-                        onUndo = { undoCanvasStep() },
-                        onRedo = { redoCanvasStep() }
-                    )
-                    CanvasDotGridButton(
-                        hazeState = hazeState,
-                        isDotGridVisible = isDotGridVisible,
-                        onToggle = {
-                            isDotGridVisible = !isDotGridVisible
-                            viewModel.saveDotGridVisible(noteId, isDotGridVisible)
-                        }
-                    )
-                }
+                CanvasUndoRedoButtons(
+                    hazeState = hazeState,
+                    onUndo = { undoCanvasStep() },
+                    onRedo = { redoCanvasStep() }
+                )
+                CanvasDotGridButton(
+                    hazeState = hazeState,
+                    isDotGridVisible = isDotGridVisible,
+                    onToggle = {
+                        isDotGridVisible = !isDotGridVisible
+                        viewModel.saveDotGridVisible(noteId, isDotGridVisible)
+                    }
+                )
             }
+        }
+
+        val isDesktopBackButtonVisible = isDesktopPlatform && !isEmbedded && !isStickyNote && showBackButton
+        if (isDesktopBackButtonVisible) {
+            CanvasBackButton(
+                hazeState = hazeState,
+                onClick = onNavigateBack,
+                modifier = Modifier.align(Alignment.TopStart).padding(top = 20.dp, start = 22.dp)
+            )
+        }
+
+        val hasControlAboveToolPanel = isEmbedded || isDesktopBackButtonVisible
+        val toolPanelTop = if (hasControlAboveToolPanel) 76.dp else 20.dp
+        val boardHeight = with(LocalDensity.current) { boardSize.height.toDp() }
+        val toolPanelMaxHeight = (boardHeight - toolPanelTop - TOOL_PANEL_BOTTOM_CLEARANCE).coerceAtLeast(TOOL_PANEL_MIN_HEIGHT)
+        val toolPanelModifier = Modifier
+            .align(Alignment.TopStart)
+            .padding(start = 22.dp, top = toolPanelTop)
+            .heightIn(max = toolPanelMaxHeight)
+        AnimatedVisibility(
+            visible = isDesktopPlatform && activeTool == CanvasTool.PEN,
+            enter = fadeIn(),
+            exit = fadeOut(),
+            modifier = toolPanelModifier
+        ) {
+            CanvasStrokeStylePanel(
+                tool = CanvasStrokeTool.PEN,
+                style = penStyle,
+                hazeState = hazeState,
+                onStyleChange = { newStyle -> penStyle = newStyle },
+                onInteractionFinished = { canvasFocusRequester.requestFocus() }
+            )
+        }
+        AnimatedVisibility(
+            visible = isDesktopPlatform && activeTool == CanvasTool.HIGHLIGHTER,
+            enter = fadeIn(),
+            exit = fadeOut(),
+            modifier = toolPanelModifier
+        ) {
+            CanvasStrokeStylePanel(
+                tool = CanvasStrokeTool.HIGHLIGHTER,
+                style = highlighterStyle,
+                hazeState = hazeState,
+                onStyleChange = { newStyle -> highlighterStyle = newStyle },
+                onInteractionFinished = { canvasFocusRequester.requestFocus() }
+            )
+        }
+        val selectedFreeText = selection.singleSelectedNodeId?.let { nodeId ->
+            canvas.nodes.firstOrNull { it.nodeId == nodeId && it.isFreeText }
+        }
+        AnimatedVisibility(
+            visible = isDesktopPlatform && (activeTool == CanvasTool.TEXT || selectedFreeText != null),
+            enter = fadeIn(),
+            exit = fadeOut(),
+            modifier = toolPanelModifier
+        ) {
+            CanvasTextStylePanel(
+                style = selectedFreeText?.textStyle ?: textToolStyle,
+                hazeState = hazeState,
+                onStyleChange = { newStyle ->
+                    textToolStyle = newStyle
+                    selectedFreeText?.let { viewModel.setFreeTextStyle(it.nodeId, newStyle) }
+                }
+            )
+        }
+        AnimatedVisibility(
+            visible = isDesktopPlatform && activeTool == CanvasTool.LINE,
+            enter = fadeIn(),
+            exit = fadeOut(),
+            modifier = toolPanelModifier
+        ) {
+            CanvasLinePanel(
+                selectedStyle = lineStyle,
+                strokeStyle = lineStrokeStyle,
+                hazeState = hazeState,
+                onStyleChange = { newStyle -> lineStyle = newStyle },
+                onStrokeStyleChange = { newStyle -> lineStrokeStyle = newStyle }
+            )
+        }
+        AnimatedVisibility(
+            visible = isDesktopPlatform && activeTool == CanvasTool.SHAPES,
+            enter = fadeIn(),
+            exit = fadeOut(),
+            modifier = toolPanelModifier
+        ) {
+            CanvasShapePanel(hazeState = hazeState, onShapeSelected = { shape -> placeShapeAtBoardCenter(shape) })
+        }
+        AnimatedVisibility(
+            visible = isDesktopPlatform && activeTool == CanvasTool.ERASER,
+            enter = fadeIn(),
+            exit = fadeOut(),
+            modifier = toolPanelModifier
+        ) {
+            CanvasEraserSizePanel(
+                radius = eraserRadius,
+                hazeState = hazeState,
+                onRadiusChange = { newRadius -> eraserRadius = newRadius },
+                onInteractionFinished = { canvasFocusRequester.requestFocus() }
+            )
         }
 
         if (isEmbedded) {
@@ -1070,25 +1500,6 @@ fun CanvasScreen(
                         else Modifier.padding(start = 16.dp, top = 10.dp, end = 76.dp)
                     )
             )
-
-            AnimatedVisibility(
-                visible = isActive && !isSelectionBarVisible,
-                enter = fadeIn(),
-                exit = fadeOut(),
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .then(
-                        if (isDesktopPlatform) Modifier.padding(start = 22.dp, bottom = 20.dp)
-                        else Modifier.padding(start = 16.dp, bottom = 16.dp)
-                    )
-            ) {
-                CanvasUndoRedoButtons(
-                    hazeState = hazeState,
-                    onUndo = { undoCanvasStep() },
-                    onRedo = { redoCanvasStep() },
-                    isVertical = false
-                )
-            }
         }
 
         if (!isDesktopPlatform) {
@@ -1115,29 +1526,138 @@ fun CanvasScreen(
             )
         }
 
+        val areMobileToolSettingsAllowed = !isDesktopPlatform && areControlsVisible && !isSelectionBarVisible && editingNodeId == null
+        val mobileToolSettingsModifier = Modifier
+            .align(Alignment.BottomStart)
+            .then(if (isEmbedded) Modifier else Modifier.navigationBarsPadding())
+            .padding(start = 16.dp, bottom = 72.dp)
+
+        fun toggleStrokeSettings(category: CanvasStrokeSettingsCategory) {
+            openStrokeSettingsCategory = if (openStrokeSettingsCategory == category) null else category
+        }
+
+        AnimatedVisibility(
+            visible = areMobileToolSettingsAllowed && activeTool == CanvasTool.PEN,
+            enter = fadeIn(),
+            exit = fadeOut(),
+            modifier = mobileToolSettingsModifier
+        ) {
+            CanvasMobileStrokeSettings(
+                tool = CanvasStrokeTool.PEN,
+                style = penStyle,
+                openCategory = openStrokeSettingsCategory,
+                hazeState = hazeState,
+                onCategoryClick = { category -> toggleStrokeSettings(category) },
+                onStyleChange = { newStyle -> penStyle = newStyle }
+            )
+        }
+        AnimatedVisibility(
+            visible = areMobileToolSettingsAllowed && activeTool == CanvasTool.HIGHLIGHTER,
+            enter = fadeIn(),
+            exit = fadeOut(),
+            modifier = mobileToolSettingsModifier
+        ) {
+            CanvasMobileStrokeSettings(
+                tool = CanvasStrokeTool.HIGHLIGHTER,
+                style = highlighterStyle,
+                openCategory = openStrokeSettingsCategory,
+                hazeState = hazeState,
+                onCategoryClick = { category -> toggleStrokeSettings(category) },
+                onStyleChange = { newStyle -> highlighterStyle = newStyle }
+            )
+        }
+        AnimatedVisibility(
+            visible = areMobileToolSettingsAllowed && activeTool == CanvasTool.LINE,
+            enter = fadeIn(),
+            exit = fadeOut(),
+            modifier = mobileToolSettingsModifier
+        ) {
+            CanvasMobileLineSettings(
+                selectedStyle = lineStyle,
+                strokeStyle = lineStrokeStyle,
+                openCategory = openLineSettingsCategory,
+                hazeState = hazeState,
+                onCategoryClick = { category ->
+                    openLineSettingsCategory = if (openLineSettingsCategory == category) null else category
+                },
+                onStyleChange = { newStyle -> lineStyle = newStyle },
+                onStrokeStyleChange = { newStyle -> lineStrokeStyle = newStyle }
+            )
+        }
+        AnimatedVisibility(
+            visible = areMobileToolSettingsAllowed && activeTool == CanvasTool.SHAPES,
+            enter = fadeIn(),
+            exit = fadeOut(),
+            modifier = mobileToolSettingsModifier.padding(end = 16.dp)
+        ) {
+            CanvasMobileShapeSettings(hazeState = hazeState, onShapeSelected = { shape -> placeShapeAtBoardCenter(shape) })
+        }
+        AnimatedVisibility(
+            visible = areMobileToolSettingsAllowed && activeTool == CanvasTool.ERASER,
+            enter = fadeIn(),
+            exit = fadeOut(),
+            modifier = mobileToolSettingsModifier
+        ) {
+            CanvasMobileEraserSettings(
+                radius = eraserRadius,
+                hazeState = hazeState,
+                onRadiusChange = { newRadius -> eraserRadius = newRadius }
+            )
+        }
+        AnimatedVisibility(
+            visible = areMobileToolSettingsAllowed && (activeTool == CanvasTool.TEXT || selectedFreeText != null),
+            enter = fadeIn(),
+            exit = fadeOut(),
+            modifier = mobileToolSettingsModifier
+        ) {
+            CanvasMobileTextSettings(
+                style = selectedFreeText?.textStyle ?: textToolStyle,
+                openCategory = openTextSettingsCategory,
+                hazeState = hazeState,
+                onCategoryClick = { category ->
+                    openTextSettingsCategory = if (openTextSettingsCategory == category) null else category
+                },
+                onStyleChange = { newStyle ->
+                    textToolStyle = newStyle
+                    selectedFreeText?.let { viewModel.setFreeTextStyle(it.nodeId, newStyle) }
+                }
+            )
+        }
+
         if (isDesktopPlatform || (!isSelectionBarVisible && editingNodeId == null)) {
             AnimatedVisibility(
                 visible = areControlsVisible,
                 enter = fadeIn(),
                 exit = fadeOut(),
                 modifier = Modifier
-                    .align(Alignment.BottomEnd)
+                    .align(Alignment.BottomStart)
                     .then(
                         when {
-                            isDesktopPlatform -> Modifier.padding(end = 22.dp, bottom = 20.dp)
-                            isEmbedded -> Modifier.padding(end = 16.dp, bottom = 16.dp)
-                            else -> Modifier.navigationBarsPadding().padding(end = 16.dp, bottom = 16.dp)
+                            isDesktopPlatform -> Modifier.padding(start = 22.dp, bottom = 20.dp)
+                            isEmbedded -> Modifier.padding(start = 16.dp, bottom = 16.dp)
+                            else -> Modifier.navigationBarsPadding().padding(start = 16.dp, bottom = 16.dp)
                         }
                     )
             ) {
-                CanvasAddShapeButton(
-                    isOpen = isShapePickerOpen,
+                CanvasToolbar(
                     hazeState = hazeState,
-                    onToggle = { isShapePickerOpen = !isShapePickerOpen },
-                    onShapeSelected = { shape ->
-                        isShapePickerOpen = false
-                        val boardCenter = Offset(boardSize.width / 2f, boardSize.height / 2f)
-                        createBoxAt(viewport.screenToWorld(boardCenter, pixelDensity), groupToGrowId = null, shape = shape)
+                    activeTool = activeTool,
+                    onToolClick = { tool ->
+                        activeTool = if (activeTool == tool) null else tool
+                        openStrokeSettingsCategory = null
+                        openTextSettingsCategory = null
+                        openLineSettingsCategory = null
+                        editingNodeId = null
+                        selection = CanvasSelection.None
+                        isSelectingMultiple = false
+                        hoveredNodeId = null
+                        eraserScreenPosition = null
+                        pointerIcon = when {
+                            activeTool.drawsOnBoard -> PointerIcon.Crosshair
+                            activeTool == CanvasTool.TEXT -> PointerIcon.Text
+                            else -> PointerIcon.Default
+                        }
+                        canvasFocusRequester.requestFocus()
                     }
                 )
             }
@@ -1277,6 +1797,72 @@ private fun CanvasNodeCard(
     }
 }
 
+@Composable
+private fun CanvasFreeTextCard(
+    node: CanvasNodeEntity,
+    viewport: CanvasViewport,
+    isSelected: Boolean,
+    isEditing: Boolean,
+    cursorColor: Color,
+    onTextChange: (String) -> Unit,
+    onSizeMeasured: (width: Float, height: Float) -> Unit
+) {
+    val baseDensity = LocalDensity.current
+    val screenTopLeft = viewport.worldToScreen(Offset(node.x, node.y), baseDensity.density)
+    val zoomedDensity = Density(baseDensity.density * viewport.zoom, baseDensity.fontScale)
+    val selectionBorderWidth = (1f / viewport.zoom).dp
+    val style = node.textStyle
+    val textStyle = MaterialTheme.typography.bodyLarge.copy(
+        color = CanvasInkColor.named(style.textColor)?.color ?: MaterialTheme.colorScheme.onSurface,
+        fontFamily = CanvasTextFont.named(style.fontFamily).fontFamily(),
+        fontWeight = FontWeight(style.fontWeight),
+        fontSize = style.fontSize.sp,
+        lineHeight = (style.fontSize * CANVAS_FREE_TEXT_LINE_HEIGHT_RATIO).sp,
+        textAlign = CanvasTextAlignment.named(style.textAlign).textAlign
+    )
+    val backgroundColor = style.backgroundColor?.let { canvasNodeBackgroundFor(it) }
+
+    Box(
+        Modifier
+            .offset { IntOffset(screenTopLeft.x.roundToInt(), screenTopLeft.y.roundToInt()) }
+            .wrapContentSize(align = Alignment.TopStart, unbounded = true)
+    ) {
+        CompositionLocalProvider(LocalDensity provides zoomedDensity) {
+            Box(
+                modifier = Modifier
+                    .onSizeChanged { size ->
+                        val measuredWidth = size.width / zoomedDensity.density
+                        val measuredHeight = size.height / zoomedDensity.density
+                        val sizeChanged = abs(measuredWidth - node.width) > FREE_TEXT_SIZE_CHANGE_TO_SAVE ||
+                            abs(measuredHeight - node.height) > FREE_TEXT_SIZE_CHANGE_TO_SAVE
+                        if ((isEditing || isSelected) && sizeChanged) onSizeMeasured(measuredWidth, measuredHeight)
+                    }
+                    .then(
+                        if (isSelected && !isEditing) Modifier.border(selectionBorderWidth, CanvasSelectionColor, RoundedCornerShape(CARD_CORNER_RADIUS))
+                        else Modifier
+                    )
+                    .then(
+                        if (backgroundColor != null) Modifier.background(backgroundColor, RoundedCornerShape(CARD_CORNER_RADIUS))
+                        else Modifier
+                    )
+                    .padding(CANVAS_FREE_TEXT_PADDING.dp)
+            ) {
+                if (isEditing) {
+                    CanvasNodeTextField(
+                        text = node.text,
+                        textStyle = textStyle,
+                        cursorColor = cursorColor,
+                        onTextChange = onTextChange,
+                        modifier = Modifier.widthIn(min = FREE_TEXT_MIN_TEXT_WIDTH).width(IntrinsicSize.Max)
+                    )
+                } else {
+                    Text(text = node.text, style = textStyle, softWrap = false)
+                }
+            }
+        }
+    }
+}
+
 private fun DrawScope.drawShapeLines(shape: CanvasNodeShape, color: Color, lineWidth: Float) {
     val cornerRadius = CARD_CORNER_RADIUS.toPx()
     drawPath(shape.outlinePath(size, cornerRadius), color, style = Stroke(width = lineWidth * 2f))
@@ -1328,6 +1914,39 @@ private suspend fun AwaitPointerEventScope.awaitPressWhileTrackingHoverAndWheel(
 }
 
 private enum class CanvasTouchStart { Tap, Drag, LongPress, Pinch }
+
+private enum class OnePointerGestureEnd { Lifted, SecondFingerDown }
+
+private val CanvasTool?.strokeTool: CanvasStrokeTool?
+    get() = when (this) {
+        CanvasTool.PEN -> CanvasStrokeTool.PEN
+        CanvasTool.HIGHLIGHTER -> CanvasStrokeTool.HIGHLIGHTER
+        else -> null
+    }
+
+private val CanvasTool?.drawsOrErases: Boolean
+    get() = strokeTool != null || this == CanvasTool.ERASER
+
+private val CanvasTool?.drawsOnBoard: Boolean
+    get() = drawsOrErases || this == CanvasTool.LINE
+
+private val PointerInputChange.penPressure: Float?
+    get() = if (type == PointerType.Stylus) pressure else null
+
+private suspend fun AwaitPointerEventScope.trackOnePointerUntilLift(
+    pointerId: PointerId,
+    onMove: (position: Offset, pressure: Float?) -> Unit
+): OnePointerGestureEnd {
+    while (true) {
+        val event = awaitPointerEvent(PointerEventPass.Initial)
+        event.changes.forEach { it.consume() }
+        if (event.changes.count { it.pressed } >= 2) return OnePointerGestureEnd.SecondFingerDown
+        val change = event.changes.firstOrNull { it.id == pointerId } ?: return OnePointerGestureEnd.Lifted
+        change.historical.forEach { onMove(it.position, change.penPressure) }
+        onMove(change.position, change.penPressure)
+        if (!change.pressed) return OnePointerGestureEnd.Lifted
+    }
+}
 
 private suspend fun AwaitPointerEventScope.awaitTouchStart(downId: PointerId, downPosition: Offset): CanvasTouchStart {
     while (true) {
@@ -1409,23 +2028,17 @@ private fun DrawScope.drawCanvasEdge(curve: CanvasCurve, color: Color, strokeWid
     val directionIntoTarget = (curve.end - curve.endControl).takeIf { it.getDistance() > 0.01f } ?: (curve.end - curve.start)
     val directionLength = directionIntoTarget.getDistance()
     if (directionLength < 0.01f) return
-    val unitDirection = directionIntoTarget / directionLength
-    val perpendicular = Offset(-unitDirection.y, unitDirection.x)
-    val arrowBase = curve.end - unitDirection * arrowSize
 
     val linePath = Path().apply {
         moveTo(curve.start.x, curve.start.y)
-        cubicTo(curve.startControl.x, curve.startControl.y, curve.endControl.x, curve.endControl.y, arrowBase.x, arrowBase.y)
+        cubicTo(curve.startControl.x, curve.startControl.y, curve.endControl.x, curve.endControl.y, curve.end.x, curve.end.y)
     }
     drawPath(linePath, color, style = Stroke(width = strokeWidth, cap = StrokeCap.Round))
-
-    val arrowPath = Path().apply {
-        moveTo(curve.end.x, curve.end.y)
-        val leftWing = arrowBase + perpendicular * (arrowSize * 0.5f)
-        val rightWing = arrowBase - perpendicular * (arrowSize * 0.5f)
-        lineTo(leftWing.x, leftWing.y)
-        lineTo(rightWing.x, rightWing.y)
-        close()
-    }
-    drawPath(arrowPath, color)
+    drawOpenArrowHead(
+        tip = curve.end,
+        directionIntoTip = directionIntoTarget / directionLength,
+        wingLength = arrowSize,
+        color = color,
+        strokeWidth = strokeWidth
+    )
 }

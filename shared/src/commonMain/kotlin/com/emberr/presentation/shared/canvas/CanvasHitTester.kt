@@ -6,6 +6,7 @@ import com.emberr.data.local.room.entity.CanvasEdgeEntity
 import com.emberr.data.local.room.entity.CanvasNodeEntity
 import com.emberr.data.local.room.entity.CanvasSide
 import com.emberr.domain.canvas.CanvasContent
+import com.emberr.domain.canvas.isFreeText
 import com.emberr.domain.canvas.isGroup
 
 internal data class CanvasHandle(val nodeId: String, val side: CanvasSide)
@@ -58,8 +59,10 @@ internal class CanvasHitTester(
         for (node in textNodesTopFirst() + groupsSmallestFirst()) {
             if (onlyNodeIds != null && node.nodeId !in onlyNodeIds) continue
             val screenRect = screenRectOf(node)
-            val edges = screenRect.resizeEdgesAt(screenPoint, grabDistance)
-            if (edges != null) return node to edges
+            if (!node.isFreeText) {
+                val edges = screenRect.resizeEdgesAt(screenPoint, grabDistance)
+                if (edges != null) return node to edges
+            }
             if (screenRect.contains(screenPoint)) return null
         }
         return null
@@ -89,7 +92,10 @@ internal class CanvasHitTester(
 
     fun editingAreaOf(editingNodeId: String?, edgeGrabDistance: Float): Rect? {
         val editingNode = canvas.nodes.firstOrNull { it.nodeId == editingNodeId } ?: return null
-        return if (editingNode.isGroup) groupTitleScreenRectOf(editingNode)
-        else screenRectOf(editingNode).deflate(edgeGrabDistance)
+        return when {
+            editingNode.isGroup -> groupTitleScreenRectOf(editingNode)
+            editingNode.isFreeText -> screenRectOf(editingNode)
+            else -> screenRectOf(editingNode).deflate(edgeGrabDistance)
+        }
     }
 }

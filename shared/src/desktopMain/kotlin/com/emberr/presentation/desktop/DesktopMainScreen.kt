@@ -1444,6 +1444,7 @@ fun DesktopMainScreen(
                     when (noteKind) {
                         NoteKind.CANVAS -> CanvasScreen(
                             noteId = d.noteId,
+                            showBackButton = isSidebarVisible,
                             onNavigateBack = { detail = DetailPane.Daily(selectedDate) }
                         )
                         NoteKind.NOTE -> NoteScreen(

@@ -65,6 +65,7 @@ val sharedModule = module {
         )
     }
     single { com.emberr.domain.canvas.CanvasViewPositionStore(settingsManager = get()) }
+    single { com.emberr.domain.canvas.CanvasToolSettingsStore(settingsManager = get()) }
     single {
         com.emberr.domain.repository.FavoriteNoteOrderStore(
             settingsManager = get(),
@@ -311,6 +312,7 @@ val sharedModule = module {
             canvasRepository = get(),
             noteRepository = get(),
             viewPositionStore = get(),
+            toolSettingsStore = get(),
             settingsManager = get(),
             appScope = get(named("AppScope"))
         )

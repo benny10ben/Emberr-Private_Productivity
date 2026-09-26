@@ -16,6 +16,9 @@ const val CANVAS_DEFAULT_NODE_WIDTH = 250f
 const val CANVAS_DEFAULT_NODE_HEIGHT = 80f
 const val CANVAS_GROUP_PADDING = 24f
 const val CANVAS_GROUP_TITLE_HEIGHT = 32f
+const val CANVAS_FREE_TEXT_PADDING = 4f
+const val CANVAS_FREE_TEXT_STARTING_WIDTH = 16f
+const val CANVAS_FREE_TEXT_LINE_HEIGHT_RATIO = 1.5f
 const val CANVAS_CLUSTER_RADIUS = 600f
 
 data class CanvasViewport(
@@ -179,7 +182,7 @@ fun edgeCurve(start: Offset, startSide: CanvasSide?, end: Offset, endSide: Canva
 fun edgeControlDistance(start: Offset, end: Offset, minimum: Float, maximum: Float): Float =
     ((end - start).getDistance() / 2f).coerceIn(minimum, maximum)
 
-private fun distanceFromPointToSegment(point: Offset, segmentStart: Offset, segmentEnd: Offset): Float {
+fun distanceFromPointToSegment(point: Offset, segmentStart: Offset, segmentEnd: Offset): Float {
     val segment = segmentEnd - segmentStart
     val lengthSquared = segment.x * segment.x + segment.y * segment.y
     if (lengthSquared == 0f) return (point - segmentStart).getDistance()
@@ -187,3 +190,5 @@ private fun distanceFromPointToSegment(point: Offset, segmentStart: Offset, segm
     val projection = ((toPoint.x * segment.x + toPoint.y * segment.y) / lengthSquared).coerceIn(0f, 1f)
     return (point - (segmentStart + segment * projection)).getDistance()
 }
+
+fun freeTextStartingHeight(fontSize: Float): Float = fontSize * CANVAS_FREE_TEXT_LINE_HEIGHT_RATIO + CANVAS_FREE_TEXT_PADDING * 2
