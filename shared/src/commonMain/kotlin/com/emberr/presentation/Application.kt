@@ -69,7 +69,8 @@ private const val ONBOARDING_SWAP_FADE_IN_MILLIS = 380
 
 private val SEARCH_BAR_RESERVED_HEIGHT = EXPANDED_BOTTOM_BAR_PILL_HEIGHT + BOTTOM_BAR_BOTTOM_PADDING + 6.dp
 
-val LocalImageOverlay = staticCompositionLocalOf<( (@Composable () -> Unit)? ) -> Unit> { {} }
+val LocalImageOverlay = staticCompositionLocalOf<(((@Composable () -> Unit)?) -> Unit)?> { null }
+val LocalCanvasFullScreenOverlay = staticCompositionLocalOf<(((@Composable () -> Unit)?) -> Unit)?> { null }
 
 val LocalImagePicker = staticCompositionLocalOf<(onPathSelected: (String) -> Unit) -> Unit> { {} }
 

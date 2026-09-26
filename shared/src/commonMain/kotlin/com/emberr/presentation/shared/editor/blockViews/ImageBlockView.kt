@@ -294,7 +294,7 @@ fun ImageBlockView(
 
             LaunchedEffect(showFullScreen, request) {
                 if (showFullScreen) {
-                    setFullScreenOverlay {
+                    setFullScreenOverlay?.invoke {
                         com.emberr.presentation.shared.editor.components.FullScreenImageScreen(
                             request = request,
                             hasLocalFile = true,
@@ -320,14 +320,14 @@ fun ImageBlockView(
                                 }
                             },
                             onDelete = {
-                                setFullScreenOverlay(null)
+                                setFullScreenOverlay?.invoke(null)
                                 showFullScreen = false
                                 onDelete()
                             }
                         )
                     }
                 } else {
-                    setFullScreenOverlay(null)
+                    setFullScreenOverlay?.invoke(null)
                 }
             }
         }

@@ -112,6 +112,8 @@ import emberr.shared.generated.resources.eraser
 import emberr.shared.generated.resources.highlight
 import emberr.shared.generated.resources.image
 import emberr.shared.generated.resources.line_tool
+import emberr.shared.generated.resources.maximize_2
+import emberr.shared.generated.resources.minimize_2
 import emberr.shared.generated.resources.minus
 import emberr.shared.generated.resources.palette
 import emberr.shared.generated.resources.pen
@@ -568,7 +570,7 @@ private val CanvasTool.icon: DrawableResource
         CanvasTool.ERASER -> Res.drawable.eraser
         CanvasTool.TEXT -> Res.drawable.text_input_focus
         CanvasTool.SHAPES -> Res.drawable.shapes
-        CanvasTool.LINE -> Res.drawable.line_tool
+        CanvasTool.LINE -> Res.drawable.arrow_left
         CanvasTool.IMAGE -> Res.drawable.image
     }
 
@@ -611,7 +613,8 @@ fun CanvasToolbar(hazeState: HazeState, activeTool: CanvasTool?, onToolClick: (C
         hazeState = hazeState,
         hazeStyle = EmberrBlur.Regular,
         horizontalPadding = 8.dp,
-        horizontalItemSpacing = 4.dp
+        horizontalItemSpacing = 4.dp,
+        isHorizontallyScrollable = true
     )
 }
 
@@ -1476,6 +1479,20 @@ fun CanvasDotGridButton(hazeState: HazeState, isDotGridVisible: Boolean, onToggl
         tint = MaterialTheme.colorScheme.primary,
         hazeState = hazeState,
         hazeStyle = EmberrBlur.Regular,
+        onClick = onToggle
+    )
+}
+
+@Composable
+fun CanvasFullScreenButton(hazeState: HazeState, isFullScreen: Boolean, onToggle: () -> Unit) {
+    TopBarIconButton(
+        icon = painterResource(if (isFullScreen) Res.drawable.minimize_2 else Res.drawable.maximize_2),
+        contentDescription = if (isFullScreen) "Exit full screen" else "Full screen",
+        bgColor = Color.Transparent,
+        tint = MaterialTheme.colorScheme.primary,
+        hazeState = hazeState,
+        hazeStyle = EmberrBlur.Regular,
+        iconSize = 18.dp,
         onClick = onToggle
     )
 }

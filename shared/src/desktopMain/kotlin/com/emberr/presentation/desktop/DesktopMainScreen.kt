@@ -53,6 +53,7 @@ import com.emberr.domain.model.NoteBlock
 import com.emberr.domain.model.NoteContent
 import com.emberr.domain.model.TextAlignment
 import com.emberr.domain.model.ViewType
+import com.emberr.presentation.LocalCanvasFullScreenOverlay
 import com.emberr.presentation.shared.editor.EditorActions
 import com.emberr.presentation.settings.SettingsScreen
 import com.emberr.presentation.settings.selfhost.SelfHostSetupScreen
@@ -1555,7 +1556,13 @@ fun DesktopMainScreen(
                                 )
                             }
                         }
-                        rightPanel()
+                        var canvasFullScreenContent by remember { mutableStateOf<(@Composable () -> Unit)?>(null) }
+                        CompositionLocalProvider(LocalCanvasFullScreenOverlay provides { content -> canvasFullScreenContent = content }) {
+                            rightPanel()
+                        }
+                        canvasFullScreenContent?.let { content ->
+                            Box(Modifier.zIndex(11f)) { content() }
+                        }
                     }
 
                     val isRagPanelVisible = isAiChatVisible && ragViewModel != null

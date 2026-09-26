@@ -214,6 +214,8 @@ fun CanvasScreen(
     isStickyNote: Boolean = false,
     isEmbedded: Boolean = false,
     isActive: Boolean = true,
+    isFullScreen: Boolean = false,
+    onToggleFullScreen: (() -> Unit)? = null,
     showBackButton: Boolean = true,
     onNavigateBack: () -> Unit = {},
     viewModel: CanvasViewModel = koinViewModel(key = "canvas:$noteId")
@@ -265,7 +267,7 @@ fun CanvasScreen(
         previousEditingNodeId = editingNodeId
         if (finishedNodeId != null && finishedNodeId != editingNodeId) viewModel.finishTextEditing(finishedNodeId)
     }
-    LaunchedEffect(isActive) {
+    LaunchedEffect(isActive, isFullScreen) {
         if (!isEmbedded) return@LaunchedEffect
         if (isActive) {
             canvasFocusRequester.requestFocus()
@@ -479,7 +481,7 @@ fun CanvasScreen(
     val keyboardHeightPx = WindowInsets.ime.getBottom(LocalDensity.current)
     val keyboardClearancePx = with(LocalDensity.current) { KEYBOARD_CLEARANCE.toPx() }
     LaunchedEffect(editingNodeId, keyboardHeightPx, boardSize) {
-        if (isDesktopPlatform || isEmbedded || keyboardHeightPx == 0) return@LaunchedEffect
+        if (isDesktopPlatform || (isEmbedded && !isFullScreen) || keyboardHeightPx == 0) return@LaunchedEffect
         val editingNode = canvas.nodes.firstOrNull { it.nodeId == editingNodeId } ?: return@LaunchedEffect
         val editingRect = viewport.worldRectToScreen(editingNode.worldRect, pixelDensity)
         val visibleBottom = boardSize.height - keyboardHeightPx - keyboardClearancePx
@@ -1437,6 +1439,9 @@ fun CanvasScreen(
                     onOpenAsStickyNote = { StickyNoteWindowBus.open(noteId) },
                     onMoveToTrash = { viewModel.moveCanvasToTrash(onMoved = onNavigateBack) }
                 )
+                if (onToggleFullScreen != null) {
+                    CanvasFullScreenButton(hazeState = hazeState, isFullScreen = isFullScreen, onToggle = onToggleFullScreen)
+                }
                 CanvasZoomButtons(
                     hazeState = hazeState,
                     onZoomIn = { zoomAroundBoardCenter(ZOOM_BUTTON_STEP) },
@@ -1703,9 +1708,9 @@ fun CanvasScreen(
                     .align(Alignment.BottomStart)
                     .then(
                         when {
-                            isDesktopPlatform -> Modifier.padding(start = 22.dp, bottom = 20.dp)
-                            isEmbedded -> Modifier.padding(start = 16.dp, bottom = 16.dp)
-                            else -> Modifier.navigationBarsPadding().padding(start = 16.dp, bottom = 16.dp)
+                            isDesktopPlatform -> Modifier.padding(start = 22.dp, end = 22.dp, bottom = 20.dp)
+                            isEmbedded -> Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp)
+                            else -> Modifier.navigationBarsPadding().padding(start = 16.dp, end = 16.dp, bottom = 16.dp)
                         }
                     )
             ) {
