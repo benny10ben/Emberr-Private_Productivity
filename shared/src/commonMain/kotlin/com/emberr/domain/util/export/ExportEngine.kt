@@ -49,15 +49,6 @@ object ExportEngine {
                 is BookmarkBlock -> builder.appendLine("$indent${block.title ?: block.url}\n$indent${block.url}")
                 is ImageBlock -> builder.appendLine("${indent}[Image]")
                 is DocumentBlock -> builder.appendLine("$indent[File: ${block.fileName}]")
-                is DatabaseBlock -> {
-                    builder.appendLine("$indent[Database: ${block.title.ifBlank { "Untitled" }}]")
-                    block.rows.filter { !it.isDeleted }.forEach { row ->
-                        val rowData = block.columns.filter { !it.isDeleted }.joinToString(" | ") { col ->
-                            row.cells[col.id].displayText().replace("\n", " ")
-                        }
-                        builder.appendLine("$indent  $rowData")
-                    }
-                }
                 is TableBlock -> {
                     block.rows.forEach { row ->
                         builder.appendLine("$indent  ${row.joinToString(" | ")}")

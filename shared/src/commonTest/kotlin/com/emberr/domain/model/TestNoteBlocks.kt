@@ -14,75 +14,6 @@ object TestNoteBlocks {
         highlight = true
     )
 
-    fun textColumn(id: String, databaseId: String, name: String) = DatabaseColumn(
-        id = id,
-        databaseId = databaseId,
-        name = name,
-        type = ColumnType.TEXT,
-        width = 220,
-        formulaExpression = "prop(\"$name\") * 2",
-        aggregationType = "sum",
-        currencySymbol = "$",
-        isFormulaCurrency = true,
-        isDeleted = false,
-        isNameManuallySet = true,
-        updatedAt = 900L
-    )
-
-    fun populatedDatabaseBlock(): DatabaseBlock {
-        val databaseId = "database-1"
-        val nameColumn = textColumn("column-name", databaseId, "Name")
-        val amountColumn = textColumn("column-amount", databaseId, "Amount")
-
-        val row = DatabaseRow(
-            id = "row-1",
-            databaseId = databaseId,
-            cells = mapOf(
-                nameColumn.id to CellData.Text("Buy milk"),
-                amountColumn.id to CellData.Number(12.5),
-                "column-done" to CellData.Boolean(true),
-                "column-due" to CellData.Date(1_700_000_000_000L),
-                "column-tags" to CellData.TagList(listOf("tag-a", "tag-b")),
-                "column-files" to CellData.MediaList(
-                    listOf(MediaItem("stored-1.png", "holiday.png"))
-                ),
-                "column-notes" to CellData.NoteRelation(listOf("note-a", "note-b")),
-                "column-total" to CellData.Formula("25.00")
-            ),
-            isDeleted = false,
-            updatedAt = 950L
-        )
-
-        val view = DatabaseView(
-            id = "view-1",
-            name = "Board",
-            type = ViewType.KANBAN,
-            activeSorts = listOf(SortConfig(nameColumn.id, isAscending = false)),
-            activeFilters = listOf(FilterConfig(amountColumn.id, "gt", "10")),
-            groupByColumnId = nameColumn.id,
-            hiddenGroups = listOf("Done"),
-            groupOrder = listOf("Not Started", "In Progress", "Done"),
-            galleryCardSize = GalleryCardSize.LARGE
-        )
-
-        return DatabaseBlock(
-            id = databaseId,
-            title = "Shopping",
-            columns = listOf(nameColumn, amountColumn),
-            rows = listOf(row),
-            views = listOf(view),
-            activeViewId = view.id,
-            indentationLevel = 1,
-            isBold = true,
-            isItalic = true,
-            isStrikeThrough = true,
-            isUnderlined = true,
-            isDeleted = true,
-            isPinned = true,
-            updatedAt = 1_000L
-        )
-    }
-
     fun oneOfEveryBlockType(): List<NoteBlock> = listOf(
         TextBlock(
             id = "text-1",
@@ -208,7 +139,6 @@ object TestNoteBlocks {
             indentationLevel = 1,
             updatedAt = 112L
         ),
-        populatedDatabaseBlock(),
         TableBlock(
             id = "table-1",
             rows = listOf(listOf("Header A", "Header B"), listOf("Cell A", "Cell B")),

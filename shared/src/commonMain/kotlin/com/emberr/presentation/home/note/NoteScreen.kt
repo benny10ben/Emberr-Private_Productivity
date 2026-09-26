@@ -47,14 +47,8 @@ import com.emberr.presentation.shared.editor.BlockSelectionPill
 import com.emberr.presentation.shared.editor.EditorScreen
 import com.emberr.presentation.shared.editor.EditorActions
 import com.emberr.presentation.shared.editor.SelectionModeObserver
-import com.emberr.presentation.shared.editor.blockViews.databaseBlockView.DatabaseTemplatePickerSheet
 import com.emberr.presentation.calendar.EventEditorSheetHost
 import com.emberr.presentation.calendar.RecurrenceScopeChooser
-import com.emberr.domain.model.CellData
-import com.emberr.domain.model.ColumnType
-import com.emberr.domain.model.FilterConfig
-import com.emberr.domain.model.GalleryCardSize
-import com.emberr.domain.model.ViewType
 import com.emberr.domain.util.system.isDesktopPlatform
 import com.emberr.presentation.shared.components.EmberrBottomSheet
 import com.emberr.presentation.shared.editor.EditorToolbar
@@ -103,7 +97,6 @@ import com.emberr.presentation.shared.components.EmberrBlur
 import com.emberr.presentation.shared.components.EmberrButtonPrimary
 import com.emberr.presentation.shared.components.emberrBlur
 import com.emberr.presentation.shared.editor.BlockStyleBar
-import com.emberr.presentation.shared.components.rememberKeyboardHandoff
 import dev.chrisbanes.haze.hazeSource
 import emberr.shared.generated.resources.Res
 import emberr.shared.generated.resources.chevron_left
@@ -224,9 +217,6 @@ fun NoteScreen(
     )
     val subNoteOpenMode = runCatching { SubNoteOpenMode.valueOf(subNoteOpenModeName) }
         .getOrDefault(SubNoteOpenMode.SIDE_PANEL)
-    val globalTags by viewModel.globalTags.collectAsState()
-    val databaseTemplates by viewModel.databaseTemplates.collectAsState()
-    var showDatabasePicker by remember { mutableStateOf(false) }
     var showNoteLinkMenu by remember { mutableStateOf(false) }
     var showCanvasLinkMenu by remember { mutableStateOf(false) }
     var eventOptionsTargetBlockId by remember { mutableStateOf<String?>(null) }
@@ -275,7 +265,6 @@ fun NoteScreen(
     val isLoading by viewModel.isLoading.collectAsState()
 
     val scope = rememberCoroutineScope()
-    val handoff = rememberKeyboardHandoff()
 
     val handleToggleFavorite: () -> Unit = {
         showOptionsMenu = false
@@ -384,7 +373,7 @@ fun NoteScreen(
         scope.launch { editorListState.animateScrollToItem(0) }
     }
 
-    val editorActions = remember(viewModel, onOpenFile, handoff) {
+    val editorActions = remember(viewModel, onOpenFile) {
         object : EditorActions {
             override fun onClearSlashQuery() = viewModel.clearActiveSlashQuery()
             override fun onClearFocusRequest() = viewModel.clearFocusRequest()
@@ -411,7 +400,6 @@ fun NoteScreen(
             override fun onAddBlankBlock() = viewModel.addBlankBlockBelowFocused()
             override fun onInsertMediaBlock(type: String) {
                 when (type) {
-                    "database" -> handoff.run { showDatabasePicker = true }
                     "linked_note" -> showNoteLinkMenu = true
                     "linked_canvas" -> showCanvasLinkMenu = true
                     else -> viewModel.insertNewMediaBlock(type)
@@ -422,34 +410,10 @@ fun NoteScreen(
             override fun onInsertCanvasBlock(canvasNoteId: String) =
                 viewModel.insertNewMediaBlock("canvas", canvasNoteId = canvasNoteId)
             override suspend fun getLinkableCanvases() = viewModel.getLinkableCanvases()
-            override fun onSaveDatabaseAsTemplate(blockId: String, templateName: String) =
-                viewModel.saveDatabaseAsTemplate(blockId, templateName)
             override fun onOutsideTap() {}
-            override fun onUpdateDbTitle(id: String, title: String) = viewModel.updateDbTitle(id, title)
-            override fun onAddDbRow(id: String) = viewModel.addDbRow(id)
-            override fun onAddDbColumn(id: String) = viewModel.addDbColumn(id)
-            override fun onUpdateDbCell(blockId: String, rowId: String, colId: String, value: CellData) = viewModel.updateDbCell(blockId, rowId, colId, value)
-            override fun onUpdateDbColumn(blockId: String, colId: String, name: String, type: ColumnType, isManualNameChange: Boolean) = viewModel.updateDbColumn(blockId, colId, name, type, isManualNameChange)
-            override fun onUpdateDbSort(blockId: String, colId: String, isAscending: Boolean?) = viewModel.updateDbSort(blockId, colId, isAscending)
-            override fun onUpdateDbGroupBy(blockId: String, colId: String?) = viewModel.updateDbGroupBy(blockId, colId)
-            override fun onUpdateDbGalleryCardSize(blockId: String, size: GalleryCardSize) = viewModel.updateDbGalleryCardSize(blockId, size)
-            override fun onToggleKanbanGroupVisibility(blockId: String, viewId: String, groupName: String, isHidden: Boolean) = viewModel.toggleKanbanGroupVisibility(blockId, viewId, groupName, isHidden)
-            override fun onReorderKanbanGroups(blockId: String, viewId: String, orderedGroupKeys: List<String>) = viewModel.reorderKanbanGroups(blockId, viewId, orderedGroupKeys)
-            override fun onAddDbFilter(blockId: String, colId: String, operator: String, value: String) = viewModel.addDbFilter(blockId, colId, operator, value)
-            override fun onRemoveDbFilter(blockId: String, config: FilterConfig) = viewModel.removeDbFilter(blockId, config)
-            override fun onReorderDbColumns(blockId: String, from: Int, to: Int) = viewModel.reorderDbColumns(blockId, from, to)
-            override fun onReorderDbRows(blockId: String, from: Int, to: Int) = viewModel.reorderDbRows(blockId, from, to)
-            override fun onReorderDatabaseViews(blockId: String, from: Int, to: Int) = viewModel.reorderDatabaseViews(blockId, from, to)
-            override fun onUpdateDbFormula(blockId: String, colId: String, expression: String) = viewModel.updateDbFormula(blockId, colId, expression)
-            override fun onDeleteDbColumn(blockId: String, colId: String) = viewModel.deleteDbColumn(blockId, colId)
-            override fun onDeleteDbRow(blockId: String, rowId: String) = viewModel.deleteDbRow(blockId, rowId)
-            override fun onAddDbRowAt(blockId: String, index: Int) = viewModel.addDbRowAt(blockId, index)
-            override fun onAddDbColumnAt(blockId: String, index: Int) = viewModel.addDbColumnAt(blockId, index)
-            override fun onUpdateDbColumnWidth(blockId: String, colId: String, width: Int) = viewModel.updateDbColumnWidth(blockId, colId, width)
             override fun onVoiceRecorded(id: String, filePath: String, duration: Int) = viewModel.handleVoiceRecorded(id, filePath, duration)
             override fun onRemoveVoice(id: String) = viewModel.handleRemoveVoice(id)
             override fun onDeleteImageBlock(id: String) = viewModel.deleteImageBlock(id)
-            override fun onCreateGlobalTag(name: String, colorHex: String): String = viewModel.createGlobalTag(name, colorHex)
             override fun onRequestImagePicker(blockId: String) {
                 onPickImage { path -> viewModel.handleImagePicked(blockId, path) }
             }
@@ -458,14 +422,6 @@ fun NoteScreen(
             }
             override fun onRequestDocumentPicker(blockId: String) {
                 onPickDocument { path -> viewModel.handleDocumentPicked(blockId, path) }
-            }
-            override fun onRequestDbFilePicker(blockId: String, rowId: String, colId: String, isAudio: Boolean) {
-                onPickDocument { path ->
-                    viewModel.handleDbFilePicked(blockId, rowId, colId, path)
-                }
-            }
-            override fun onStopDbAudioRecording(blockId: String, rowId: String, colId: String, cancel: Boolean) {
-                viewModel.stopDbHardwareRecording(blockId, rowId, colId, cancel)
             }
             override fun onOpenFile(filePath: String, mimeType: String) {
                 onOpenFile(filePath, mimeType)
@@ -487,16 +443,6 @@ fun NoteScreen(
             ) = viewModel.updateTableStyle(id, cellStyles, rowStyles, columnStyles)
             override fun onAddBlockAbove(id: String) = viewModel.addBlockAbove(id)
             override fun onAddBlockBelow(id: String) = viewModel.addBlockBelow(id)
-            override fun onUpdateDbAggregation(blockId: String, colId: String, aggregationType: String?) =
-                viewModel.updateDbAggregation(blockId, colId, aggregationType)
-            override fun onUpdateDbCurrency(blockId: String, colId: String, symbol: String) =
-                viewModel.updateDbCurrency(blockId, colId, symbol)
-            override fun onUpdateDbFormulaCurrency(blockId: String, colId: String, enabled: Boolean) =
-                viewModel.updateDbFormulaCurrency(blockId, colId, enabled)
-            override fun onAddDatabaseView(blockId: String, type: ViewType) = viewModel.addDatabaseView(blockId, type)
-            override fun onDeleteDatabaseView(blockId: String, viewId: String) = viewModel.deleteDatabaseView(blockId, viewId)
-            override fun onSetActiveDatabaseView(blockId: String, viewId: String) = viewModel.setActiveDatabaseView(blockId, viewId)
-            override fun onRenameDatabaseView(blockId: String, viewId: String, newName: String) = viewModel.renameDatabaseView(blockId, viewId, newName)
             override fun onNoteLinkClick(noteId: String) {
                 if (isDesktopPlatform) {
                     subNotePanelId = noteId
@@ -506,18 +452,6 @@ fun NoteScreen(
             }
             override fun onCreateLinkedNote(title: String): String {
                 return viewModel.createLinkedNote(title)
-            }
-            override fun onOpenDatabaseNote(blockId: String, rowId: String, colId: String, existingNoteId: String?) {
-                viewModel.openDatabaseNote(blockId, rowId, colId, existingNoteId) { resolvedNoteId ->
-                    if (isDesktopPlatform) {
-                        subNotePanelId = resolvedNoteId
-                    } else {
-                        onNavigateToEditor(resolvedNoteId)
-                    }
-                }
-            }
-            override suspend fun getNoteTitle(noteId: String): String {
-                return viewModel.getNoteTitle(noteId)
             }
             override suspend fun getNoteMetadata(noteId: String) = viewModel.getNoteMetadata(noteId)
             override fun onUpdateLinkedNoteOptions(id: String, showIcon: Boolean, showCoverImage: Boolean) =
@@ -606,7 +540,6 @@ fun NoteScreen(
                             onTitlePositioned = { titleTopPx = it.positionInRoot().y }
                         )
                     },
-                    globalTags = globalTags,
                     modifier = Modifier
                         .fillMaxSize()
                         .hazeSource(state = hazeState),
@@ -861,14 +794,6 @@ fun NoteScreen(
                         onDownloadPdf = handleDownloadPdf
                     )
                 }
-
-                DatabaseTemplatePickerSheet(
-                    expanded = showDatabasePicker,
-                    templates = databaseTemplates,
-                    onDismiss = { showDatabasePicker = false },
-                    onCreateBlank = { viewModel.insertNewMediaBlock("database") },
-                    onSelectTemplate = { viewModel.insertNewMediaBlock("database", it) }
-                )
 
                 EventEditorSheetHost(
                     targetBlockId = eventOptionsTargetBlockId,

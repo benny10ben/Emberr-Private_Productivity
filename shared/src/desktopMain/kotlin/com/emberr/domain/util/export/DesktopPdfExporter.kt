@@ -3,8 +3,6 @@ package com.emberr.domain.util.export
 import com.emberr.domain.model.BulletedListBlock
 import com.emberr.domain.model.CheckboxBlock
 import com.emberr.domain.model.CodeBlock
-import com.emberr.domain.model.DatabaseBlock
-import com.emberr.domain.model.displayText
 import com.emberr.domain.model.HeadingBlock
 import com.emberr.domain.model.ImageBlock
 import com.emberr.domain.model.NoteBlock
@@ -202,84 +200,6 @@ fun generateDesktopPdf(file: File, title: String, blocks: List<NoteBlock>) {
                     currentY -= 8f // Gap after the code block ends
                 }
 
-                is DatabaseBlock -> {
-                    val validCols = block.columns.filter { !it.isDeleted }
-                    if (validCols.isEmpty()) continue
-
-                    val rowHeight = 22f
-                    val cellPadding = 4f
-                    val tableFontSize = 10f
-                    val colWidth = maxWidth / validCols.size
-
-                    checkPagination(rowHeight + 10f)
-
-                    contentStream.setStrokingColor(Color.LIGHT_GRAY)
-                    contentStream.setLineWidth(0.5f)
-
-                    // Helper function to safely truncate long cell text
-                    fun truncateForCell(text: String, font: PDType1Font, maxW: Float): String {
-                        val safeText = text.replace(Regex("[^\\x20-\\x7E\\u00A0-\\u00FF]"), "").trim()
-                        if (safeText.isEmpty()) return ""
-                        try {
-                            if ((font.getStringWidth(safeText) / 1000f) * tableFontSize <= maxW) return safeText
-                            var truncated = safeText
-                            while (truncated.isNotEmpty() && (font.getStringWidth("$truncated...") / 1000f) * tableFontSize > maxW) {
-                                truncated = truncated.dropLast(1)
-                            }
-                            return if (truncated.isEmpty()) "" else "$truncated..."
-                        } catch (_: Exception) {
-                            return ""
-                        }
-                    }
-
-                    // Draw Headers
-                    var currentX = startX
-                    for (col in validCols) {
-                        // Draw Cell Border
-                        contentStream.addRect(currentX, currentY - rowHeight, colWidth, rowHeight)
-                        contentStream.stroke()
-
-                        // Draw Header Text (Bold)
-                        val text = truncateForCell(col.name, boldFont, colWidth - (cellPadding * 2))
-                        if (text.isNotEmpty()) {
-                            contentStream.beginText()
-                            contentStream.setFont(boldFont, tableFontSize)
-                            contentStream.newLineAtOffset(currentX + cellPadding, currentY - rowHeight + 7f)
-                            contentStream.showText(text)
-                            contentStream.endText()
-                        }
-                        currentX += colWidth
-                    }
-                    currentY -= rowHeight
-
-                    // Draw Rows
-                    for (row in block.rows.filter { !it.isDeleted }) {
-                        checkPagination(rowHeight)
-                        currentX = startX
-
-                        for (col in validCols) {
-                            // Draw Cell Border
-                            contentStream.addRect(currentX, currentY - rowHeight, colWidth, rowHeight)
-                            contentStream.stroke()
-
-                            // Draw Cell Text (Regular)
-                            val rawVal = row.cells[col.id].displayText().replace(Regex("[\\n\\r\\t]"), " ")
-                            val text = truncateForCell(rawVal, bodyFont, colWidth - (cellPadding * 2))
-                            if (text.isNotEmpty()) {
-                                contentStream.beginText()
-                                contentStream.setFont(bodyFont, tableFontSize)
-                                contentStream.newLineAtOffset(currentX + cellPadding, currentY - rowHeight + 7f)
-                                contentStream.showText(text)
-                                contentStream.endText()
-                            }
-                            currentX += colWidth
-                        }
-                        currentY -= rowHeight
-                    }
-
-                    // Add a bottom margin after the table finishes
-                    currentY -= 16f
-                }
                 is ImageBlock -> {
                     val filePath = block.localFilePath ?: continue
                     val cleanPath = filePath.removePrefix("file://")

@@ -10,7 +10,6 @@ object WebDavSyncPaths {
     const val CHAT_SESSIONS_DIR = "$ROOT/chat_sessions"
     const val SPACES_FILE = "$ROOT/spaces.json"
     const val FOLDERS_FILE = "$ROOT/folders.json"
-    const val TAGS_FILE = "$ROOT/tags.json"
     const val CATEGORIES_FILE = "$ROOT/categories.json"
     const val EVENT_EXCEPTIONS_FILE = "$ROOT/event_exceptions.json"
     const val API_CONFIGS_FILE = "$ROOT/api_configs.json"

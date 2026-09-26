@@ -6,7 +6,6 @@ import com.emberr.domain.model.BulletedListBlock
 import com.emberr.domain.model.CanvasBlock
 import com.emberr.domain.model.CheckboxBlock
 import com.emberr.domain.model.CodeBlock
-import com.emberr.domain.model.DatabaseBlock
 import com.emberr.domain.model.DocumentBlock
 import com.emberr.domain.model.HeadingBlock
 import com.emberr.domain.model.ImageBlock
@@ -20,7 +19,6 @@ import com.emberr.domain.model.TextBlock
 import com.emberr.domain.model.ThreeDotDividerBlock
 import com.emberr.domain.model.ToggleBlock
 import com.emberr.domain.model.VoiceBlock
-import com.emberr.domain.model.displayText
 import com.emberr.domain.model.highlightColorNameOrNull
 import com.emberr.domain.model.inlineSpansOrEmpty
 import kotlinx.serialization.SerialName
@@ -170,8 +168,6 @@ private fun convertBlockToElements(
 
     is TableBlock -> convertTableToElements(block)
 
-    is DatabaseBlock -> convertDatabaseToElements(block)
-
     is SolidDividerBlock, is ThreeDotDividerBlock ->
         listOf(WidgetElement.DividerLine(key = "${block.id}#0"))
 }
@@ -260,36 +256,6 @@ private fun convertTableToElements(block: TableBlock): List<WidgetElement> {
     )
 
     return listOf(title) + records
-}
-
-private fun convertDatabaseToElements(block: DatabaseBlock): List<WidgetElement> {
-    val visibleColumns = block.columns.filterNot { it.isDeleted }
-    if (visibleColumns.isEmpty()) return emptyList()
-
-    val elements = mutableListOf<WidgetElement>()
-
-    block.title.trim().takeIf { it.isNotBlank() }?.let { title ->
-        elements += WidgetElement.TextLine(
-            key = "${block.id}#title",
-            text = title.take(maximumCharactersPerLine),
-            style = WidgetTextStyleName.SUBHEADING,
-            indentationLevel = block.indentationLevel,
-            isStruckThrough = false
-        )
-    }
-
-    val headerRow = visibleColumns.map { it.name }
-    val bodyRows = block.rows
-        .filterNot { it.isDeleted }
-        .map { row -> visibleColumns.map { column -> row.cells[column.id].displayText() } }
-
-    elements += buildRecords(
-        key = block.id,
-        allRows = listOf(headerRow) + bodyRows,
-        indentationLevel = block.indentationLevel
-    )
-
-    return elements
 }
 
 private fun buildRecords(

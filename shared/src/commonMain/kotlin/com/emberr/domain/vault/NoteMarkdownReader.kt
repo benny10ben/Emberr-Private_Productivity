@@ -5,14 +5,8 @@ package com.emberr.domain.vault
 import com.emberr.domain.model.BookmarkBlock
 import com.emberr.domain.model.BulletedListBlock
 import com.emberr.domain.model.CanvasBlock
-import com.emberr.domain.model.CellData
 import com.emberr.domain.model.CheckboxBlock
 import com.emberr.domain.model.CodeBlock
-import com.emberr.domain.model.ColumnType
-import com.emberr.domain.model.DatabaseBlock
-import com.emberr.domain.model.DatabaseColumn
-import com.emberr.domain.model.DatabaseRow
-import com.emberr.domain.model.DatabaseView
 import com.emberr.domain.model.DocumentBlock
 import com.emberr.domain.model.HeadingBlock
 import com.emberr.domain.model.ImageBlock
@@ -25,14 +19,10 @@ import com.emberr.domain.model.TableBlock
 import com.emberr.domain.model.TextBlock
 import com.emberr.domain.model.ThreeDotDividerBlock
 import com.emberr.domain.model.ToggleBlock
-import com.emberr.domain.model.ViewType
 import com.emberr.domain.model.VoiceBlock
-import com.emberr.domain.model.displayText
 import com.emberr.domain.model.withUpdatedAt
 import com.emberr.domain.model.RecurrenceRule
-import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
-import kotlinx.datetime.atStartOfDayIn
 
 private const val CHECKBOX_MARKER_WIDTH = 6
 private const val TOGGLE_MARKER_WIDTH = 4
@@ -414,7 +404,6 @@ object NoteMarkdownReader {
         existing: NoteBlock?,
         request: VaultNoteReadRequest
     ): NoteBlock = when (chunk.fenceInfo) {
-        VaultFormat.DATABASE_FENCE_NAME -> buildDatabaseBlock(chunk, existing, request)
         VaultFormat.VOICE_FENCE_NAME -> buildVoiceBlock(chunk, existing, request)
         VaultFormat.CANVAS_FENCE_NAME -> buildCanvasBlock(chunk, existing, request)
         else -> buildCodeBlock(chunk, existing, request)
@@ -475,180 +464,6 @@ object NoteMarkdownReader {
 
         val base = existing as? TableBlock ?: TableBlock(id = idFor(existing, request))
         return settle(base.copy(rows = rows), existing, request.timestamp)
-    }
-
-    private fun buildDatabaseBlock(
-        chunk: VaultMarkdownChunk,
-        existing: NoteBlock?,
-        request: VaultNoteReadRequest
-    ): NoteBlock {
-        val fields = VaultMarkdownScanner.parseKeyValueLines(chunk.lines)
-        val declaredTypes = VaultMarkdownScanner.parseIndentedFieldLines(chunk.lines, "columns")
-            .mapKeys { (name, _) -> name.lowercase() }
-            .mapValues { (_, typeName) -> columnTypeNamed(typeName) }
-
-        val tableRows = chunk.tableLines
-            .filterNot { VaultMarkdownScanner.isSeparatorTableRow(it) }
-            .map { line -> VaultMarkdownScanner.splitTableCells(line).map { unescapeTableCell(it.trim()) } }
-
-        val headerCells = tableRows.firstOrNull().orEmpty()
-        val columnNames = if (headerCells.size > 1) {
-            headerCells.drop(1)
-        } else {
-            VaultMarkdownScanner.parseIndentedFieldLines(chunk.lines, "columns").keys.toList()
-        }
-
-        val existingDatabase = existing as? DatabaseBlock
-        val blockId = existingDatabase?.id ?: idFor(existing, request)
-
-        val columns = mergeColumns(columnNames, declaredTypes, existingDatabase, blockId, request)
-        val rows = mergeRows(tableRows.drop(1), columns, existingDatabase, blockId, request)
-
-        val views = existingDatabase?.views
-            ?: listOf(DatabaseView(id = request.generateBlockId(), name = "Table", type = ViewType.TABLE))
-
-        val base = existingDatabase ?: DatabaseBlock(id = blockId, columns = emptyList(), rows = emptyList())
-        return settle(
-            base.copy(
-                id = blockId,
-                title = fields["title"].orEmpty(),
-                columns = columns,
-                rows = rows,
-                views = views,
-                activeViewId = existingDatabase?.activeViewId ?: views.firstOrNull()?.id
-            ),
-            existing,
-            request.timestamp
-        )
-    }
-
-    private fun mergeColumns(
-        columnNames: List<String>,
-        declaredTypes: Map<String, ColumnType>,
-        existingDatabase: DatabaseBlock?,
-        databaseId: String,
-        request: VaultNoteReadRequest
-    ): List<DatabaseColumn> {
-        val liveExistingColumns = existingDatabase?.columns?.filter { !it.isDeleted }.orEmpty()
-        val existingColumnsByName = liveExistingColumns.associateBy { it.name.lowercase() }
-
-        val keptNames = mutableSetOf<String>()
-        val merged = columnNames.map { name ->
-            val lowercaseName = name.lowercase()
-            keptNames.add(lowercaseName)
-
-            val existingColumn = existingColumnsByName[lowercaseName]
-            val type = declaredTypes[lowercaseName] ?: existingColumn?.type ?: ColumnType.TEXT
-
-            if (existingColumn == null) {
-                DatabaseColumn(
-                    id = request.generateBlockId(),
-                    databaseId = databaseId,
-                    name = name,
-                    type = type,
-                    updatedAt = request.timestamp
-                )
-            } else {
-                val rebuilt = existingColumn.copy(name = name, type = type, databaseId = databaseId)
-                if (rebuilt == existingColumn) existingColumn
-                else rebuilt.copy(updatedAt = request.timestamp)
-            }
-        }
-
-        val removed = liveExistingColumns
-            .filter { it.name.lowercase() !in keptNames }
-            .map { it.copy(isDeleted = true, updatedAt = request.timestamp) }
-
-        val alreadyDeleted = existingDatabase?.columns?.filter { it.isDeleted }.orEmpty()
-
-        return merged + removed + alreadyDeleted
-    }
-
-    private fun mergeRows(
-        dataRows: List<List<String>>,
-        columns: List<DatabaseColumn>,
-        existingDatabase: DatabaseBlock?,
-        databaseId: String,
-        request: VaultNoteReadRequest
-    ): List<DatabaseRow> {
-        val liveColumns = columns.filter { !it.isDeleted }
-        val liveExistingRows = existingDatabase?.rows?.filter { !it.isDeleted }.orEmpty()
-        val existingRowsByShortId = liveExistingRows.associateBy { VaultBlockTags.shortTagFor(it.id) }
-
-        val claimedShortIds = mutableSetOf<String>()
-        val merged = dataRows.mapNotNull { cells ->
-            if (cells.all { it.isBlank() }) return@mapNotNull null
-
-            val shortRowId = cells.firstOrNull()?.trim().orEmpty()
-            val existingRow = if (shortRowId.isNotEmpty() && claimedShortIds.add(shortRowId)) {
-                existingRowsByShortId[shortRowId]
-            } else {
-                null
-            }
-            buildRow(cells.drop(1), liveColumns, existingRow, databaseId, request)
-        }
-
-        val keptRowIds = merged.mapTo(mutableSetOf()) { it.id }
-        val removed = liveExistingRows
-            .filter { it.id !in keptRowIds }
-            .map { it.copy(isDeleted = true, updatedAt = request.timestamp) }
-
-        val alreadyDeleted = existingDatabase?.rows?.filter { it.isDeleted }.orEmpty()
-
-        return merged + removed + alreadyDeleted
-    }
-
-    private fun buildRow(
-        valueCells: List<String>,
-        liveColumns: List<DatabaseColumn>,
-        existingRow: DatabaseRow?,
-        databaseId: String,
-        request: VaultNoteReadRequest
-    ): DatabaseRow {
-        val cells = LinkedHashMap<String, CellData>()
-
-        liveColumns.forEachIndexed { columnIndex, column ->
-            val newDisplayText = valueCells.getOrNull(columnIndex).orEmpty()
-            val existingCell = existingRow?.cells?.get(column.id)
-
-            val cell = if (existingCell != null && existingCell.displayText() == newDisplayText) {
-                existingCell
-            } else {
-                parseCellValue(newDisplayText, column.type, existingCell)
-            }
-            if (cell != null) cells[column.id] = cell
-        }
-
-        val rebuilt = DatabaseRow(
-            id = existingRow?.id ?: request.generateBlockId(),
-            databaseId = databaseId,
-            cells = cells
-        )
-
-        if (existingRow == null) return rebuilt.copy(updatedAt = request.timestamp)
-        val comparable = rebuilt.copy(updatedAt = existingRow.updatedAt)
-        return if (comparable == existingRow) existingRow else rebuilt.copy(updatedAt = request.timestamp)
-    }
-
-    private fun parseCellValue(
-        displayText: String,
-        type: ColumnType,
-        existingCell: CellData?
-    ): CellData? {
-        if (displayText.isBlank()) return null
-
-        return when (type) {
-            ColumnType.NUMBER, ColumnType.MONEY -> CellData.Number(displayText.toDoubleOrNull())
-            ColumnType.CHECKBOX -> CellData.Boolean(isTruthyText(displayText))
-            ColumnType.DATE -> CellData.Date(parseIsoDateToMillis(displayText))
-            ColumnType.FORMULA -> existingCell ?: CellData.Formula(displayText)
-            ColumnType.TAGS -> CellData.TagList(
-                displayText.split(',').map { it.trim() }.filter { it.isNotEmpty() }
-            )
-            ColumnType.FILES, ColumnType.AUDIO -> existingCell
-            ColumnType.NOTES -> existingCell ?: CellData.NoteRelation(listOf(displayText))
-            else -> CellData.Text(displayText)
-        }
     }
 
     private fun settle(rebuilt: NoteBlock, existing: NoteBlock?, timestamp: Long): NoteBlock {
@@ -726,20 +541,6 @@ object NoteMarkdownReader {
 
     private fun idFor(existing: NoteBlock?, request: VaultNoteReadRequest): String =
         existing?.id ?: request.generateBlockId()
-
-    private fun columnTypeNamed(typeName: String): ColumnType =
-        ColumnType.entries.firstOrNull { it.name.equals(typeName.trim(), ignoreCase = true) } ?: ColumnType.TEXT
-
-    private fun isTruthyText(value: String): Boolean =
-        value.equals("true", ignoreCase = true) ||
-            value.equals("yes", ignoreCase = true) ||
-            value.equals("x", ignoreCase = true)
-
-    private fun parseIsoDateToMillis(value: String): Long? = try {
-        LocalDate.parse(value.trim()).atStartOfDayIn(TimeZone.UTC).toEpochMilliseconds()
-    } catch (_: IllegalArgumentException) {
-        null
-    }
 
     private fun mediaFileNameOf(linkTarget: String): String? = unwrapLinkTarget(linkTarget)
         .substringAfterLast('/')

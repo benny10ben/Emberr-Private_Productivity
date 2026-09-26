@@ -13,16 +13,12 @@ import com.emberr.data.local.room.entity.FolderEntity
 import com.emberr.data.local.room.entity.NoteKind
 import com.emberr.data.local.room.entity.NoteMetadataEntity
 import com.emberr.data.local.room.entity.SpaceEntity
-import com.emberr.data.local.room.entity.TagEntity
 import com.emberr.domain.ai.external.AiSettingsRepository
 import com.emberr.domain.canvas.CanvasContent
 import com.emberr.domain.canvas.CanvasRepository
 import com.emberr.domain.canvas.liveImageFileNames
 import com.emberr.domain.ai.external.ExternalAiProvider
 import com.emberr.domain.ai.external.ExternalAiProviderConfig
-import com.emberr.domain.model.CellData
-import com.emberr.domain.model.ColumnType
-import com.emberr.domain.model.DatabaseBlock
 import com.emberr.domain.model.DocumentBlock
 import com.emberr.domain.model.ImageBlock
 import com.emberr.domain.model.NoteBlock
@@ -116,20 +112,6 @@ class SyncRepositoryImpl(
                     is ImageBlock -> block.localFilePath?.substringAfterLast("/")?.let { mediaFiles.add(it) }
                     is DocumentBlock -> block.localFilePath?.substringAfterLast("/")?.let { mediaFiles.add(it) }
                     is VoiceBlock -> block.localFilePath?.substringAfterLast("/")?.let { mediaFiles.add(it) }
-                    is DatabaseBlock -> {
-                        val mediaColIds = block.columns
-                            .filter { it.type == ColumnType.FILES || it.type == ColumnType.AUDIO }
-                            .map { it.id }.toSet()
-                        block.rows.forEach { row ->
-                            mediaColIds.forEach { colId ->
-                                val files = (row.cells[colId] as? CellData.MediaList)?.files ?: emptyList()
-                                files.forEach { media ->
-                                    val cleanLocalPath = media.fileName.substringAfterLast("/")
-                                    if (cleanLocalPath.isNotBlank()) mediaFiles.add(cleanLocalPath)
-                                }
-                            }
-                        }
-                    }
                     else -> {}
                 }
             }
@@ -530,12 +512,6 @@ class SyncRepositoryImpl(
                                 spaceRepository.applyRemoteSpace(remoteSpace)
                             }
 
-                            SyncType.TAG -> {
-                                val remoteTag = json.decodeFromString<TagEntity>(decryptedMetaJson)
-                                spaceRepository.ensureSpaceExists(remoteTag.spaceId)
-                                repository.applyRemoteTag(remoteTag)
-                            }
-
                             SyncType.FOLDER -> {
                                 val remoteFolder =
                                     json.decodeFromString<FolderEntity>(decryptedMetaJson)
@@ -766,20 +742,6 @@ class SyncRepositoryImpl(
                         isDeleted = meta.trashedAt != null,
                         embeddedBlocksJson = encryptedEmbeddedBlocks,
                         canvasJson = encryptedCanvas
-                    )
-                )
-            }
-
-            // Collects tags modified since lastSyncTime.
-            val modifiedTags = repository.getTagsModifiedSince(lastSyncTime)
-            modifiedTags.forEach { tag ->
-                val encryptedTag =
-                    encryptionManager.encryptPayload(json.encodeToString(tag), syncKey)
-                changes.add(
-                    SyncEnvelope(
-                        entityId = tag.tagId, entityType = SyncType.TAG,
-                        metadataJson = encryptedTag, contentJson = "",
-                        updatedAt = tag.updatedAt, isDeleted = tag.isDeleted
                     )
                 )
             }

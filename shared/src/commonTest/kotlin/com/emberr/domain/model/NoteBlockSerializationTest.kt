@@ -38,7 +38,6 @@ class NoteBlockSerializationTest {
         "LinkedNoteBlock" to "linked_note",
         "ImageBlock" to "image",
         "DocumentBlock" to "document",
-        "DatabaseBlock" to "database",
         "TableBlock" to "table",
         "VoiceBlock" to "voice",
         "CanvasBlock" to "canvas",
@@ -82,54 +81,6 @@ class NoteBlockSerializationTest {
                 storedTypeNameOf(repositoryJson, block),
                 "stored type name changed for $className"
             )
-        }
-    }
-
-    @Test
-    fun everyCellValueTypeKeepsItsStoredTypeName() {
-        val storedTypeNamesByCell = mapOf<CellData, String>(
-            CellData.Text("a") to "text",
-            CellData.Number(1.0) to "number",
-            CellData.Boolean(true) to "boolean",
-            CellData.Date(1L) to "date",
-            CellData.TagList(listOf("t")) to "tag_list",
-            CellData.MediaList(listOf(MediaItem("f", "o"))) to "media_list",
-            CellData.NoteRelation(listOf("n")) to "note_relation",
-            CellData.Formula("r") to "formula"
-        )
-
-        storedTypeNamesByCell.forEach { (cell, expectedTypeName) ->
-            val storedTypeName = repositoryJson
-                .parseToJsonElement(repositoryJson.encodeToString<CellData>(cell))
-                .jsonObject
-                .getValue("type")
-                .jsonPrimitive
-                .content
-
-            assertEquals(expectedTypeName, storedTypeName, "stored type name changed for $cell")
-        }
-    }
-
-    @Test
-    fun everyCellValueTypeSurvivesAJsonRoundTripUnchanged() {
-        val cells = listOf(
-            CellData.Text("Buy milk"),
-            CellData.Number(12.5),
-            CellData.Number(null),
-            CellData.Boolean(false),
-            CellData.Date(1_700_000_000_000L),
-            CellData.Date(null),
-            CellData.TagList(listOf("tag-a", "tag-b")),
-            CellData.TagList(emptyList()),
-            CellData.MediaList(listOf(MediaItem("stored.png", "holiday.png"))),
-            CellData.NoteRelation(listOf("note-a")),
-            CellData.Formula("25.00")
-        )
-
-        cells.forEach { original ->
-            val encoded = repositoryJson.encodeToString<CellData>(original)
-
-            assertEquals(original, repositoryJson.decodeFromString<CellData>(encoded))
         }
     }
 

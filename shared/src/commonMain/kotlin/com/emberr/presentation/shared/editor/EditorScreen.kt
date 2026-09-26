@@ -58,17 +58,11 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.PopupProperties
-import com.emberr.data.local.room.entity.TagEntity
 import com.emberr.domain.model.BookmarkBlock
 import com.emberr.domain.model.BulletedListBlock
 import com.emberr.domain.model.CanvasBlock
-import com.emberr.domain.model.CellData
 import com.emberr.domain.model.CheckboxBlock
-import com.emberr.domain.model.ColumnType
-import com.emberr.domain.model.DatabaseBlock
 import com.emberr.domain.model.DocumentBlock
-import com.emberr.domain.model.FilterConfig
-import com.emberr.domain.model.GalleryCardSize
 import com.emberr.domain.model.HeadingBlock
 import com.emberr.domain.model.ImageBlock
 import com.emberr.domain.model.LinkedNoteBlock
@@ -78,7 +72,6 @@ import com.emberr.domain.model.QuoteBlock
 import com.emberr.domain.model.TextAlignment
 import com.emberr.domain.model.TextBlock
 import com.emberr.domain.model.ToggleBlock
-import com.emberr.domain.model.ViewType
 import com.emberr.domain.model.VoiceBlock
 import com.emberr.domain.util.system.isDesktopPlatform
 import com.emberr.presentation.shared.components.EmberrDesktopMenu
@@ -130,7 +123,6 @@ import emberr.shared.generated.resources.plus
 import emberr.shared.generated.resources.quote_down2
 import emberr.shared.generated.resources.redo_circle
 import emberr.shared.generated.resources.scissor2
-import emberr.shared.generated.resources.square_kanban
 import emberr.shared.generated.resources.table
 import emberr.shared.generated.resources.group
 import emberr.shared.generated.resources.text_tool_2
@@ -145,7 +137,6 @@ import emberr.shared.generated.resources.underline
 import emberr.shared.generated.resources.undo_circle
 import emberr.shared.generated.resources.unordered_list
 import emberr.shared.generated.resources.x
-import kotlinx.collections.immutable.toImmutableList
 import kotlinx.collections.immutable.toImmutableSet
 import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
@@ -272,27 +263,6 @@ interface EditorActions {
     fun onAddBlankBlock()
     fun onInsertMediaBlock(type: String)
     fun onOutsideTap()
-    fun onUpdateDbTitle(id: String, title: String)
-    fun onAddDbRow(id: String)
-    fun onAddDbColumn(id: String)
-    fun onUpdateDbCell(blockId: String, rowId: String, colId: String, value: CellData)
-    fun onUpdateDbColumn(blockId: String, colId: String, name: String, type: ColumnType, isManualNameChange: Boolean = true)
-    fun onUpdateDbSort(blockId: String, colId: String, isAscending: Boolean?)
-    fun onUpdateDbGroupBy(blockId: String, colId: String?)
-    fun onUpdateDbGalleryCardSize(blockId: String, size: GalleryCardSize)
-    fun onToggleKanbanGroupVisibility(blockId: String, viewId: String, groupName: String, isHidden: Boolean)
-    fun onReorderKanbanGroups(blockId: String, viewId: String, orderedGroupKeys: List<String>)
-    fun onAddDbFilter(blockId: String, colId: String, operator: String, value: String)
-    fun onRemoveDbFilter(blockId: String, config: FilterConfig)
-    fun onReorderDbColumns(blockId: String, from: Int, to: Int)
-    fun onReorderDbRows(blockId: String, from: Int, to: Int)
-    fun onReorderDatabaseViews(blockId: String, from: Int, to: Int)
-    fun onUpdateDbFormula(blockId: String, colId: String, expression: String)
-    fun onDeleteDbColumn(blockId: String, colId: String)
-    fun onDeleteDbRow(blockId: String, rowId: String)
-    fun onAddDbRowAt(blockId: String, index: Int)
-    fun onAddDbColumnAt(blockId: String, index: Int)
-    fun onUpdateDbColumnWidth(blockId: String, colId: String, width: Int)
     fun onVoiceRecorded(id: String, filePath: String, duration: Int)
     fun onRemoveVoice(id: String)
     fun onStartRecording()
@@ -300,12 +270,9 @@ interface EditorActions {
     fun onPlayAudio(filePath: String, onComplete: () -> Unit)
     fun onStopAudio()
     fun onDeleteImageBlock(id: String)
-    fun onCreateGlobalTag(name: String, colorHex: String): String
     fun onRequestImagePicker(blockId: String)
     fun onRequestDocumentPicker(blockId: String)
     fun onOpenFile(filePath: String, mimeType: String)
-    fun onRequestDbFilePicker(blockId: String, rowId: String, colId: String, isAudio: Boolean)
-    fun onStopDbAudioRecording(blockId: String, rowId: String, colId: String, cancel: Boolean)
     fun onTogglePin()
     fun onUpdateTable(id: String, rows: List<List<String>>)
     fun onUpdateTableColumnWidth(id: String, columnIndex: Int, width: Int)
@@ -317,17 +284,7 @@ interface EditorActions {
     )
     fun onAddBlockAbove(id: String)
     fun onAddBlockBelow(id: String)
-    fun onUpdateDbAggregation(blockId: String, colId: String, aggregationType: String?)
-    fun onUpdateDbCurrency(blockId: String, colId: String, symbol: String)
-    fun onUpdateDbFormulaCurrency(blockId: String, colId: String, enabled: Boolean)
-    fun onAddDatabaseView(blockId: String, type: ViewType)
-    fun onDeleteDatabaseView(blockId: String, viewId: String)
-    fun onSetActiveDatabaseView(blockId: String, viewId: String)
-    fun onRenameDatabaseView(blockId: String, viewId: String, newName: String)
     fun onNoteLinkClick(noteId: String)
-    fun onOpenDatabaseNote(blockId: String, rowId: String, colId: String, existingNoteId: String?)
-    fun onSaveDatabaseAsTemplate(blockId: String, templateName: String)
-    suspend fun getNoteTitle(noteId: String): String
     fun onCreateLinkedNote(title: String): String
     fun onInsertLinkedNoteBlock(noteId: String) {}
     fun onInsertCanvasBlock(canvasNoteId: String) {}
@@ -342,7 +299,6 @@ interface EditorActions {
 fun EditorScreen(
     modifier: Modifier = Modifier,
     blocks: List<NoteBlock>,
-    globalTags: List<TagEntity>,
     actions: EditorActions,
     focusRequest: FocusRequest?,
     selectionRequest: SelectionRequest? = null,
@@ -559,9 +515,6 @@ fun EditorScreen(
             override fun onSetBlockAlignment(alignment: TextAlignment) = clearSlashAndExecute { actions.onSetBlockAlignment(alignment) }
             override fun onInsertMediaBlock(type: String) = clearSlashAndExecute { actions.onInsertMediaBlock(type) }
             override fun onTogglePin() = actions.onTogglePin()
-            override fun onOpenDatabaseNote(blockId: String, rowId: String, colId: String, existingNoteId: String?) =
-                actions.onOpenDatabaseNote(blockId, rowId, colId, existingNoteId)
-            override suspend fun getNoteTitle(noteId: String): String = actions.getNoteTitle(noteId)
             override fun onNoteLinkClick(noteId: String) = actions.onNoteLinkClick(noteId)
             override fun onCreateLinkedNote(title: String): String = actions.onCreateLinkedNote(title)
         }
@@ -699,7 +652,6 @@ fun EditorScreen(
         }
     }
 
-    val immutableTags = remember(globalTags) { globalTags.toImmutableList() }
     val immutableSelectedIds = remember(selectedBlockIds) { selectedBlockIds.toImmutableSet() }
     val validNoteIds = remember(allLinkableNotes) { allLinkableNotes.mapTo(HashSet()) { it.noteId } }
 
@@ -826,7 +778,6 @@ fun EditorScreen(
                                 val isMediaBlock = lastBlock is BookmarkBlock
                                         || lastBlock is ImageBlock
                                         || lastBlock is DocumentBlock
-                                        || lastBlock is DatabaseBlock
                                         || lastBlock is VoiceBlock
                                         || lastBlock is CanvasBlock
 
@@ -906,7 +857,6 @@ fun EditorScreen(
                         NoteBlockItem(
                             block = block,
                             allLinkableNotes = allLinkableNotes,
-                            globalTags = immutableTags,
                             actions = wrappedActions,
                             focusRequest = targetedFocusRequest,
                             selectedBlockIds = immutableSelectedIds,
@@ -941,7 +891,6 @@ fun EditorScreen(
                                             val isMediaBlock = lastBlock is BookmarkBlock
                                                     || lastBlock is ImageBlock
                                                     || lastBlock is DocumentBlock
-                                                    || lastBlock is DatabaseBlock
                                                     || lastBlock is VoiceBlock
                                                     || lastBlock is CanvasBlock
 
@@ -1535,7 +1484,6 @@ fun buildSlashMenuSections(
         SlashMenuItemData("Image", Res.drawable.image) { onInsertMediaBlock("image") },
         SlashMenuItemData("Document / File", Res.drawable.file_text) { onInsertMediaBlock("document") },
         SlashMenuItemData("Web Bookmark", Res.drawable.bookmark) { onInsertMediaBlock("bookmark") },
-        SlashMenuItemData("Database / Table", Res.drawable.square_kanban) { onInsertMediaBlock("database") },
         SlashMenuItemData("Simple Table", Res.drawable.table) { onInsertMediaBlock("table") },
         SlashMenuItemData("Canvas", Res.drawable.group) { onInsertMediaBlock("canvas") },
         SlashMenuItemData("Link to Note", Res.drawable.link) { onInsertMediaBlock("linked_note") },

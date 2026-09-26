@@ -1126,7 +1126,7 @@ private fun AppearanceSettingsSection(
             )
 
             SettingsFootnote(
-                text = "Shows scrollbars in the sidebar, editor, note lists, tables and databases. " +
+                text = "Shows scrollbars in the sidebar, editor, note lists and tables. " +
                     "Scrolling with the wheel or trackpad works either way."
             )
 

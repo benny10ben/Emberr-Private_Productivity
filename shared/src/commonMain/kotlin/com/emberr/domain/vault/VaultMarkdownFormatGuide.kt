@@ -74,35 +74,7 @@ object VaultMarkdownFormatGuide {
         not recognise makes the braces ordinary text, so `{some note}` at the end of a line stays
         exactly as typed.
 
-        ## Databases and tables
-
-        A database is a config fence followed by a normal markdown table. The `id` column holds
-        row ids.
-
-        ````markdown
-        ```emberr-database
-        title: Q3 Budget
-        view: kanban by Status
-        columns:
-          Item: text
-          Cost: money
-          Status: status
-        ```
-
-        | id   | Item   | Cost | Status      |
-        |------|--------|------|-------------|
-        | r-01 | Server | 240  | Done        |
-        | r-02 | Domain | 12   | In Progress |
-        ^em-9c02
-        ````
-
-        - delete a row by deleting its line
-        - add a row by adding a line and leaving the `id` cell blank
-        - change a cell by editing it
-        - never invent or reuse a row id
-        - column types are `text`, `number`, `money`, `checkbox`, `date`, `tags`, `url`, `email`,
-          `phone`, `priority`, `status`, `files`, `audio`, `notes`, `formula`
-        - the `view:` line is read-only for now, so changing it does nothing
+        ## Tables
 
         A plain table is just a markdown table with its tag on the line below.
 
@@ -110,7 +82,7 @@ object VaultMarkdownFormatGuide {
 
         - drawings, which appear only as a stroke count
         - voice recordings
-        - cell colours, column widths, kanban settings
+        - cell colours, column widths
 
         None of this is at risk. Emberr keeps it all. It simply is not written into this
         markdown, so leave those fences and settings alone.

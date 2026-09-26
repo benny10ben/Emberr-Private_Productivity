@@ -25,10 +25,6 @@ import kotlinx.datetime.minus
 import kotlinx.datetime.plus
 import kotlinx.datetime.todayIn
 import org.koin.compose.viewmodel.koinViewModel
-import com.emberr.domain.model.CellData
-import com.emberr.domain.model.ColumnType
-import com.emberr.domain.model.FilterConfig
-import com.emberr.domain.model.GalleryCardSize
 import com.emberr.domain.model.NoteBlock
 import com.emberr.domain.model.TextAlignment
 import com.emberr.domain.util.eventbus.WidgetComposeRequest
@@ -219,27 +215,6 @@ fun TasksScreen(
                         override fun onAddBlankBlock() {}
                         override fun onInsertMediaBlock(type: String) {}
                         override fun onOutsideTap() {}
-                        override fun onUpdateDbTitle(id: String, title: String) {}
-                        override fun onAddDbRow(id: String) {}
-                        override fun onAddDbColumn(id: String) {}
-                        override fun onUpdateDbCell(blockId: String, rowId: String, colId: String, value: CellData) {}
-                        override fun onUpdateDbColumn(blockId: String, colId: String, name: String, type: ColumnType, isManualNameChange: Boolean) {}
-                        override fun onUpdateDbSort(blockId: String, colId: String, isAscending: Boolean?) {}
-                        override fun onUpdateDbGroupBy(blockId: String, colId: String?) {}
-                        override fun onUpdateDbGalleryCardSize(blockId: String, size: GalleryCardSize) {}
-                        override fun onToggleKanbanGroupVisibility(blockId: String, viewId: String, groupName: String, isHidden: Boolean) {}
-                        override fun onReorderKanbanGroups(blockId: String, viewId: String, orderedGroupKeys: List<String>) {}
-                        override fun onAddDbFilter(blockId: String, colId: String, operator: String, value: String) {}
-                        override fun onRemoveDbFilter(blockId: String, config: FilterConfig) {}
-                        override fun onReorderDbColumns(blockId: String, from: Int, to: Int) {}
-                        override fun onReorderDbRows(blockId: String, from: Int, to: Int) {}
-                        override fun onReorderDatabaseViews(blockId: String, from: Int, to: Int) {}
-                        override fun onUpdateDbFormula(blockId: String, colId: String, expression: String) {}
-                        override fun onDeleteDbColumn(blockId: String, colId: String) {}
-                        override fun onDeleteDbRow(blockId: String, rowId: String) {}
-                        override fun onAddDbRowAt(blockId: String, index: Int) {}
-                        override fun onAddDbColumnAt(blockId: String, index: Int) {}
-                        override fun onUpdateDbColumnWidth(blockId: String, colId: String, width: Int) {}
                         override fun onVoiceRecorded(id: String, filePath: String, duration: Int) {}
                         override fun onRemoveVoice(id: String) {}
                         override fun onStartRecording() {}
@@ -247,11 +222,8 @@ fun TasksScreen(
                         override fun onPlayAudio(filePath: String, onComplete: () -> Unit) {}
                         override fun onStopAudio() {}
                         override fun onDeleteImageBlock(id: String) {}
-                        override fun onCreateGlobalTag(name: String, colorHex: String): String = ""
                         override fun onRequestImagePicker(blockId: String) {}
                         override fun onRequestDocumentPicker(blockId: String) {}
-                        override fun onRequestDbFilePicker(blockId: String, rowId: String, colId: String, isAudio: Boolean) {}
-                        override fun onStopDbAudioRecording(blockId: String, rowId: String, colId: String, cancel: Boolean) {}
                         override fun onTogglePin() {}
                         override fun onUpdateTable(id: String, rows: List<List<String>>) {}
                         override fun onUpdateTableColumnWidth(id: String, columnIndex: Int, width: Int) {}
@@ -263,24 +235,12 @@ fun TasksScreen(
                         ) {}
                         override fun onAddBlockAbove(id: String) {}
                         override fun onAddBlockBelow(id: String) {}
-                        override fun onUpdateDbAggregation(blockId: String, colId: String, aggregationType: String?) {}
-                        override fun onUpdateDbCurrency(blockId: String, colId: String, symbol: String) {}
-                        override fun onUpdateDbFormulaCurrency(blockId: String, colId: String, enabled: Boolean) {}
-                        override fun onAddDatabaseView(blockId: String, type: com.emberr.domain.model.ViewType) {}
-                        override fun onDeleteDatabaseView(blockId: String, viewId: String) {}
-                        override fun onSetActiveDatabaseView(blockId: String, viewId: String) {}
-                        override fun onRenameDatabaseView(blockId: String, viewId: String, newName: String) {}
-                        override fun onOpenDatabaseNote(blockId: String, rowId: String, colId: String, existingNoteId: String?) {}
-                        override fun onSaveDatabaseAsTemplate(blockId: String, templateName: String) {}
                         override fun onRequestCamera(blockId: String) {}
                         override fun onNoteLinkClick(noteId: String) {
                             onNavigateToEditor(noteId)
                         }
                         override fun onCreateLinkedNote(title: String): String {
                             return viewModel.createLinkedNote(title)
-                        }
-                        override suspend fun getNoteTitle(noteId: String): String {
-                            return viewModel.getNoteTitle(noteId)
                         }
                         override suspend fun getNoteMetadata(noteId: String) = viewModel.getNoteMetadata(noteId)
                         override fun onUpdateLinkedNoteOptions(id: String, showIcon: Boolean, showCoverImage: Boolean) {}
@@ -289,7 +249,6 @@ fun TasksScreen(
 
                 EditorScreen(
                     blocks = groupedBlocks,
-                    globalTags = emptyList(),
                     actions = editorActions,
                     focusRequest = focusRequest,
                     selectedBlockIds = selectedBlockIds,

@@ -59,6 +59,7 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.offset
@@ -67,7 +68,6 @@ import com.emberr.domain.model.BookmarkBlock
 import com.emberr.domain.model.BulletedListBlock
 import com.emberr.domain.model.CheckboxBlock
 import com.emberr.domain.model.CodeBlock
-import com.emberr.domain.model.DatabaseBlock
 import com.emberr.domain.model.DocumentBlock
 import com.emberr.domain.model.HeadingBlock
 import com.emberr.domain.model.ImageBlock
@@ -82,8 +82,6 @@ import com.emberr.domain.model.TextBlock
 import com.emberr.domain.model.ThreeDotDividerBlock
 import com.emberr.domain.model.ToggleBlock
 import com.emberr.domain.model.VoiceBlock
-import com.emberr.data.local.room.entity.NoteMetadataEntity
-import com.emberr.data.local.room.entity.TagEntity
 import com.emberr.domain.model.highlightColorNameOrNull
 import com.emberr.domain.model.inlineSpansOrEmpty
 import com.emberr.domain.util.system.isDesktopPlatform
@@ -102,8 +100,6 @@ import com.emberr.presentation.shared.editor.blockViews.DocumentBlockView
 import com.emberr.presentation.shared.editor.blockViews.ImageBlockView
 import com.emberr.presentation.shared.editor.blockViews.LinkedNoteBlockView
 import com.emberr.presentation.shared.editor.blockViews.TableBlockView
-import com.emberr.presentation.shared.editor.blockViews.databaseBlockView.DatabaseBlockView
-import com.emberr.presentation.shared.editor.blockViews.databaseBlockView.buildNoteLinkAnnotatedString
 import com.emberr.ui.theme.LocalAppIsDark
 import com.emberr.ui.theme.highlightBackgroundFor
 import dev.chrisbanes.haze.HazeState
@@ -126,11 +122,11 @@ import org.jetbrains.compose.resources.painterResource
 import kotlin.math.abs
 
 private const val NoteLinkPrefix = "](emberr://note/"
+private val NoteLinkRegex = """\[([^\]]+)\]\(emberr://note/([^)]+)\)""".toRegex()
 private val DialogShape = RoundedCornerShape(24.dp)
 private val BubbleShape = RoundedCornerShape(topStart = 6.dp, topEnd = 18.dp, bottomEnd = 18.dp, bottomStart = 18.dp)
 private val IndentationStep = 14.dp
 private val TableBlockSideInsetCancellation = 16.dp
-private val DatabaseBlockSideInsetCancellation = 18.dp
 private val HeaderBlurHeight = 90.dp
 private val HeaderGradientHeight = 110.dp
 
@@ -167,8 +163,6 @@ fun DailyTimelineDialog(
     anchorDate: LocalDate,
     today: LocalDate,
     editorActions: EditorActions,
-    globalTags: List<TagEntity>,
-    allLinkableNotes: List<NoteMetadataEntity>,
     onDismiss: () -> Unit,
     onBlockClick: (LocalDate, String) -> Unit
 ) {
@@ -242,8 +236,6 @@ fun DailyTimelineDialog(
                             matchRowIndices = matchRowIndices,
                             targetRowIndex = matchRowIndices.getOrNull(currentMatchPosition),
                             editorActions = editorActions,
-                            globalTags = globalTags,
-                            allLinkableNotes = allLinkableNotes,
                             onBlockClick = onBlockClick
                         )
                     }
@@ -451,8 +443,6 @@ private fun TimelineList(
     matchRowIndices: List<Int>,
     targetRowIndex: Int?,
     editorActions: EditorActions,
-    globalTags: List<TagEntity>,
-    allLinkableNotes: List<NoteMetadataEntity>,
     onBlockClick: (LocalDate, String) -> Unit
 ) {
     val listState = rememberLazyListState()
@@ -530,7 +520,7 @@ private fun TimelineList(
                         indication = null,
                         onClick = { onBlockClick(row.date, row.block.id) }
                     )
-                    val rowModifier = if (row.block is TableBlock || row.block is DatabaseBlock) {
+                    val rowModifier = if (row.block is TableBlock) {
                         indentModifier.then(clickModifier)
                     } else {
                         indentModifier
@@ -543,8 +533,6 @@ private fun TimelineList(
                             block = row.block,
                             isSearchMatch = isSearchMatch,
                             editorActions = editorActions,
-                            globalTags = globalTags,
-                            allLinkableNotes = allLinkableNotes,
                             onNavigate = { onBlockClick(row.date, row.block.id) }
                         )
                     }
@@ -579,8 +567,6 @@ private fun TimelineBlockContent(
     block: NoteBlock,
     isSearchMatch: Boolean,
     editorActions: EditorActions,
-    globalTags: List<TagEntity>,
-    allLinkableNotes: List<NoteMetadataEntity>,
     onNavigate: () -> Unit
 ) {
     when (block) {
@@ -728,18 +714,6 @@ private fun TimelineBlockContent(
             )
         }
 
-        is DatabaseBlock -> Box(modifier = Modifier.reduceSideInset(DatabaseBlockSideInsetCancellation)) {
-            DatabaseBlockView(
-                block = block,
-                inSelectionMode = true,
-                globalTags = globalTags,
-                allLinkableNotes = allLinkableNotes,
-                actions = object : EditorActions by editorActions {
-                    override fun onToggleSelection(id: String) = onNavigate()
-                }
-            )
-        }
-
         is SolidDividerBlock -> Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -837,6 +811,19 @@ private fun TimelineText(
     )
 }
 
+private fun buildNoteLinkAnnotatedString(text: String, linkColor: Color): AnnotatedString = buildAnnotatedString {
+    var lastIndex = 0
+    for (match in NoteLinkRegex.findAll(text)) {
+        append(text.substring(lastIndex, match.range.first))
+        val (title, _) = match.destructured
+        withStyle(SpanStyle(color = linkColor, fontWeight = FontWeight.SemiBold)) {
+            append("@$title")
+        }
+        lastIndex = match.range.last + 1
+    }
+    append(text.substring(lastIndex))
+}
+
 private fun buildTimelineAnnotatedString(
     text: String,
     inlineSpans: List<InlineSpan>,
@@ -925,7 +912,6 @@ private fun timelineBlockSearchText(block: NoteBlock): String = when (block) {
     is CodeBlock -> block.code
     is BookmarkBlock -> "${block.title.orEmpty()} ${block.url}"
     is DocumentBlock -> block.fileName
-    is DatabaseBlock -> block.title
     is TableBlock -> block.rows.joinToString(" ") { row -> row.joinToString(" ") }
     else -> ""
 }

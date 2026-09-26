@@ -45,14 +45,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import com.emberr.data.local.prefs.SettingsManager
 import com.emberr.data.local.room.entity.NoteKind
-import com.emberr.domain.model.CellData
-import com.emberr.domain.model.ColumnType
-import com.emberr.domain.model.FilterConfig
-import com.emberr.domain.model.GalleryCardSize
 import com.emberr.domain.model.NoteBlock
 import com.emberr.domain.model.NoteContent
 import com.emberr.domain.model.TextAlignment
-import com.emberr.domain.model.ViewType
 import com.emberr.presentation.LocalCanvasFullScreenOverlay
 import com.emberr.presentation.shared.editor.EditorActions
 import com.emberr.presentation.settings.SettingsScreen
@@ -1689,11 +1684,8 @@ fun DesktopMainScreen(
 
                 // Sheets
                 if (showTimelineDialog) {
-                    val timelineGlobalTags by dailyViewModel.globalTags.collectAsState()
-                    val timelineAllLinkableNotes by dailyViewModel.allLinkableNotes.collectAsState()
-
                     // Mirrors DailyEditorPane's own EditorActions (same viewModel, same picker
-                    // callbacks) so the timeline dialog's real block views - table/database edits,
+                    // callbacks) so the timeline dialog's real block views - table edits,
                     // audio playback, file opening, linked-note lookups - work against the same
                     // daily editor state. Note-link navigation closes the dialog first since it's
                     // opening a different note, not just jumping within this same day's timeline.
@@ -1719,34 +1711,10 @@ fun DesktopMainScreen(
                             override fun onDocumentPicked(id: String, uri: String) = dailyViewModel.handleDocumentPicked(id, uri)
                             override fun onAddBlankBlock() = dailyViewModel.addBlankBlockBelowFocused()
                             override fun onInsertMediaBlock(type: String) = dailyViewModel.insertNewMediaBlock(type)
-                            override fun onSaveDatabaseAsTemplate(blockId: String, templateName: String) =
-                                dailyViewModel.saveDatabaseAsTemplate(blockId, templateName)
                             override fun onOutsideTap() {}
-                            override fun onUpdateDbTitle(id: String, title: String) = dailyViewModel.updateDbTitle(id, title)
-                            override fun onAddDbRow(id: String) = dailyViewModel.addDbRow(id)
-                            override fun onAddDbColumn(id: String) = dailyViewModel.addDbColumn(id)
-                            override fun onUpdateDbCell(blockId: String, rowId: String, colId: String, value: CellData) = dailyViewModel.updateDbCell(blockId, rowId, colId, value)
-                            override fun onUpdateDbColumn(blockId: String, colId: String, name: String, type: ColumnType, isManualNameChange: Boolean) = dailyViewModel.updateDbColumn(blockId, colId, name, type, isManualNameChange)
-                            override fun onUpdateDbSort(blockId: String, colId: String, isAscending: Boolean?) = dailyViewModel.updateDbSort(blockId, colId, isAscending)
-                            override fun onUpdateDbGroupBy(blockId: String, colId: String?) = dailyViewModel.updateDbGroupBy(blockId, colId)
-                            override fun onUpdateDbGalleryCardSize(blockId: String, size: GalleryCardSize) = dailyViewModel.updateDbGalleryCardSize(blockId, size)
-                            override fun onToggleKanbanGroupVisibility(blockId: String, viewId: String, groupName: String, isHidden: Boolean) = dailyViewModel.toggleKanbanGroupVisibility(blockId, viewId, groupName, isHidden)
-                            override fun onReorderKanbanGroups(blockId: String, viewId: String, orderedGroupKeys: List<String>) = dailyViewModel.reorderKanbanGroups(blockId, viewId, orderedGroupKeys)
-                            override fun onAddDbFilter(blockId: String, colId: String, operator: String, value: String) = dailyViewModel.addDbFilter(blockId, colId, operator, value)
-                            override fun onRemoveDbFilter(blockId: String, config: FilterConfig) = dailyViewModel.removeDbFilter(blockId, config)
-                            override fun onReorderDbColumns(blockId: String, from: Int, to: Int) = dailyViewModel.reorderDbColumns(blockId, from, to)
-                            override fun onReorderDbRows(blockId: String, from: Int, to: Int) = dailyViewModel.reorderDbRows(blockId, from, to)
-                            override fun onReorderDatabaseViews(blockId: String, from: Int, to: Int) = dailyViewModel.reorderDatabaseViews(blockId, from, to)
-                            override fun onUpdateDbFormula(blockId: String, colId: String, expression: String) = dailyViewModel.updateDbFormula(blockId, colId, expression)
-                            override fun onDeleteDbColumn(blockId: String, colId: String) = dailyViewModel.deleteDbColumn(blockId, colId)
-                            override fun onDeleteDbRow(blockId: String, rowId: String) = dailyViewModel.deleteDbRow(blockId, rowId)
-                            override fun onAddDbRowAt(blockId: String, index: Int) = dailyViewModel.addDbRowAt(blockId, index)
-                            override fun onAddDbColumnAt(blockId: String, index: Int) = dailyViewModel.addDbColumnAt(blockId, index)
-                            override fun onUpdateDbColumnWidth(blockId: String, colId: String, width: Int) = dailyViewModel.updateDbColumnWidth(blockId, colId, width)
                             override fun onVoiceRecorded(id: String, filePath: String, duration: Int) = dailyViewModel.handleVoiceRecorded(id, filePath, duration)
                             override fun onRemoveVoice(id: String) = dailyViewModel.handleRemoveVoice(id)
                             override fun onDeleteImageBlock(id: String) = dailyViewModel.deleteImageBlock(id)
-                            override fun onCreateGlobalTag(name: String, colorHex: String): String = dailyViewModel.createGlobalTag(name, colorHex)
                             override fun onRequestImagePicker(blockId: String) {
                                 onPickImage { path -> dailyViewModel.handleImagePicked(blockId, path) }
                             }
@@ -1755,12 +1723,6 @@ fun DesktopMainScreen(
                             }
                             override fun onRequestDocumentPicker(blockId: String) {
                                 onPickDocument { path -> dailyViewModel.handleDocumentPicked(blockId, path) }
-                            }
-                            override fun onRequestDbFilePicker(blockId: String, rowId: String, colId: String, isAudio: Boolean) {
-                                onPickDocument { path -> dailyViewModel.handleDbFilePicked(blockId, rowId, colId, path) }
-                            }
-                            override fun onStopDbAudioRecording(blockId: String, rowId: String, colId: String, cancel: Boolean) {
-                                dailyViewModel.stopDbHardwareRecording(blockId, rowId, colId, cancel)
                             }
                             override fun onOpenFile(filePath: String, mimeType: String) {
                                 onOpenFile(filePath, mimeType)
@@ -1780,27 +1742,12 @@ fun DesktopMainScreen(
                             ) = dailyViewModel.updateTableStyle(id, cellStyles, rowStyles, columnStyles)
                             override fun onAddBlockAbove(id: String) = dailyViewModel.addBlockAbove(id)
                             override fun onAddBlockBelow(id: String) = dailyViewModel.addBlockBelow(id)
-                            override fun onUpdateDbAggregation(blockId: String, colId: String, aggregationType: String?) = dailyViewModel.updateDbAggregation(blockId, colId, aggregationType)
-                            override fun onUpdateDbCurrency(blockId: String, colId: String, symbol: String) = dailyViewModel.updateDbCurrency(blockId, colId, symbol)
-                            override fun onUpdateDbFormulaCurrency(blockId: String, colId: String, enabled: Boolean) = dailyViewModel.updateDbFormulaCurrency(blockId, colId, enabled)
-                            override fun onAddDatabaseView(blockId: String, type: ViewType) = dailyViewModel.addDatabaseView(blockId, type)
-                            override fun onDeleteDatabaseView(blockId: String, viewId: String) = dailyViewModel.deleteDatabaseView(blockId, viewId)
-                            override fun onSetActiveDatabaseView(blockId: String, viewId: String) = dailyViewModel.setActiveDatabaseView(blockId, viewId)
-                            override fun onRenameDatabaseView(blockId: String, viewId: String, newName: String) = dailyViewModel.renameDatabaseView(blockId, viewId, newName)
                             override fun onNoteLinkClick(noteId: String) {
                                 showTimelineDialog = false
                                 dailyViewModel.clearTimeline()
                                 openNote(noteId)
                             }
                             override fun onCreateLinkedNote(title: String): String = dailyViewModel.createLinkedNote(title)
-                            override fun onOpenDatabaseNote(blockId: String, rowId: String, colId: String, existingNoteId: String?) {
-                                dailyViewModel.openDatabaseNote(blockId, rowId, colId, existingNoteId) { resolvedNoteId ->
-                                    showTimelineDialog = false
-                                    dailyViewModel.clearTimeline()
-                                    openNote(resolvedNoteId)
-                                }
-                            }
-                            override suspend fun getNoteTitle(noteId: String): String = dailyViewModel.getNoteTitle(noteId)
                             override suspend fun getNoteMetadata(noteId: String) = dailyViewModel.getNoteMetadata(noteId)
                             override fun onUpdateLinkedNoteOptions(id: String, showIcon: Boolean, showCoverImage: Boolean) =
                                 dailyViewModel.updateLinkedNoteOptions(id, showIcon, showCoverImage)
@@ -1813,8 +1760,6 @@ fun DesktopMainScreen(
                         anchorDate = selectedDate,
                         today = today,
                         editorActions = timelineEditorActions,
-                        globalTags = timelineGlobalTags,
-                        allLinkableNotes = timelineAllLinkableNotes,
                         onDismiss = {
                             showTimelineDialog = false
                             dailyViewModel.clearTimeline()

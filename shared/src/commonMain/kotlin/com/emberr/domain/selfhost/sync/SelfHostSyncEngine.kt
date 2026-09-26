@@ -10,7 +10,6 @@ import com.emberr.data.local.room.dao.NoteDao
 import com.emberr.data.local.room.dao.SelfHostDeletedApiConfigDao
 import com.emberr.data.local.room.dao.SelfHostDeletedNoteDao
 import com.emberr.data.local.room.dao.SpaceDao
-import com.emberr.data.local.room.dao.TagDao
 import com.emberr.data.local.room.entity.CalendarEventExceptionEntity
 import com.emberr.data.local.room.entity.CategoryEntity
 import com.emberr.data.local.room.entity.ChatSessionEntity
@@ -19,7 +18,6 @@ import com.emberr.data.local.room.entity.NoteBlockEntity
 import com.emberr.data.local.room.entity.NoteMetadataEntity
 import com.emberr.data.local.room.entity.PLACEHOLDER_SPACE_UPDATED_AT
 import com.emberr.data.local.room.entity.SpaceEntity
-import com.emberr.data.local.room.entity.TagEntity
 import com.emberr.domain.ai.external.AiSettingsRepository
 import com.emberr.domain.ai.external.ExternalAiProvider
 import com.emberr.domain.ai.external.ExternalAiProviderConfig
@@ -70,7 +68,6 @@ class SelfHostSyncEngine(
     private val noteDao: NoteDao,
     private val blockDao: BlockDao,
     private val folderDao: FolderDao,
-    private val tagDao: TagDao,
     private val categoryDao: CategoryDao,
     private val calendarEventExceptionDao: CalendarEventExceptionDao,
     private val spaceDao: SpaceDao,
@@ -463,9 +460,6 @@ class SelfHostSyncEngine(
             if (withSyncCoordinatorOrSkip { reconcileFolders() } == null) {
                 SelfHostSyncLog.d("TextSync: folders skipped this cycle, SyncCoordinator.mutex busy - will retry next trigger")
             }
-            if (withSyncCoordinatorOrSkip { reconcileTags() } == null) {
-                SelfHostSyncLog.d("TextSync: tags skipped this cycle, SyncCoordinator.mutex busy - will retry next trigger")
-            }
             if (withSyncCoordinatorOrSkip { reconcileCategories() } == null) {
                 SelfHostSyncLog.d("TextSync: categories skipped this cycle, SyncCoordinator.mutex busy - will retry next trigger")
             }
@@ -553,7 +547,7 @@ class SelfHostSyncEngine(
         }
     }
 
-    // Folders, tags, and categories sync as single encrypted JSON files since they are small.
+    // Folders and categories sync as single encrypted JSON files since they are small.
     // We merge them entity-by-entity using a "last-write-wins" approach based on updatedAt.
     private suspend fun reconcileFolders() {
         try {
@@ -639,42 +633,6 @@ class SelfHostSyncEngine(
     private fun occurrenceKeyOf(exception: CalendarEventExceptionEntity): String =
         "${exception.blockId}|${exception.occurrenceDate}"
 
-    private suspend fun reconcileTags() {
-        try {
-            val remoteJsonWithEtag = webDavSyncClient.downloadAndDecryptJsonWithEtag(WebDavSyncPaths.TAGS_FILE)
-            val remoteJson = remoteJsonWithEtag?.first
-            val remoteTags = remoteJson
-                ?.let { collectionJson.decodeFromString(ListSerializer(TagEntity.serializer()), it) }
-                .orEmpty()
-            val localTags = tagDao.getTagsModifiedSince(0L)
-
-            val merged = LinkedHashMap<String, TagEntity>()
-            localTags.forEach { merged[it.tagId] = it }
-            remoteTags.forEach { remote ->
-                val local = merged[remote.tagId]
-                if (local == null || remote.updatedAt >= local.updatedAt) {
-                    merged[remote.tagId] = remote
-                }
-            }
-            val mergedList = merged.values.toList()
-            mergedList.forEach { spaceRepository.ensureSpaceExists(it.spaceId) }
-            mergedList.forEach { tagDao.insertOrUpdateTag(it) }
-
-            if (mergedList.toSet() != remoteTags.toSet()) {
-                webDavSyncClient.uploadEncryptedJson(
-                    WebDavSyncPaths.TAGS_FILE,
-                    collectionJson.encodeToString(ListSerializer(TagEntity.serializer()), mergedList),
-                    remoteJsonWithEtag?.second
-                )
-            }
-            SelfHostSyncLog.d("TagSync: complete, ${mergedList.size} tag(s) reconciled")
-        } catch (cause: WebDavConflictException) {
-            SelfHostSyncLog.d("TagSync: remote tags.json changed concurrently, will retry next cycle")
-        } catch (cause: Exception) {
-            SelfHostSyncLog.e("TagSync: failed to sync tags: ${cause.message}", cause)
-        }
-    }
-
     private suspend fun reconcileCategories() {
         try {
             val remoteJsonWithEtag = webDavSyncClient.downloadAndDecryptJsonWithEtag(WebDavSyncPaths.CATEGORIES_FILE)
@@ -713,7 +671,7 @@ class SelfHostSyncEngine(
 
     // API provider configs are few (one per ExternalAiProvider entry) and small, so they sync as a
     // single whole-file JSON blob, merged provider-by-provider by "last-write-wins" on updatedAt -
-    // the same approach as folders/tags/categories above. Deletions use a dedicated tombstone table
+    // the same approach as folders/categories above. Deletions use a dedicated tombstone table
     // (rather than an in-place isDeleted flag) since the config itself lives in encrypted key/value
     // storage, not a Room table we can just flag a row on.
     private suspend fun reconcileApiConfigs() {

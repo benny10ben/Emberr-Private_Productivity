@@ -11,7 +11,6 @@ data class VaultMarkdownChunk(
     val lines: List<String>,
     val tag: String?,
     val fenceInfo: String? = null,
-    val tableLines: List<String> = emptyList(),
     val rawText: String = ""
 )
 
@@ -101,26 +100,6 @@ object VaultMarkdownScanner {
         for (line in lines) {
             val trimmed = line.trim()
             if (trimmed.isEmpty()) continue
-            val separatorIndex = indexOfUnquotedColon(trimmed)
-            if (separatorIndex <= 0) continue
-            val key = unquoteYaml(trimmed.substring(0, separatorIndex).trim())
-            val value = unquoteYaml(trimmed.substring(separatorIndex + 1).trim())
-            if (key.isNotEmpty()) fields[key] = value
-        }
-        return fields
-    }
-
-    fun parseIndentedFieldLines(lines: List<String>, parentKey: String): Map<String, String> {
-        val parentIndex = lines.indexOfFirst { it.trim().startsWith("$parentKey:") }
-        if (parentIndex < 0) return emptyMap()
-
-        val fields = LinkedHashMap<String, String>()
-        for (index in parentIndex + 1 until lines.size) {
-            val line = lines[index]
-            if (line.isBlank()) continue
-            if (!line.startsWith(" ")) break
-
-            val trimmed = line.trim()
             val separatorIndex = indexOfUnquotedColon(trimmed)
             if (separatorIndex <= 0) continue
             val key = unquoteYaml(trimmed.substring(0, separatorIndex).trim())
@@ -255,29 +234,13 @@ object VaultMarkdownScanner {
         }
         if (index < lines.size) index++
 
-        var tableLines: List<String> = emptyList()
-        if (fenceInfo == VaultFormat.DATABASE_FENCE_NAME) {
-            var lookAhead = index
-            while (lookAhead < lines.size && lines[lookAhead].isBlank()) lookAhead++
-
-            if (lookAhead < lines.size && isTableRow(lines[lookAhead])) {
-                val collectedRows = mutableListOf<String>()
-                while (lookAhead < lines.size && isTableRow(lines[lookAhead])) {
-                    collectedRows.add(lines[lookAhead])
-                    lookAhead++
-                }
-                tableLines = collectedRows
-                index = lookAhead
-            }
-        }
-
         var tag: String? = null
         if (index < lines.size && isLoneTagLine(lines[index])) {
             tag = extractTag(lines[index])
             index++
         }
 
-        chunks.add(VaultMarkdownChunk(VaultChunkKind.FENCE, fenceBody, tag, fenceInfo, tableLines))
+        chunks.add(VaultMarkdownChunk(VaultChunkKind.FENCE, fenceBody, tag, fenceInfo))
         return index
     }
 

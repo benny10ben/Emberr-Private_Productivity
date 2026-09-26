@@ -4,16 +4,13 @@ import androidx.compose.runtime.Stable
 import androidx.compose.ui.text.TextRange
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.emberr.data.local.room.entity.DatabaseTemplateEntity
 import com.emberr.data.local.room.entity.FolderEntity
 import com.emberr.data.local.room.entity.NoteKind
 import com.emberr.data.local.room.entity.NoteMetadataEntity
-import com.emberr.data.local.room.entity.TagEntity
 import com.emberr.domain.model.*
 import com.emberr.domain.repository.NoteRepository
 import com.emberr.domain.util.eventbus.AiEventBus
 import com.emberr.domain.util.voice.AudioRecorder
-import com.emberr.domain.util.formula.FormulaEngine
 import com.emberr.domain.util.network.HtmlMetadataFetcher
 import com.emberr.domain.util.media.MediaStorageHelper
 import com.emberr.domain.util.sync.SyncCoordinator
@@ -32,7 +29,6 @@ import kotlinx.coroutines.withContext
 import kotlin.time.Instant
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
-import kotlinx.serialization.json.Json
 import java.util.UUID
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -131,7 +127,6 @@ abstract class BaseEditorViewModel(
                     is ToggleBlock -> "${block.id}:${block.text}"
                     is CodeBlock -> "${block.id}:${block.code}"
                     is QuoteBlock -> "${block.id}:${block.text}"
-                    is DatabaseBlock -> "${block.id}:${block.rows.size}:${block.columns.size}"
                     else -> block.id
                 }
             }
@@ -267,15 +262,6 @@ abstract class BaseEditorViewModel(
 
     val allLinkableNotes: StateFlow<List<NoteMetadataEntity>> = repository.getAllLinkableNotes()
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
-
-    val databaseTemplates: StateFlow<List<DatabaseTemplateEntity>> = repository.getAllDatabaseTemplates()
-        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
-
-    // Dedicated Json instance for DatabaseBlock schema templates (columns/views only).
-    private val templateJson = Json {
-        ignoreUnknownKeys = true
-        encodeDefaults = true
-    }
 
     protected var lastLocalMutationTime: Long = 0L
     private val LOCAL_MUTATION_COOLDOWN_MS = 3000L
@@ -541,7 +527,7 @@ abstract class BaseEditorViewModel(
 
         // Only blocks that host a text field can take focus. NoteBlockItem attaches its
         // FocusRequester exclusively inside the isTextBased branch, so targeting an
-        // ImageBlock/VoiceBlock/DatabaseBlock leaves the requester unattached:
+        // ImageBlock/VoiceBlock leaves the requester unattached:
         // requestFocus() throws, nothing claims the input session, and the IME closes.
         val target = current.firstOrNull { it.id in changed && !it.isDeleted && historyTextOf(it) != null }
             ?: nearestTextNeighbour(current, changed)
@@ -606,10 +592,7 @@ abstract class BaseEditorViewModel(
                 val liveBlock = liveById[targetBlock.id]
                 if (targetBlock.id in changed) {
                     val expectedBlock = expectedById[targetBlock.id]
-                    if (targetBlock is DatabaseBlock && liveBlock is DatabaseBlock && expectedBlock is DatabaseBlock &&
-                        (targetBlock.rows != expectedBlock.rows || targetBlock.columns != expectedBlock.columns)) {
-                        result.add(reconcileDatabaseHistory(targetBlock, expectedBlock, liveBlock, now))
-                    } else if (liveBlock != null && expectedBlock != null && !historySameContent(liveBlock, expectedBlock)) {
+                    if (liveBlock != null && expectedBlock != null && !historySameContent(liveBlock, expectedBlock)) {
                         result.add(liveBlock)
                     } else {
                         result.add(targetBlock.withUpdatedAt(now))
@@ -637,81 +620,6 @@ abstract class BaseEditorViewModel(
         isApplyingHistory = false
     }
 
-    private fun reconcileDatabaseHistory(
-        target: DatabaseBlock,
-        expected: DatabaseBlock,
-        live: DatabaseBlock,
-        now: Long
-    ): DatabaseBlock = live.copy(
-        rows = reconcileDbRows(target.rows, expected.rows, live.rows, now),
-        columns = reconcileDbColumns(target.columns, expected.columns, live.columns, now),
-        updatedAt = now
-    )
-
-    private fun reconcileDbRows(
-        targetRows: List<DatabaseRow>,
-        expectedRows: List<DatabaseRow>,
-        liveRows: List<DatabaseRow>,
-        now: Long
-    ): List<DatabaseRow> {
-        val targetById = targetRows.associateBy { it.id }
-        val expectedById = expectedRows.associateBy { it.id }
-        val touched = (targetById.keys + expectedById.keys).filterTo(mutableSetOf()) { targetById[it] != expectedById[it] }
-        val result = mutableListOf<DatabaseRow>()
-        val placed = HashSet<String>()
-        for (liveRow in liveRows) {
-            if (!placed.add(liveRow.id)) continue
-            if (liveRow.id in touched) {
-                val expectedRow = expectedById[liveRow.id]
-                if (expectedRow != null && liveRow.copy(updatedAt = 0L) != expectedRow.copy(updatedAt = 0L)) {
-                    result.add(liveRow)
-                } else {
-                    val targetRow = targetById[liveRow.id]
-                    if (targetRow != null) result.add(targetRow.copy(updatedAt = now))
-                    else result.add(liveRow.copy(isDeleted = true, updatedAt = now))
-                }
-            } else {
-                result.add(liveRow)
-            }
-        }
-        for (targetRow in targetRows) {
-            if (placed.add(targetRow.id)) result.add(targetRow.copy(updatedAt = now))
-        }
-        return result
-    }
-
-    private fun reconcileDbColumns(
-        targetColumns: List<DatabaseColumn>,
-        expectedColumns: List<DatabaseColumn>,
-        liveColumns: List<DatabaseColumn>,
-        now: Long
-    ): List<DatabaseColumn> {
-        val targetById = targetColumns.associateBy { it.id }
-        val expectedById = expectedColumns.associateBy { it.id }
-        val touched = (targetById.keys + expectedById.keys).filterTo(mutableSetOf()) { targetById[it] != expectedById[it] }
-        val result = mutableListOf<DatabaseColumn>()
-        val placed = HashSet<String>()
-        for (liveColumn in liveColumns) {
-            if (!placed.add(liveColumn.id)) continue
-            if (liveColumn.id in touched) {
-                val expectedColumn = expectedById[liveColumn.id]
-                if (expectedColumn != null && liveColumn.copy(updatedAt = 0L) != expectedColumn.copy(updatedAt = 0L)) {
-                    result.add(liveColumn)
-                } else {
-                    val targetColumn = targetById[liveColumn.id]
-                    if (targetColumn != null) result.add(targetColumn.copy(updatedAt = now))
-                    else result.add(liveColumn.copy(isDeleted = true, updatedAt = now))
-                }
-            } else {
-                result.add(liveColumn)
-            }
-        }
-        for (targetColumn in targetColumns) {
-            if (placed.add(targetColumn.id)) result.add(targetColumn.copy(updatedAt = now))
-        }
-        return result
-    }
-
     fun startHardwareRecording() {
         audioRecorder.startRecording()
     }
@@ -720,62 +628,6 @@ abstract class BaseEditorViewModel(
         val result = audioRecorder.stopRecording(cancel)
         if (result != null && !cancel) {
             handleVoiceRecorded(blockId, result.first, result.second)
-        }
-    }
-
-    fun handleDbFilePicked(blockId: String, rowId: String, colId: String, uriString: String) {
-        viewModelScope.launch(Dispatchers.IO) {
-            val mediaInfo = mediaStorageHelper.copyUriToInternalStorage(uriString)
-            if (mediaInfo != null) {
-                withContext(Dispatchers.Main) {
-                    val cleanFileName = mediaInfo.localFileName.substringAfterLast("/")
-                    val now = System.currentTimeMillis()
-                    modifyBlocks { list ->
-                        mapBlockById(list, blockId) { db ->
-                            if (db is DatabaseBlock) {
-                                val updatedRows = db.rows.map { row ->
-                                    if (row.id == rowId) {
-                                        val currentFiles = (row.cells[colId] as? CellData.MediaList)?.files ?: emptyList()
-                                        val newFiles = currentFiles + MediaItem(cleanFileName, mediaInfo.originalName)
-
-                                        val newMap = row.cells.toMutableMap()
-                                        newMap[colId] = CellData.MediaList(newFiles)
-                                        row.copy(cells = newMap, updatedAt = now)
-                                    } else row
-                                }
-                                db.copy(rows = updatedRows, updatedAt = now)
-                            } else db
-                        }
-                    }
-                    scheduleAutosave()
-                }
-            }
-        }
-    }
-
-    fun stopDbHardwareRecording(blockId: String, rowId: String, colId: String, cancel: Boolean = false) {
-        val result = audioRecorder.stopRecording(cancel)
-        if (result != null && !cancel) {
-            val cleanFileName = result.first.substringAfterLast("/")
-            val now = System.currentTimeMillis()
-            modifyBlocks { list ->
-                mapBlockById(list, blockId) { db ->
-                    if (db is DatabaseBlock) {
-                        val updatedRows = db.rows.map { row ->
-                            if (row.id == rowId) {
-                                val currentFiles = (row.cells[colId] as? CellData.MediaList)?.files ?: emptyList()
-                                val newFiles = currentFiles + MediaItem(cleanFileName, "Audio Recording.m4a")
-
-                                val newMap = row.cells.toMutableMap()
-                                newMap[colId] = CellData.MediaList(newFiles)
-                                row.copy(cells = newMap, updatedAt = now)
-                            } else row
-                        }
-                        db.copy(rows = updatedRows, updatedAt = now)
-                    } else db
-                }
-            }
-            scheduleAutosave()
         }
     }
 
@@ -825,10 +677,6 @@ abstract class BaseEditorViewModel(
             when (_blocks.value.firstOrNull { it.id == id }) {
                 is TableBlock -> {
                     toggleTableCellFormat(id, focusedCellKey, request, selection)
-                    return
-                }
-                is DatabaseBlock -> {
-                    toggleDatabaseCellFormat(id, focusedCellKey, request, selection)
                     return
                 }
                 else -> Unit
@@ -1012,39 +860,6 @@ abstract class BaseEditorViewModel(
         scheduleAutosave()
     }
 
-    private fun toggleDatabaseCellFormat(blockId: String, cellKey: String, request: FormatRequest, selection: TextRange) {
-        val now = System.currentTimeMillis()
-        modifyBlocks { list ->
-            mapBlockById(list, blockId) { b ->
-                if (b !is DatabaseBlock) return@mapBlockById b
-                val cellText = databaseCellTextAt(b, cellKey)
-                val start = selection.min.coerceIn(0, cellText.length)
-                val end = selection.max.coerceIn(0, cellText.length)
-
-                if (start < end) {
-                    val spansBefore = spansWithCellStyleMovedIn(
-                        b.cellSpans[cellKey].orEmpty(), b.cellStyles[cellKey], request.name, cellText.length
-                    )
-                    val newSpans = toggleInlineSpanFormat(spansBefore, cellText.length, start, end, request)
-                    b.copy(
-                        cellSpans = b.cellSpans + (cellKey to newSpans),
-                        cellStyles = withCellFormatCleared(b.cellStyles, cellKey, request.name),
-                        updatedAt = now
-                    )
-                } else {
-                    val newStyle = withFormatToggled(b.cellStyles[cellKey] ?: TableCellStyle(), request)
-                        ?: return@mapBlockById b
-                    b.copy(
-                        cellStyles = b.cellStyles + (cellKey to newStyle),
-                        cellSpans = withHighlightClearedFromCellSpans(b.cellSpans, cellKey, request.name),
-                        updatedAt = now
-                    )
-                }
-            }
-        }
-        scheduleAutosave()
-    }
-
     private fun withWholeBlockFormatMovedIntoSpans(
         b: NoteBlock,
         format: String,
@@ -1160,13 +975,6 @@ abstract class BaseEditorViewModel(
 
     private fun highlightColorNameForCellHex(cellHex: String?): String? =
         HighlightColor.entries.firstOrNull { color -> color.cellBackgroundHex == cellHex }?.storageName
-
-    private fun databaseCellTextAt(block: DatabaseBlock, cellKey: String): String {
-        val rowId = cellKey.substringBefore(':')
-        val colId = cellKey.substringAfter(':')
-        val cell = block.rows.firstOrNull { it.id == rowId }?.cells?.get(colId)
-        return (cell as? CellData.Text)?.value ?: ""
-    }
 
     private fun tableCellTextAt(rows: List<List<String>>, cellKey: String): String {
         val rowIndex = cellKey.substringBefore(':').toIntOrNull() ?: return ""
@@ -1635,7 +1443,7 @@ abstract class BaseEditorViewModel(
 
         if (prevBlock != null) {
             val isMediaOrDivider = prevBlock is ImageBlock || prevBlock is DocumentBlock ||
-                    prevBlock is DatabaseBlock || prevBlock is SolidDividerBlock ||
+                    prevBlock is SolidDividerBlock ||
                     prevBlock is ThreeDotDividerBlock || prevBlock is BookmarkBlock ||
                     prevBlock is VoiceBlock
 
@@ -1890,83 +1698,8 @@ abstract class BaseEditorViewModel(
         }
     }
 
-    private fun buildDatabaseBlock(
-        id: String,
-        indent: Int,
-        isPinned: Boolean,
-        now: Long,
-        template: DatabaseTemplateEntity?
-    ): DatabaseBlock {
-        if (template == null) {
-            val defaultViewId = UUID.randomUUID().toString()
-            return DatabaseBlock(
-                id = id,
-                columns = listOf(DatabaseColumn(id = UUID.randomUUID().toString(), databaseId = id, name = "Name", type = ColumnType.TEXT, updatedAt = now)),
-                rows = emptyList(),
-                views = listOf(DatabaseView(id = defaultViewId, name = "Table", type = ViewType.TABLE)),
-                activeViewId = defaultViewId,
-                indentationLevel = indent,
-                isPinned = isPinned,
-                updatedAt = now
-            )
-        }
-
-        val templateColumns = try {
-            templateJson.decodeFromString<List<DatabaseColumn>>(template.serializedColumns)
-        } catch (_: Exception) {
-            emptyList()
-        }
-        val templateViews = try {
-            templateJson.decodeFromString<List<DatabaseView>>(template.serializedViews)
-        } catch (_: Exception) {
-            emptyList()
-        }
-
-        val oldToNewColumnId = templateColumns.associate { it.id to UUID.randomUUID().toString() }
-
-        val newColumns = templateColumns.map { col ->
-            col.copy(id = oldToNewColumnId.getValue(col.id), databaseId = id, updatedAt = now)
-        }
-        val newViews = templateViews.map { view ->
-            view.copy(
-                id = UUID.randomUUID().toString(),
-                groupByColumnId = view.groupByColumnId?.let { oldToNewColumnId[it] }
-            )
-        }
-
-        return DatabaseBlock(
-            id = id,
-            columns = newColumns,
-            rows = emptyList(),
-            views = newViews,
-            activeViewId = newViews.firstOrNull()?.id,
-            indentationLevel = indent,
-            isPinned = isPinned,
-            updatedAt = now
-        )
-    }
-
-    /**
-     * Saves a DatabaseBlock's schema (columns + views) as a reusable template. Rows are
-     * intentionally never captured - a template is a blank-slate shape, not a data snapshot.
-     */
-    fun saveDatabaseAsTemplate(blockId: String, templateName: String) {
-        val block = findBlockById(_blocks.value, blockId) as? DatabaseBlock ?: return
-        viewModelScope.launch(Dispatchers.IO) {
-            repository.insertDatabaseTemplate(
-                DatabaseTemplateEntity(
-                    templateId = UUID.randomUUID().toString(),
-                    name = templateName,
-                    serializedColumns = templateJson.encodeToString(block.columns),
-                    serializedViews = templateJson.encodeToString(block.views)
-                )
-            )
-        }
-    }
-
     fun insertNewMediaBlock(
         type: String,
-        databaseTemplate: DatabaseTemplateEntity? = null,
         linkedNoteId: String? = null,
         canvasNoteId: String? = null
     ) {
@@ -1996,7 +1729,6 @@ abstract class BaseEditorViewModel(
                     LinkedNoteBlock(id = newId, linkedNoteId = linkedNoteId, indentationLevel = indent, isPinned = isPinnedContext, updatedAt = now)
                 }
                 "voice" -> VoiceBlock(id = newId, indentationLevel = indent, isPinned = isPinnedContext, updatedAt = now)
-                "database" -> buildDatabaseBlock(newId, indent, isPinnedContext, now, databaseTemplate)
                 "table" -> TableBlock(id = newId, indentationLevel = indent, isPinned = isPinnedContext, updatedAt = now)
                 "canvas" -> {
                     if (canvasNoteId == null) return@modifyBlocks list
@@ -2172,39 +1904,6 @@ abstract class BaseEditorViewModel(
         scheduleAutosave()
     }
 
-    /**
-     * Sorts/filters now live per-[DatabaseView] instead of on the block root, so every mutation
-     * needs to find the currently active view before touching them. Falls back to the first view
-     * when [DatabaseBlock.activeViewId] hasn't been set yet, and is a no-op if there are no views
-     * at all (shouldn't happen for blocks created after this refactor).
-     */
-    private fun DatabaseBlock.withActiveViewUpdated(now: Long, transform: (DatabaseView) -> DatabaseView): DatabaseBlock {
-        val targetViewId = activeViewId ?: views.firstOrNull()?.id ?: return this
-        return copy(views = views.map { if (it.id == targetViewId) transform(it) else it }, updatedAt = now)
-    }
-
-    fun updateDbTitle(blockId: String, newTitle: String) {
-        val now = System.currentTimeMillis()
-        modifyBlocks { list -> mapBlockById(list, blockId) { if (it is DatabaseBlock) it.copy(title = newTitle, updatedAt = now) else it } }
-        scheduleAutosave()
-    }
-
-    fun addDbRow(blockId: String) {
-        val now = System.currentTimeMillis()
-        modifyBlocks { list -> mapBlockById(list, blockId) { if (it is DatabaseBlock) it.copy(rows = it.rows + DatabaseRow(id = UUID.randomUUID().toString(), databaseId = blockId, cells = emptyMap(), updatedAt = now), updatedAt = now) else it } }
-        scheduleAutosave()
-    }
-
-    fun addDbColumn(blockId: String) {
-        val now = System.currentTimeMillis()
-        modifyBlocks { list -> mapBlockById(list, blockId) { if (it is DatabaseBlock) it.copy(columns = it.columns + DatabaseColumn(id = UUID.randomUUID().toString(), databaseId = blockId, name = "New Column", type = ColumnType.TEXT, updatedAt = now), updatedAt = now) else it } }
-        scheduleAutosave()
-    }
-
-    suspend fun getNoteTitle(noteId: String): String {
-        return repository.getNoteById(noteId)?.title ?: ""
-    }
-
     suspend fun getNoteMetadata(noteId: String): NoteMetadataEntity? {
         return repository.getNoteById(noteId)
     }
@@ -2216,332 +1915,6 @@ abstract class BaseEditorViewModel(
         modifyBlocks { list ->
             mapBlockById(list, blockId) {
                 if (it is LinkedNoteBlock) it.copy(showIcon = showIcon, showCoverImage = showCoverImage, updatedAt = now) else it
-            }
-        }
-        scheduleAutosave()
-    }
-
-    fun updateDbCell(blockId: String, rowId: String, colId: String, newValue: CellData) {
-        val now = System.currentTimeMillis()
-        modifyBlocks { list ->
-            mapBlockById(list, blockId) { block ->
-                if (block is DatabaseBlock) {
-                    val updatedRows = block.rows.map { row ->
-                        if (row.id == rowId) {
-                            val newMap = row.cells.toMutableMap()
-                            newMap[colId] = newValue
-                            block.columns.filter { it.type == ColumnType.FORMULA }.forEach { formulaCol ->
-                                formulaCol.formulaExpression?.let { expr ->
-                                    newMap[formulaCol.id] = FormulaEngine.evaluate(expr, newMap, block.columns)
-                                }
-                            }
-                            row.copy(cells = newMap, updatedAt = now)
-                        } else row
-                    }
-                    val cellKey = "$rowId:$colId"
-                    val existingSpans = block.cellSpans[cellKey]
-                    val shiftedSpans = if (existingSpans.isNullOrEmpty()) block.cellSpans else {
-                        block.cellSpans + (cellKey to shiftSpansForEdit(
-                            existingSpans,
-                            databaseCellTextAt(block, cellKey),
-                            (newValue as? CellData.Text)?.value ?: databaseCellTextAt(block, cellKey)
-                        ))
-                    }
-                    block.copy(rows = updatedRows, cellSpans = shiftedSpans, updatedAt = now)
-                } else block
-            }
-        }
-        scheduleAutosave()
-    }
-
-    fun updateDbFormula(blockId: String, colId: String, expression: String) {
-        val now = System.currentTimeMillis()
-        modifyBlocks { list ->
-            mapBlockById(list, blockId) { db ->
-                if (db is DatabaseBlock) {
-                    val updatedCols = db.columns.map { col -> if (col.id == colId) col.copy(formulaExpression = expression, updatedAt = now) else col }
-                    val updatedRows = db.rows.map { row ->
-                        val newMap = row.cells.toMutableMap()
-                        newMap[colId] = FormulaEngine.evaluate(expression, newMap, updatedCols)
-                        row.copy(cells = newMap, updatedAt = now)
-                    }
-                    db.copy(columns = updatedCols, rows = updatedRows, updatedAt = now)
-                } else db
-            }
-        }
-        scheduleAutosave()
-    }
-
-    fun updateDbColumn(blockId: String, colId: String, newName: String, newType: ColumnType, isManualNameChange: Boolean = true) {
-        val now = System.currentTimeMillis()
-        modifyBlocks { list -> mapBlockById(list, blockId) { db -> if (db is DatabaseBlock) db.copy(columns = db.columns.map { col -> if (col.id == colId) col.copy(name = newName, type = newType, isNameManuallySet = col.isNameManuallySet || isManualNameChange, updatedAt = now) else col }, updatedAt = now) else db } }
-        scheduleAutosave()
-    }
-
-    fun updateDbColumnWidth(blockId: String, colId: String, newWidth: Int) {
-        val now = System.currentTimeMillis()
-        modifyBlocks { list -> mapBlockById(list, blockId) { db -> if (db is DatabaseBlock) db.copy(columns = db.columns.map { col -> if (col.id == colId) col.copy(width = newWidth.coerceIn(40, 600), updatedAt = now) else col }, updatedAt = now) else db } }
-        scheduleAutosave()
-    }
-
-    fun updateDbSort(blockId: String, colId: String, isAscending: Boolean?) {
-        val now = System.currentTimeMillis()
-        modifyBlocks { list ->
-            mapBlockById(list, blockId) { db ->
-                if (db is DatabaseBlock) {
-                    db.withActiveViewUpdated(now) { view ->
-                        val modifiedSortList = view.activeSorts.toMutableList()
-                        modifiedSortList.removeAll { it.columnId == colId }
-                        if (isAscending != null) {
-                            modifiedSortList.add(SortConfig(colId, isAscending))
-                        }
-                        view.copy(activeSorts = modifiedSortList)
-                    }
-                } else db
-            }
-        }
-        scheduleAutosave()
-    }
-
-    fun updateDbGroupBy(blockId: String, colId: String?) {
-        val now = System.currentTimeMillis()
-        modifyBlocks { list ->
-            mapBlockById(list, blockId) { db ->
-                if (db is DatabaseBlock) {
-                    db.withActiveViewUpdated(now) { view -> view.copy(groupByColumnId = colId) }
-                } else db
-            }
-        }
-        scheduleAutosave()
-    }
-
-    fun updateDbGalleryCardSize(blockId: String, size: GalleryCardSize) {
-        val now = System.currentTimeMillis()
-        modifyBlocks { list ->
-            mapBlockById(list, blockId) { db ->
-                if (db is DatabaseBlock) {
-                    db.withActiveViewUpdated(now) { view -> view.copy(galleryCardSize = size) }
-                } else db
-            }
-        }
-        scheduleAutosave()
-    }
-
-    // Kanban bucket visibility is per-view.
-    fun toggleKanbanGroupVisibility(blockId: String, viewId: String, groupName: String, isHidden: Boolean) {
-        val now = System.currentTimeMillis()
-        modifyBlocks { list ->
-            mapBlockById(list, blockId) { db ->
-                if (db is DatabaseBlock) {
-                    db.copy(
-                        views = db.views.map { view ->
-                            if (view.id != viewId) view else view.copy(
-                                hiddenGroups = if (isHidden) (view.hiddenGroups + groupName).distinct()
-                                else view.hiddenGroups - groupName
-                            )
-                        },
-                        updatedAt = now
-                    )
-                } else db
-            }
-        }
-        scheduleAutosave()
-    }
-
-    // Persists the drag-reordered board sequence chosen in the Group By sheet.
-    fun reorderKanbanGroups(blockId: String, viewId: String, orderedGroupKeys: List<String>) {
-        val now = System.currentTimeMillis()
-        modifyBlocks { list ->
-            mapBlockById(list, blockId) { db ->
-                if (db is DatabaseBlock) {
-                    db.copy(
-                        views = db.views.map { view ->
-                            if (view.id != viewId) view else view.copy(groupOrder = orderedGroupKeys)
-                        },
-                        updatedAt = now
-                    )
-                } else db
-            }
-        }
-        scheduleAutosave()
-    }
-
-    fun addDbFilter(blockId: String, colId: String, operator: String, value: String) {
-        val now = System.currentTimeMillis()
-        modifyBlocks { list ->
-            mapBlockById(list, blockId) { db ->
-                if (db is DatabaseBlock) {
-                    db.withActiveViewUpdated(now) { view -> view.copy(activeFilters = view.activeFilters + FilterConfig(colId, operator, value)) }
-                } else db
-            }
-        }
-        scheduleAutosave()
-    }
-
-    fun removeDbFilter(blockId: String, filter: FilterConfig) {
-        val now = System.currentTimeMillis()
-        modifyBlocks { list ->
-            mapBlockById(list, blockId) { db ->
-                if (db is DatabaseBlock) {
-                    db.withActiveViewUpdated(now) { view -> view.copy(activeFilters = view.activeFilters - filter) }
-                } else db
-            }
-        }
-        scheduleAutosave()
-    }
-
-    // Database views (Table/Kanban/Gallery)
-    fun addDatabaseView(blockId: String, type: ViewType) {
-        val now = System.currentTimeMillis()
-        val newViewId = UUID.randomUUID().toString()
-        modifyBlocks { list ->
-            mapBlockById(list, blockId) { db ->
-                if (db is DatabaseBlock) {
-                    val baseName = when (type) {
-                        ViewType.TABLE -> "Table"
-                        ViewType.KANBAN -> "Board"
-                        ViewType.GALLERY -> "Gallery"
-                    }
-                    val sameTypeCount = db.views.count { it.type == type }
-                    val name = if (sameTypeCount == 0) baseName else "$baseName ${sameTypeCount + 1}"
-                    val newView = DatabaseView(id = newViewId, name = name, type = type)
-                    db.copy(views = db.views + newView, activeViewId = newViewId, updatedAt = now)
-                } else db
-            }
-        }
-        scheduleAutosave()
-    }
-
-    fun deleteDatabaseView(blockId: String, viewId: String) {
-        val now = System.currentTimeMillis()
-        modifyBlocks { list ->
-            mapBlockById(list, blockId) { db ->
-                if (db is DatabaseBlock && db.views.size > 1) {
-                    val remainingViews = db.views.filter { it.id != viewId }
-                    val newActiveViewId = if (db.activeViewId == viewId) remainingViews.firstOrNull()?.id else db.activeViewId
-                    db.copy(views = remainingViews, activeViewId = newActiveViewId, updatedAt = now)
-                } else db
-            }
-        }
-        scheduleAutosave()
-    }
-
-    fun setActiveDatabaseView(blockId: String, viewId: String) {
-        val now = System.currentTimeMillis()
-        modifyBlocks { list -> mapBlockById(list, blockId) { db -> if (db is DatabaseBlock) db.copy(activeViewId = viewId, updatedAt = now) else db } }
-        scheduleAutosave()
-    }
-
-    fun renameDatabaseView(blockId: String, viewId: String, newName: String) {
-        val now = System.currentTimeMillis()
-        modifyBlocks { list ->
-            mapBlockById(list, blockId) { db ->
-                if (db is DatabaseBlock) {
-                    db.copy(views = db.views.map { if (it.id == viewId) it.copy(name = newName) else it }, updatedAt = now)
-                } else db
-            }
-        }
-        scheduleAutosave()
-    }
-
-    fun reorderDbColumns(blockId: String, fromIndex: Int, toIndex: Int) {
-        val now = System.currentTimeMillis()
-        modifyBlocks { list ->
-            mapBlockById(list, blockId) { db ->
-                if (db is DatabaseBlock) {
-                    val cols = db.columns.toMutableList()
-                    val moved = cols.removeAt(fromIndex)
-                    cols.add(toIndex, moved)
-                    db.copy(columns = cols, updatedAt = now)
-                } else db
-            }
-        }
-        scheduleAutosave()
-    }
-
-    fun reorderDbRows(blockId: String, fromIndex: Int, toIndex: Int) {
-        val now = System.currentTimeMillis()
-        modifyBlocks { list ->
-            mapBlockById(list, blockId) { db ->
-                if (db is DatabaseBlock) {
-                    val rows = db.rows.toMutableList()
-                    val moved = rows.removeAt(fromIndex)
-                    rows.add(toIndex, moved)
-                    db.copy(rows = rows, updatedAt = now)
-                } else db
-            }
-        }
-        scheduleAutosave()
-    }
-
-    fun reorderDatabaseViews(blockId: String, fromIndex: Int, toIndex: Int) {
-        val now = System.currentTimeMillis()
-        modifyBlocks { list ->
-            mapBlockById(list, blockId) { db ->
-                if (db is DatabaseBlock) {
-                    val views = db.views.toMutableList()
-                    val moved = views.removeAt(fromIndex)
-                    views.add(toIndex, moved)
-                    db.copy(views = views, updatedAt = now)
-                } else db
-            }
-        }
-        scheduleAutosave()
-    }
-
-    fun deleteDbColumn(blockId: String, colId: String) {
-        val now = System.currentTimeMillis()
-        modifyBlocks { list ->
-            mapBlockById(list, blockId) { db ->
-                if (db is DatabaseBlock) {
-                    val updatedCols = db.columns.map { col ->
-                        if (col.id == colId) col.copy(isDeleted = true, updatedAt = now) else col
-                    }
-                    db.copy(columns = updatedCols, updatedAt = now)
-                } else db
-            }
-        }
-        scheduleAutosave()
-    }
-
-    fun deleteDbRow(blockId: String, rowId: String) {
-        val now = System.currentTimeMillis()
-        modifyBlocks { list ->
-            mapBlockById(list, blockId) { db ->
-                if (db is DatabaseBlock) {
-                    val updatedRows = db.rows.map { row ->
-                        if (row.id == rowId) row.copy(isDeleted = true, updatedAt = now) else row
-                    }
-                    db.copy(rows = updatedRows, updatedAt = now)
-                } else db
-            }
-        }
-        scheduleAutosave()
-    }
-
-    fun addDbRowAt(blockId: String, index: Int) {
-        val now = System.currentTimeMillis()
-        modifyBlocks { list ->
-            mapBlockById(list, blockId) { db ->
-                if (db is DatabaseBlock) {
-                    val rows = db.rows.toMutableList()
-                    rows.add(index.coerceIn(0, rows.size), DatabaseRow(id = UUID.randomUUID().toString(), databaseId = blockId, cells = emptyMap(), updatedAt = now))
-                    db.copy(rows = rows, updatedAt = now)
-                } else db
-            }
-        }
-        scheduleAutosave()
-    }
-
-    fun addDbColumnAt(blockId: String, index: Int) {
-        val now = System.currentTimeMillis()
-        modifyBlocks { list ->
-            mapBlockById(list, blockId) { db ->
-                if (db is DatabaseBlock) {
-                    val cols = db.columns.toMutableList()
-                    cols.add(index.coerceIn(0, cols.size), DatabaseColumn(id = UUID.randomUUID().toString(), databaseId = blockId, name = "New Column", type = ColumnType.TEXT, updatedAt = now))
-                    db.copy(columns = cols, updatedAt = now)
-                } else db
             }
         }
         scheduleAutosave()
@@ -2565,18 +1938,6 @@ abstract class BaseEditorViewModel(
                 }
             }
         }
-    }
-
-    // Database tags
-    val globalTags: StateFlow<List<TagEntity>> = repository.getAllTags()
-        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
-
-    fun createGlobalTag(name: String, colorHex: String): String {
-        val newId = UUID.randomUUID().toString()
-        viewModelScope.launch(Dispatchers.IO) {
-            repository.insertOrUpdateTag(newId, name, colorHex)
-        }
-        return newId
     }
 
     fun addBlockAbove(id: String) {
@@ -2605,106 +1966,6 @@ abstract class BaseEditorViewModel(
         }
         _focusRequest.value = FocusRequest(id = newId)
         scheduleAutosave()
-    }
-
-    // Aggregators
-    fun updateDbAggregation(blockId: String, colId: String, aggregationType: String?) {
-        val now = System.currentTimeMillis()
-        modifyBlocks { list ->
-            mapBlockById(list, blockId) { db ->
-                if (db is DatabaseBlock)
-                    db.copy(columns = db.columns.map { c ->
-                        if (c.id == colId) c.copy(aggregationType = aggregationType, updatedAt = now) else c
-                    }, updatedAt = now)
-                else db
-            }
-        }
-        scheduleAutosave()
-    }
-
-    fun updateDbCurrency(blockId: String, colId: String, symbol: String) {
-        val now = System.currentTimeMillis()
-        modifyBlocks { list ->
-            mapBlockById(list, blockId) { db ->
-                if (db is DatabaseBlock)
-                    db.copy(columns = db.columns.map { c ->
-                        if (c.id == colId) c.copy(currencySymbol = symbol, updatedAt = now) else c
-                    }, updatedAt = now)
-                else db
-            }
-        }
-        scheduleAutosave()
-    }
-
-    fun updateDbFormulaCurrency(blockId: String, colId: String, enabled: Boolean) {
-        val now = System.currentTimeMillis()
-        modifyBlocks { list ->
-            mapBlockById(list, blockId) { db ->
-                if (db is DatabaseBlock)
-                    db.copy(columns = db.columns.map { c ->
-                        if (c.id == colId) c.copy(isFormulaCurrency = enabled, updatedAt = now) else c
-                    }, updatedAt = now)
-                else db
-            }
-        }
-        scheduleAutosave()
-    }
-
-    // Database table notes
-    fun openDatabaseNote(
-        blockId: String,
-        rowId: String,
-        colId: String,
-        existingNoteId: String?,
-        onNavigate: (String) -> Unit
-    ) {
-        if (!existingNoteId.isNullOrBlank()) {
-            viewModelScope.launch {
-                performSave()
-                withContext(Dispatchers.Main) {
-                    onNavigate(existingNoteId)
-                }
-            }
-            return
-        }
-
-        val newNoteId = UUID.randomUUID().toString()
-        val now = System.currentTimeMillis()
-
-        viewModelScope.launch(Dispatchers.IO) {
-            try {
-                val subNoteMeta = NoteMetadataEntity(
-                    noteId = newNoteId,
-                    title = "",
-                    folderId = null,
-                    isDaily = false,
-                    dateString = null,
-                    createdAt = now,
-                    updatedAt = now,
-                    filePath = "note_$newNoteId.json",
-                    isSubNote = true
-                )
-
-                // Create the sub-note first - if this fails, the parent's cell is never left pointing
-                // at a note that doesn't exist. performSave() below takes SyncCoordinator.mutex itself
-                // (it's not reentrant), so this write gets its own lock rather than one shared with it.
-                SyncCoordinator.mutex.withLock {
-                    repository.saveNote(subNoteMeta, NoteContent(blocks = emptyList()))
-                }
-
-                withContext(Dispatchers.Main) {
-                    updateDbCell(blockId, rowId, colId, CellData.NoteRelation(listOf(newNoteId)))
-                }
-
-                performSave()
-
-                withContext(Dispatchers.Main) {
-                    onNavigate(newNoteId)
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }
     }
 
     fun createLinkedNote(title: String): String {

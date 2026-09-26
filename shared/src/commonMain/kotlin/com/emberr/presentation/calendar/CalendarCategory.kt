@@ -2,7 +2,7 @@ package com.emberr.presentation.calendar
 
 import androidx.compose.ui.graphics.Color
 
-// Mirrors TagEntity's colorHex convention elsewhere in the app ("#RRGGBB", no alpha) so the same
+// Uses the "#RRGGBB" colorHex convention (no alpha) so the same
 // storage format can be reused if/when this moves into Room alongside events.
 data class CalendarCategory(
     val id: String,

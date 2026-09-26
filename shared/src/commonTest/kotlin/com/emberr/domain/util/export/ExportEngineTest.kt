@@ -2,13 +2,8 @@ package com.emberr.domain.util.export
 
 import com.emberr.domain.model.BookmarkBlock
 import com.emberr.domain.model.BulletedListBlock
-import com.emberr.domain.model.CellData
 import com.emberr.domain.model.CheckboxBlock
 import com.emberr.domain.model.CodeBlock
-import com.emberr.domain.model.ColumnType
-import com.emberr.domain.model.DatabaseBlock
-import com.emberr.domain.model.DatabaseColumn
-import com.emberr.domain.model.DatabaseRow
 import com.emberr.domain.model.DocumentBlock
 import com.emberr.domain.model.HeadingBlock
 import com.emberr.domain.model.ImageBlock
@@ -25,7 +20,6 @@ import com.emberr.domain.model.ToggleBlock
 import com.emberr.domain.model.VoiceBlock
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertTrue
 
 class ExportEngineTest {
 
@@ -235,56 +229,6 @@ class ExportEngineTest {
     }
 
     @Test
-    fun aDatabaseBecomesAMarkdownTableWithAHeaderRow() {
-        assertEquals(
-            "**Shopping**\n\n| Name | Amount |\n| --- | --- |\n| Buy milk | 12.5 |",
-            markdownOf(shoppingDatabase())
-        )
-    }
-
-    @Test
-    fun aDatabaseWithNoTitleStillGetsAReadableHeading() {
-        val untitled = shoppingDatabase().copy(title = "")
-
-        assertTrue(markdownOf(untitled).startsWith("**Untitled Database**"))
-        assertTrue(plainTextOf(untitled).startsWith("[Database: Untitled]"))
-    }
-
-    @Test
-    fun aDatabaseListsItsRowsInPlainTextWithoutAHeaderRow() {
-        assertEquals(
-            "[Database: Shopping]\n  Buy milk | 12.5",
-            plainTextOf(shoppingDatabase())
-        )
-    }
-
-    @Test
-    fun deletedDatabaseColumnsAndRowsAreLeftOut() {
-        val database = shoppingDatabase().let { original ->
-            original.copy(
-                columns = original.columns + DatabaseColumn(
-                    id = "column-gone",
-                    databaseId = original.id,
-                    name = "Removed",
-                    type = ColumnType.TEXT,
-                    isDeleted = true
-                ),
-                rows = original.rows + DatabaseRow(
-                    id = "row-gone",
-                    databaseId = original.id,
-                    cells = emptyMap(),
-                    isDeleted = true
-                )
-            )
-        }
-
-        assertEquals(
-            "**Shopping**\n\n| Name | Amount |\n| --- | --- |\n| Buy milk | 12.5 |",
-            markdownOf(database)
-        )
-    }
-
-    @Test
     fun aTableBecomesAMarkdownTableWithASeparatorAfterTheFirstRow() {
         assertEquals(
             "| Header A | Header B |\n| --- | --- |\n| Cell A | Cell B |",
@@ -306,37 +250,6 @@ class ExportEngineTest {
                 TableBlock(
                     id = "table-1",
                     rows = listOf(listOf("Header A", "Header B"), listOf("Cell A", "Cell B"))
-                )
-            )
-        )
-    }
-
-    private fun shoppingDatabase(): DatabaseBlock {
-        val nameColumn = DatabaseColumn(
-            id = "column-name",
-            databaseId = "database-1",
-            name = "Name",
-            type = ColumnType.TEXT
-        )
-        val amountColumn = DatabaseColumn(
-            id = "column-amount",
-            databaseId = "database-1",
-            name = "Amount",
-            type = ColumnType.NUMBER
-        )
-
-        return DatabaseBlock(
-            id = "database-1",
-            title = "Shopping",
-            columns = listOf(nameColumn, amountColumn),
-            rows = listOf(
-                DatabaseRow(
-                    id = "row-1",
-                    databaseId = "database-1",
-                    cells = mapOf(
-                        nameColumn.id to CellData.Text("Buy milk"),
-                        amountColumn.id to CellData.Number(12.5)
-                    )
                 )
             )
         )

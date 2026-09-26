@@ -4,7 +4,6 @@ package com.emberr.domain.vault
 
 object VaultFormat {
 
-    const val DATABASE_FENCE_NAME = "emberr-database"
     const val VOICE_FENCE_NAME = "emberr-voice"
     const val CANVAS_FENCE_NAME = "emberr-canvas"
 

@@ -6,19 +6,16 @@ import com.emberr.data.local.room.dao.CalendarEventExceptionDao
 import com.emberr.data.local.room.dao.CalendarTaskDao
 import com.emberr.data.local.room.dao.CanvasDao
 import com.emberr.data.local.room.dao.CategoryDao
-import com.emberr.data.local.room.dao.DatabaseTemplateDao
 import com.emberr.data.local.room.dao.DocumentBlockDao
 import com.emberr.data.local.room.dao.FolderDao
 import com.emberr.data.local.room.dao.ImageBlockDao
 import com.emberr.data.local.room.dao.MediaReferenceDao
 import com.emberr.data.local.room.dao.NoteDao
 import com.emberr.data.local.room.dao.SelfHostDeletedNoteDao
-import com.emberr.data.local.room.dao.TagDao
 import com.emberr.data.local.room.entity.BookmarkBlockEntity
 import com.emberr.data.local.room.entity.CalendarEventExceptionEntity
 import com.emberr.data.local.room.entity.CalendarTaskEntity
 import com.emberr.data.local.room.entity.CategoryEntity
-import com.emberr.data.local.room.entity.DatabaseTemplateEntity
 import com.emberr.data.local.room.entity.DocumentBlockEntity
 import com.emberr.data.local.room.entity.FolderEntity
 import com.emberr.data.local.room.entity.ImageBlockEntity
@@ -27,7 +24,6 @@ import com.emberr.data.local.room.entity.NoteBlockEntity
 import com.emberr.data.local.room.entity.NoteKind
 import com.emberr.data.local.room.entity.NoteMetadataEntity
 import com.emberr.data.local.room.entity.SelfHostDeletedNoteEntity
-import com.emberr.data.local.room.entity.TagEntity
 import com.emberr.data.local.room.entity.TaskSource
 import com.emberr.data.local.room.entity.toEntityColumns
 import com.emberr.data.local.room.entity.toRecurrenceRule
@@ -122,7 +118,6 @@ class NoteRepositoryImpl(
     private val activeSpaceStore: com.emberr.domain.space.ActiveSpaceStore,
     private val noteDao: NoteDao,
     private val folderDao: FolderDao,
-    private val tagDao: TagDao,
     private val blockDao: BlockDao,
     private val noteIndexer: NoteIndexer,
     private val calendarTaskDao: CalendarTaskDao,
@@ -130,7 +125,6 @@ class NoteRepositoryImpl(
     private val imageBlockDao: ImageBlockDao,
     private val documentBlockDao: DocumentBlockDao,
     private val bookmarkBlockDao: BookmarkBlockDao,
-    private val databaseTemplateDao: DatabaseTemplateDao,
     private val categoryDao: CategoryDao,
     private val selfHostDeletedNoteDao: SelfHostDeletedNoteDao,
     private val mediaReferenceDao: MediaReferenceDao,
@@ -677,10 +671,6 @@ class NoteRepositoryImpl(
                 .filter { it.spaceId == spaceId && !it.isDeleted }
                 .forEach { folder -> deleteFolder(folder.folderId) }
 
-            tagDao.getAllTagsAcrossSpaces().first()
-                .filter { it.spaceId == spaceId && !it.isDeleted }
-                .forEach { tag -> deleteTag(tag.tagId) }
-
             categoryDao.getAllCategoriesOnceAcrossSpaces()
                 .filter { it.spaceId == spaceId && !it.isDeleted }
                 .forEach { category -> deleteCategory(category.categoryId) }
@@ -826,44 +816,6 @@ class NoteRepositoryImpl(
         }
     }
 
-    override fun getAllTags(): Flow<List<TagEntity>> = inActiveSpace { tagDao.getAllTags(it) }
-
-    override suspend fun getTagsModifiedSince(timestamp: Long): List<TagEntity> =
-        tagDao.getTagsModifiedSince(timestamp)
-
-    override suspend fun insertOrUpdateTag(tagId: String, name: String, colorHex: String) =
-        withContext(Dispatchers.IO) {
-            val now = System.currentTimeMillis()
-            val existing = tagDao.getTagsModifiedSince(0L).firstOrNull { it.tagId == tagId }
-            tagDao.insertOrUpdateTag(
-                TagEntity(
-                    tagId = tagId,
-                    name = name,
-                    colorHex = colorHex,
-                    createdAt = existing?.createdAt ?: now,
-                    updatedAt = now,
-                    isDeleted = false,
-                    spaceId = existing?.spaceId ?: activeSpaceId()
-                )
-            )
-            AutoSyncTrigger.requestSync()
-        }
-
-    // Strictly greater, not >= - see applyRemoteCategory's identical reasoning.
-    override suspend fun applyRemoteTag(tag: TagEntity) =
-        withContext(Dispatchers.IO) {
-            val local = tagDao.getTagById(tag.tagId)
-            if (local == null || tag.updatedAt > local.updatedAt) {
-                tagDao.insertOrUpdateTag(tag)
-            }
-        }
-
-    override suspend fun deleteTag(tagId: String) =
-        withContext(Dispatchers.IO) {
-            tagDao.markTagDeleted(tagId, System.currentTimeMillis())
-            AutoSyncTrigger.requestSync()
-        }
-
     override fun getAllCategories(): Flow<List<CategoryEntity>> = inActiveSpace { categoryDao.getAllCategories(it) }
 
     override suspend fun insertOrUpdateCategory(categoryId: String, name: String, colorHex: String) =
@@ -895,7 +847,7 @@ class NoteRepositoryImpl(
     override suspend fun getCategoriesModifiedSince(timestamp: Long): List<CategoryEntity> =
         categoryDao.getCategoriesModifiedSince(timestamp)
 
-    // Last-write-wins against whatever's already local, mirroring how note/folder/tag sync
+    // Last-write-wins against whatever's already local, mirroring how note/folder sync
     // resolves conflicts elsewhere in this file.
     override suspend fun applyRemoteCategory(category: CategoryEntity) =
         withContext(Dispatchers.IO) {
@@ -905,18 +857,6 @@ class NoteRepositoryImpl(
             if (local == null || category.updatedAt > local.updatedAt) {
                 categoryDao.insertOrUpdateCategory(category)
             }
-        }
-
-    override fun getAllDatabaseTemplates(): Flow<List<DatabaseTemplateEntity>> = databaseTemplateDao.getAllTemplates()
-
-    override suspend fun insertDatabaseTemplate(template: DatabaseTemplateEntity) =
-        withContext(Dispatchers.IO) {
-            databaseTemplateDao.insertTemplate(template)
-        }
-
-    override suspend fun deleteDatabaseTemplate(templateId: String) =
-        withContext(Dispatchers.IO) {
-            databaseTemplateDao.deleteTemplate(templateId)
         }
 
     override fun getAllTemplates(): Flow<List<NoteMetadataEntity>> = inActiveSpace { noteDao.getAllTemplates(it) }

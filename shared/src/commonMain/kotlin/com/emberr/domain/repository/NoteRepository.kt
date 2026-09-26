@@ -4,12 +4,10 @@ import com.emberr.data.local.room.entity.BookmarkBlockEntity
 import com.emberr.data.local.room.entity.CalendarEventExceptionEntity
 import com.emberr.data.local.room.entity.CalendarTaskEntity
 import com.emberr.data.local.room.entity.CategoryEntity
-import com.emberr.data.local.room.entity.DatabaseTemplateEntity
 import com.emberr.data.local.room.entity.DocumentBlockEntity
 import com.emberr.data.local.room.entity.FolderEntity
 import com.emberr.data.local.room.entity.ImageBlockEntity
 import com.emberr.data.local.room.entity.NoteMetadataEntity
-import com.emberr.data.local.room.entity.TagEntity
 import com.emberr.domain.canvas.CanvasContent
 import com.emberr.domain.model.NoteBlock
 import com.emberr.domain.model.NoteContent
@@ -126,16 +124,6 @@ interface NoteRepository {
     // always restamps updatedAt to now.
     suspend fun applyRemoteFolder(folder: FolderEntity)
 
-    // Database
-    fun getAllTags(): Flow<List<TagEntity>>
-    suspend fun insertOrUpdateTag(tagId: String, name: String, colorHex: String)
-    suspend fun deleteTag(tagId: String)
-    suspend fun getTagsModifiedSince(timestamp: Long): List<TagEntity>
-
-    // Same reasoning as applyRemoteFolder - preserves the peer's updatedAt/isDeleted instead of
-    // restamping it as a fresh local edit.
-    suspend fun applyRemoteTag(tag: TagEntity)
-
     // Calendar categories
     fun getAllCategories(): Flow<List<CategoryEntity>>
     suspend fun insertOrUpdateCategory(categoryId: String, name: String, colorHex: String)
@@ -144,11 +132,6 @@ interface NoteRepository {
     suspend fun applyRemoteCategory(category: CategoryEntity)
 
     suspend fun applyRemoteEventException(exception: CalendarEventExceptionEntity)
-
-    // Database templates (saved schemas: columns + views, never rows)
-    fun getAllDatabaseTemplates(): Flow<List<DatabaseTemplateEntity>>
-    suspend fun insertDatabaseTemplate(template: DatabaseTemplateEntity)
-    suspend fun deleteDatabaseTemplate(templateId: String)
 
     // Note templates (full NoteMetadataEntity + NoteContent, reusable as a starting point for new notes)
     fun getAllTemplates(): Flow<List<NoteMetadataEntity>>

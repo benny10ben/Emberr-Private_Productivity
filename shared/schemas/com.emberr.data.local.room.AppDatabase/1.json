@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "a7cd63fd3e59cdb9150dc5513f963dc9",
+    "identityHash": "846f28695844714ac68303154835aa2e",
     "entities": [
       {
         "tableName": "spaces",
@@ -270,71 +270,6 @@
             ],
             "orders": [],
             "createSql": "CREATE INDEX IF NOT EXISTS `index_folders_spaceId` ON `${TABLE_NAME}` (`spaceId`)"
-          }
-        ]
-      },
-      {
-        "tableName": "global_tags",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`tagId` TEXT NOT NULL, `name` TEXT NOT NULL, `colorHex` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `isDeleted` INTEGER NOT NULL, `spaceId` TEXT NOT NULL, PRIMARY KEY(`tagId`))",
-        "fields": [
-          {
-            "fieldPath": "tagId",
-            "columnName": "tagId",
-            "affinity": "TEXT",
-            "notNull": true
-          },
-          {
-            "fieldPath": "name",
-            "columnName": "name",
-            "affinity": "TEXT",
-            "notNull": true
-          },
-          {
-            "fieldPath": "colorHex",
-            "columnName": "colorHex",
-            "affinity": "TEXT",
-            "notNull": true
-          },
-          {
-            "fieldPath": "createdAt",
-            "columnName": "createdAt",
-            "affinity": "INTEGER",
-            "notNull": true
-          },
-          {
-            "fieldPath": "updatedAt",
-            "columnName": "updatedAt",
-            "affinity": "INTEGER",
-            "notNull": true
-          },
-          {
-            "fieldPath": "isDeleted",
-            "columnName": "isDeleted",
-            "affinity": "INTEGER",
-            "notNull": true
-          },
-          {
-            "fieldPath": "spaceId",
-            "columnName": "spaceId",
-            "affinity": "TEXT",
-            "notNull": true
-          }
-        ],
-        "primaryKey": {
-          "autoGenerate": false,
-          "columnNames": [
-            "tagId"
-          ]
-        },
-        "indices": [
-          {
-            "name": "index_global_tags_spaceId",
-            "unique": false,
-            "columnNames": [
-              "spaceId"
-            ],
-            "orders": [],
-            "createSql": "CREATE INDEX IF NOT EXISTS `index_global_tags_spaceId` ON `${TABLE_NAME}` (`spaceId`)"
           }
         ]
       },
@@ -741,42 +676,6 @@
             "createSql": "CREATE INDEX IF NOT EXISTS `index_bookmark_blocks_noteUpdatedAt` ON `${TABLE_NAME}` (`noteUpdatedAt`)"
           }
         ]
-      },
-      {
-        "tableName": "database_templates",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`templateId` TEXT NOT NULL, `name` TEXT NOT NULL, `serializedColumns` TEXT NOT NULL, `serializedViews` TEXT NOT NULL, PRIMARY KEY(`templateId`))",
-        "fields": [
-          {
-            "fieldPath": "templateId",
-            "columnName": "templateId",
-            "affinity": "TEXT",
-            "notNull": true
-          },
-          {
-            "fieldPath": "name",
-            "columnName": "name",
-            "affinity": "TEXT",
-            "notNull": true
-          },
-          {
-            "fieldPath": "serializedColumns",
-            "columnName": "serializedColumns",
-            "affinity": "TEXT",
-            "notNull": true
-          },
-          {
-            "fieldPath": "serializedViews",
-            "columnName": "serializedViews",
-            "affinity": "TEXT",
-            "notNull": true
-          }
-        ],
-        "primaryKey": {
-          "autoGenerate": false,
-          "columnNames": [
-            "templateId"
-          ]
-        }
       },
       {
         "tableName": "calendar_categories",
@@ -1448,7 +1347,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'a7cd63fd3e59cdb9150dc5513f963dc9')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '846f28695844714ac68303154835aa2e')"
     ]
   }
 }

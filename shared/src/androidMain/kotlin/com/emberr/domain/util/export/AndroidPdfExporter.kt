@@ -183,48 +183,6 @@ fun generateAndSaveAndroidPdf(
                     currentY += 10f
                 }
 
-                is DatabaseBlock -> {
-                    textPaint.textSize = 10f
-                    textPaint.isFakeBoldText = true
-
-                    val validCols = block.columns.filter { !it.isDeleted }
-                    if (validCols.isEmpty()) continue
-
-                    val colWidth = availableWidth / validCols.size
-                    val rowHeight = 20f
-
-                    checkPagination(rowHeight)
-
-                    var currentX = startX + indent
-                    val borderPaint = android.graphics.Paint().apply {
-                        color = android.graphics.Color.LTGRAY
-                        style = android.graphics.Paint.Style.STROKE
-                    }
-
-                    for (col in validCols) {
-                        val truncated = android.text.TextUtils.ellipsize(col.name, textPaint, colWidth.toFloat() - 10f, android.text.TextUtils.TruncateAt.END).toString()
-                        canvas.drawText(truncated, currentX + 5f, currentY + 14f, textPaint)
-                        canvas.drawRect(currentX, currentY, currentX + colWidth, currentY + rowHeight, borderPaint)
-                        currentX += colWidth
-                    }
-                    currentY += rowHeight
-                    textPaint.isFakeBoldText = false
-
-                    for (row in block.rows.filter { !it.isDeleted }) {
-                        checkPagination(rowHeight)
-                        currentX = startX + indent
-                        for (col in validCols) {
-                            val cellText = row.cells[col.id].displayText().replace("\n", " ")
-                            val truncated = android.text.TextUtils.ellipsize(cellText, textPaint, colWidth.toFloat() - 10f, android.text.TextUtils.TruncateAt.END).toString()
-                            canvas.drawText(truncated, currentX + 5f, currentY + 14f, textPaint)
-                            canvas.drawRect(currentX, currentY, currentX + colWidth, currentY + rowHeight, borderPaint)
-                            currentX += colWidth
-                        }
-                        currentY += rowHeight
-                    }
-                    currentY += 15f
-                }
-
                 is ImageBlock -> {
                     val filePath = block.localFilePath ?: continue
                     val imgFile = java.io.File(mediaStorageHelper.getAbsoluteMediaPath(filePath))

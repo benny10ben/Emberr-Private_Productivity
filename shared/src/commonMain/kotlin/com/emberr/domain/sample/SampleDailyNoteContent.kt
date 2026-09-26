@@ -2,14 +2,8 @@ package com.emberr.domain.sample
 
 import com.emberr.domain.model.BookmarkBlock
 import com.emberr.domain.model.BulletedListBlock
-import com.emberr.domain.model.CellData
 import com.emberr.domain.model.CheckboxBlock
 import com.emberr.domain.model.CodeBlock
-import com.emberr.domain.model.ColumnType
-import com.emberr.domain.model.DatabaseBlock
-import com.emberr.domain.model.DatabaseColumn
-import com.emberr.domain.model.DatabaseRow
-import com.emberr.domain.model.DatabaseView
 import com.emberr.domain.model.DocumentBlock
 import com.emberr.domain.model.HeadingBlock
 import com.emberr.domain.model.ImageBlock
@@ -21,15 +15,10 @@ import com.emberr.domain.model.TableBlock
 import com.emberr.domain.model.TextBlock
 import com.emberr.domain.model.ThreeDotDividerBlock
 import com.emberr.domain.model.ToggleBlock
-import com.emberr.domain.model.ViewType
 import com.emberr.domain.model.VoiceBlock
 
 object SampleDailyNoteContent {
 
-    private const val DATABASE_BLOCK_ID = "sample_daily_database"
-    private const val TASK_COLUMN_ID = "sample_daily_database_column_task"
-    private const val DONE_COLUMN_ID = "sample_daily_database_column_done"
-    private const val DUE_COLUMN_ID = "sample_daily_database_column_due"
     private const val PROJECT_PAGE_URL = "https://github.com/benny10ben/Emberr-Privacy-Notes-Tasks-Calendar"
 
     fun buildBlocks(createdAt: Long): List<NoteBlock> {
@@ -171,13 +160,6 @@ object SampleDailyNoteContent {
                 updatedAt = createdAt
             ),
             spacers.next(),
-            TextBlock(
-                id = "sample_daily_database_intro",
-                text = "Or a database, when the columns need real types and views:",
-                updatedAt = createdAt
-            ),
-            buildSampleDatabase(createdAt),
-            spacers.next(),
 
             TextBlock(
                 id = "sample_daily_media_intro",
@@ -227,65 +209,6 @@ object SampleDailyNoteContent {
                 text = "That is everything. Long prees -> select all blocks -> delete the blocks whenever you like, it is only blocks.",
                 updatedAt = createdAt
             )
-        )
-    }
-
-    private fun buildSampleDatabase(createdAt: Long): DatabaseBlock {
-        val tableViewId = "sample_daily_database_view"
-
-        return DatabaseBlock(
-            id = DATABASE_BLOCK_ID,
-            title = "Example",
-            columns = listOf(
-                DatabaseColumn(
-                    id = TASK_COLUMN_ID,
-                    databaseId = DATABASE_BLOCK_ID,
-                    name = "Task",
-                    type = ColumnType.TEXT,
-                    updatedAt = createdAt
-                ),
-                DatabaseColumn(
-                    id = DONE_COLUMN_ID,
-                    databaseId = DATABASE_BLOCK_ID,
-                    name = "Done",
-                    type = ColumnType.CHECKBOX,
-                    updatedAt = createdAt
-                ),
-                DatabaseColumn(
-                    id = DUE_COLUMN_ID,
-                    databaseId = DATABASE_BLOCK_ID,
-                    name = "Due",
-                    type = ColumnType.DATE,
-                    updatedAt = createdAt
-                )
-            ),
-            rows = listOf(
-                DatabaseRow(
-                    id = "sample_daily_database_row_one",
-                    databaseId = DATABASE_BLOCK_ID,
-                    cells = mapOf(
-                        TASK_COLUMN_ID to CellData.Text("Look around"),
-                        DONE_COLUMN_ID to CellData.Boolean(true),
-                        DUE_COLUMN_ID to CellData.Date(createdAt)
-                    ),
-                    updatedAt = createdAt
-                ),
-                DatabaseRow(
-                    id = "sample_daily_database_row_two",
-                    databaseId = DATABASE_BLOCK_ID,
-                    cells = mapOf(
-                        TASK_COLUMN_ID to CellData.Text("Add a column of your own"),
-                        DONE_COLUMN_ID to CellData.Boolean(false),
-                        DUE_COLUMN_ID to CellData.Date(null)
-                    ),
-                    updatedAt = createdAt
-                )
-            ),
-            views = listOf(
-                DatabaseView(id = tableViewId, name = "Table", type = ViewType.TABLE)
-            ),
-            activeViewId = tableViewId,
-            updatedAt = createdAt
         )
     }
 }

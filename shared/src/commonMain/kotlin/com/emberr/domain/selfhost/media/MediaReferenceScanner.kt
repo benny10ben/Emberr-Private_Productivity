@@ -1,8 +1,5 @@
 package com.emberr.domain.selfhost.media
 
-import com.emberr.domain.model.CellData
-import com.emberr.domain.model.ColumnType
-import com.emberr.domain.model.DatabaseBlock
 import com.emberr.domain.model.DocumentBlock
 import com.emberr.domain.model.ImageBlock
 import com.emberr.domain.model.NoteBlock
@@ -18,20 +15,6 @@ object MediaReferenceScanner {
                 is ImageBlock -> block.localFilePath?.substringAfterLast("/")?.let { fileNames.add(it) }
                 is DocumentBlock -> block.localFilePath?.substringAfterLast("/")?.let { fileNames.add(it) }
                 is VoiceBlock -> block.localFilePath?.substringAfterLast("/")?.let { fileNames.add(it) }
-                is DatabaseBlock -> {
-                    val mediaColIds = block.columns
-                        .filter { it.type == ColumnType.FILES || it.type == ColumnType.AUDIO }
-                        .map { it.id }.toSet()
-                    block.rows.forEach { row ->
-                        mediaColIds.forEach { colId ->
-                            val files = (row.cells[colId] as? CellData.MediaList)?.files ?: emptyList()
-                            files.forEach { media ->
-                                val cleanLocalPath = media.fileName.substringAfterLast("/")
-                                if (cleanLocalPath.isNotBlank()) fileNames.add(cleanLocalPath)
-                            }
-                        }
-                    }
-                }
                 else -> Unit
             }
         }

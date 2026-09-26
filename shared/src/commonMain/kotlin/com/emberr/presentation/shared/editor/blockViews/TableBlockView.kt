@@ -88,7 +88,6 @@ import com.emberr.presentation.shared.components.EmberrDesktopMenu
 import com.emberr.presentation.shared.components.rememberKeyboardHandoff
 import com.emberr.presentation.shared.editor.WebLinkVisualTransformation
 import com.emberr.presentation.shared.editor.GlobalEditorState
-import com.emberr.presentation.shared.editor.blockViews.databaseBlockView.SheetMenuRow
 import com.emberr.presentation.shared.editor.rememberWebLinkActions
 import com.emberr.presentation.shared.editor.LinkContextMenu
 import com.emberr.presentation.shared.editor.LinkHoverCard
@@ -967,5 +966,27 @@ private fun StyleToggleButton(icon: Painter, isActive: Boolean, iconSize: Dp = 1
             modifier = Modifier.size(iconSize),
             tint = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
         )
+    }
+}
+
+@Composable
+private fun SheetMenuRow(
+    icon: Painter,
+    text: String,
+    color: Color = MaterialTheme.colorScheme.onSurface,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 2.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .clickable { onClick() }
+            .padding(vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(icon, null, tint = color, modifier = Modifier.size(20.dp))
+        Spacer(Modifier.width(12.dp))
+        Text(text, style = MaterialTheme.typography.bodyLarge, color = color, modifier = Modifier.weight(1f))
     }
 }

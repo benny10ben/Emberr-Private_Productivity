@@ -101,10 +101,6 @@ class TasksViewModel(
         return newNoteId
     }
 
-    suspend fun getNoteTitle(noteId: String): String {
-        return repository.getNoteById(noteId)?.title ?: "Unknown Note"
-    }
-
     suspend fun getNoteMetadata(noteId: String) = repository.getNoteById(noteId)
 
     init {

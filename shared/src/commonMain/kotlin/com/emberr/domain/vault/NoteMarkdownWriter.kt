@@ -8,8 +8,6 @@ import com.emberr.domain.model.BulletedListBlock
 import com.emberr.domain.model.CanvasBlock
 import com.emberr.domain.model.CheckboxBlock
 import com.emberr.domain.model.CodeBlock
-import com.emberr.domain.model.DatabaseBlock
-import com.emberr.domain.model.DatabaseColumn
 import com.emberr.domain.model.DocumentBlock
 import com.emberr.domain.model.HeadingBlock
 import com.emberr.domain.model.ImageBlock
@@ -23,7 +21,6 @@ import com.emberr.domain.model.TextBlock
 import com.emberr.domain.model.ThreeDotDividerBlock
 import com.emberr.domain.model.ToggleBlock
 import com.emberr.domain.model.VoiceBlock
-import com.emberr.domain.model.displayText
 import kotlinx.datetime.TimeZone
 import com.emberr.domain.model.highlightColorNameOrNull
 import com.emberr.domain.model.inlineSpansOrEmpty
@@ -174,7 +171,6 @@ object NoteMarkdownWriter {
             is VoiceBlock -> renderVoice(block, tag, options)
             is CanvasBlock -> renderCanvas(block, tag, options)
             is TableBlock -> renderTable(block, tag)
-            is DatabaseBlock -> renderDatabase(block, tag, options)
             is SolidDividerBlock -> withTagOnItsOwnLine(VaultFormat.SOLID_DIVIDER_LINE, tag)
             is ThreeDotDividerBlock -> withTagOnItsOwnLine(VaultFormat.DOT_DIVIDER_LINE, tag)
         }
@@ -309,69 +305,6 @@ object NoteMarkdownWriter {
             if (rowIndex == 0) lines.add(renderTableSeparator(columnCount))
         }
         return withTagOnItsOwnLine(lines.joinToString("\n"), tag)
-    }
-
-    private fun renderDatabase(block: DatabaseBlock, tag: String?, options: RenderOptions): String {
-        val columns = block.columns.filter { !it.isDeleted }
-        val rows = block.rows.filter { !it.isDeleted }
-        val heading = if (options.isVault) renderDatabaseConfigFence(block, columns) else null
-
-        if (columns.isEmpty()) {
-            val fallback = heading ?: "**${block.title.ifBlank { "Untitled Database" }}**"
-            return withTagOnItsOwnLine(fallback, tag)
-        }
-
-        val showsRowIds = options.isVault
-        val rowIdColumnName = if (columns.any { it.name.equals("id", ignoreCase = true) }) "row_id" else "id"
-        val headerCells = if (showsRowIds) {
-            listOf(rowIdColumnName) + columns.map { it.name.ifBlank { "Column" } }
-        } else {
-            columns.map { it.name.ifBlank { "Column" } }
-        }
-
-        val lines = mutableListOf<String>()
-        lines.add(renderTableRow(headerCells, headerCells.size))
-        lines.add(renderTableSeparator(headerCells.size))
-
-        rows.forEach { row ->
-            val valueCells = columns.map { column -> row.cells[column.id].displayText() }
-            val cells = if (showsRowIds) listOf(VaultBlockTags.shortTagFor(row.id)) + valueCells else valueCells
-            lines.add(renderTableRow(cells, headerCells.size))
-        }
-
-        val table = withTagOnItsOwnLine(lines.joinToString("\n"), tag)
-        val titleLine = heading ?: "**${block.title.ifBlank { "Untitled Database" }}**"
-        return "$titleLine\n\n$table"
-    }
-
-    private fun renderDatabaseConfigFence(
-        block: DatabaseBlock,
-        columns: List<DatabaseColumn>
-    ): String = buildString {
-        appendLine("```${VaultFormat.DATABASE_FENCE_NAME}")
-        appendLine("title: ${yamlScalar(block.title.ifBlank { "Untitled" })}")
-        appendLine("view: ${yamlScalar(describeActiveView(block))}")
-        if (columns.isEmpty()) {
-            appendLine("columns: {}")
-        } else {
-            appendLine("columns:")
-            columns.forEach { column ->
-                appendLine("  ${yamlScalar(column.name.ifBlank { "Column" })}: ${column.type.name.lowercase()}")
-            }
-        }
-        append("```")
-    }
-
-    private fun describeActiveView(block: DatabaseBlock): String {
-        val activeView = block.views.firstOrNull { it.id == block.activeViewId }
-            ?: block.views.firstOrNull()
-            ?: return "table"
-
-        val viewTypeName = activeView.type.name.lowercase()
-        val groupColumnName = activeView.groupByColumnId?.let { columnId ->
-            block.columns.firstOrNull { it.id == columnId && !it.isDeleted }?.name
-        }
-        return if (groupColumnName.isNullOrBlank()) viewTypeName else "$viewTypeName by $groupColumnName"
     }
 
     private fun renderTableRow(cells: List<String>, columnCount: Int): String =

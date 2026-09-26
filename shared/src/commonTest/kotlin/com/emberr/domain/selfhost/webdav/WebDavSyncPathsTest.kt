@@ -17,7 +17,6 @@ class WebDavSyncPathsTest {
             WebDavSyncPaths.CHAT_SESSIONS_DIR,
             WebDavSyncPaths.SPACES_FILE,
             WebDavSyncPaths.FOLDERS_FILE,
-            WebDavSyncPaths.TAGS_FILE,
             WebDavSyncPaths.CATEGORIES_FILE,
             WebDavSyncPaths.API_CONFIGS_FILE,
             WebDavSyncPaths.notePath("note-1"),
@@ -38,7 +37,6 @@ class WebDavSyncPathsTest {
         assertEquals("/emberr_sync/manifest.json", WebDavSyncPaths.MANIFEST_FILE)
         assertEquals("/emberr_sync/spaces.json", WebDavSyncPaths.SPACES_FILE)
         assertEquals("/emberr_sync/folders.json", WebDavSyncPaths.FOLDERS_FILE)
-        assertEquals("/emberr_sync/tags.json", WebDavSyncPaths.TAGS_FILE)
         assertEquals("/emberr_sync/categories.json", WebDavSyncPaths.CATEGORIES_FILE)
         assertEquals("/emberr_sync/api_configs.json", WebDavSyncPaths.API_CONFIGS_FILE)
     }

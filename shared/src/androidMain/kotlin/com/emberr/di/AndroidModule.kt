@@ -16,13 +16,11 @@ import com.emberr.data.local.room.dao.BlockDao
 import com.emberr.data.local.room.dao.BookmarkBlockDao
 import com.emberr.data.local.room.dao.CalendarTaskDao
 import com.emberr.data.local.room.dao.CategoryDao
-import com.emberr.data.local.room.dao.DatabaseTemplateDao
 import com.emberr.data.local.room.dao.DocumentBlockDao
 import com.emberr.data.local.room.dao.FolderDao
 import com.emberr.data.local.room.dao.ImageBlockDao
 import com.emberr.data.local.room.dao.NoteDao
 import com.emberr.data.local.room.dao.SelfHostDeletedNoteDao
-import com.emberr.data.local.room.dao.TagDao
 import com.emberr.domain.sync.SyncRepositoryImpl
 import com.emberr.domain.backup.automatic.AndroidBackupRescheduler
 import com.emberr.domain.backup.automatic.BackupNotifier
@@ -116,7 +114,6 @@ val androidModule = module {
     single<com.emberr.data.local.room.dao.SpaceDao> { get<AppDatabase>().spaceDao() }
     single<NoteDao> { get<AppDatabase>().noteDao() }
     single<FolderDao> { get<AppDatabase>().folderDao() }
-    single<TagDao> { get<AppDatabase>().tagDao() }
     single<BlockDao> { get<AppDatabase>().blockDao() }
 
     single {
@@ -228,7 +225,6 @@ val androidModule = module {
     single<ImageBlockDao> { get<AppDatabase>().imageBlockDao() }
     single<DocumentBlockDao> { get<AppDatabase>().documentBlockDao() }
     single<BookmarkBlockDao> { get<AppDatabase>().bookmarkBlockDao() }
-    single<DatabaseTemplateDao> { get<AppDatabase>().databaseTemplateDao() }
     single<CategoryDao> { get<AppDatabase>().categoryDao() }
     single<SelfHostDeletedNoteDao> { get<AppDatabase>().selfHostDeletedNoteDao() }
     single<com.emberr.data.local.room.dao.ChatSessionDao> { get<AppDatabase>().chatSessionDao() }

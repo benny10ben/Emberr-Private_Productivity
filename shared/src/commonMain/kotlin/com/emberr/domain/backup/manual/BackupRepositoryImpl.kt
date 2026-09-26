@@ -8,7 +8,6 @@ import com.emberr.data.local.room.dao.CalendarTaskDao
 import com.emberr.data.local.room.dao.CanvasDao
 import com.emberr.data.local.room.dao.CategoryDao
 import com.emberr.data.local.room.dao.ChatSessionDao
-import com.emberr.data.local.room.dao.DatabaseTemplateDao
 import com.emberr.data.local.room.dao.DocumentBlockDao
 import com.emberr.data.local.room.dao.FolderDao
 import com.emberr.data.local.room.dao.ImageBlockDao
@@ -16,10 +15,8 @@ import com.emberr.data.local.room.dao.MediaReferenceDao
 import com.emberr.data.local.room.dao.NoteDao
 import com.emberr.data.local.room.dao.SelfHostDeletedNoteDao
 import com.emberr.data.local.room.dao.SpaceDao
-import com.emberr.data.local.room.dao.TagDao
 import com.emberr.data.local.room.entity.CalendarEventExceptionEntity
 import com.emberr.data.local.room.entity.ChatSessionEntity
-import com.emberr.data.local.room.entity.DatabaseTemplateEntity
 import com.emberr.data.local.room.entity.SelfHostDeletedNoteEntity
 import com.emberr.domain.canvas.CanvasContent
 import com.emberr.domain.canvas.CanvasMerge
@@ -28,7 +25,6 @@ import kotlinx.coroutines.flow.first
 class BackupRepositoryImpl(
     private val noteDao: NoteDao,
     private val folderDao: FolderDao,
-    private val tagDao: TagDao,
     private val blockDao: BlockDao,
     private val calendarTaskDao: CalendarTaskDao,
     private val categoryDao: CategoryDao,
@@ -38,7 +34,6 @@ class BackupRepositoryImpl(
     private val mediaReferenceDao: MediaReferenceDao,
     private val spaceDao: SpaceDao,
     private val chatSessionDao: ChatSessionDao,
-    private val databaseTemplateDao: DatabaseTemplateDao,
     private val calendarEventExceptionDao: CalendarEventExceptionDao,
     private val selfHostDeletedNoteDao: SelfHostDeletedNoteDao,
     private val canvasDao: CanvasDao,
@@ -50,14 +45,12 @@ class BackupRepositoryImpl(
 
         val allSpaces = spaceDao.getAllSpacesForBackup()
         val allFolders = folderDao.getAllFoldersAcrossSpaces().first()
-        val allTags = tagDao.getAllTagsAcrossSpaces().first()
         val allCategories = categoryDao.getAllCategoriesOnceAcrossSpaces()
         val allTasks = calendarTaskDao.getAllTasksAcrossSpacesFlow().first()
         val allImages = imageBlockDao.getAllImagesAcrossSpacesFlow().first()
         val allDocuments = documentBlockDao.getAllDocumentsAcrossSpacesFlow().first()
         val allBookmarks = bookmarkBlockDao.getAllBookmarksAcrossSpacesFlow().first()
         val allChatSessions = chatSessionDao.getAllSessionsIncludingDeleted()
-        val allDatabaseTemplates = databaseTemplateDao.getAllTemplates().first()
         val allEventExceptions = calendarEventExceptionDao.getAllExceptionsFlow().first()
         val allNoteTombstones = selfHostDeletedNoteDao.getAllTombstones()
 
@@ -73,7 +66,6 @@ class BackupRepositoryImpl(
             spaces = allSpaces,
             notes = allNotes,
             folders = allFolders,
-            tags = allTags,
             categories = allCategories,
             blocks = allBlocks,
             calendarTasks = allTasks,
@@ -81,7 +73,6 @@ class BackupRepositoryImpl(
             documentBlocks = allDocuments,
             bookmarkBlocks = allBookmarks,
             chatSessions = allChatSessions,
-            databaseTemplates = allDatabaseTemplates,
             calendarEventExceptions = allEventExceptions,
             noteTombstones = allNoteTombstones,
             canvasNodes = canvasDao.getAllNodesForBackup(),
@@ -100,7 +91,6 @@ class BackupRepositoryImpl(
         }
 
         backupData.folders.forEach { folderDao.insertFolder(it) }
-        backupData.tags.forEach { tagDao.insertOrUpdateTag(it) }
         backupData.categories.forEach { categoryDao.insertOrUpdateCategory(it) }
 
         val noteIdMapping = mutableMapOf<String, String>()
@@ -187,7 +177,6 @@ class BackupRepositoryImpl(
         }
 
         restoreChatSessions(backupData.chatSessions)
-        restoreDatabaseTemplates(backupData.databaseTemplates)
         restoreEventExceptions(backupData.calendarEventExceptions)
         restoreNoteTombstones(backupData.noteTombstones)
         restoreCanvases(
@@ -227,13 +216,6 @@ class BackupRepositoryImpl(
                 chatSessionDao.upsertSession(backupSession)
             }
         }
-    }
-
-    private suspend fun restoreDatabaseTemplates(templates: List<DatabaseTemplateEntity>) {
-        val existingTemplateIds = databaseTemplateDao.getAllTemplates().first().map { it.templateId }.toSet()
-        templates
-            .filterNot { it.templateId in existingTemplateIds }
-            .forEach { databaseTemplateDao.insertTemplate(it) }
     }
 
     private suspend fun restoreEventExceptions(exceptions: List<CalendarEventExceptionEntity>) {

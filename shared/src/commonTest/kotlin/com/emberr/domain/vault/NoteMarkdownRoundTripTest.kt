@@ -5,21 +5,12 @@ package com.emberr.domain.vault
 import com.emberr.data.local.room.entity.NoteMetadataEntity
 import com.emberr.domain.model.BookmarkBlock
 import com.emberr.domain.model.BulletedListBlock
-import com.emberr.domain.model.CellData
 import com.emberr.domain.model.CheckboxBlock
 import com.emberr.domain.model.CodeBlock
-import com.emberr.domain.model.ColumnType
-import com.emberr.domain.model.DatabaseBlock
-import com.emberr.domain.model.DatabaseColumn
-import com.emberr.domain.model.DatabaseRow
-import com.emberr.domain.model.DatabaseView
 import com.emberr.domain.model.DocumentBlock
 import com.emberr.domain.model.HeadingBlock
 import com.emberr.domain.model.ImageBlock
-import com.emberr.domain.model.FilterConfig
-import com.emberr.domain.model.GalleryCardSize
 import com.emberr.domain.model.InlineSpan
-import com.emberr.domain.model.MediaItem
 import com.emberr.domain.model.LinkedNoteBlock
 import com.emberr.domain.model.CanvasBlock
 import com.emberr.domain.model.NoteBlock
@@ -27,7 +18,6 @@ import com.emberr.domain.model.NumberedListBlock
 import com.emberr.domain.model.RecurrenceFrequency
 import com.emberr.domain.model.RecurrenceRule
 import com.emberr.domain.model.QuoteBlock
-import com.emberr.domain.model.SortConfig
 import com.emberr.domain.model.SolidDividerBlock
 import com.emberr.domain.model.TableBlock
 import com.emberr.domain.model.TableCellContentType
@@ -36,7 +26,6 @@ import com.emberr.domain.model.TextAlignment
 import com.emberr.domain.model.TextBlock
 import com.emberr.domain.model.ThreeDotDividerBlock
 import com.emberr.domain.model.ToggleBlock
-import com.emberr.domain.model.ViewType
 import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.TimeZone
 import com.emberr.domain.model.VoiceBlock
@@ -155,9 +144,6 @@ class NoteMarkdownRoundTripTest {
     }
 
     private fun allBlockTypes(): List<NoteBlock> {
-        val databaseId = "block-database"
-        val viewId = "view-1"
-
         return listOf(
             HeadingBlock(
                 id = "block-heading",
@@ -259,147 +245,6 @@ class NoteMarkdownRoundTripTest {
                 columnWidths = mapOf("0" to 220, "1" to 90),
                 isPinned = true,
                 updatedAt = 112L
-            ),
-            DatabaseBlock(
-                id = databaseId,
-                title = "Q3 Budget",
-                columns = listOf(
-                    DatabaseColumn(
-                        id = "column-item",
-                        databaseId = databaseId,
-                        name = "Item",
-                        type = ColumnType.TEXT,
-                        width = 220,
-                        isNameManuallySet = true,
-                        updatedAt = 90L
-                    ),
-                    DatabaseColumn(
-                        id = "column-cost",
-                        databaseId = databaseId,
-                        name = "Cost",
-                        type = ColumnType.MONEY,
-                        width = 90,
-                        currencySymbol = "$",
-                        aggregationType = "sum",
-                        updatedAt = 91L
-                    ),
-                    DatabaseColumn(
-                        id = "column-double",
-                        databaseId = databaseId,
-                        name = "Double",
-                        type = ColumnType.FORMULA,
-                        formulaExpression = "prop(\"Cost\") * 2",
-                        isFormulaCurrency = true,
-                        updatedAt = 93L
-                    ),
-                    DatabaseColumn(
-                        id = "column-status",
-                        databaseId = databaseId,
-                        name = "Status",
-                        type = ColumnType.STATUS,
-                        updatedAt = 94L
-                    ),
-                    DatabaseColumn(
-                        id = "column-due",
-                        databaseId = databaseId,
-                        name = "Due",
-                        type = ColumnType.DATE,
-                        updatedAt = 95L
-                    ),
-                    DatabaseColumn(
-                        id = "column-tags",
-                        databaseId = databaseId,
-                        name = "Tags",
-                        type = ColumnType.TAGS,
-                        updatedAt = 96L
-                    ),
-                    DatabaseColumn(
-                        id = "column-files",
-                        databaseId = databaseId,
-                        name = "Files",
-                        type = ColumnType.FILES,
-                        updatedAt = 97L
-                    ),
-                    DatabaseColumn(
-                        id = "column-related",
-                        databaseId = databaseId,
-                        name = "Related",
-                        type = ColumnType.NOTES,
-                        updatedAt = 98L
-                    ),
-                    DatabaseColumn(
-                        id = "column-shipped",
-                        databaseId = databaseId,
-                        name = "Shipped",
-                        type = ColumnType.CHECKBOX,
-                        updatedAt = 99L
-                    ),
-                    DatabaseColumn(
-                        id = "column-gone",
-                        databaseId = databaseId,
-                        name = "Removed",
-                        type = ColumnType.TEXT,
-                        isDeleted = true,
-                        updatedAt = 89L
-                    )
-                ),
-                rows = listOf(
-                    DatabaseRow(
-                        id = "row-server",
-                        databaseId = databaseId,
-                        cells = mapOf(
-                            "column-item" to CellData.Text("Server"),
-                            "column-cost" to CellData.Number(240.0),
-                            "column-double" to CellData.Formula("480"),
-                            "column-status" to CellData.Text("In Progress"),
-                            "column-due" to CellData.Date(1_789_221_300_000L),
-                            "column-tags" to CellData.TagList(listOf("tag-a", "tag-b")),
-                            "column-files" to CellData.MediaList(
-                                listOf(MediaItem(fileName = "media_9.pdf", originalName = "quote.pdf"))
-                            ),
-                            "column-related" to CellData.NoteRelation(listOf(LINKED_NOTE_ID, "note-3")),
-                            "column-shipped" to CellData.Boolean(true)
-                        ),
-                        updatedAt = 92L
-                    ),
-                    DatabaseRow(
-                        id = "row-blank",
-                        databaseId = databaseId,
-                        cells = mapOf("column-item" to CellData.Text("")),
-                        updatedAt = 94L
-                    ),
-                    DatabaseRow(
-                        id = "row-gone",
-                        databaseId = databaseId,
-                        cells = mapOf("column-item" to CellData.Text("Deleted")),
-                        isDeleted = true,
-                        updatedAt = 88L
-                    )
-                ),
-                views = listOf(
-                    DatabaseView(
-                        id = viewId,
-                        name = "Board",
-                        type = ViewType.KANBAN,
-                        activeSorts = listOf(SortConfig(columnId = "column-cost", isAscending = false)),
-                        activeFilters = listOf(
-                            FilterConfig(columnId = "column-item", operator = "contains", value = "Ser")
-                        ),
-                        groupByColumnId = "column-status",
-                        hiddenGroups = listOf("Done"),
-                        groupOrder = listOf("Not Started", "In Progress", "Done"),
-                        galleryCardSize = GalleryCardSize.LARGE
-                    )
-                ),
-                activeViewId = viewId,
-                cellStyles = mapOf(
-                    "row-server:column-item" to TableCellStyle(backgroundColorHex = "#EEFFEE", isBold = true)
-                ),
-                cellSpans = mapOf(
-                    "row-server:column-item" to listOf(InlineSpan(start = 0, end = 3, italic = true))
-                ),
-                isPinned = true,
-                updatedAt = 113L
             ),
             BookmarkBlock(
                 id = "block-bookmark",

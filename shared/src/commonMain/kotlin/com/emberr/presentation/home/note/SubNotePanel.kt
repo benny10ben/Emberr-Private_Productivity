@@ -42,7 +42,7 @@ private fun Painter.scaledDown(factor: Float): Painter = object : Painter() {
 }
 
 /**
- * Notion-style slide-in panel for database row notes (desktop only).
+ * Notion-style slide-in panel for linked notes (desktop only).
  *
  * MUST be placed directly inside the right-panel Box (after clipping).
  * fillMaxSize() then refers only to the right panel — the left sidebar

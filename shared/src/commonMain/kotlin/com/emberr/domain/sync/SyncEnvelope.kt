@@ -8,7 +8,6 @@ enum class SyncType {
     NOTE,
     SPACE,
     DAILY_NOTE,
-    TAG,
     FOLDER,
     CATEGORY,
     EVENT_EXCEPTION,

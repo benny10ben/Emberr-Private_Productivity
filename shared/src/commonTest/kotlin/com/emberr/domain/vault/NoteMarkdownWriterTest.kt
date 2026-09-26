@@ -3,13 +3,8 @@
 package com.emberr.domain.vault
 
 import com.emberr.data.local.room.entity.NoteMetadataEntity
-import com.emberr.domain.model.CellData
 import com.emberr.domain.model.CheckboxBlock
 import com.emberr.domain.model.CodeBlock
-import com.emberr.domain.model.ColumnType
-import com.emberr.domain.model.DatabaseBlock
-import com.emberr.domain.model.DatabaseColumn
-import com.emberr.domain.model.DatabaseRow
 import com.emberr.domain.model.HeadingBlock
 import com.emberr.domain.model.NoteBlock
 import com.emberr.domain.model.SolidDividerBlock
@@ -144,46 +139,6 @@ class NoteMarkdownWriterTest {
     @Test
     fun dividerPutsItsTagOnTheNextLine() {
         assertEquals("---\n^em-div1", renderSingleBlock(SolidDividerBlock(id = "div-1")))
-    }
-
-    @Test
-    fun databaseBecomesAConfigFencePlusATableWithRowIds() {
-        val databaseId = "db-1"
-        val rendered = renderSingleBlock(
-            DatabaseBlock(
-                id = databaseId,
-                title = "Q3 Budget",
-                columns = listOf(
-                    DatabaseColumn(id = "col-item", databaseId = databaseId, name = "Item", type = ColumnType.TEXT),
-                    DatabaseColumn(id = "col-cost", databaseId = databaseId, name = "Cost", type = ColumnType.MONEY)
-                ),
-                rows = listOf(
-                    DatabaseRow(
-                        id = "row-01",
-                        databaseId = databaseId,
-                        cells = mapOf(
-                            "col-item" to CellData.Text("Server"),
-                            "col-cost" to CellData.Number(240.0)
-                        )
-                    )
-                )
-            )
-        )
-
-        val expected = "```emberr-database\n" +
-            "title: Q3 Budget\n" +
-            "view: table\n" +
-            "columns:\n" +
-            "  Item: text\n" +
-            "  Cost: money\n" +
-            "```\n" +
-            "\n" +
-            "| id | Item | Cost |\n" +
-            "| --- | --- | --- |\n" +
-            "| row01 | Server | 240 |\n" +
-            "^em-db1"
-
-        assertEquals(expected, rendered)
     }
 
     @Test

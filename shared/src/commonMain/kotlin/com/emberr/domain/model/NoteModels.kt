@@ -2,9 +2,6 @@ package com.emberr.domain.model
 
 import androidx.compose.runtime.Immutable
 import com.emberr.data.local.room.entity.NoteMetadataEntity
-import kotlin.time.Instant
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.toLocalDateTime
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import java.util.UUID
@@ -52,7 +49,7 @@ sealed class NoteBlock {
     abstract val updatedAt: Long
 }
 
-/** Paragraph alignment for the text-bearing block types - never applies to media/database blocks. */
+/** Paragraph alignment for the text-bearing block types - never applies to media blocks. */
 @Serializable
 enum class TextAlignment { LEFT, RIGHT, CENTER, JUSTIFY }
 
@@ -323,143 +320,6 @@ data class DocumentBlock(
     override val updatedAt: Long = 0L
 ) : NoteBlock()
 
-enum class ViewType { TABLE, KANBAN, GALLERY }
-
-/** Card density for a GALLERY view - purely a layout knob. */
-enum class GalleryCardSize { SMALL, MEDIUM, LARGE }
-
-@Immutable
-@Serializable
-data class DatabaseView(
-    val id: String,
-    val name: String,
-    val type: ViewType,
-    val activeSorts: List<SortConfig> = emptyList(),
-    val activeFilters: List<FilterConfig> = emptyList(),
-    val groupByColumnId: String? = null,
-    val hiddenGroups: List<String> = emptyList(),
-    val groupOrder: List<String> = emptyList(),
-    val galleryCardSize: GalleryCardSize = GalleryCardSize.MEDIUM
-)
-
-@Immutable
-@Serializable
-@SerialName("database")
-data class DatabaseBlock(
-    override val id: String,
-    val title: String = "",
-    val columns: List<DatabaseColumn>,
-    val rows: List<DatabaseRow>,
-    val views: List<DatabaseView> = emptyList(),
-    val activeViewId: String? = null,
-    val cellStyles: Map<String, TableCellStyle> = emptyMap(),
-    val cellSpans: Map<String, List<InlineSpan>> = emptyMap(),
-    override val indentationLevel: Int = 0,
-    override val isBold: Boolean = false,
-    override val isItalic: Boolean = false,
-    override val isStrikeThrough: Boolean = false,
-    override val isUnderlined: Boolean = false,
-    override val isHighlighted: Boolean = false,
-    override val isDeleted: Boolean = false,
-    override val isPinned: Boolean = false,
-    override val updatedAt: Long = 0L
-) : NoteBlock()
-
-@Immutable
-@Serializable
-data class DatabaseColumn(
-    val id: String,
-    val databaseId: String,
-    val name: String,
-    val type: ColumnType,
-    val width: Int = 140,
-    val formulaExpression: String? = null,
-    val aggregationType: String? = null,
-    val currencySymbol: String? = null,
-    val isFormulaCurrency: Boolean = false,
-    val isDeleted: Boolean = false,
-    val isNameManuallySet: Boolean = false,
-    val updatedAt: Long = 0L
-)
-
-@Immutable
-@Serializable
-data class DatabaseRow(
-    val id: String,
-    val databaseId: String,
-    val cells: Map<String, CellData>,
-    val isDeleted: Boolean = false,
-    val updatedAt: Long = 0L
-)
-
-/**
- * Every value a database cell can hold. Each [ColumnType] maps to exactly one subclass, so a cell's Kotlin type always matches what the column expects.
- * Nested (not top-level) so `Number`/`Boolean`/`Date` don't shadow the `kotlin.*` types of the same name.
- */
-@Immutable
-@Serializable
-sealed class CellData {
-    @Immutable
-    @Serializable
-    @SerialName("text")
-    data class Text(val value: String) : CellData()
-
-    @Immutable
-    @Serializable
-    @SerialName("number")
-    data class Number(val value: Double?) : CellData()
-
-    @Immutable
-    @Serializable
-    @SerialName("boolean")
-    data class Boolean(val value: kotlin.Boolean) : CellData()
-
-    @Immutable
-    @Serializable
-    @SerialName("date")
-    data class Date(val timestamp: Long?) : CellData()
-
-    @Immutable
-    @Serializable
-    @SerialName("tag_list")
-    data class TagList(val tagIds: List<String>) : CellData()
-
-    @Immutable
-    @Serializable
-    @SerialName("media_list")
-    data class MediaList(val files: List<MediaItem>) : CellData()
-
-    @Immutable
-    @Serializable
-    @SerialName("note_relation")
-    data class NoteRelation(val noteIds: List<String>) : CellData()
-
-    @Immutable
-    @Serializable
-    @SerialName("formula")
-    data class Formula(val result: String) : CellData()
-}
-
-@Immutable
-@Serializable
-data class MediaItem(val fileName: String, val originalName: String)
-
-/**
- * Canonical "cell as plain text" rendering, shared by export/PDF/search so they don't each
- * reimplement an 8-way `when` over [CellData].
- */
-fun CellData?.displayText(): String = when (this) {
-    null -> ""
-    is CellData.Text -> value
-    is CellData.Number -> value?.let { if (it == it.toLong().toDouble()) it.toLong().toString() else it.toString() } ?: ""
-    is CellData.Boolean -> value.toString()
-    is CellData.Date -> timestamp?.let { Instant.fromEpochMilliseconds(it).toLocalDateTime(TimeZone.UTC).date.toString() } ?: ""
-    is CellData.TagList -> tagIds.joinToString(",")
-    is CellData.MediaList -> files.joinToString(",") { "${it.fileName}|${it.originalName}" }
-    is CellData.NoteRelation -> noteIds.firstOrNull() ?: ""
-    is CellData.Formula -> result
-}
-
 enum class TableCellContentType { NONE, LINK, PHONE, EMAIL }
 
 /**
@@ -569,40 +429,6 @@ data class ThreeDotDividerBlock(
     override val isPinned: Boolean = false,
     override val updatedAt: Long = 0L
 ) : NoteBlock()
-enum class ColumnType { TEXT, NUMBER, CHECKBOX, DATE, FORMULA, PHONE, EMAIL, TAGS, URL, FILES, PRIORITY, MONEY, AUDIO, NOTES, STATUS }
-
-fun ColumnType.propertyLabel(): String = when (this) {
-    ColumnType.TEXT -> "Text"
-    ColumnType.NUMBER -> "Number"
-    ColumnType.CHECKBOX -> "Checkbox"
-    ColumnType.DATE -> "Date"
-    ColumnType.FORMULA -> "Formula"
-    ColumnType.PHONE -> "Phone"
-    ColumnType.EMAIL -> "Email"
-    ColumnType.TAGS -> "Tags"
-    ColumnType.URL -> "URL"
-    ColumnType.FILES -> "Files"
-    ColumnType.PRIORITY -> "Priority"
-    ColumnType.MONEY -> "Money"
-    ColumnType.AUDIO -> "Audio"
-    ColumnType.NOTES -> "Notes"
-    ColumnType.STATUS -> "Status"
-}
-
-/**
- * Canonical Kanban status values. A STATUS cell is stored as [CellData.Text] holding one of these
- * (or blank, meaning "No Status") - kept as a fixed set so Kanban bucketing never has to deal with
- * arbitrary free-form values.
- */
-val DEFAULT_STATUS_OPTIONS = listOf("Not Started", "In Progress", "Done")
-
-@Immutable
-@Serializable
-data class SortConfig(val columnId: String, val isAscending: Boolean)
-
-@Immutable
-@Serializable
-data class FilterConfig(val columnId: String, val operator: String, val value: String)
 
 fun NoteBlock.markDeleted(): NoteBlock = when (this) {
     is TextBlock -> copy(isDeleted = true, updatedAt = System.currentTimeMillis())
@@ -616,7 +442,6 @@ fun NoteBlock.markDeleted(): NoteBlock = when (this) {
     is LinkedNoteBlock -> copy(isDeleted = true, updatedAt = System.currentTimeMillis())
     is ImageBlock -> copy(isDeleted = true, updatedAt = System.currentTimeMillis())
     is DocumentBlock -> copy(isDeleted = true, updatedAt = System.currentTimeMillis())
-    is DatabaseBlock -> copy(isDeleted = true, updatedAt = System.currentTimeMillis())
     is TableBlock -> copy(isDeleted = true, updatedAt = System.currentTimeMillis())
     is VoiceBlock -> copy(isDeleted = true, updatedAt = System.currentTimeMillis())
     is CanvasBlock -> copy(isDeleted = true, updatedAt = System.currentTimeMillis())
@@ -705,7 +530,6 @@ fun NoteBlock.withPin(pinned: Boolean, now: Long): NoteBlock = when (this) {
     is LinkedNoteBlock -> copy(isPinned = pinned, updatedAt = now)
     is ImageBlock -> copy(isPinned = pinned, updatedAt = now)
     is DocumentBlock -> copy(isPinned = pinned, updatedAt = now)
-    is DatabaseBlock -> copy(isPinned = pinned, updatedAt = now)
     is TableBlock -> copy(isPinned = pinned, updatedAt = now)
     is VoiceBlock -> copy(isPinned = pinned, updatedAt = now)
     is CanvasBlock -> copy(isPinned = pinned, updatedAt = now)
@@ -726,7 +550,6 @@ fun NoteBlock.withUpdatedAt(now: Long): NoteBlock = when (this) {
     is LinkedNoteBlock -> copy(updatedAt = now)
     is ImageBlock -> copy(updatedAt = now)
     is DocumentBlock -> copy(updatedAt = now)
-    is DatabaseBlock -> copy(updatedAt = now)
     is TableBlock -> copy(updatedAt = now)
     is VoiceBlock -> copy(updatedAt = now)
     is CanvasBlock -> copy(updatedAt = now)
@@ -747,7 +570,6 @@ fun NoteBlock.withDeleted(deleted: Boolean, now: Long): NoteBlock = when (this) 
     is LinkedNoteBlock -> copy(isDeleted = deleted, updatedAt = now)
     is ImageBlock -> copy(isDeleted = deleted, updatedAt = now)
     is DocumentBlock -> copy(isDeleted = deleted, updatedAt = now)
-    is DatabaseBlock -> copy(isDeleted = deleted, updatedAt = now)
     is TableBlock -> copy(isDeleted = deleted, updatedAt = now)
     is VoiceBlock -> copy(isDeleted = deleted, updatedAt = now)
     is CanvasBlock -> copy(isDeleted = deleted, updatedAt = now)
@@ -758,15 +580,13 @@ fun NoteBlock.withDeleted(deleted: Boolean, now: Long): NoteBlock = when (this) 
 
 // Rebuilds an entire note's content with fresh ids on every block - used when a note is
 // created from a template so the copy never collides with the template's own rows in Room
-// (block ids and DatabaseBlock schema ids are primary/foreign keys there).
+// (block ids are primary keys there).
 fun NoteContent.deepCopyWithNewIds(): NoteContent = copy(blocks = blocks.map { it.deepCopyWithNewIds() })
 
-// Gives a single block a new id. Most block types are flat (id swap only), but DatabaseBlock owns
-// nested ids of its own and needs its own recursive/remapping logic - see the private helper below.
+// Gives a single block a new id.
 fun NoteBlock.deepCopyWithNewIds(): NoteBlock {
     val newId = UUID.randomUUID().toString()
     return when (this) {
-        is DatabaseBlock -> deepCopyDatabase(newId)
         is TextBlock -> copy(id = newId)
         is HeadingBlock -> copy(id = newId)
         is QuoteBlock -> copy(id = newId)
@@ -785,53 +605,4 @@ fun NoteBlock.deepCopyWithNewIds(): NoteBlock {
         is SolidDividerBlock -> copy(id = newId)
         is ThreeDotDividerBlock -> copy(id = newId)
     }
-}
-
-// DatabaseBlock.id doubles as the databaseId every DatabaseColumn/DatabaseRow points back to
-// (see BaseEditorViewModel.buildDatabaseBlock for the same convention when instantiating a saved
-// DatabaseTemplateEntity). A full copy carries real rows/views too, unlike that schema-only path,
-// so it additionally has to:
-//  1. remap DatabaseRow.cells (a Map<columnId, CellData>) to the new column ids, and
-//  2. remap every column-id reference inside DatabaseView (groupByColumnId, activeSorts,
-//     activeFilters) - dropping any that pointed at a column that no longer exists.
-// DatabaseView.hiddenGroups/groupOrder are NOT column ids (they're bucket *values*, e.g. Kanban
-// status strings - see KanbanView.kt), so those carry over unchanged.
-private fun DatabaseBlock.deepCopyDatabase(newId: String): DatabaseBlock {
-    val oldToNewColumnId = columns.associate { it.id to UUID.randomUUID().toString() }
-    val oldToNewViewId = views.associate { it.id to UUID.randomUUID().toString() }
-
-    val newColumns = columns.map { column ->
-        column.copy(id = oldToNewColumnId.getValue(column.id), databaseId = newId)
-    }
-
-    val newRows = rows.map { row ->
-        row.copy(
-            id = UUID.randomUUID().toString(),
-            databaseId = newId,
-            // Fall back to the old column id for any orphaned cell rather than dropping data -
-            // that cell was already orphaned before the copy, so this doesn't make it worse.
-            cells = row.cells.mapKeys { (oldColumnId, _) -> oldToNewColumnId[oldColumnId] ?: oldColumnId }
-        )
-    }
-
-    val newViews = views.map { view ->
-        view.copy(
-            id = oldToNewViewId.getValue(view.id),
-            groupByColumnId = view.groupByColumnId?.let { oldToNewColumnId[it] },
-            activeSorts = view.activeSorts.mapNotNull { sort ->
-                oldToNewColumnId[sort.columnId]?.let { sort.copy(columnId = it) }
-            },
-            activeFilters = view.activeFilters.mapNotNull { filter ->
-                oldToNewColumnId[filter.columnId]?.let { filter.copy(columnId = it) }
-            }
-        )
-    }
-
-    return copy(
-        id = newId,
-        columns = newColumns,
-        rows = newRows,
-        views = newViews,
-        activeViewId = activeViewId?.let { oldToNewViewId[it] }
-    )
 }

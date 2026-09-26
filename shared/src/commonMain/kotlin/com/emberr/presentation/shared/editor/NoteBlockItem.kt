@@ -31,7 +31,6 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.key.*
@@ -42,7 +41,6 @@ import androidx.compose.ui.input.pointer.isSecondaryPressed
 import androidx.compose.ui.input.pointer.isShiftPressed
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
@@ -58,14 +56,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.emberr.data.local.room.entity.TagEntity
 import com.emberr.domain.model.BookmarkBlock
 import com.emberr.domain.model.BulletedListBlock
 import com.emberr.domain.model.CanvasBlock
 import com.emberr.domain.model.CheckboxBlock
 import com.emberr.domain.util.system.triggerHapticFeedback
 import com.emberr.domain.model.CodeBlock
-import com.emberr.domain.model.DatabaseBlock
 import com.emberr.domain.model.DocumentBlock
 import com.emberr.domain.model.HeadingBlock
 import com.emberr.domain.model.ImageBlock
@@ -102,9 +98,7 @@ import com.emberr.presentation.shared.components.MinimalDatePickerDialog
 import com.emberr.presentation.shared.components.MinimalTimePickerDialog
 import com.emberr.presentation.shared.components.ReminderPresetMenu
 import com.emberr.presentation.shared.components.TimePresetMenu
-import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableSet
-import com.emberr.presentation.shared.editor.blockViews.databaseBlockView.DatabaseBlockView
 import com.emberr.presentation.shared.editor.blockViews.DocumentBlockView
 import com.emberr.presentation.shared.editor.blockViews.ImageBlockView
 import com.emberr.presentation.shared.editor.blockViews.AudioBlockView
@@ -148,7 +142,6 @@ private fun TextAlignment.toComposeTextAlign(): TextAlign = when (this) {
 @Composable
 fun NoteBlockItem(
     block: NoteBlock,
-    globalTags: ImmutableList<TagEntity>,
     actions: EditorActions,
     focusRequest: FocusRequest?,
     selectedBlockIds: ImmutableSet<String>,
@@ -180,10 +173,6 @@ fun NoteBlockItem(
     var isFocused by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
-    val bringIntoViewRequester = remember { BringIntoViewRequester() }
-    var blockHeight by remember { mutableFloatStateOf(50f) }
-    val imeBottom = WindowInsets.ime.getBottom(density)
-
     val text = when (block) {
         is CodeBlock -> block.code
         is QuoteBlock -> block.text
@@ -193,7 +182,7 @@ fun NoteBlockItem(
         is BulletedListBlock -> block.text
         is NumberedListBlock -> block.text
         is ToggleBlock -> block.text
-        is BookmarkBlock, is ImageBlock, is DocumentBlock, is DatabaseBlock, is TableBlock, is VoiceBlock -> ""
+        is BookmarkBlock, is ImageBlock, is DocumentBlock, is TableBlock, is VoiceBlock -> ""
         else -> ""
     }
 
@@ -234,29 +223,7 @@ fun NoteBlockItem(
         }
     }
 
-    val isDatabase = block is DatabaseBlock
-
-    var lastTappedYInBlock by remember { mutableFloatStateOf(0f) }
-
-// Handles bring-into-view focus positioning for database blocks when the IME keyboard opens.
-    // Text blocks manage their own bring-into-view behavior relative to text cursor lines.
-    LaunchedEffect(isFocused, imeBottom, blockHeight) {
-        if (isFocused && imeBottom > 0 && isDatabase) {
-            // Debounces IME animation frame updates until the keyboard stabilizes.
-            delay(150.milliseconds)
-            val bufferPx = with(density) { 120.dp.toPx() }
-            val targetY = if (lastTappedYInBlock > 0f) lastTappedYInBlock else blockHeight / 2f
-            val targetRect = Rect(
-                left = 0f,
-                top = 0f,
-                right = 1f,
-                bottom = targetY + bufferPx
-            )
-            bringIntoViewRequester.bringIntoView(targetRect)
-        }
-    }
-
-    val isTextBased = block !is BookmarkBlock && block !is ImageBlock && block !is DocumentBlock && block !is DatabaseBlock && block !is TableBlock && block !is VoiceBlock && block !is SolidDividerBlock && block !is ThreeDotDividerBlock && block !is LinkedNoteBlock && block !is CanvasBlock
+    val isTextBased = block !is BookmarkBlock && block !is ImageBlock && block !is DocumentBlock && block !is TableBlock && block !is VoiceBlock && block !is SolidDividerBlock && block !is ThreeDotDividerBlock && block !is LinkedNoteBlock && block !is CanvasBlock
     LaunchedEffect(focusRequest?.nonce) {
         if (focusRequest == null || focusRequest.id != block.id) return@LaunchedEffect
 
@@ -342,14 +309,14 @@ fun NoteBlockItem(
 
     val desktopExtraPadding = if (isDesktopPlatform) 16.dp else 0.dp
     val startPadding = when {
-        isDatabase || block is TableBlock -> (block.indentationLevel * 28).dp + desktopExtraPadding
+        block is TableBlock -> (block.indentationLevel * 28).dp + desktopExtraPadding
         block is CheckboxBlock -> (18 + (block.indentationLevel * 28)).dp + desktopExtraPadding
         block is BulletedListBlock -> (18 + (block.indentationLevel * 28)).dp + desktopExtraPadding
         block is NumberedListBlock -> (18 + (block.indentationLevel * 28)).dp + desktopExtraPadding
         block is ToggleBlock -> (18 + (block.indentationLevel * 28)).dp + desktopExtraPadding
         else -> (16 + (block.indentationLevel * 28)).dp + desktopExtraPadding
     }
-    val endPadding = (if (isDatabase || block is TableBlock) 0.dp else 16.dp) + desktopExtraPadding
+    val endPadding = (if (block is TableBlock) 0.dp else 16.dp) + desktopExtraPadding
 
     val isSlashMenuActiveHere = isDesktopPlatform && isActiveBlock && showSlashMenu
     val isNoteLinkMenuActiveHere = isDesktopPlatform && isActiveBlock && showNoteLinkMenu
@@ -562,13 +529,11 @@ fun NoteBlockItem(
                 Modifier.weight(1f).padding(horizontal = 4.dp).drawBehind {
                     drawLine(color = quoteAccentColor, start = Offset(0f, 0f), end = Offset(0f, size.height), strokeWidth = 2.dp.toPx())
                 }.padding(start = 16.dp, top = 4.dp, bottom = 4.dp)
-            } else if (isDatabase || block is TableBlock) {
+            } else if (block is TableBlock) {
                 Modifier.weight(1f)
             } else {
                 Modifier.weight(1f).padding(horizontal = 4.dp)
             })
-                .bringIntoViewRequester(bringIntoViewRequester)
-                .onSizeChanged { blockHeight = it.height.toFloat() }
                 .onFocusChanged { focusState ->
                     val currentlyFocused = focusState.isFocused || focusState.hasFocus
                     isFocused = currentlyFocused
@@ -862,30 +827,6 @@ fun NoteBlockItem(
                                 onRequestPicker = { actions.onRequestDocumentPicker(block.id) },
                                 onOpenFile = { filePath, mimeType -> actions.onOpenFile(filePath, mimeType) }
                             )
-                            is DatabaseBlock -> TextFormatContextMenu(onToggleFormat = { actions.onToggleFormat(it) }) {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .pointerInput(Unit) {
-                                            awaitPointerEventScope {
-                                                while (true) {
-                                                    val event = awaitPointerEvent(PointerEventPass.Initial)
-                                                    if (event.type == PointerEventType.Press) {
-                                                        lastTappedYInBlock = event.changes.firstOrNull()?.position?.y ?: 0f
-                                                    }
-                                                }
-                                            }
-                                        }
-                                ) {
-                                    DatabaseBlockView(
-                                        block = block,
-                                        inSelectionMode = inSelectionMode,
-                                        globalTags = globalTags,
-                                        actions = actions,
-                                        allLinkableNotes = allLinkableNotes,
-                                    )
-                                }
-                            }
                             is TableBlock -> TextFormatContextMenu(onToggleFormat = { actions.onToggleFormat(it) }) {
                                 TableBlockView(
                                     block = block,

@@ -66,7 +66,6 @@ class DesktopManualBackupImporter(
             val importedRepository = BackupRepositoryImpl(
                 noteDao = tempDatabase.noteDao(),
                 folderDao = tempDatabase.folderDao(),
-                tagDao = tempDatabase.tagDao(),
                 blockDao = tempDatabase.blockDao(),
                 calendarTaskDao = tempDatabase.calendarTaskDao(),
                 categoryDao = tempDatabase.categoryDao(),
@@ -76,7 +75,6 @@ class DesktopManualBackupImporter(
                 mediaReferenceDao = tempDatabase.mediaReferenceDao(),
                 spaceDao = tempDatabase.spaceDao(),
                 chatSessionDao = tempDatabase.chatSessionDao(),
-                databaseTemplateDao = tempDatabase.databaseTemplateDao(),
                 calendarEventExceptionDao = tempDatabase.calendarEventExceptionDao(),
                 selfHostDeletedNoteDao = tempDatabase.selfHostDeletedNoteDao(),
                 canvasDao = tempDatabase.canvasDao(),
