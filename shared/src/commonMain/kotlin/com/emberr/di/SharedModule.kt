@@ -315,6 +315,7 @@ val sharedModule = module {
             viewPositionStore = get(),
             toolSettingsStore = get(),
             settingsManager = get(),
+            mediaStorageHelper = get(),
             appScope = get(named("AppScope"))
         )
     }

@@ -119,15 +119,19 @@ import com.emberr.domain.canvas.CanvasViewPosition
 import com.emberr.domain.canvas.isFreeText
 import com.emberr.domain.canvas.textStyle
 import com.emberr.domain.canvas.isGroup
+import com.emberr.domain.canvas.isImage
+import com.emberr.domain.util.media.ImageClipboard
 import com.emberr.domain.util.system.isDesktopPlatform
 import com.emberr.domain.util.system.triggerHapticFeedback
 import com.emberr.domain.canvas.membersOf
+import com.emberr.presentation.LocalImagePicker
 import com.emberr.presentation.shared.StickyNoteWindowBus
 import com.emberr.presentation.shared.components.KmpBackHandler
 import com.emberr.ui.theme.LocalAppIsDark
 import com.emberr.ui.theme.highlightBackgroundFor
 import emberr.shared.generated.resources.Res
 import emberr.shared.generated.resources.group
+import emberr.shared.generated.resources.image
 import emberr.shared.generated.resources.square
 import emberr.shared.generated.resources.trash
 import dev.chrisbanes.haze.HazeState
@@ -217,12 +221,14 @@ fun CanvasScreen(
     LaunchedEffect(noteId) { viewModel.loadCanvas(noteId) }
 
     val canvas by viewModel.canvas.collectAsState()
+    val isAddingImage by viewModel.isAddingImage.collectAsState()
     var viewport by remember(noteId) { mutableStateOf(CanvasViewport()) }
     var selection by remember(noteId) { mutableStateOf<CanvasSelection>(CanvasSelection.None) }
     var editingNodeId by remember(noteId) { mutableStateOf<String?>(null) }
     var hoveredNodeId by remember(noteId) { mutableStateOf<String?>(null) }
     var dragPreview by remember(noteId) { mutableStateOf<CanvasDragPreview?>(null) }
     var contextMenuRequest by remember(noteId) { mutableStateOf<CanvasContextMenuRequest?>(null) }
+    var pastePillAnchor by remember(noteId) { mutableStateOf<Offset?>(null) }
     var isSelectingMultiple by remember(noteId) { mutableStateOf(false) }
     var isDotGridVisible by remember(noteId) { mutableStateOf(viewModel.isDotGridVisible(noteId)) }
     var activeTool by remember(noteId) { mutableStateOf<CanvasTool?>(null) }
@@ -248,6 +254,8 @@ fun CanvasScreen(
     val zoomAnimation = remember(noteId) { Animatable(1f) }
     val panAnimation = remember(noteId) { Animatable(Offset.Zero, Offset.VectorConverter) }
     val zoomScope = rememberCoroutineScope()
+    val pasteScope = rememberCoroutineScope()
+    val pickImage = LocalImagePicker.current
     val canvasFocusRequester = remember { FocusRequester() }
     val hazeState = remember { HazeState() }
     val nodeScrollStates = remember(noteId) { mutableMapOf<String, ScrollState>() }
@@ -272,6 +280,7 @@ fun CanvasScreen(
             openStrokeSettingsCategory = null
             openTextSettingsCategory = null
             openLineSettingsCategory = null
+            pastePillAnchor = null
         }
     }
 
@@ -515,6 +524,20 @@ fun CanvasScreen(
         createBoxAt(viewport.screenToWorld(boardCenter, pixelDensity), groupToGrowId = null, shape = shape)
     }
 
+    fun boardCenterInWorld(): Offset = viewport.screenToWorld(Offset(boardSize.width / 2f, boardSize.height / 2f), pixelDensity)
+
+    fun showPasteOptionIfClipboardHasImage(anchorOnScreen: Offset) {
+        pasteScope.launch {
+            if (!ImageClipboard.hasImage()) return@launch
+            if (isDesktopPlatform) {
+                contextMenuRequest = CanvasContextMenuRequest(CanvasSelection.None, anchorOnScreen)
+            } else {
+                triggerHapticFeedback()
+                pastePillAnchor = anchorOnScreen
+            }
+        }
+    }
+
     fun contextMenuOptionsFor(target: CanvasSelection): List<CanvasMenuOption> {
         val deleteOption = CanvasMenuOption("Delete", Res.drawable.trash, isDestructive = true) { deleteItems(target) }
         if (target !is CanvasSelection.Nodes) return listOf(deleteOption)
@@ -577,6 +600,10 @@ fun CanvasScreen(
                             canvasFocusRequester.requestFocus()
                             true
                         }
+                        editingNodeId == null && isCommandPressed && event.key == Key.V -> {
+                            viewModel.pasteImageFromClipboard(boardCenterInWorld())
+                            true
+                        }
                         editingNodeId == null && (event.key == Key.Delete || event.key == Key.Backspace) -> {
                             deleteItems(selection)
                             true
@@ -614,6 +641,7 @@ fun CanvasScreen(
 
                     awaitEachGesture {
                         val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                        pastePillAnchor = null
                         if (activeTool == CanvasTool.SHAPES) dropActiveTool()
                         if (down.isFromStylus) hasSeenStylus = true
                         if (activeTool.drawsOnBoard && hasSeenStylus && !down.isFromStylus) {
@@ -735,7 +763,7 @@ fun CanvasScreen(
                                         if (registerTap(tapTargetKey, down.uptimeMillis, downPosition)) {
                                             if (pressedNode.isGroup && !pressedGroupTitle) {
                                                 createBoxAt(downWorld, groupToGrowId = pressedNode.nodeId)
-                                            } else {
+                                            } else if (!pressedNode.isImage) {
                                                 editingNodeId = pressedNode.nodeId
                                             }
                                         }
@@ -774,6 +802,7 @@ fun CanvasScreen(
                                         selection = CanvasSelection.Edge(pressedEdge.edgeId)
                                         isSelectingMultiple = true
                                     }
+                                    else -> showPasteOptionIfClipboardHasImage(downPosition)
                                 }
                             }
 
@@ -804,7 +833,7 @@ fun CanvasScreen(
                                         val startBounds = nodeToResize.worldRect
                                         trackDragUntilRelease(isStillHeld = { event -> event.changes.any { it.pressed } }) { position ->
                                             val pointerTravel = viewport.screenToWorld(position, density) - downWorld
-                                            val newBounds = startBounds.resizedForShape(nodeToResize.shape, grabbedEdges, pointerTravel)
+                                            val newBounds = startBounds.resizedFor(nodeToResize, grabbedEdges, pointerTravel)
                                             viewModel.setNodeBounds(nodeToResize.nodeId, newBounds)
                                         }
                                     }
@@ -1012,7 +1041,10 @@ fun CanvasScreen(
                                 clickedNodeId != null && clickedNodeId in selection.selectedNodeIds -> selection
                                 clickedNodeId != null -> CanvasSelection.Nodes(setOf(clickedNodeId))
                                 clickedEdge != null -> CanvasSelection.Edge(clickedEdge.edgeId)
-                                else -> return@awaitEachGesture
+                                else -> {
+                                    showPasteOptionIfClipboardHasImage(pressPosition)
+                                    return@awaitEachGesture
+                                }
                             }
                             pressChange.consume()
                             editingNodeId = null
@@ -1055,7 +1087,7 @@ fun CanvasScreen(
                             val startBounds = nodeToResize.worldRect
                             trackDragUntilRelease(isStillHeld = { it.changes.first().pressed }) { position ->
                                 val pointerTravel = viewport.screenToWorld(position, density) - pressWorld
-                                val newBounds = startBounds.resizedForShape(nodeToResize.shape, grabbedEdges, pointerTravel)
+                                val newBounds = startBounds.resizedFor(nodeToResize, grabbedEdges, pointerTravel)
                                 viewModel.setNodeBounds(nodeToResize.nodeId, newBounds)
                             }
                             return@awaitEachGesture
@@ -1107,7 +1139,7 @@ fun CanvasScreen(
                                 if (registerClick(clickTargetKey, pressChange.uptimeMillis, pressPosition)) {
                                     if (pressedNode.isGroup && !pressedGroupTitle) {
                                         createBoxAt(pressWorld, groupToGrowId = pressedNode.nodeId)
-                                    } else {
+                                    } else if (!pressedNode.isImage) {
                                         editingNodeId = pressedNode.nodeId
                                     }
                                 }
@@ -1217,6 +1249,12 @@ fun CanvasScreen(
                             cursorColor = accentColor,
                             onTextChange = { text -> viewModel.updateNodeText(node.nodeId, text) },
                             onSizeMeasured = { width, height -> viewModel.setFreeTextSize(node.nodeId, width, height) }
+                        )
+                    } else if (node.isImage) {
+                        CanvasImageCard(
+                            node = node,
+                            viewport = viewport,
+                            isSelected = node.nodeId in selection.selectedNodeIds
                         )
                     } else {
                         CanvasNodeCard(
@@ -1333,15 +1371,32 @@ fun CanvasScreen(
                 currentColorName = selectedNode.color,
                 onDelete = { deleteItems(CanvasSelection.Nodes(setOf(selectedNode.nodeId))) },
                 onColorSelected = { colorName -> viewModel.setNodeColor(selectedNode.nodeId, colorName) },
-                showsColorOption = !selectedNode.isFreeText
+                showsColorOption = !selectedNode.isFreeText && !selectedNode.isImage
             )
         }
 
         contextMenuRequest?.let { request ->
             CanvasContextMenu(
                 anchorOnScreen = request.anchorOnScreen,
-                options = contextMenuOptionsFor(request.target),
+                options = if (request.target == CanvasSelection.None) {
+                    val pasteWorldCenter = viewport.screenToWorld(request.anchorOnScreen, pixelDensity)
+                    listOf(CanvasMenuOption("Paste image", Res.drawable.image) { viewModel.pasteImageFromClipboard(pasteWorldCenter) })
+                } else {
+                    contextMenuOptionsFor(request.target)
+                },
                 onDismiss = { contextMenuRequest = null }
+            )
+        }
+
+        if (isAddingImage) CanvasAddingImageOverlay()
+
+        pastePillAnchor?.let { anchor ->
+            CanvasPastePill(
+                anchorOnScreen = anchor,
+                onPaste = {
+                    pastePillAnchor = null
+                    viewModel.pasteImageFromClipboard(viewport.screenToWorld(anchor, pixelDensity))
+                }
             )
         }
 
@@ -1658,7 +1713,7 @@ fun CanvasScreen(
                     hazeState = hazeState,
                     activeTool = activeTool,
                     onToolClick = { tool ->
-                        activeTool = if (activeTool == tool) null else tool
+                        activeTool = if (activeTool == tool || tool == CanvasTool.IMAGE) null else tool
                         openStrokeSettingsCategory = null
                         openTextSettingsCategory = null
                         openLineSettingsCategory = null
@@ -1673,6 +1728,9 @@ fun CanvasScreen(
                             else -> PointerIcon.Default
                         }
                         canvasFocusRequester.requestFocus()
+                        if (tool == CanvasTool.IMAGE) {
+                            pickImage { path -> viewModel.addImageFromFile(path, boardCenterInWorld()) }
+                        }
                     }
                 )
             }

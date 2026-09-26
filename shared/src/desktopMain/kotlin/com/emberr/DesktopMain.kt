@@ -1,6 +1,7 @@
 package com.emberr
 
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -45,6 +46,7 @@ import com.emberr.domain.util.system.appVersionName
 import com.emberr.domain.vault.VaultLog
 import com.emberr.domain.vault.VaultMirrorService
 import com.emberr.presentation.EmberrApp
+import com.emberr.presentation.LocalImagePicker
 import com.emberr.presentation.settings.PlainTextSecretWarningDialog
 import com.emberr.presentation.desktop.DesktopSearchShortcutBus
 import com.emberr.presentation.desktop.DesktopRestartBus
@@ -468,6 +470,13 @@ private fun runEmberrDesktopApp() = application {
                     val stickyNoteKind by produceState<NoteKind?>(initialValue = null, stickyNoteId) {
                         value = GlobalContext.get().get<NoteRepository>().getNoteById(stickyNoteId)?.kind ?: NoteKind.NOTE
                     }
+                    val pickStickyImage: (onPathSelected: (String) -> Unit) -> Unit = { onPathSelected ->
+                        val dialog = java.awt.FileDialog(stickyWindow, "Select Image", java.awt.FileDialog.LOAD)
+                        dialog.file = "*.png;*.jpg;*.jpeg;*.webp"
+                        dialog.isVisible = true
+                        dialog.files.firstOrNull()?.let { file -> onPathSelected(file.absolutePath) }
+                    }
+                    CompositionLocalProvider(LocalImagePicker provides pickStickyImage) {
                     when (stickyNoteKind) {
                         NoteKind.CANVAS -> CanvasScreen(noteId = stickyNoteId, isStickyNote = true)
                         NoteKind.NOTE -> NoteScreen(
@@ -475,12 +484,7 @@ private fun runEmberrDesktopApp() = application {
                             isStickyNote = true,
                             showBackButton = false,
                             onNavigateBack = {},
-                            onPickImage = { onPathSelected ->
-                                val dialog = java.awt.FileDialog(stickyWindow, "Select Image", java.awt.FileDialog.LOAD)
-                                dialog.file = "*.png;*.jpg;*.jpeg;*.webp"
-                                dialog.isVisible = true
-                                dialog.files.firstOrNull()?.let { file -> onPathSelected(file.absolutePath) }
-                            },
+                            onPickImage = pickStickyImage,
                             onPickDocument = { onPathSelected ->
                                 val dialog = java.awt.FileDialog(stickyWindow, "Select Document", java.awt.FileDialog.LOAD)
                                 dialog.isVisible = true
@@ -534,6 +538,7 @@ private fun runEmberrDesktopApp() = application {
                             }
                         )
                         null -> Unit
+                    }
                     }
                     }
                 }

@@ -2,6 +2,7 @@ package com.emberr.presentation.shared.canvas
 
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.unit.IntSize
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.emberr.data.local.prefs.SettingsManager
@@ -29,6 +30,11 @@ import com.emberr.domain.canvas.membersOf
 import com.emberr.domain.canvas.withTextStyle
 import com.emberr.domain.model.NoteContent
 import com.emberr.domain.repository.NoteRepository
+import com.emberr.domain.util.media.ClipboardImage
+import com.emberr.domain.util.media.ImageClipboard
+import com.emberr.domain.util.media.MediaInfo
+import com.emberr.domain.util.media.MediaStorageHelper
+import com.emberr.domain.util.media.readImagePixelSize
 import com.emberr.presentation.shared.editor.ActiveEditorRegistry
 import com.emberr.domain.util.sync.SyncCoordinator
 import com.emberr.domain.util.sync.NoteSyncEvent
@@ -51,9 +57,12 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.util.UUID
+import kotlin.math.max
+import kotlin.math.min
 
 private const val SAVE_DELAY_MILLIS = 500L
 private const val DEFAULT_GROUP_TITLE = "Group"
+private const val NEW_IMAGE_LONGEST_SIDE = 320f
 
 class CanvasViewModel(
     private val canvasRepository: CanvasRepository,
@@ -61,11 +70,15 @@ class CanvasViewModel(
     private val viewPositionStore: CanvasViewPositionStore,
     private val toolSettingsStore: CanvasToolSettingsStore,
     private val settingsManager: SettingsManager,
+    private val mediaStorageHelper: MediaStorageHelper,
     private val appScope: CoroutineScope
 ) : ViewModel() {
 
     private val _canvas = MutableStateFlow(CanvasContent())
     val canvas: StateFlow<CanvasContent> = _canvas.asStateFlow()
+
+    private val _isAddingImage = MutableStateFlow(false)
+    val isAddingImage: StateFlow<Boolean> = _isAddingImage.asStateFlow()
 
     private var noteId: String? = null
     private val loadedNoteId = MutableStateFlow<String?>(null)
@@ -241,6 +254,63 @@ class CanvasViewModel(
             setNodeBounds(groupToGrow.nodeId, grownBounds)
         }
         return node.nodeId
+    }
+
+    fun addImageFromFile(uriOrPath: String, worldCenter: Offset) {
+        if (uriOrPath.isBlank()) return
+        addImage(worldCenter) { mediaStorageHelper.copyUriToInternalStorage(uriOrPath) }
+    }
+
+    fun pasteImageFromClipboard(worldCenter: Offset) = addImage(worldCenter) {
+        when (val image = ImageClipboard.readImage()) {
+            null -> null
+            is ClipboardImage.FromFile -> mediaStorageHelper.copyUriToInternalStorage(image.uriOrPath)
+            is ClipboardImage.FromPngBytes ->
+                mediaStorageHelper.saveBytesToInternalStorage(image.bytes, extension = "png", mimeType = "image/png")
+        }
+    }
+
+    private fun addImage(worldCenter: Offset, saveToMediaFolder: suspend () -> MediaInfo?) {
+        val targetNoteId = noteId ?: return
+        if (_isAddingImage.value) return
+        _isAddingImage.value = true
+        viewModelScope.launch {
+            try {
+                val (fileName, pixelSize) = withContext(Dispatchers.IO) {
+                    val savedFileName = saveToMediaFolder()?.localFileName ?: return@withContext null
+                    savedFileName to readImagePixelSize(mediaStorageHelper.getAbsoluteMediaPath(savedFileName))
+                } ?: return@launch
+                if (noteId != targetNoteId) return@launch
+                placeImageNode(targetNoteId, fileName, pixelSize, worldCenter)
+            } finally {
+                _isAddingImage.value = false
+            }
+        }
+    }
+
+    private fun placeImageNode(targetNoteId: String, fileName: String, pixelSize: IntSize?, worldCenter: Offset) {
+        val imageWidth = pixelSize?.width?.toFloat() ?: 4f
+        val imageHeight = pixelSize?.height?.toFloat() ?: 3f
+        val scale = max(NEW_IMAGE_LONGEST_SIDE / max(imageWidth, imageHeight), CANVAS_MIN_NODE_HEIGHT / min(imageWidth, imageHeight))
+        val width = imageWidth * scale
+        val height = imageHeight * scale
+        beginUndoStep()
+        val now = System.currentTimeMillis()
+        val node = CanvasNodeEntity(
+            nodeId = UUID.randomUUID().toString(),
+            noteId = targetNoteId,
+            x = worldCenter.x - width / 2f,
+            y = worldCenter.y - height / 2f,
+            width = width,
+            height = height,
+            text = "",
+            createdAt = now,
+            updatedAt = now,
+            type = CanvasNodeType.IMAGE,
+            imagePath = fileName
+        )
+        _canvas.value = _canvas.value.copy(nodes = _canvas.value.nodes + node)
+        rememberUnsavedNode(node)
     }
 
     fun createFreeText(worldTopLeft: Offset, startingHeight: Float, style: CanvasTextStyle): String {

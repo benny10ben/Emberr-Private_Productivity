@@ -71,6 +71,8 @@ private val SEARCH_BAR_RESERVED_HEIGHT = EXPANDED_BOTTOM_BAR_PILL_HEIGHT + BOTTO
 
 val LocalImageOverlay = staticCompositionLocalOf<( (@Composable () -> Unit)? ) -> Unit> { {} }
 
+val LocalImagePicker = staticCompositionLocalOf<(onPathSelected: (String) -> Unit) -> Unit> { {} }
+
 @OptIn(ExperimentalLayoutApi::class, ExperimentalSharedTransitionApi::class)
 @Composable
 fun EmberrApp(
@@ -305,6 +307,7 @@ fun EmberrApp(
 
     CompositionLocalProvider(
         LocalImageOverlay provides { content -> fullScreenContent = content },
+        LocalImagePicker provides onPickImage,
         LocalEmberrBlurSource provides if (isDesktopPlatform) null else hazeState
     ) {
         if (isDesktopPlatform) {

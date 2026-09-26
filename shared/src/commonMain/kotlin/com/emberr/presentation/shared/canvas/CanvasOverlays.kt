@@ -17,6 +17,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.requiredSize
@@ -28,6 +29,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -64,9 +66,15 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntRect
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupPositionProvider
+import androidx.compose.ui.window.PopupProperties
 import com.emberr.data.local.room.entity.CanvasNodeShape
 import com.emberr.data.local.room.entity.CanvasStrokeTool
 import com.emberr.domain.canvas.CanvasLineStyle
@@ -102,6 +110,7 @@ import emberr.shared.generated.resources.fuzzybubbles_bold
 import emberr.shared.generated.resources.fuzzybubbles_regular
 import emberr.shared.generated.resources.eraser
 import emberr.shared.generated.resources.highlight
+import emberr.shared.generated.resources.image
 import emberr.shared.generated.resources.line_tool
 import emberr.shared.generated.resources.minus
 import emberr.shared.generated.resources.palette
@@ -550,7 +559,7 @@ fun CanvasUndoRedoButtons(hazeState: HazeState, onUndo: () -> Unit, onRedo: () -
     )
 }
 
-enum class CanvasTool { PEN, HIGHLIGHTER, ERASER, TEXT, SHAPES, LINE }
+enum class CanvasTool { PEN, HIGHLIGHTER, ERASER, TEXT, SHAPES, LINE, IMAGE }
 
 private val CanvasTool.icon: DrawableResource
     get() = when (this) {
@@ -560,6 +569,7 @@ private val CanvasTool.icon: DrawableResource
         CanvasTool.TEXT -> Res.drawable.text_input_focus
         CanvasTool.SHAPES -> Res.drawable.shapes
         CanvasTool.LINE -> Res.drawable.line_tool
+        CanvasTool.IMAGE -> Res.drawable.image
     }
 
 private val CanvasTool.iconSize: Dp
@@ -570,6 +580,7 @@ private val CanvasTool.iconSize: Dp
         CanvasTool.TEXT -> 24.dp
         CanvasTool.SHAPES -> 22.dp
         CanvasTool.LINE -> 22.dp
+        CanvasTool.IMAGE -> 22.dp
     }
 
 private val CanvasTool.label: String
@@ -580,6 +591,7 @@ private val CanvasTool.label: String
         CanvasTool.TEXT -> "Text"
         CanvasTool.SHAPES -> "Shapes"
         CanvasTool.LINE -> "Line"
+        CanvasTool.IMAGE -> "Image"
     }
 
 @Composable
@@ -1544,6 +1556,82 @@ fun CanvasSelectionPill(
                         }
                     )
                 }
+            }
+        }
+    }
+}
+
+@Composable
+fun CanvasPastePill(anchorOnScreen: Offset, onPaste: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .layout { measurable, _ ->
+                val placeable = measurable.measure(Constraints())
+                val gap = SelectionPillGap.roundToPx()
+                layout(placeable.width, placeable.height) {
+                    placeable.place(
+                        IntOffset(
+                            x = (anchorOnScreen.x - placeable.width / 2f).roundToInt(),
+                            y = (anchorOnScreen.y - placeable.height - gap).roundToInt()
+                        )
+                    )
+                }
+            }
+            .customEmberrShadow(SelectionPillShape, EmberrShadowElevation.Standard)
+            .clip(SelectionPillShape)
+            .background(MaterialTheme.colorScheme.surface)
+            .clickable(onClick = onPaste)
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            painter = painterResource(Res.drawable.image),
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.size(18.dp)
+        )
+        Text("Paste image", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+    }
+}
+
+private val AddingImageCardShape = RoundedCornerShape(16.dp)
+private const val ADDING_IMAGE_SCRIM_ALPHA = 0.32f
+
+private object WindowTopLeftPositionProvider : PopupPositionProvider {
+    override fun calculatePosition(
+        anchorBounds: IntRect,
+        windowSize: IntSize,
+        layoutDirection: LayoutDirection,
+        popupContentSize: IntSize
+    ): IntOffset = IntOffset.Zero
+}
+
+@Composable
+fun CanvasAddingImageOverlay() {
+    Popup(
+        popupPositionProvider = WindowTopLeftPositionProvider,
+        properties = PopupProperties(focusable = true, dismissOnBackPress = false, dismissOnClickOutside = false)
+    ) {
+        Box(
+            modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = ADDING_IMAGE_SCRIM_ALPHA)),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                modifier = Modifier
+                    .customEmberrShadow(AddingImageCardShape, EmberrShadowElevation.Standard)
+                    .clip(AddingImageCardShape)
+                    .background(MaterialTheme.colorScheme.surface)
+                    .padding(horizontal = 28.dp, vertical = 20.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(28.dp),
+                    strokeWidth = 3.dp,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Text("Adding image...", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
             }
         }
     }
