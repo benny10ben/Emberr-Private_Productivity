@@ -152,6 +152,11 @@ class CanvasStrokeCache {
 
     fun pointsFor(stroke: CanvasStrokeEntity): List<CanvasStrokePoint> = cachedFor(stroke).decodedPoints
 
+    fun boundsOnBoard(stroke: CanvasStrokeEntity): Rect {
+        val inkReach = stroke.width + (stroke.width * LINE_ARROW_SIZE_PER_WIDTH).coerceAtLeast(LINE_MINIMUM_ARROW_SIZE)
+        return cachedFor(stroke).bounds.translate(stroke.x, stroke.y).inflate(inkReach)
+    }
+
     fun isTouchedByEraser(stroke: CanvasStrokeEntity, eraserCenter: Offset, eraserRadius: Float): Boolean {
         val cached = cachedFor(stroke)
         return stroke.isTouchedBy(eraserCenter, eraserRadius, cached.decodedPoints, cached.bounds)

@@ -235,6 +235,7 @@ fun CanvasScreen(
     var lineStyle by remember { mutableStateOf(viewModel.savedLineStyle()) }
     var lineStrokeStyle by remember { mutableStateOf(viewModel.savedStrokeStyle(CanvasStrokeTool.LINE)) }
     var openLineSettingsCategory by remember(noteId) { mutableStateOf<CanvasLineSettingsCategory?>(null) }
+    var hasSeenStylus by remember { mutableStateOf(false) }
     var liveLine by remember(noteId) { mutableStateOf<Pair<Offset, Offset>?>(null) }
     var openStrokeSettingsCategory by remember(noteId) { mutableStateOf<CanvasStrokeSettingsCategory?>(null) }
     var openTextSettingsCategory by remember(noteId) { mutableStateOf<CanvasTextSettingsCategory?>(null) }
@@ -483,7 +484,7 @@ fun CanvasScreen(
         leaveEditingAndSelection()
     }
 
-    KmpBackHandler(enabled = !isDesktopPlatform && activeTool == CanvasTool.SHAPES) {
+    KmpBackHandler(enabled = !isDesktopPlatform && activeTool != null) {
         dropActiveTool()
     }
 
@@ -614,6 +615,14 @@ fun CanvasScreen(
                     awaitEachGesture {
                         val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
                         if (activeTool == CanvasTool.SHAPES) dropActiveTool()
+                        if (down.isFromStylus) hasSeenStylus = true
+                        if (activeTool.drawsOnBoard && hasSeenStylus && !down.isFromStylus) {
+                            down.consume()
+                            trackPinchAndPan { centroid, pan, zoom ->
+                                viewport = viewport.pannedBy(pan).zoomedAround(centroid, zoom, density)
+                            }
+                            return@awaitEachGesture
+                        }
                         if (activeTool == CanvasTool.LINE) {
                             down.consume()
                             startLiveLine(down.position)
@@ -1186,7 +1195,7 @@ fun CanvasScreen(
                     val snapTarget = preview.snapTarget
                     val snappedNode = snapTarget?.let { nodesById[it.nodeId] }
                     val loosePoint = if (snapTarget != null && snappedNode != null) snappedNode.anchorOn(snapTarget.side) else preview.looseEndWorld
-                    val looseSide = if (snappedNode != null) snapTarget?.side else null
+                    val looseSide = if (snappedNode != null) snapTarget.side else null
                     val controlDistance = edgeControlDistance(anchoredPoint, loosePoint, EDGE_MIN_CONTROL_UNITS, EDGE_MAX_CONTROL_UNITS)
                     val worldCurve = if (preview.isDraggingArrowHead) {
                         edgeCurve(anchoredPoint, preview.anchoredSide, loosePoint, looseSide, controlDistance)
@@ -1226,7 +1235,13 @@ fun CanvasScreen(
             Canvas(Modifier.fillMaxSize()) {
                 strokeCache.forgetStrokesNotIn(canvas.strokes)
                 val pixelsPerUnit = viewport.pixelsPerUnit(pixelDensity)
-                val (highlighterStrokes, penStrokes) = canvas.strokes.partition { it.tool == CanvasStrokeTool.HIGHLIGHTER }
+                val visibleBoardArea = Rect(
+                    topLeft = viewport.screenToWorld(Offset.Zero, pixelDensity),
+                    bottomRight = viewport.screenToWorld(Offset(size.width, size.height), pixelDensity)
+                )
+                val (highlighterStrokes, penStrokes) = canvas.strokes
+                    .filter { stroke -> strokeCache.boundsOnBoard(stroke).overlaps(visibleBoardArea) }
+                    .partition { it.tool == CanvasStrokeTool.HIGHLIGHTER }
 
                 val highlighterAlpha = if (isDarkTheme) HIGHLIGHTER_ALPHA_IN_DARK_THEME else HIGHLIGHTER_ALPHA_IN_LIGHT_THEME
 
@@ -1929,6 +1944,9 @@ private val CanvasTool?.drawsOrErases: Boolean
 
 private val CanvasTool?.drawsOnBoard: Boolean
     get() = drawsOrErases || this == CanvasTool.LINE
+
+private val PointerInputChange.isFromStylus: Boolean
+    get() = type == PointerType.Stylus || type == PointerType.Eraser
 
 private val PointerInputChange.penPressure: Float?
     get() = if (type == PointerType.Stylus) pressure else null

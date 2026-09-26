@@ -1,6 +1,7 @@
 package com.emberr.presentation.shared.canvas
 
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import com.emberr.data.local.room.entity.CanvasStrokeEntity
 import com.emberr.data.local.room.entity.CanvasStrokeTool
 import com.emberr.domain.canvas.CanvasStrokePoint
@@ -174,6 +175,17 @@ class CanvasStrokeDrawingTest {
     @Test
     fun aDottedLineShorterThanOneGapStillShowsBothEnds() {
         assertEquals(listOf(Offset(0f, 0f), Offset(3f, 4f)), evenlySpacedPointsAlong(Offset(0f, 0f), Offset(3f, 4f), spacing = 10f))
+    }
+
+    @Test
+    fun aStrokeFarOutsideTheVisibleAreaIsSkippedButOneReachingIntoItIsKept() {
+        val cache = CanvasStrokeCache()
+        val visibleArea = Rect(0f, 0f, 400f, 300f)
+        val farAway = lineStroke(x = 5000f, y = 5000f, points = "0,0 1000,0")
+        val reachingIn = lineStroke(x = 405f, y = 100f, points = "0,0 1000,0")
+
+        assertFalse(cache.boundsOnBoard(farAway).overlaps(visibleArea))
+        assertTrue(cache.boundsOnBoard(reachingIn).overlaps(visibleArea))
     }
 }
 
