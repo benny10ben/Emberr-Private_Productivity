@@ -10,6 +10,7 @@ import com.emberr.data.local.room.entity.FolderEntity
 import com.emberr.data.local.room.entity.ImageBlockEntity
 import com.emberr.data.local.room.entity.NoteMetadataEntity
 import com.emberr.data.local.room.entity.TagEntity
+import com.emberr.domain.canvas.CanvasContent
 import com.emberr.domain.model.NoteBlock
 import com.emberr.domain.model.NoteContent
 import com.emberr.domain.model.NoteSearchResult
@@ -163,6 +164,9 @@ interface NoteRepository {
     suspend fun searchNotes(query: String): List<NoteSearchResult>
 
     suspend fun indexNote(metadata: NoteMetadataEntity, content: NoteContent)
+    suspend fun indexCanvas(noteId: String, canvas: CanvasContent)
+    suspend fun indexStoredCanvas(noteId: String)
+    suspend fun getAllCanvasNotesAcrossSpaces(): List<NoteMetadataEntity>
     suspend fun indexDailyNote(dateString: String, content: NoteContent, metadata: NoteMetadataEntity)
 
     fun getIncompleteTasksCount(): Flow<Int>

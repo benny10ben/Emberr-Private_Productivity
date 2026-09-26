@@ -156,6 +156,9 @@ interface NoteDao {
     @Query("SELECT * FROM notes_metadata WHERE isDaily = 0 AND trashedAt IS NULL AND isSubNote = 0 AND isTemplate = 0 ORDER BY updatedAt DESC")
     suspend fun getAllNotesAcrossSpaces(): List<NoteMetadataEntity>
 
+    @Query("SELECT * FROM notes_metadata WHERE kind = 'CANVAS' AND trashedAt IS NULL AND isTemplate = 0 ORDER BY updatedAt DESC")
+    suspend fun getAllCanvasNotesAcrossSpaces(): List<NoteMetadataEntity>
+
     @Query("SELECT * FROM notes_metadata WHERE isDaily = 0 AND trashedAt IS NULL AND isSubNote = 0 AND isTemplate = 0 ORDER BY updatedAt DESC")
     fun getAllNotesAcrossSpacesFlow(): Flow<List<NoteMetadataEntity>>
 

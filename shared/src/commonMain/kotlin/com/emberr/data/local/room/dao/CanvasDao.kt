@@ -27,6 +27,20 @@ interface CanvasDao {
     @Query("SELECT * FROM canvas_strokes")
     suspend fun getAllStrokesForBackup(): List<CanvasStrokeEntity>
 
+    @Query(
+        "SELECT DISTINCT canvas_nodes.noteId FROM canvas_nodes " +
+            "JOIN notes_metadata ON notes_metadata.noteId = canvas_nodes.noteId " +
+            "WHERE canvas_nodes.isDeleted = 0 AND notes_metadata.trashedAt IS NULL AND notes_metadata.spaceId = :spaceId " +
+            "AND canvas_nodes.text LIKE '%' || :query || '%'"
+    )
+    suspend fun findCanvasNoteIdsWithTextMatching(spaceId: String, query: String): List<String>
+
+    @Query(
+        "SELECT text FROM canvas_nodes WHERE noteId = :noteId AND isDeleted = 0 " +
+            "AND text LIKE '%' || :query || '%' ORDER BY createdAt ASC LIMIT 1"
+    )
+    suspend fun findFirstNodeTextMatching(noteId: String, query: String): String?
+
     @Upsert
     suspend fun upsertNodes(nodes: List<CanvasNodeEntity>)
 

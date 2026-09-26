@@ -475,8 +475,31 @@ class NoteRepositoryImpl(
                 }
             }
 
-            (metadataResults + contentMatches).sortedByDescending { it.note.updatedAt }
+            val alreadyFoundIds = matchedIds + contentMatches.map { it.note.noteId }
+            val canvasMatches = findCanvasTextMatches(spaceId, query).filterNot { it.note.noteId in alreadyFoundIds }
+
+            (metadataResults + contentMatches + canvasMatches).sortedByDescending { it.note.updatedAt }
         }
+
+    private suspend fun findCanvasTextMatches(spaceId: String, query: String): List<NoteSearchResult> {
+        val resultsByNoteId = LinkedHashMap<String, NoteSearchResult>()
+        for (canvasNoteId in canvasDao.findCanvasNoteIdsWithTextMatching(spaceId, query)) {
+            val matchedText = canvasDao.findFirstNodeTextMatching(canvasNoteId, query) ?: continue
+            val canvasMetadata = noteDao.getNoteById(canvasNoteId) ?: continue
+            val resultNoteIds = if (canvasMetadata.isSubNote) notesContainingCanvas(canvasNoteId) else listOf(canvasNoteId)
+            if (resultNoteIds.isEmpty()) continue
+            noteDao.getSearchableNotesByIds(resultNoteIds)
+                .filter { it.spaceId == spaceId }
+                .forEach { note -> resultsByNoteId.putIfAbsent(note.noteId, NoteSearchResult(note = note, matchedText = matchedText)) }
+        }
+        return resultsByNoteId.values.toList()
+    }
+
+    private suspend fun notesContainingCanvas(canvasNoteId: String): List<String> =
+        blockDao.findBlocksContainingIncludingDeleted(canvasNoteId)
+            .filter { !it.isDeleted && it.noteId != canvasNoteId }
+            .map { it.noteId }
+            .distinct()
 
     // Returns the flattened text of the first live block whose text contains the query
     // (case-insensitive). SQLite has already narrowed this to blocks whose raw JSON holds the
@@ -918,6 +941,36 @@ class NoteRepositoryImpl(
                 e.printStackTrace()
             }
         }
+
+    override suspend fun indexCanvas(noteId: String, canvas: CanvasContent) =
+        withContext(Dispatchers.IO) {
+            try {
+                val metadata = noteDao.getNoteById(noteId) ?: return@withContext
+                val ownerNoteTitle = if (metadata.isSubNote) {
+                    notesContainingCanvas(noteId).firstNotNullOfOrNull { ownerId ->
+                        noteDao.getNoteById(ownerId)?.title?.takeIf { it.isNotBlank() }
+                    }
+                } else {
+                    null
+                }
+                noteIndexer.indexCanvas(metadata, canvas, ownerNoteTitle)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+
+    override suspend fun indexStoredCanvas(noteId: String) =
+        withContext(Dispatchers.IO) {
+            val storedCanvas = CanvasContent(
+                nodes = canvasDao.getAllNodesForNoteIncludingDeleted(noteId),
+                edges = canvasDao.getAllEdgesForNoteIncludingDeleted(noteId),
+                strokes = canvasDao.getAllStrokesForNoteIncludingDeleted(noteId)
+            )
+            indexCanvas(noteId, storedCanvas)
+        }
+
+    override suspend fun getAllCanvasNotesAcrossSpaces(): List<NoteMetadataEntity> =
+        withContext(Dispatchers.IO) { noteDao.getAllCanvasNotesAcrossSpaces() }
 
     override suspend fun indexDailyNote(dateString: String, content: NoteContent, metadata: NoteMetadataEntity) =
         withContext(Dispatchers.IO) {

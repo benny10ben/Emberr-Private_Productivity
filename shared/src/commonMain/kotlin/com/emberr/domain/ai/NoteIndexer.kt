@@ -2,6 +2,7 @@ package com.emberr.domain.ai
 
 import com.emberr.data.local.prefs.SettingsManager
 import com.emberr.data.local.room.entity.NoteMetadataEntity
+import com.emberr.domain.canvas.CanvasContent
 import com.emberr.domain.model.*
 import com.emberr.database.EmberrDatabase
 import java.text.SimpleDateFormat
@@ -90,6 +91,26 @@ class NoteIndexer(
             }
         }
 
+        replaceIndexForNote(metadata, blockIds, chunkTexts)
+    }
+
+    suspend fun indexCanvas(metadata: NoteMetadataEntity, canvas: CanvasContent, ownerNoteTitle: String?) {
+        if (settingsManager.isAiFeaturesDisabled()) return
+        if (aiEngine.unsupportedHardwareReason != null) return
+
+        val context = buildString {
+            appendLine("[Source: Canvas]")
+            if (metadata.title.isNotBlank()) appendLine("Title: ${metadata.title}")
+            if (!ownerNoteTitle.isNullOrBlank()) appendLine("Inside note: $ownerNoteTitle")
+        }
+        val canvasText = canvasTextForIndexing(canvas)
+        val chunkBodies = if (canvasText.isBlank()) emptyList() else splitIntoEmbeddingSafeChunks(canvasText)
+        val blockIds = chunkBodies.indices.map { index -> "canvas:${metadata.noteId}#$index" }
+        val chunkTexts = chunkBodies.map { body -> "$context\n$body" }
+        replaceIndexForNote(metadata, blockIds, chunkTexts)
+    }
+
+    private suspend fun replaceIndexForNote(metadata: NoteMetadataEntity, blockIds: List<String>, chunkTexts: List<String>) {
         if (chunkTexts.isEmpty()) {
             database.transaction {
                 database.vectorStoreQueries.deleteBlocksForNote(metadata.noteId)

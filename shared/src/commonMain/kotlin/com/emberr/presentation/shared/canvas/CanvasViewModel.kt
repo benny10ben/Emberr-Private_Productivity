@@ -29,6 +29,7 @@ import com.emberr.domain.canvas.membersOf
 import com.emberr.domain.canvas.withTextStyle
 import com.emberr.domain.model.NoteContent
 import com.emberr.domain.repository.NoteRepository
+import com.emberr.presentation.shared.editor.ActiveEditorRegistry
 import com.emberr.domain.util.sync.SyncCoordinator
 import com.emberr.domain.util.sync.NoteSyncEvent
 import com.emberr.domain.util.sync.SyncEventBus
@@ -84,8 +85,11 @@ class CanvasViewModel(
     private val history = CanvasHistory()
     private var textEditStepNodeId: String? = null
     private var freeTextCreatedInOpenStepId: String? = null
+    private var lastIndexedSignature: Int? = null
+    private var needsIndexBaseline = true
 
     init {
+        ActiveEditorRegistry.registerCanvas(this)
         viewModelScope.launch {
             SyncEventBus.events.filterIsInstance<NoteSyncEvent.NoteChanged>().collect { event ->
                 if (event.entityId == noteId) reloadFromDatabase()
@@ -111,6 +115,8 @@ class CanvasViewModel(
                 val content = noteRepository.getNoteContent(targetNoteId) ?: NoteContent(blocks = emptyList())
                 noteRepository.saveNote(metadata.copy(title = newTitle), content)
             }
+            noteRepository.indexCanvas(targetNoteId, _canvas.value)
+            lastIndexedSignature = indexSignatureOf(_canvas.value)
         }
     }
 
@@ -135,6 +141,9 @@ class CanvasViewModel(
         if (this.noteId != noteId) {
             saveJob?.cancel()
             saveUnsavedChanges()
+            indexInBackgroundIfChanged()
+            lastIndexedSignature = null
+            needsIndexBaseline = true
             this.noteId = noteId
             loadedNoteId.value = noteId
             history.clear()
@@ -576,11 +585,42 @@ class CanvasViewModel(
             edges = edgesById.values.sortedBy { it.createdAt },
             strokes = strokesById.values.sortedBy { it.createdAt }
         ).liveOnly()
+        if (needsIndexBaseline) {
+            lastIndexedSignature = indexSignatureOf(_canvas.value)
+            needsIndexBaseline = false
+        }
     }
+
+    suspend fun indexForAiNowIfChanged() {
+        val (targetNoteId, canvasToIndex) = claimIndexingIfChanged() ?: return
+        noteRepository.indexCanvas(targetNoteId, canvasToIndex)
+    }
+
+    private fun indexInBackgroundIfChanged() {
+        val (targetNoteId, canvasToIndex) = claimIndexingIfChanged() ?: return
+        appScope.launch { noteRepository.indexCanvas(targetNoteId, canvasToIndex) }
+    }
+
+    private fun claimIndexingIfChanged(): Pair<String, CanvasContent>? {
+        val targetNoteId = noteId ?: return null
+        if (needsIndexBaseline) return null
+        val canvasToIndex = _canvas.value
+        val signature = indexSignatureOf(canvasToIndex)
+        if (signature == lastIndexedSignature) return null
+        lastIndexedSignature = signature
+        return targetNoteId to canvasToIndex
+    }
+
+    private fun indexSignatureOf(canvas: CanvasContent): Int = listOf(
+        canvas.nodes.map { Triple(it.nodeId, it.text, it.type) },
+        canvas.edges.map { it.fromNodeId to it.toNodeId }
+    ).hashCode()
 
     override fun onCleared() {
         super.onCleared()
         saveJob?.cancel()
         saveUnsavedChanges()
+        indexInBackgroundIfChanged()
+        ActiveEditorRegistry.unregisterCanvas(this)
     }
 }
