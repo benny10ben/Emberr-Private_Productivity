@@ -11,6 +11,8 @@ object WebDavSyncPaths {
     const val SPACES_FILE = "$ROOT/spaces.json"
     const val FOLDERS_FILE = "$ROOT/folders.json"
     const val CATEGORIES_FILE = "$ROOT/categories.json"
+    const val PROPERTY_TAGS_FILE = "$ROOT/property_tags.json"
+    const val CUSTOM_PROPERTIES_FILE = "$ROOT/custom_properties.json"
     const val EVENT_EXCEPTIONS_FILE = "$ROOT/event_exceptions.json"
     const val API_CONFIGS_FILE = "$ROOT/api_configs.json"
     const val BOOKMARK_CATEGORY_ORDER_FILE = "$ROOT/bookmark_category_order.json"

@@ -18,6 +18,8 @@ class WebDavSyncPathsTest {
             WebDavSyncPaths.SPACES_FILE,
             WebDavSyncPaths.FOLDERS_FILE,
             WebDavSyncPaths.CATEGORIES_FILE,
+            WebDavSyncPaths.PROPERTY_TAGS_FILE,
+            WebDavSyncPaths.CUSTOM_PROPERTIES_FILE,
             WebDavSyncPaths.API_CONFIGS_FILE,
             WebDavSyncPaths.notePath("note-1"),
             WebDavSyncPaths.dailyPath("space-1", "2026-01-01"),

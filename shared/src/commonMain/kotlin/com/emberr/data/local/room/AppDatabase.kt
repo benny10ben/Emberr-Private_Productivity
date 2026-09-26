@@ -11,11 +11,13 @@ import com.emberr.data.local.room.dao.CanvasDao
 import com.emberr.data.local.room.dao.CalendarTaskDao
 import com.emberr.data.local.room.dao.CategoryDao
 import com.emberr.data.local.room.dao.ChatSessionDao
+import com.emberr.data.local.room.dao.CustomPropertyDao
 import com.emberr.data.local.room.dao.DocumentBlockDao
 import com.emberr.data.local.room.dao.FolderDao
 import com.emberr.data.local.room.dao.ImageBlockDao
 import com.emberr.data.local.room.dao.MediaReferenceDao
 import com.emberr.data.local.room.dao.NoteDao
+import com.emberr.data.local.room.dao.PropertyTagDao
 import com.emberr.data.local.room.dao.SelfHostDeletedApiConfigDao
 import com.emberr.data.local.room.dao.SelfHostDeletedNoteDao
 import com.emberr.data.local.room.dao.SpaceDao
@@ -27,12 +29,14 @@ import com.emberr.data.local.room.entity.CanvasNodeEntity
 import com.emberr.data.local.room.entity.CanvasStrokeEntity
 import com.emberr.data.local.room.entity.CategoryEntity
 import com.emberr.data.local.room.entity.ChatSessionEntity
+import com.emberr.data.local.room.entity.CustomPropertyEntity
 import com.emberr.data.local.room.entity.DocumentBlockEntity
 import com.emberr.data.local.room.entity.FolderEntity
 import com.emberr.data.local.room.entity.ImageBlockEntity
 import com.emberr.data.local.room.entity.MediaReferenceEntity
 import com.emberr.data.local.room.entity.NoteBlockEntity
 import com.emberr.data.local.room.entity.NoteMetadataEntity
+import com.emberr.data.local.room.entity.PropertyTagEntity
 import com.emberr.data.local.room.entity.SelfHostDeletedApiConfigEntity
 import com.emberr.data.local.room.entity.SelfHostDeletedNoteEntity
 import com.emberr.data.local.room.entity.SpaceEntity
@@ -48,6 +52,8 @@ import com.emberr.data.local.room.entity.SpaceEntity
         DocumentBlockEntity::class,
         BookmarkBlockEntity::class,
         CategoryEntity::class,
+        PropertyTagEntity::class,
+        CustomPropertyEntity::class,
         SelfHostDeletedNoteEntity::class,
         ChatSessionEntity::class,
         SelfHostDeletedApiConfigEntity::class,
@@ -72,6 +78,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun documentBlockDao(): DocumentBlockDao
     abstract fun bookmarkBlockDao(): BookmarkBlockDao
     abstract fun categoryDao(): CategoryDao
+    abstract fun propertyTagDao(): PropertyTagDao
+    abstract fun customPropertyDao(): CustomPropertyDao
     abstract fun selfHostDeletedNoteDao(): SelfHostDeletedNoteDao
     abstract fun chatSessionDao(): ChatSessionDao
     abstract fun selfHostDeletedApiConfigDao(): SelfHostDeletedApiConfigDao

@@ -38,6 +38,7 @@ import com.emberr.presentation.onboarding.OnboardingScreen
 import com.emberr.presentation.shared.components.KmpBackHandler
 import com.emberr.presentation.shared.components.LocalEmberrBlurSource
 import com.emberr.presentation.trash.TrashScreen
+import com.emberr.presentation.properties.PropertiesScreen
 import dev.chrisbanes.haze.HazeState
 import com.emberr.presentation.splash.LoadingScreen
 import com.emberr.domain.model.NoteBlock
@@ -457,6 +458,7 @@ fun EmberrApp(
                                 },
                                 onNavigateToCalendar = { navController.navigate(Screen.Calendar.route) },
                                 onNavigateToSettings = { navController.navigate(Screen.Settings.route) },
+                                onNavigateToProperties = { navController.navigate("properties_route") },
                                 onNavigateToTrash = { navController.navigate("trash_route") },
                                 isSearchActive = isSearchBarOpen,
                                 dateArg = backStackEntry.savedStateHandle.get<String>("date")
@@ -481,6 +483,7 @@ fun EmberrApp(
                                 onNavigateToBookmarks = { navController.navigate(Screen.Bookmarks.route) },
                                 onNavigateToImages = { navController.navigate(Screen.Images.route) },
                                 onNavigateToDocuments = { navController.navigate(Screen.Documents.route) },
+                                onNavigateToProperties = { navController.navigate("properties_route") },
                                 onNavigateToTrash = { navController.navigate("trash_route") },
                                 onToggleSidebar = { isSidebarVisible = !isSidebarVisible },
                                 onNavigateToSettings = { navController.navigate(Screen.Settings.route) },
@@ -515,6 +518,36 @@ fun EmberrApp(
                             }
                         ) {
                             TrashScreen(onNavigateBack = { navController.popBackStack() })
+                        }
+
+                        composable(
+                            route = "properties_route",
+                            enterTransition = {
+                                slideIntoContainer(
+                                    AnimatedContentTransitionScope.SlideDirection.Left,
+                                    tween(300)
+                                )
+                            },
+                            exitTransition = {
+                                slideOutOfContainer(
+                                    AnimatedContentTransitionScope.SlideDirection.Left,
+                                    tween(300)
+                                )
+                            },
+                            popEnterTransition = {
+                                slideIntoContainer(
+                                    AnimatedContentTransitionScope.SlideDirection.Right,
+                                    tween(300)
+                                )
+                            },
+                            popExitTransition = {
+                                slideOutOfContainer(
+                                    AnimatedContentTransitionScope.SlideDirection.Right,
+                                    tween(300)
+                                )
+                            }
+                        ) {
+                            PropertiesScreen(onNavigateBack = { navController.popBackStack() })
                         }
 
                         composable(

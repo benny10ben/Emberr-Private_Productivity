@@ -56,6 +56,7 @@ object ExportEngine {
                 }
                 is VoiceBlock -> { /* Ignored */ }
                 is CanvasBlock -> builder.appendLine("${indent}[Canvas]")
+                is PropertyBlock -> builder.appendLine("$indent${block.label}: ${block.valueAsText()}")
                 is LinkedNoteBlock -> { /* Ignored - only linkedNoteId is available here, no title to render */ }
             }
         }

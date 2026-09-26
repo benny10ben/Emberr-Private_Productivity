@@ -11,6 +11,8 @@ import com.emberr.data.local.room.dao.FolderDao
 import com.emberr.data.local.room.dao.ImageBlockDao
 import com.emberr.data.local.room.dao.MediaReferenceDao
 import com.emberr.data.local.room.dao.NoteDao
+import com.emberr.data.local.room.dao.PropertyTagDao
+import com.emberr.data.local.room.dao.CustomPropertyDao
 import com.emberr.data.local.room.dao.SelfHostDeletedNoteDao
 import com.emberr.data.local.room.entity.BookmarkBlockEntity
 import com.emberr.data.local.room.entity.CalendarEventExceptionEntity
@@ -23,6 +25,8 @@ import com.emberr.data.local.room.entity.MediaReferenceEntity
 import com.emberr.data.local.room.entity.NoteBlockEntity
 import com.emberr.data.local.room.entity.NoteKind
 import com.emberr.data.local.room.entity.NoteMetadataEntity
+import com.emberr.data.local.room.entity.PropertyTagEntity
+import com.emberr.data.local.room.entity.CustomPropertyEntity
 import com.emberr.data.local.room.entity.SelfHostDeletedNoteEntity
 import com.emberr.data.local.room.entity.TaskSource
 import com.emberr.data.local.room.entity.toEntityColumns
@@ -43,12 +47,18 @@ import com.emberr.domain.model.NoteBlock
 import com.emberr.domain.model.NoteContent
 import com.emberr.domain.model.NoteSearchResult
 import com.emberr.domain.model.NumberedListBlock
+import com.emberr.domain.model.PropertyBlock
+import com.emberr.domain.model.PropertyValueType
 import com.emberr.domain.model.RecurrenceEditScope
 import com.emberr.domain.model.RecurrenceEngine
 import com.emberr.domain.model.RecurrenceRule
 import com.emberr.domain.model.TextBlock
 import com.emberr.domain.model.ToggleBlock
 import com.emberr.domain.model.markDeleted
+import com.emberr.domain.model.withPropertyTagReplaced
+import com.emberr.domain.model.withCustomPropertyRenamed
+import com.emberr.domain.model.withCustomPropertyRemoved
+import com.emberr.domain.model.valueAsText
 import com.emberr.domain.selfhost.media.MediaReferenceScanner
 import com.emberr.domain.util.sync.SyncCoordinator
 import kotlinx.coroutines.flow.combine
@@ -126,6 +136,8 @@ class NoteRepositoryImpl(
     private val documentBlockDao: DocumentBlockDao,
     private val bookmarkBlockDao: BookmarkBlockDao,
     private val categoryDao: CategoryDao,
+    private val propertyTagDao: PropertyTagDao,
+    private val customPropertyDao: CustomPropertyDao,
     private val selfHostDeletedNoteDao: SelfHostDeletedNoteDao,
     private val mediaReferenceDao: MediaReferenceDao,
     private val canvasDao: CanvasDao
@@ -522,6 +534,7 @@ class NoteRepositoryImpl(
         is CodeBlock -> block.code
         is BookmarkBlock -> block.title?.takeIf { it.isNotBlank() } ?: block.url
         is DocumentBlock -> block.fileName
+        is PropertyBlock -> block.valueAsText()
         else -> null
     }.let { text -> text?.takeIf { it.isNotBlank() } }
 
@@ -856,6 +869,175 @@ class NoteRepositoryImpl(
             // write silently overwrite a local edit that landed at the same instant.
             if (local == null || category.updatedAt > local.updatedAt) {
                 categoryDao.insertOrUpdateCategory(category)
+            }
+        }
+
+    override fun getPropertyTags(propertyKey: String): Flow<List<PropertyTagEntity>> =
+        inActiveSpace { propertyTagDao.getAllTags(it) }
+            .map { tags -> tags.filter { it.propertyKey == propertyKey } }
+
+    override suspend fun createPropertyTag(propertyKey: String, name: String) =
+        withContext(Dispatchers.IO) {
+            val now = System.currentTimeMillis()
+            propertyTagDao.insertOrUpdateTag(
+                PropertyTagEntity(
+                    tagId = UUID.randomUUID().toString(),
+                    propertyKey = propertyKey,
+                    name = name,
+                    createdAt = now,
+                    updatedAt = now,
+                    spaceId = activeSpaceId()
+                )
+            )
+            AutoSyncTrigger.requestSync()
+        }
+
+    override suspend fun renamePropertyTag(propertyKey: String, oldName: String, newName: String) =
+        withContext(Dispatchers.IO) {
+            val rewrittenNotes = SyncCoordinator.mutex.withLock {
+                val now = System.currentTimeMillis()
+                val matchingTags = liveTagsNamed(propertyKey, oldName)
+                if (matchingTags.isEmpty()) {
+                    propertyTagDao.insertOrUpdateTag(
+                        PropertyTagEntity(
+                            tagId = UUID.randomUUID().toString(),
+                            propertyKey = propertyKey,
+                            name = newName,
+                            createdAt = now,
+                            updatedAt = now,
+                            spaceId = activeSpaceId()
+                        )
+                    )
+                } else {
+                    matchingTags.forEach { propertyTagDao.insertOrUpdateTag(it.copy(name = newName, updatedAt = now)) }
+                }
+                rewritePropertyBlocksInNotes { block, rewriteTime ->
+                    block.withPropertyTagReplaced(propertyKey, oldName, newName, rewriteTime)
+                }
+            }
+            AutoSyncTrigger.requestSync()
+            reindexNotes(rewrittenNotes)
+        }
+
+    override suspend fun deletePropertyTag(propertyKey: String, name: String) =
+        withContext(Dispatchers.IO) {
+            val rewrittenNotes = SyncCoordinator.mutex.withLock {
+                val now = System.currentTimeMillis()
+                liveTagsNamed(propertyKey, name).forEach {
+                    propertyTagDao.insertOrUpdateTag(it.copy(isDeleted = true, updatedAt = now))
+                }
+                rewritePropertyBlocksInNotes { block, rewriteTime ->
+                    block.withPropertyTagReplaced(propertyKey, name, null, rewriteTime)
+                }
+            }
+            AutoSyncTrigger.requestSync()
+            reindexNotes(rewrittenNotes)
+        }
+
+    private suspend fun liveTagsNamed(propertyKey: String, name: String): List<PropertyTagEntity> =
+        propertyTagDao.getAllTagsOnce(activeSpaceId())
+            .filter { it.propertyKey == propertyKey && it.name.equals(name, ignoreCase = true) }
+
+    private suspend fun rewritePropertyBlocksInNotes(
+        rewrite: (NoteBlock, Long) -> NoteBlock
+    ): List<Pair<NoteMetadataEntity, NoteContent>> {
+        val rewrittenNotes = mutableListOf<Pair<NoteMetadataEntity, NoteContent>>()
+        val noteIds = blockDao.findNoteIdsMatchingContent(activeSpaceId(), "\"type\":\"property\"")
+        for (noteId in noteIds) {
+            val metadata = noteDao.getNoteById(noteId) ?: continue
+            val dailyDateString = metadata.dateString?.takeIf { metadata.isDaily }
+            val blocks = (if (dailyDateString != null) getDailyNote(dailyDateString) else getNoteContent(noteId))
+                ?.blocks ?: continue
+            val now = System.currentTimeMillis()
+            val updatedBlocks = blocks.map { rewrite(it, now) }
+            if (updatedBlocks == blocks) continue
+            val updatedContent = NoteContent(blocks = updatedBlocks)
+            if (dailyDateString != null) {
+                saveDailyNote(dailyDateString, updatedContent)
+            } else {
+                saveNote(metadata, updatedContent)
+            }
+            rewrittenNotes.add(metadata to updatedContent)
+        }
+        return rewrittenNotes
+    }
+
+    private suspend fun reindexNotes(notes: List<Pair<NoteMetadataEntity, NoteContent>>) {
+        notes.forEach { (metadata, content) -> indexNote(metadata, content) }
+    }
+
+    override suspend fun getPropertyTagsModifiedSince(timestamp: Long): List<PropertyTagEntity> =
+        propertyTagDao.getTagsModifiedSince(timestamp)
+
+    override suspend fun applyRemotePropertyTag(tag: PropertyTagEntity) =
+        withContext(Dispatchers.IO) {
+            val local = propertyTagDao.getTagById(tag.tagId)
+            if (local == null || tag.updatedAt > local.updatedAt) {
+                propertyTagDao.insertOrUpdateTag(tag)
+            }
+        }
+
+    override fun getCustomProperties(): Flow<List<CustomPropertyEntity>> =
+        inActiveSpace { customPropertyDao.getAllProperties(it) }
+
+    override suspend fun createCustomProperty(name: String, valueType: PropertyValueType) =
+        withContext(Dispatchers.IO) {
+            val now = System.currentTimeMillis()
+            customPropertyDao.insertOrUpdateProperty(
+                CustomPropertyEntity(
+                    propertyId = UUID.randomUUID().toString(),
+                    name = name,
+                    valueType = valueType,
+                    createdAt = now,
+                    updatedAt = now,
+                    spaceId = activeSpaceId()
+                )
+            )
+            AutoSyncTrigger.requestSync()
+        }
+
+    override suspend fun renameCustomProperty(propertyId: String, newName: String) =
+        withContext(Dispatchers.IO) {
+            val rewrittenNotes = SyncCoordinator.mutex.withLock {
+                val existing = customPropertyDao.getPropertyById(propertyId) ?: return@withLock emptyList()
+                customPropertyDao.insertOrUpdateProperty(
+                    existing.copy(name = newName, updatedAt = System.currentTimeMillis())
+                )
+                rewritePropertyBlocksInNotes { block, rewriteTime ->
+                    block.withCustomPropertyRenamed(propertyId, newName, rewriteTime)
+                }
+            }
+            AutoSyncTrigger.requestSync()
+            reindexNotes(rewrittenNotes)
+        }
+
+    override suspend fun deleteCustomProperty(propertyId: String) =
+        withContext(Dispatchers.IO) {
+            val rewrittenNotes = SyncCoordinator.mutex.withLock {
+                val now = System.currentTimeMillis()
+                val existing = customPropertyDao.getPropertyById(propertyId)
+                if (existing != null) {
+                    customPropertyDao.insertOrUpdateProperty(existing.copy(isDeleted = true, updatedAt = now))
+                }
+                propertyTagDao.getAllTagsOnce(activeSpaceId())
+                    .filter { it.propertyKey == propertyId }
+                    .forEach { propertyTagDao.insertOrUpdateTag(it.copy(isDeleted = true, updatedAt = now)) }
+                rewritePropertyBlocksInNotes { block, rewriteTime ->
+                    block.withCustomPropertyRemoved(propertyId, rewriteTime)
+                }
+            }
+            AutoSyncTrigger.requestSync()
+            reindexNotes(rewrittenNotes)
+        }
+
+    override suspend fun getCustomPropertiesModifiedSince(timestamp: Long): List<CustomPropertyEntity> =
+        customPropertyDao.getPropertiesModifiedSince(timestamp)
+
+    override suspend fun applyRemoteCustomProperty(property: CustomPropertyEntity) =
+        withContext(Dispatchers.IO) {
+            val local = customPropertyDao.getPropertyById(property.propertyId)
+            if (local == null || property.updatedAt > local.updatedAt) {
+                customPropertyDao.insertOrUpdateProperty(property)
             }
         }
 

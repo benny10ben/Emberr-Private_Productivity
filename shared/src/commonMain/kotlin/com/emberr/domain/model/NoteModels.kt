@@ -2,6 +2,7 @@ package com.emberr.domain.model
 
 import androidx.compose.runtime.Immutable
 import com.emberr.data.local.room.entity.NoteMetadataEntity
+import kotlinx.datetime.LocalDate
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import java.util.UUID
@@ -398,6 +399,90 @@ data class CanvasBlock(
     override val updatedAt: Long = 0L
 ) : NoteBlock()
 
+@Serializable
+enum class PropertyValueType(val label: String) {
+    TEXT("Text"),
+    PHONE("Phone"),
+    EMAIL("Email"),
+    LINK("Link"),
+    DATE("Date"),
+    SINGLE_CHOICE("Single choice"),
+    TAGS("Tags");
+
+    val holdsDate: Boolean get() = this == DATE
+    val holdsTags: Boolean get() = this == SINGLE_CHOICE || this == TAGS
+    val allowsManyTags: Boolean get() = this == TAGS
+}
+
+@Serializable
+enum class PropertyType(val label: String, val valueType: PropertyValueType) {
+    NAME("Name", PropertyValueType.TEXT),
+    PHONE("Phone", PropertyValueType.PHONE),
+    EMAIL("Email", PropertyValueType.EMAIL),
+    DATE("Date", PropertyValueType.DATE),
+    STATUS("Status", PropertyValueType.SINGLE_CHOICE),
+    TAGS("Tags", PropertyValueType.TAGS),
+    LINK("Link", PropertyValueType.LINK),
+    DESCRIPTION("Description", PropertyValueType.TEXT),
+    DUE_DATE("Due Date", PropertyValueType.DATE)
+}
+
+@Immutable
+@Serializable
+@SerialName("property")
+data class PropertyBlock(
+    override val id: String,
+    val propertyType: PropertyType? = null,
+    val customPropertyId: String? = null,
+    val customLabel: String = "",
+    val customValueType: PropertyValueType = PropertyValueType.TEXT,
+    val text: String = "",
+    val date: LocalDate? = null,
+    val tags: List<String> = emptyList(),
+    override val indentationLevel: Int = 0,
+    override val isBold: Boolean = false,
+    override val isItalic: Boolean = false,
+    override val isStrikeThrough: Boolean = false,
+    override val isUnderlined: Boolean = false,
+    override val isHighlighted: Boolean = false,
+    override val isDeleted: Boolean = false,
+    override val isPinned: Boolean = false,
+    override val updatedAt: Long = 0L
+) : NoteBlock() {
+    val label: String get() = propertyType?.label ?: customLabel
+    val valueType: PropertyValueType get() = propertyType?.valueType ?: customValueType
+    val tagPoolKey: String get() = propertyType?.name ?: customPropertyId.orEmpty()
+}
+
+fun PropertyBlock.valueAsText(): String = when {
+    valueType.holdsDate -> date?.toString().orEmpty()
+    valueType.holdsTags -> tags.joinToString(", ")
+    else -> text
+}
+
+fun cleanPropertyTagName(rawName: String): String =
+    rawName.replace(",", " ").trim().replace(Regex("\\s+"), " ")
+
+fun NoteBlock.withPropertyTagReplaced(tagPoolKey: String, oldName: String, newName: String?, now: Long): NoteBlock {
+    if (this !is PropertyBlock || isDeleted || this.tagPoolKey != tagPoolKey) return this
+    val updatedTags = if (newName == null) {
+        tags.filterNot { it.equals(oldName, ignoreCase = true) }
+    } else {
+        tags.map { if (it.equals(oldName, ignoreCase = true)) newName else it }.distinctBy { it.lowercase() }
+    }
+    return if (updatedTags == tags) this else copy(tags = updatedTags, updatedAt = now)
+}
+
+fun NoteBlock.withCustomPropertyRenamed(customPropertyId: String, newLabel: String, now: Long): NoteBlock {
+    if (this !is PropertyBlock || isDeleted || this.customPropertyId != customPropertyId) return this
+    return if (customLabel == newLabel) this else copy(customLabel = newLabel, updatedAt = now)
+}
+
+fun NoteBlock.withCustomPropertyRemoved(customPropertyId: String, now: Long): NoteBlock {
+    if (this !is PropertyBlock || isDeleted || this.customPropertyId != customPropertyId) return this
+    return copy(isDeleted = true, updatedAt = now)
+}
+
 @Immutable
 @Serializable
 @SerialName("solid_divider")
@@ -445,6 +530,7 @@ fun NoteBlock.markDeleted(): NoteBlock = when (this) {
     is TableBlock -> copy(isDeleted = true, updatedAt = System.currentTimeMillis())
     is VoiceBlock -> copy(isDeleted = true, updatedAt = System.currentTimeMillis())
     is CanvasBlock -> copy(isDeleted = true, updatedAt = System.currentTimeMillis())
+    is PropertyBlock -> copy(isDeleted = true, updatedAt = System.currentTimeMillis())
     is QuoteBlock -> copy(isDeleted = true, updatedAt = System.currentTimeMillis())
     is SolidDividerBlock -> copy(isDeleted = true, updatedAt = System.currentTimeMillis())
     is ThreeDotDividerBlock -> copy(isDeleted = true, updatedAt = System.currentTimeMillis())
@@ -533,6 +619,7 @@ fun NoteBlock.withPin(pinned: Boolean, now: Long): NoteBlock = when (this) {
     is TableBlock -> copy(isPinned = pinned, updatedAt = now)
     is VoiceBlock -> copy(isPinned = pinned, updatedAt = now)
     is CanvasBlock -> copy(isPinned = pinned, updatedAt = now)
+    is PropertyBlock -> copy(isPinned = pinned, updatedAt = now)
     is QuoteBlock -> copy(isPinned = pinned, updatedAt = now)
     is SolidDividerBlock -> copy(isPinned = pinned, updatedAt = now)
     is ThreeDotDividerBlock -> copy(isPinned = pinned, updatedAt = now)
@@ -553,6 +640,7 @@ fun NoteBlock.withUpdatedAt(now: Long): NoteBlock = when (this) {
     is TableBlock -> copy(updatedAt = now)
     is VoiceBlock -> copy(updatedAt = now)
     is CanvasBlock -> copy(updatedAt = now)
+    is PropertyBlock -> copy(updatedAt = now)
     is QuoteBlock -> copy(updatedAt = now)
     is SolidDividerBlock -> copy(updatedAt = now)
     is ThreeDotDividerBlock -> copy(updatedAt = now)
@@ -573,6 +661,7 @@ fun NoteBlock.withDeleted(deleted: Boolean, now: Long): NoteBlock = when (this) 
     is TableBlock -> copy(isDeleted = deleted, updatedAt = now)
     is VoiceBlock -> copy(isDeleted = deleted, updatedAt = now)
     is CanvasBlock -> copy(isDeleted = deleted, updatedAt = now)
+    is PropertyBlock -> copy(isDeleted = deleted, updatedAt = now)
     is QuoteBlock -> copy(isDeleted = deleted, updatedAt = now)
     is SolidDividerBlock -> copy(isDeleted = deleted, updatedAt = now)
     is ThreeDotDividerBlock -> copy(isDeleted = deleted, updatedAt = now)
@@ -602,6 +691,7 @@ fun NoteBlock.deepCopyWithNewIds(): NoteBlock {
         is TableBlock -> copy(id = newId)
         is VoiceBlock -> copy(id = newId)
         is CanvasBlock -> copy(id = newId)
+        is PropertyBlock -> copy(id = newId)
         is SolidDividerBlock -> copy(id = newId)
         is ThreeDotDividerBlock -> copy(id = newId)
     }

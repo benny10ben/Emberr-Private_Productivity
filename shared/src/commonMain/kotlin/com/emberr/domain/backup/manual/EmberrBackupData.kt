@@ -8,11 +8,13 @@ import com.emberr.data.local.room.entity.CanvasNodeEntity
 import com.emberr.data.local.room.entity.CanvasStrokeEntity
 import com.emberr.data.local.room.entity.CategoryEntity
 import com.emberr.data.local.room.entity.ChatSessionEntity
+import com.emberr.data.local.room.entity.CustomPropertyEntity
 import com.emberr.data.local.room.entity.DocumentBlockEntity
 import com.emberr.data.local.room.entity.FolderEntity
 import com.emberr.data.local.room.entity.ImageBlockEntity
 import com.emberr.data.local.room.entity.NoteBlockEntity
 import com.emberr.data.local.room.entity.NoteMetadataEntity
+import com.emberr.data.local.room.entity.PropertyTagEntity
 import com.emberr.data.local.room.entity.SelfHostDeletedNoteEntity
 import com.emberr.data.local.room.entity.SpaceEntity
 import kotlinx.serialization.Serializable
@@ -25,6 +27,8 @@ data class EmberrBackupData(
     val notes: List<NoteMetadataEntity> = emptyList(),
     val folders: List<FolderEntity> = emptyList(),
     val categories: List<CategoryEntity> = emptyList(),
+    val propertyTags: List<PropertyTagEntity> = emptyList(),
+    val customProperties: List<CustomPropertyEntity> = emptyList(),
     val blocks: List<NoteBlockEntity> = emptyList(),
     val calendarTasks: List<CalendarTaskEntity> = emptyList(),
     val imageBlocks: List<ImageBlockEntity> = emptyList(),

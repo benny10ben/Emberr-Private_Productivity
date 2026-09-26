@@ -244,6 +244,9 @@ fun TasksScreen(
                         }
                         override suspend fun getNoteMetadata(noteId: String) = viewModel.getNoteMetadata(noteId)
                         override fun onUpdateLinkedNoteOptions(id: String, showIcon: Boolean, showCoverImage: Boolean) {}
+                        override fun onUpdatePropertyText(id: String, text: String) {}
+                        override fun onUpdatePropertyDate(id: String, date: LocalDate?) {}
+                        override fun onUpdatePropertyTags(id: String, tags: List<String>) {}
                     }
                 }
 

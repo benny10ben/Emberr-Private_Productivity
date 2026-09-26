@@ -85,12 +85,14 @@ import kotlinx.datetime.number
 import kotlinx.datetime.todayIn
 import androidx.compose.ui.window.PopupProperties
 import androidx.compose.animation.core.animateFloatAsState
+import com.emberr.data.local.room.entity.CustomPropertyEntity
 import com.emberr.data.local.room.entity.NoteMetadataEntity
 import com.emberr.domain.model.SolidDividerBlock
 import com.emberr.domain.model.TableBlock
 import com.emberr.domain.model.InlineSpan
 import com.emberr.domain.model.TextAlignment
 import com.emberr.domain.model.ThreeDotDividerBlock
+import com.emberr.domain.model.PropertyBlock
 import com.emberr.domain.model.highlightColorNameOrNull
 import com.emberr.domain.model.inlineSpansOrEmpty
 import com.emberr.domain.model.textAlignmentOrNull
@@ -105,6 +107,7 @@ import com.emberr.presentation.shared.editor.blockViews.AudioBlockView
 import com.emberr.presentation.shared.editor.blockViews.BookmarkBlockView
 import com.emberr.presentation.shared.editor.blockViews.CanvasBlockView
 import com.emberr.presentation.shared.editor.blockViews.LinkedNoteBlockView
+import com.emberr.presentation.shared.editor.blockViews.PropertyBlockView
 import com.emberr.presentation.shared.editor.blockViews.TableBlockView
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.input.TransformedText
@@ -152,6 +155,7 @@ fun NoteBlockItem(
     showSlashMenu: Boolean = false,
     slashQuery: String = "",
     allLinkableNotes: List<NoteMetadataEntity> = emptyList(),
+    customProperties: List<CustomPropertyEntity> = emptyList(),
     onDismissSlashMenu: () -> Unit = {},
     showNoteLinkMenu: Boolean = false,
     onDismissNoteLinkMenu: () -> Unit = {},
@@ -223,7 +227,7 @@ fun NoteBlockItem(
         }
     }
 
-    val isTextBased = block !is BookmarkBlock && block !is ImageBlock && block !is DocumentBlock && block !is TableBlock && block !is VoiceBlock && block !is SolidDividerBlock && block !is ThreeDotDividerBlock && block !is LinkedNoteBlock && block !is CanvasBlock
+    val isTextBased = block !is BookmarkBlock && block !is ImageBlock && block !is DocumentBlock && block !is TableBlock && block !is VoiceBlock && block !is SolidDividerBlock && block !is ThreeDotDividerBlock && block !is LinkedNoteBlock && block !is CanvasBlock && block !is PropertyBlock
     LaunchedEffect(focusRequest?.nonce) {
         if (focusRequest == null || focusRequest.id != block.id) return@LaunchedEffect
 
@@ -324,7 +328,7 @@ fun NoteBlockItem(
 
     var isChoosingHighlightColor by remember { mutableStateOf(false) }
 
-    val slashMenuSections = remember(slashQuery, isSlashMenuActiveHere) {
+    val slashMenuSections = remember(slashQuery, isSlashMenuActiveHere, customProperties) {
         if (isSlashMenuActiveHere) {
             filteredSlashMenuSections(
                 query = slashQuery,
@@ -339,7 +343,8 @@ fun NoteBlockItem(
                 },
                 onAdjustIndentation = { actions.onAdjustIndentation(it) },
                 onSetAlignment = { actions.onSetBlockAlignment(it) },
-                onInsertMediaBlock = { actions.onInsertMediaBlock(it) }
+                onInsertMediaBlock = { actions.onInsertMediaBlock(it) },
+                customProperties = customProperties
             )
         } else {
             emptyList()
@@ -844,6 +849,14 @@ fun NoteBlockItem(
                                 block = block,
                                 inSelectionMode = inSelectionMode,
                                 onToggleSelection = { actions.onToggleSelection(block.id) }
+                            )
+                            is PropertyBlock -> PropertyBlockView(
+                                block = block,
+                                inSelectionMode = inSelectionMode,
+                                onUpdateText = { actions.onUpdatePropertyText(block.id, it) },
+                                onUpdateDate = { actions.onUpdatePropertyDate(block.id, it) },
+                                onUpdateTags = { actions.onUpdatePropertyTags(block.id, it) },
+                                runAfterKeyboardCloses = afterKeyboardCloses
                             )
                             is VoiceBlock -> AudioBlockView(
                                 block = block,

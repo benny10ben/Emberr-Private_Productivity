@@ -92,6 +92,8 @@ val sharedModule = module {
             documentBlockDao = get(),
             bookmarkBlockDao = get(),
             categoryDao = get(),
+            propertyTagDao = get(),
+            customPropertyDao = get(),
             selfHostDeletedNoteDao = get(),
             mediaReferenceDao = get(),
             canvasDao = get()
@@ -194,6 +196,8 @@ val sharedModule = module {
             blockDao = get(),
             calendarTaskDao = get(),
             categoryDao = get(),
+            propertyTagDao = get(),
+            customPropertyDao = get(),
             imageBlockDao = get(),
             documentBlockDao = get(),
             bookmarkBlockDao = get(),
@@ -212,6 +216,13 @@ val sharedModule = module {
             settingsManager = get(),
             backupRescheduler = get(),
             disableAiFeaturesUseCase = get(),
+            appScope = get(named("AppScope"))
+        )
+    }
+
+    viewModel {
+        com.emberr.presentation.properties.PropertiesViewModel(
+            repository = get(),
             appScope = get(named("AppScope"))
         )
     }
@@ -350,6 +361,8 @@ val sharedModule = module {
             blockDao = get(),
             folderDao = get(),
             categoryDao = get(),
+            propertyTagDao = get(),
+            customPropertyDao = get(),
             calendarEventExceptionDao = get(),
             spaceDao = get(),
             spaceRepository = get(),

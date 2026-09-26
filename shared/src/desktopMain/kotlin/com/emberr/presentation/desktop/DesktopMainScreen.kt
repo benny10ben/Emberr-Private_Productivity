@@ -89,6 +89,7 @@ import com.emberr.presentation.search.SearchViewModel
 import com.emberr.presentation.search.defaultHighlightStyle
 import com.emberr.presentation.search.highlightMatches
 import com.emberr.presentation.trash.TrashScreen
+import com.emberr.presentation.properties.PropertiesScreen
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.HazeTint
 import kotlin.time.Clock
@@ -161,6 +162,7 @@ sealed interface DetailPane {
     data object Settings : DetailPane
     data object SelfHostSetup : DetailPane
     data object Trash : DetailPane
+    data object Properties : DetailPane
     data object Reminders : DetailPane
     data object Bookmarks : DetailPane
     data object Images : DetailPane
@@ -174,6 +176,7 @@ private fun DetailPane.encode(): String = when (this) {
     DetailPane.Settings -> "PANEL:SETTINGS"
     DetailPane.SelfHostSetup -> "PANEL:SELFHOST"
     DetailPane.Trash -> "PANEL:TRASH"
+    DetailPane.Properties -> "PANEL:PROPERTIES"
     DetailPane.Reminders -> "PANEL:REMINDERS"
     DetailPane.Bookmarks -> "PANEL:BOOKMARKS"
     DetailPane.Images -> "PANEL:IMAGES"
@@ -188,6 +191,7 @@ private fun decodeDetailPane(raw: String, today: LocalDate): DetailPane = when {
     raw == "PANEL:SETTINGS" -> DetailPane.Settings
     raw == "PANEL:SELFHOST" -> DetailPane.SelfHostSetup
     raw == "PANEL:TRASH" -> DetailPane.Trash
+    raw == "PANEL:PROPERTIES" -> DetailPane.Properties
     raw == "PANEL:REMINDERS" -> DetailPane.Reminders
     raw == "PANEL:BOOKMARKS" -> DetailPane.Bookmarks
     raw == "PANEL:IMAGES" -> DetailPane.Images
@@ -719,6 +723,7 @@ fun DesktopMainScreen(
             expanded = showSettingsMenu,
             onDismiss = { showSettingsMenu = false },
             onNavigateToSettings = { showSettingsMenu = false; detail = DetailPane.Settings },
+            onNavigateToProperties = { showSettingsMenu = false; detail = DetailPane.Properties },
             onNavigateToTrash = { showSettingsMenu = false; detail = DetailPane.Trash }
         )
     }
@@ -1475,6 +1480,11 @@ fun DesktopMainScreen(
                         TrashScreen(onNavigateBack = { detail = DetailPane.Daily(selectedDate) })
                     }
                 }
+                DetailPane.Properties -> key("properties") {
+                    Box(Modifier.fillMaxSize()) {
+                        PropertiesScreen(onNavigateBack = { detail = DetailPane.Daily(selectedDate) })
+                    }
+                }
                 DetailPane.Reminders -> key("reminders") {
                     Box(Modifier.fillMaxSize()) {
                         TasksScreen(onNavigateBack = { detail = DetailPane.Daily(selectedDate) }, onOpenFile = onOpenFile, onNavigateToEditor = { openNote(it) })
@@ -1751,6 +1761,9 @@ fun DesktopMainScreen(
                             override suspend fun getNoteMetadata(noteId: String) = dailyViewModel.getNoteMetadata(noteId)
                             override fun onUpdateLinkedNoteOptions(id: String, showIcon: Boolean, showCoverImage: Boolean) =
                                 dailyViewModel.updateLinkedNoteOptions(id, showIcon, showCoverImage)
+                            override fun onUpdatePropertyText(id: String, text: String) = dailyViewModel.updatePropertyText(id, text)
+                            override fun onUpdatePropertyDate(id: String, date: LocalDate?) = dailyViewModel.updatePropertyDate(id, date)
+                            override fun onUpdatePropertyTags(id: String, tags: List<String>) = dailyViewModel.updatePropertyTags(id, tags)
                         }
                     }
 

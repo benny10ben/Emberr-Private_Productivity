@@ -15,6 +15,9 @@ import com.emberr.domain.model.LinkedNoteBlock
 import com.emberr.domain.model.CanvasBlock
 import com.emberr.domain.model.NoteBlock
 import com.emberr.domain.model.NumberedListBlock
+import com.emberr.domain.model.PropertyBlock
+import com.emberr.domain.model.PropertyType
+import com.emberr.domain.model.PropertyValueType
 import com.emberr.domain.model.RecurrenceFrequency
 import com.emberr.domain.model.RecurrenceRule
 import com.emberr.domain.model.QuoteBlock
@@ -27,6 +30,7 @@ import com.emberr.domain.model.TextBlock
 import com.emberr.domain.model.ThreeDotDividerBlock
 import com.emberr.domain.model.ToggleBlock
 import kotlinx.datetime.DayOfWeek
+import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import com.emberr.domain.model.VoiceBlock
 import kotlin.test.Test
@@ -126,6 +130,119 @@ class NoteMarkdownRoundTripTest {
         val blocks = readBack(markdown, emptyList()).blocks
 
         assertEquals(listOf<NoteBlock>(CodeBlock(id = "generated-0", code = "", language = "emberr-canvas", updatedAt = 9_999L)), blocks)
+    }
+
+    @Test
+    fun aPropertyFenceTypedInTheVaultBecomesAPropertyBlock() {
+        val markdown = NoteMarkdownWriter.writeNote(
+            VaultNoteWriteRequest(metadata = noteMetadata(), blocks = emptyList())
+        ) + "```emberr-property\nproperty: Status\nvalue: In progress, Done\n```\n"
+
+        val blocks = readBack(markdown, emptyList()).blocks
+
+        assertEquals(
+            listOf<NoteBlock>(
+                PropertyBlock(
+                    id = "generated-0",
+                    propertyType = PropertyType.STATUS,
+                    tags = listOf("In progress"),
+                    updatedAt = 9_999L
+                )
+            ),
+            blocks
+        )
+    }
+
+    @Test
+    fun aCustomPropertyFenceTypedInTheVaultBecomesACustomPropertyBlock() {
+        val markdown = NoteMarkdownWriter.writeNote(
+            VaultNoteWriteRequest(metadata = noteMetadata(), blocks = emptyList())
+        ) + "```emberr-property\nproperty: custom\nid: client-id\nlabel: Client\ntype: tags\nvalue: Acme, Globex\n```\n"
+
+        val blocks = readBack(markdown, emptyList()).blocks
+
+        assertEquals(
+            listOf<NoteBlock>(
+                PropertyBlock(
+                    id = "generated-0",
+                    customPropertyId = "client-id",
+                    customLabel = "Client",
+                    customValueType = PropertyValueType.TAGS,
+                    tags = listOf("Acme", "Globex"),
+                    updatedAt = 9_999L
+                )
+            ),
+            blocks
+        )
+    }
+
+    @Test
+    fun aCustomPropertyFenceWithoutAnIdStaysACodeBlock() {
+        val markdown = NoteMarkdownWriter.writeNote(
+            VaultNoteWriteRequest(metadata = noteMetadata(), blocks = emptyList())
+        ) + "```emberr-property\nproperty: custom\nlabel: Client\n```\n"
+
+        val block = readBack(markdown, emptyList()).blocks.single()
+
+        assertEquals(CodeBlock(id = "generated-0", code = "property: custom\nlabel: Client", language = "emberr-property", updatedAt = 9_999L), block)
+    }
+
+    @Test
+    fun tagsTypedInTheVaultAreTrimmedAndRepeatsAreDropped() {
+        val markdown = NoteMarkdownWriter.writeNote(
+            VaultNoteWriteRequest(metadata = noteMetadata(), blocks = emptyList())
+        ) + "```emberr-property\nproperty: tags\nvalue: design ,  Urgent, DESIGN,,\n```\n"
+
+        val block = readBack(markdown, emptyList()).blocks.single() as PropertyBlock
+
+        assertEquals(listOf("design", "Urgent"), block.tags)
+    }
+
+    @Test
+    fun aDateTheVaultCannotReadKeepsTheDateAlreadySaved() {
+        val existing = PropertyBlock(
+            id = "block-property-due",
+            propertyType = PropertyType.DUE_DATE,
+            date = LocalDate(2026, 9, 27),
+            updatedAt = 126L
+        )
+        val markdown = NoteMarkdownWriter.writeNote(
+            VaultNoteWriteRequest(metadata = noteMetadata(), blocks = listOf(existing))
+        ).replace("2026-09-27", "next tuesday")
+
+        assertEquals(listOf<NoteBlock>(existing), readBack(markdown, listOf(existing)).blocks)
+    }
+
+    @Test
+    fun clearingAPropertyValueInTheVaultEmptiesTheBlock() {
+        val existing = PropertyBlock(
+            id = "block-property-tags",
+            propertyType = PropertyType.TAGS,
+            tags = listOf("design"),
+            updatedAt = 127L
+        )
+        val markdown = NoteMarkdownWriter.writeNote(
+            VaultNoteWriteRequest(metadata = noteMetadata(), blocks = listOf(existing))
+        ).replace("value: design", "value:")
+
+        assertEquals(
+            listOf<NoteBlock>(existing.copy(tags = emptyList(), updatedAt = 9_999L)),
+            readBack(markdown, listOf(existing)).blocks
+        )
+    }
+
+    @Test
+    fun aPropertyFenceWithAnUnknownPropertyStaysACodeBlock() {
+        val markdown = NoteMarkdownWriter.writeNote(
+            VaultNoteWriteRequest(metadata = noteMetadata(), blocks = emptyList())
+        ) + "```emberr-property\nproperty: colour\n```\n"
+
+        val blocks = readBack(markdown, emptyList()).blocks
+
+        assertEquals(
+            listOf<NoteBlock>(CodeBlock(id = "generated-0", code = "property: colour", language = "emberr-property", updatedAt = 9_999L)),
+            blocks
+        )
     }
 
     private fun readBack(markdown: String, existingBlocks: List<NoteBlock>): VaultNoteReadResult {
@@ -283,6 +400,49 @@ class NoteMarkdownRoundTripTest {
                 canvasNoteId = "canvas-note-1",
                 isPinned = true,
                 updatedAt = 118L
+            ),
+            PropertyBlock(
+                id = "block-property-name",
+                propertyType = PropertyType.NAME,
+                text = "Ada \"the Countess\" Lovelace",
+                updatedAt = 124L
+            ),
+            PropertyBlock(
+                id = "block-property-link",
+                propertyType = PropertyType.LINK,
+                text = "https://example.com/a#b",
+                isPinned = true,
+                updatedAt = 125L
+            ),
+            PropertyBlock(
+                id = "block-property-due",
+                propertyType = PropertyType.DUE_DATE,
+                date = LocalDate(2026, 9, 27),
+                indentationLevel = 1,
+                updatedAt = 126L
+            ),
+            PropertyBlock(
+                id = "block-property-tags",
+                propertyType = PropertyType.TAGS,
+                tags = listOf("design", "urgent"),
+                updatedAt = 127L
+            ),
+            PropertyBlock(id = "block-property-status", propertyType = PropertyType.STATUS, updatedAt = 128L),
+            PropertyBlock(
+                id = "block-property-custom-client",
+                customPropertyId = "client-id",
+                customLabel = "Client: \"Big\" accounts",
+                customValueType = PropertyValueType.SINGLE_CHOICE,
+                tags = listOf("Acme"),
+                updatedAt = 129L
+            ),
+            PropertyBlock(
+                id = "block-property-custom-kickoff",
+                customPropertyId = "kickoff-id",
+                customLabel = "Kickoff",
+                customValueType = PropertyValueType.DATE,
+                date = LocalDate(2026, 10, 1),
+                updatedAt = 130L
             ),
             LinkedNoteBlock(
                 id = "block-linked",

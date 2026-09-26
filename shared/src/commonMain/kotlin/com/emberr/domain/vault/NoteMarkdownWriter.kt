@@ -14,6 +14,7 @@ import com.emberr.domain.model.ImageBlock
 import com.emberr.domain.model.LinkedNoteBlock
 import com.emberr.domain.model.NoteBlock
 import com.emberr.domain.model.NumberedListBlock
+import com.emberr.domain.model.PropertyBlock
 import com.emberr.domain.model.QuoteBlock
 import com.emberr.domain.model.SolidDividerBlock
 import com.emberr.domain.model.TableBlock
@@ -24,6 +25,7 @@ import com.emberr.domain.model.VoiceBlock
 import kotlinx.datetime.TimeZone
 import com.emberr.domain.model.highlightColorNameOrNull
 import com.emberr.domain.model.inlineSpansOrEmpty
+import com.emberr.domain.model.valueAsText
 
 enum class VaultMarkdownProfile { VAULT, SHARED }
 
@@ -170,6 +172,7 @@ object NoteMarkdownWriter {
             is DocumentBlock -> renderDocument(block, tag, options)
             is VoiceBlock -> renderVoice(block, tag, options)
             is CanvasBlock -> renderCanvas(block, tag, options)
+            is PropertyBlock -> renderProperty(block, tag, options)
             is TableBlock -> renderTable(block, tag)
             is SolidDividerBlock -> withTagOnItsOwnLine(VaultFormat.SOLID_DIVIDER_LINE, tag)
             is ThreeDotDividerBlock -> withTagOnItsOwnLine(VaultFormat.DOT_DIVIDER_LINE, tag)
@@ -289,6 +292,28 @@ object NoteMarkdownWriter {
         val fence = buildString {
             appendLine("```${VaultFormat.CANVAS_FENCE_NAME}")
             appendLine("note: ${block.canvasNoteId}")
+            append("```")
+        }
+        return withTagOnItsOwnLine(fence, tag)
+    }
+
+    private fun renderProperty(block: PropertyBlock, tag: String?, options: RenderOptions): String {
+        val value = flattenLineBreaks(block.valueAsText())
+        if (!options.isVault) {
+            return if (value.isBlank()) "" else "**${flattenLineBreaks(block.label)}:** $value"
+        }
+        val builtInType = block.propertyType
+        val fence = buildString {
+            appendLine("```${VaultFormat.PROPERTY_FENCE_NAME}")
+            if (builtInType != null) {
+                appendLine("property: ${builtInType.name.lowercase()}")
+            } else {
+                appendLine("property: ${VaultFormat.CUSTOM_PROPERTY_NAME}")
+                appendLine("id: ${yamlScalar(block.customPropertyId.orEmpty())}")
+                appendLine("label: ${yamlScalar(block.customLabel)}")
+                appendLine("type: ${block.customValueType.name.lowercase()}")
+            }
+            appendLine("value: ${yamlScalar(value)}")
             append("```")
         }
         return withTagOnItsOwnLine(fence, tag)

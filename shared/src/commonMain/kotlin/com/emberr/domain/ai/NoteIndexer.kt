@@ -251,6 +251,7 @@ class NoteIndexer(
         is ThreeDotDividerBlock    -> null
         is LinkedNoteBlock -> null
         is CanvasBlock -> null
+        is PropertyBlock -> block.valueAsText().takeIf { it.isNotBlank() }?.let { "${block.label}: $it" }
     }
 
     fun deleteNoteFromIndex(noteId: String) {

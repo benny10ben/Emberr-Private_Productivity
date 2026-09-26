@@ -12,6 +12,7 @@ import com.emberr.domain.model.ImageBlock
 import com.emberr.domain.model.LinkedNoteBlock
 import com.emberr.domain.model.NoteBlock
 import com.emberr.domain.model.NumberedListBlock
+import com.emberr.domain.model.PropertyBlock
 import com.emberr.domain.model.QuoteBlock
 import com.emberr.domain.model.SolidDividerBlock
 import com.emberr.domain.model.TableBlock
@@ -21,6 +22,7 @@ import com.emberr.domain.model.ToggleBlock
 import com.emberr.domain.model.VoiceBlock
 import com.emberr.domain.model.highlightColorNameOrNull
 import com.emberr.domain.model.inlineSpansOrEmpty
+import com.emberr.domain.model.valueAsText
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -157,6 +159,12 @@ private fun convertBlockToElements(
     is ImageBlock -> textLine(block, "Image", WidgetTextStyleName.SUBTLE)
 
     is CanvasBlock -> textLine(block, "Canvas", WidgetTextStyleName.SUBTLE)
+
+    is PropertyBlock -> {
+        val value = block.valueAsText()
+        if (value.isBlank()) emptyList()
+        else textLine(block, value, WidgetTextStyleName.BODY, prefix = "${block.label}:  ")
+    }
 
     is DocumentBlock -> textLine(block, block.fileName, WidgetTextStyleName.SUBTLE)
 

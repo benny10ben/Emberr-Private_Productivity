@@ -4,6 +4,7 @@ import androidx.compose.runtime.Stable
 import androidx.compose.ui.text.TextRange
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.emberr.data.local.room.entity.CustomPropertyEntity
 import com.emberr.data.local.room.entity.FolderEntity
 import com.emberr.data.local.room.entity.NoteKind
 import com.emberr.data.local.room.entity.NoteMetadataEntity
@@ -27,6 +28,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlin.time.Instant
+import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import java.util.UUID
@@ -127,6 +129,7 @@ abstract class BaseEditorViewModel(
                     is ToggleBlock -> "${block.id}:${block.text}"
                     is CodeBlock -> "${block.id}:${block.code}"
                     is QuoteBlock -> "${block.id}:${block.text}"
+                    is PropertyBlock -> "${block.id}:${block.label}:${block.valueAsText()}"
                     else -> block.id
                 }
             }
@@ -262,6 +265,9 @@ abstract class BaseEditorViewModel(
 
     val allLinkableNotes: StateFlow<List<NoteMetadataEntity>> = repository.getAllLinkableNotes()
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+
+    private val customProperties: StateFlow<List<CustomPropertyEntity>> = repository.getCustomProperties()
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     protected var lastLocalMutationTime: Long = 0L
     private val LOCAL_MUTATION_COOLDOWN_MS = 3000L
@@ -430,6 +436,7 @@ abstract class BaseEditorViewModel(
         is ToggleBlock -> block.text
         is QuoteBlock -> block.text
         is CodeBlock -> block.code
+        is PropertyBlock -> block.text
         else -> null
     }
 
@@ -1734,7 +1741,29 @@ abstract class BaseEditorViewModel(
                     if (canvasNoteId == null) return@modifyBlocks list
                     CanvasBlock(id = newId, canvasNoteId = canvasNoteId, indentationLevel = indent, isPinned = isPinnedContext, updatedAt = now)
                 }
-                else -> return@modifyBlocks list
+                else -> {
+                    val builtInType = PropertyType.entries.firstOrNull { propertyInsertKey(it) == type }
+                    val customProperty = customProperties.value.firstOrNull { customPropertyInsertKey(it.propertyId) == type }
+                    when {
+                        builtInType != null -> PropertyBlock(
+                            id = newId,
+                            propertyType = builtInType,
+                            indentationLevel = indent,
+                            isPinned = isPinnedContext,
+                            updatedAt = now
+                        )
+                        customProperty != null -> PropertyBlock(
+                            id = newId,
+                            customPropertyId = customProperty.propertyId,
+                            customLabel = customProperty.name,
+                            customValueType = customProperty.valueType,
+                            indentationLevel = indent,
+                            isPinned = isPinnedContext,
+                            updatedAt = now
+                        )
+                        else -> return@modifyBlocks list
+                    }
+                }
             }
 
             if (activeIndex != -1) {
@@ -1909,6 +1938,37 @@ abstract class BaseEditorViewModel(
     }
 
     suspend fun getLinkableCanvases(): List<NoteMetadataEntity> = repository.getLinkableCanvases()
+
+    fun updatePropertyText(blockId: String, text: String) {
+        val now = System.currentTimeMillis()
+        modifyBlocks { list ->
+            mapBlockById(list, blockId) { if (it is PropertyBlock) it.copy(text = text, updatedAt = now) else it }
+        }
+        scheduleAutosave()
+    }
+
+    fun updatePropertyDate(blockId: String, date: LocalDate?) {
+        val now = System.currentTimeMillis()
+        modifyBlocks { list ->
+            mapBlockById(list, blockId) { if (it is PropertyBlock) it.copy(date = date, updatedAt = now) else it }
+        }
+        scheduleAutosave()
+    }
+
+    fun updatePropertyTags(blockId: String, tags: List<String>) {
+        val now = System.currentTimeMillis()
+        modifyBlocks { list ->
+            mapBlockById(list, blockId) { if (it is PropertyBlock) it.copy(tags = tags, updatedAt = now) else it }
+        }
+        scheduleAutosave()
+    }
+
+    fun rewriteBlocks(rewrite: (NoteBlock, Long) -> NoteBlock) {
+        val now = System.currentTimeMillis()
+        if (_blocks.value.all { rewrite(it, now) == it }) return
+        modifyBlocks { list -> list.map { rewrite(it, now) } }
+        scheduleAutosave()
+    }
 
     fun updateLinkedNoteOptions(blockId: String, showIcon: Boolean, showCoverImage: Boolean) {
         val now = System.currentTimeMillis()

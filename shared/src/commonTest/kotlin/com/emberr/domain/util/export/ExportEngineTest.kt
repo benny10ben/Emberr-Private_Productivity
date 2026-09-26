@@ -11,6 +11,9 @@ import com.emberr.domain.model.InlineSpan
 import com.emberr.domain.model.LinkedNoteBlock
 import com.emberr.domain.model.NoteBlock
 import com.emberr.domain.model.NumberedListBlock
+import com.emberr.domain.model.PropertyBlock
+import com.emberr.domain.model.PropertyType
+import com.emberr.domain.model.PropertyValueType
 import com.emberr.domain.model.QuoteBlock
 import com.emberr.domain.model.SolidDividerBlock
 import com.emberr.domain.model.TableBlock
@@ -18,6 +21,7 @@ import com.emberr.domain.model.TextBlock
 import com.emberr.domain.model.ThreeDotDividerBlock
 import com.emberr.domain.model.ToggleBlock
 import com.emberr.domain.model.VoiceBlock
+import kotlinx.datetime.LocalDate
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -253,5 +257,36 @@ class ExportEngineTest {
                 )
             )
         )
+    }
+
+    @Test
+    fun aPropertyIsExportedAsItsLabelAndValue() {
+        val phone = PropertyBlock(id = "property-1", propertyType = PropertyType.PHONE, text = "+1 555 0100")
+        val tags = PropertyBlock(id = "property-2", propertyType = PropertyType.TAGS, tags = listOf("design", "urgent"))
+        val dueDate = PropertyBlock(id = "property-3", propertyType = PropertyType.DUE_DATE, date = LocalDate(2026, 9, 27))
+
+        assertEquals("Phone: +1 555 0100\nTags: design, urgent\nDue Date: 2026-09-27", plainTextOf(phone, tags, dueDate))
+        assertEquals("**Phone:** +1 555 0100\n\n**Tags:** design, urgent\n\n**Due Date:** 2026-09-27", markdownOf(phone, tags, dueDate))
+    }
+
+    @Test
+    fun aCustomPropertyIsExportedWithItsOwnLabel() {
+        val client = PropertyBlock(
+            id = "property-1",
+            customPropertyId = "client-id",
+            customLabel = "Client",
+            customValueType = PropertyValueType.TEXT,
+            text = "Acme"
+        )
+
+        assertEquals("Client: Acme", plainTextOf(client))
+        assertEquals("**Client:** Acme", markdownOf(client))
+    }
+
+    @Test
+    fun anEmptyPropertyIsLeftOutOfTheMarkdownExport() {
+        val emptyStatus = PropertyBlock(id = "property-1", propertyType = PropertyType.STATUS)
+
+        assertEquals("hello", markdownOf(TextBlock(id = "text-1", text = "hello"), emptyStatus))
     }
 }

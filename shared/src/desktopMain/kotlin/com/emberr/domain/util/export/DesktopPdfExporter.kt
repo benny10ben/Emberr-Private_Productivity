@@ -7,10 +7,12 @@ import com.emberr.domain.model.HeadingBlock
 import com.emberr.domain.model.ImageBlock
 import com.emberr.domain.model.NoteBlock
 import com.emberr.domain.model.NumberedListBlock
+import com.emberr.domain.model.PropertyBlock
 import com.emberr.domain.model.QuoteBlock
 import com.emberr.domain.model.SolidDividerBlock
 import com.emberr.domain.model.TableBlock
 import com.emberr.domain.model.TextBlock
+import com.emberr.domain.model.valueAsText
 import org.apache.pdfbox.pdmodel.PDDocument
 import org.apache.pdfbox.pdmodel.PDPage
 import org.apache.pdfbox.pdmodel.PDPageContentStream
@@ -288,6 +290,26 @@ fun generateDesktopPdf(file: File, title: String, blocks: List<NoteBlock>) {
                     }
 
                     currentY -= 16f
+                }
+                is PropertyBlock -> {
+                    val value = block.valueAsText()
+                    if (value.isBlank()) continue
+
+                    val fontSize = 12f
+                    val leading = fontSize * 1.4f
+                    val lines = wrapText("${block.label}: $value", bodyFont, fontSize, maxWidth)
+                    for (line in lines) {
+                        checkPagination(leading)
+                        if (line.isNotBlank()) {
+                            contentStream.beginText()
+                            contentStream.setFont(bodyFont, fontSize)
+                            contentStream.newLineAtOffset(startX, currentY)
+                            contentStream.showText(line)
+                            contentStream.endText()
+                        }
+                        currentY -= leading
+                    }
+                    currentY -= 8f
                 }
                 else -> { /* Ignore complex blocks */ }
             }

@@ -148,6 +148,7 @@ fun HomeScreen(
     onNavigateToBookmarks: () -> Unit,
     onNavigateToImages: () -> Unit,
     bottomContentPadding: Dp = 0.dp,
+    onNavigateToProperties: () -> Unit,
     onNavigateToTrash: () -> Unit,
     onNavigateToDocuments: () -> Unit,
     onToggleSidebar: () -> Unit = {},
@@ -1023,6 +1024,10 @@ fun HomeScreen(
                             onNavigateToSettings = {
                                 showUserSettingsMenu = false
                                 onNavigateToSettings()
+                            },
+                            onNavigateToProperties = {
+                                showUserSettingsMenu = false
+                                onNavigateToProperties()
                             },
                             onNavigateToTrash = {
                                 showUserSettingsMenu = false

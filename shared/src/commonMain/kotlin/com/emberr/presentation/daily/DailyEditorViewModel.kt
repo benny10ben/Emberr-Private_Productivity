@@ -897,6 +897,7 @@ private fun isBlockEmptyForTimeline(block: NoteBlock): Boolean = when (block) {
     is DocumentBlock -> block.localFilePath.isNullOrBlank()
     is VoiceBlock -> block.localFilePath.isNullOrBlank()
     is TableBlock -> block.rows.all { row -> row.all { cell -> cell.isBlank() } }
+    is PropertyBlock -> block.valueAsText().isBlank()
     is SolidDividerBlock -> true
     is ThreeDotDividerBlock -> true
     else -> false

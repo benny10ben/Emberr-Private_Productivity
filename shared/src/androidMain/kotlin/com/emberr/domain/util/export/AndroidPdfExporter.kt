@@ -239,6 +239,29 @@ fun generateAndSaveAndroidPdf(
                     currentY += 15f
                 }
 
+                is PropertyBlock -> {
+                    val value = block.valueAsText()
+                    if (value.isBlank()) continue
+
+                    textPaint.isFakeBoldText = false
+                    textPaint.textSkewX = 0f
+                    textPaint.isStrikeThruText = false
+                    textPaint.isUnderlineText = false
+                    textPaint.bgColor = 0
+                    textPaint.textSize = 12f
+
+                    val textStr = "${block.label}: $value"
+                    val layout = android.text.StaticLayout.Builder.obtain(textStr, 0, textStr.length, textPaint, availableWidth)
+                        .setAlignment(android.text.Layout.Alignment.ALIGN_NORMAL)
+                        .build()
+
+                    checkPagination(layout.height.toFloat())
+                    canvas.withTranslation(startX + indent, currentY) {
+                        layout.draw(this)
+                    }
+                    currentY += layout.height + 12f
+                }
+
                 else -> {}
             }
         }

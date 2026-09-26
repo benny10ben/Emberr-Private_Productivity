@@ -19,6 +19,7 @@ import com.emberr.presentation.shared.components.EmberrDesktopMenu
 import com.emberr.presentation.shared.components.NoRippleIndicationNodeFactory
 import emberr.shared.generated.resources.Res
 import emberr.shared.generated.resources.cog
+import emberr.shared.generated.resources.sliders_horizontal
 import emberr.shared.generated.resources.trash
 import org.jetbrains.compose.resources.painterResource
 
@@ -29,6 +30,7 @@ fun UserSettings(
     expanded: Boolean,
     onDismiss: () -> Unit,
     onNavigateToSettings: () -> Unit,
+    onNavigateToProperties: () -> Unit,
     onNavigateToTrash: () -> Unit,
 ) {
     if (isDesktopPlatform) {
@@ -39,6 +41,7 @@ fun UserSettings(
             UserSettingsDesktopMenu(
                 onDismiss = onDismiss,
                 onNavigateToSettings = onNavigateToSettings,
+                onNavigateToProperties = onNavigateToProperties,
                 onNavigateToTrash = onNavigateToTrash,
             )
         }
@@ -47,6 +50,7 @@ fun UserSettings(
             expanded = expanded,
             onDismiss = onDismiss,
             onNavigateToSettings = onNavigateToSettings,
+            onNavigateToProperties = onNavigateToProperties,
             onNavigateToTrash = onNavigateToTrash
         )
     }
@@ -57,6 +61,7 @@ fun UserSettings(
 private fun UserSettingsDesktopMenu(
     onDismiss: () -> Unit,
     onNavigateToSettings: () -> Unit,
+    onNavigateToProperties: () -> Unit,
     onNavigateToTrash: () -> Unit,
 ) {
     Column(modifier = Modifier.width(MenuWidth).padding(vertical = 4.dp)) {
@@ -67,6 +72,15 @@ private fun UserSettingsDesktopMenu(
             onClick = {
                 onDismiss()
                 onNavigateToSettings()
+            }
+        )
+
+        UserSettingsMenuRow(
+            text = "Properties",
+            icon = painterResource(Res.drawable.sliders_horizontal),
+            onClick = {
+                onDismiss()
+                onNavigateToProperties()
             }
         )
 
@@ -118,6 +132,7 @@ private fun UserSettingsBottomSheet(
     expanded: Boolean,
     onDismiss: () -> Unit,
     onNavigateToSettings: () -> Unit,
+    onNavigateToProperties: () -> Unit,
     onNavigateToTrash: () -> Unit
 ) {
     EmberrBottomSheet(expanded = expanded, onDismiss = onDismiss, title = "More") { closeAnd ->
@@ -127,6 +142,11 @@ private fun UserSettingsBottomSheet(
                 text = "Settings",
                 icon = painterResource(Res.drawable.cog)
             ) { closeAnd { onNavigateToSettings() } }
+
+            UserSettingsSheetRow(
+                text = "Properties",
+                icon = painterResource(Res.drawable.sliders_horizontal)
+            ) { closeAnd { onNavigateToProperties() } }
 
             UserSettingsSheetRow(
                 text = "Trash",

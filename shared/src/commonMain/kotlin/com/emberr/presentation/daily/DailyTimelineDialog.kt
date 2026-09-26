@@ -75,6 +75,7 @@ import com.emberr.domain.model.InlineSpan
 import com.emberr.domain.model.LinkedNoteBlock
 import com.emberr.domain.model.NoteBlock
 import com.emberr.domain.model.NumberedListBlock
+import com.emberr.domain.model.PropertyBlock
 import com.emberr.domain.model.QuoteBlock
 import com.emberr.domain.model.SolidDividerBlock
 import com.emberr.domain.model.TableBlock
@@ -84,6 +85,7 @@ import com.emberr.domain.model.ToggleBlock
 import com.emberr.domain.model.VoiceBlock
 import com.emberr.domain.model.highlightColorNameOrNull
 import com.emberr.domain.model.inlineSpansOrEmpty
+import com.emberr.domain.model.valueAsText
 import com.emberr.domain.util.system.isDesktopPlatform
 import com.emberr.presentation.LocalImageOverlay
 import com.emberr.presentation.shared.components.EmberrBlur
@@ -99,6 +101,7 @@ import com.emberr.presentation.shared.editor.blockViews.BookmarkBlockView
 import com.emberr.presentation.shared.editor.blockViews.DocumentBlockView
 import com.emberr.presentation.shared.editor.blockViews.ImageBlockView
 import com.emberr.presentation.shared.editor.blockViews.LinkedNoteBlockView
+import com.emberr.presentation.shared.editor.blockViews.PropertyBlockView
 import com.emberr.presentation.shared.editor.blockViews.TableBlockView
 import com.emberr.ui.theme.LocalAppIsDark
 import com.emberr.ui.theme.highlightBackgroundFor
@@ -714,6 +717,14 @@ private fun TimelineBlockContent(
             )
         }
 
+        is PropertyBlock -> PropertyBlockView(
+            block = block,
+            inSelectionMode = true,
+            onUpdateText = {},
+            onUpdateDate = {},
+            onUpdateTags = {}
+        )
+
         is SolidDividerBlock -> Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -913,6 +924,7 @@ private fun timelineBlockSearchText(block: NoteBlock): String = when (block) {
     is BookmarkBlock -> "${block.title.orEmpty()} ${block.url}"
     is DocumentBlock -> block.fileName
     is TableBlock -> block.rows.joinToString(" ") { row -> row.joinToString(" ") }
+    is PropertyBlock -> block.valueAsText()
     else -> ""
 }
 

@@ -10,6 +10,8 @@ enum class SyncType {
     DAILY_NOTE,
     FOLDER,
     CATEGORY,
+    PROPERTY_TAG,
+    CUSTOM_PROPERTY,
     EVENT_EXCEPTION,
     NOTE_TOMBSTONE,
     CHAT_SESSION,

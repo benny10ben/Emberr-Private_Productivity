@@ -1,5 +1,6 @@
 package com.emberr.presentation.shared.editor
 
+import com.emberr.domain.model.NoteBlock
 import com.emberr.presentation.shared.canvas.CanvasViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
@@ -23,6 +24,10 @@ object ActiveEditorRegistry {
 
     fun unregisterCanvas(viewModel: CanvasViewModel) {
         activeCanvases.update { it - viewModel }
+    }
+
+    fun rewriteBlocksInOpenEditors(rewrite: (NoteBlock, Long) -> NoteBlock) {
+        activeEditors.value.forEach { editor -> editor.rewriteBlocks(rewrite) }
     }
 
     fun discardAllPendingWrites() {

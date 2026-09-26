@@ -69,6 +69,8 @@ class AndroidManualBackupImporter(
                 blockDao = tempDatabase.blockDao(),
                 calendarTaskDao = tempDatabase.calendarTaskDao(),
                 categoryDao = tempDatabase.categoryDao(),
+                propertyTagDao = tempDatabase.propertyTagDao(),
+                customPropertyDao = tempDatabase.customPropertyDao(),
                 imageBlockDao = tempDatabase.imageBlockDao(),
                 documentBlockDao = tempDatabase.documentBlockDao(),
                 bookmarkBlockDao = tempDatabase.bookmarkBlockDao(),

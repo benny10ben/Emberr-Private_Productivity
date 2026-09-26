@@ -226,6 +226,8 @@ val androidModule = module {
     single<DocumentBlockDao> { get<AppDatabase>().documentBlockDao() }
     single<BookmarkBlockDao> { get<AppDatabase>().bookmarkBlockDao() }
     single<CategoryDao> { get<AppDatabase>().categoryDao() }
+    single<com.emberr.data.local.room.dao.PropertyTagDao> { get<AppDatabase>().propertyTagDao() }
+    single<com.emberr.data.local.room.dao.CustomPropertyDao> { get<AppDatabase>().customPropertyDao() }
     single<SelfHostDeletedNoteDao> { get<AppDatabase>().selfHostDeletedNoteDao() }
     single<com.emberr.data.local.room.dao.ChatSessionDao> { get<AppDatabase>().chatSessionDao() }
     single<com.emberr.data.local.room.dao.SelfHostDeletedApiConfigDao> { get<AppDatabase>().selfHostDeletedApiConfigDao() }

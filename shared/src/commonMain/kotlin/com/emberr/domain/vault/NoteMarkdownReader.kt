@@ -13,6 +13,9 @@ import com.emberr.domain.model.ImageBlock
 import com.emberr.domain.model.LinkedNoteBlock
 import com.emberr.domain.model.NoteBlock
 import com.emberr.domain.model.NumberedListBlock
+import com.emberr.domain.model.PropertyBlock
+import com.emberr.domain.model.PropertyType
+import com.emberr.domain.model.PropertyValueType
 import com.emberr.domain.model.QuoteBlock
 import com.emberr.domain.model.SolidDividerBlock
 import com.emberr.domain.model.TableBlock
@@ -21,7 +24,9 @@ import com.emberr.domain.model.ThreeDotDividerBlock
 import com.emberr.domain.model.ToggleBlock
 import com.emberr.domain.model.VoiceBlock
 import com.emberr.domain.model.withUpdatedAt
+import com.emberr.domain.model.cleanPropertyTagName
 import com.emberr.domain.model.RecurrenceRule
+import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 
 private const val CHECKBOX_MARKER_WIDTH = 6
@@ -406,6 +411,7 @@ object NoteMarkdownReader {
     ): NoteBlock = when (chunk.fenceInfo) {
         VaultFormat.VOICE_FENCE_NAME -> buildVoiceBlock(chunk, existing, request)
         VaultFormat.CANVAS_FENCE_NAME -> buildCanvasBlock(chunk, existing, request)
+        VaultFormat.PROPERTY_FENCE_NAME -> buildPropertyBlock(chunk, existing, request)
         else -> buildCodeBlock(chunk, existing, request)
     }
 
@@ -451,6 +457,68 @@ object NoteMarkdownReader {
             ?: return buildCodeBlock(chunk, existing, request)
         val base = existing as? CanvasBlock ?: CanvasBlock(id = idFor(existing, request), canvasNoteId = canvasNoteId)
         return settle(base.copy(canvasNoteId = canvasNoteId), existing, request.timestamp)
+    }
+
+    private fun buildPropertyBlock(
+        chunk: VaultMarkdownChunk,
+        existing: NoteBlock?,
+        request: VaultNoteReadRequest
+    ): NoteBlock {
+        val fields = VaultMarkdownScanner.parseKeyValueLines(chunk.lines)
+        val existingProperty = existing as? PropertyBlock
+        val propertyName = fields["property"]
+        fun startingBlock() = existingProperty ?: PropertyBlock(id = idFor(existing, request))
+
+        val base = if (propertyName.equals(VaultFormat.CUSTOM_PROPERTY_NAME, ignoreCase = true)) {
+            val customPropertyId = fields["id"]?.takeIf { it.isNotBlank() }
+                ?: existingProperty?.customPropertyId
+                ?: return buildCodeBlock(chunk, existing, request)
+            val startingBlock = startingBlock()
+            startingBlock.copy(
+                propertyType = null,
+                customPropertyId = customPropertyId,
+                customLabel = fields["label"]?.takeIf { it.isNotBlank() } ?: startingBlock.customLabel,
+                customValueType = PropertyValueType.entries.firstOrNull { it.name.equals(fields["type"], ignoreCase = true) }
+                    ?: startingBlock.customValueType
+            )
+        } else {
+            val propertyType = PropertyType.entries.firstOrNull { it.name.equals(propertyName, ignoreCase = true) }
+                ?: existingProperty?.propertyType
+                ?: return buildCodeBlock(chunk, existing, request)
+            startingBlock().copy(
+                propertyType = propertyType,
+                customPropertyId = null,
+                customLabel = "",
+                customValueType = PropertyValueType.TEXT
+            )
+        }
+
+        val value = fields["value"].orEmpty()
+        val valueType = base.valueType
+        val holdsText = !valueType.holdsDate && !valueType.holdsTags
+        return settle(
+            base.copy(
+                text = if (holdsText) value else "",
+                date = if (valueType.holdsDate) parsePropertyDate(value, base) else null,
+                tags = if (valueType.holdsTags) parsePropertyTags(value, valueType) else emptyList()
+            ),
+            existing,
+            request.timestamp
+        )
+    }
+
+    private fun parsePropertyDate(value: String, base: PropertyBlock): LocalDate? {
+        val trimmed = value.trim()
+        if (trimmed.isEmpty()) return null
+        return runCatching { LocalDate.parse(trimmed) }.getOrNull() ?: base.date
+    }
+
+    private fun parsePropertyTags(value: String, valueType: PropertyValueType): List<String> {
+        val names = value.split(',')
+            .map { cleanPropertyTagName(it) }
+            .filter { it.isNotEmpty() }
+            .distinctBy { it.lowercase() }
+        return if (valueType.allowsManyTags) names else names.take(1)
     }
 
     private fun buildTableBlock(

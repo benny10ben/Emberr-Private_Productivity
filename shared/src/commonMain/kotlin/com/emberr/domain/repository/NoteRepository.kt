@@ -8,10 +8,13 @@ import com.emberr.data.local.room.entity.DocumentBlockEntity
 import com.emberr.data.local.room.entity.FolderEntity
 import com.emberr.data.local.room.entity.ImageBlockEntity
 import com.emberr.data.local.room.entity.NoteMetadataEntity
+import com.emberr.data.local.room.entity.PropertyTagEntity
+import com.emberr.data.local.room.entity.CustomPropertyEntity
 import com.emberr.domain.canvas.CanvasContent
 import com.emberr.domain.model.NoteBlock
 import com.emberr.domain.model.NoteContent
 import com.emberr.domain.model.NoteSearchResult
+import com.emberr.domain.model.PropertyValueType
 import com.emberr.domain.model.RecurrenceEditScope
 import kotlinx.coroutines.flow.Flow
 
@@ -130,6 +133,20 @@ interface NoteRepository {
     suspend fun deleteCategory(categoryId: String)
     suspend fun getCategoriesModifiedSince(timestamp: Long): List<CategoryEntity>
     suspend fun applyRemoteCategory(category: CategoryEntity)
+
+    fun getPropertyTags(propertyKey: String): Flow<List<PropertyTagEntity>>
+    suspend fun createPropertyTag(propertyKey: String, name: String)
+    suspend fun renamePropertyTag(propertyKey: String, oldName: String, newName: String)
+    suspend fun deletePropertyTag(propertyKey: String, name: String)
+    suspend fun getPropertyTagsModifiedSince(timestamp: Long): List<PropertyTagEntity>
+    suspend fun applyRemotePropertyTag(tag: PropertyTagEntity)
+
+    fun getCustomProperties(): Flow<List<CustomPropertyEntity>>
+    suspend fun createCustomProperty(name: String, valueType: PropertyValueType)
+    suspend fun renameCustomProperty(propertyId: String, newName: String)
+    suspend fun deleteCustomProperty(propertyId: String)
+    suspend fun getCustomPropertiesModifiedSince(timestamp: Long): List<CustomPropertyEntity>
+    suspend fun applyRemoteCustomProperty(property: CustomPropertyEntity)
 
     suspend fun applyRemoteEventException(exception: CalendarEventExceptionEntity)
 

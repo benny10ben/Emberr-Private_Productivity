@@ -12,6 +12,8 @@ import com.emberr.data.local.room.entity.ChatSessionEntity
 import com.emberr.data.local.room.entity.FolderEntity
 import com.emberr.data.local.room.entity.NoteKind
 import com.emberr.data.local.room.entity.NoteMetadataEntity
+import com.emberr.data.local.room.entity.PropertyTagEntity
+import com.emberr.data.local.room.entity.CustomPropertyEntity
 import com.emberr.data.local.room.entity.SpaceEntity
 import com.emberr.domain.ai.external.AiSettingsRepository
 import com.emberr.domain.canvas.CanvasContent
@@ -526,6 +528,20 @@ class SyncRepositoryImpl(
                                 repository.applyRemoteCategory(remoteCategory)
                             }
 
+                            SyncType.PROPERTY_TAG -> {
+                                val remoteTag =
+                                    json.decodeFromString<PropertyTagEntity>(decryptedMetaJson)
+                                spaceRepository.ensureSpaceExists(remoteTag.spaceId)
+                                repository.applyRemotePropertyTag(remoteTag)
+                            }
+
+                            SyncType.CUSTOM_PROPERTY -> {
+                                val remoteProperty =
+                                    json.decodeFromString<CustomPropertyEntity>(decryptedMetaJson)
+                                spaceRepository.ensureSpaceExists(remoteProperty.spaceId)
+                                repository.applyRemoteCustomProperty(remoteProperty)
+                            }
+
                             SyncType.EVENT_EXCEPTION -> {
                                 val remoteException =
                                     json.decodeFromString<CalendarEventExceptionEntity>(decryptedMetaJson)
@@ -805,6 +821,32 @@ class SyncRepositoryImpl(
                         entityId = category.categoryId, entityType = SyncType.CATEGORY,
                         metadataJson = encryptedCategory, contentJson = "",
                         updatedAt = category.updatedAt, isDeleted = category.isDeleted
+                    )
+                )
+            }
+
+            val modifiedPropertyTags = repository.getPropertyTagsModifiedSince(lastSyncTime)
+            modifiedPropertyTags.forEach { tag ->
+                val encryptedTag =
+                    encryptionManager.encryptPayload(json.encodeToString(tag), syncKey)
+                changes.add(
+                    SyncEnvelope(
+                        entityId = tag.tagId, entityType = SyncType.PROPERTY_TAG,
+                        metadataJson = encryptedTag, contentJson = "",
+                        updatedAt = tag.updatedAt, isDeleted = tag.isDeleted
+                    )
+                )
+            }
+
+            val modifiedCustomProperties = repository.getCustomPropertiesModifiedSince(lastSyncTime)
+            modifiedCustomProperties.forEach { property ->
+                val encryptedProperty =
+                    encryptionManager.encryptPayload(json.encodeToString(property), syncKey)
+                changes.add(
+                    SyncEnvelope(
+                        entityId = property.propertyId, entityType = SyncType.CUSTOM_PROPERTY,
+                        metadataJson = encryptedProperty, contentJson = "",
+                        updatedAt = property.updatedAt, isDeleted = property.isDeleted
                     )
                 )
             }

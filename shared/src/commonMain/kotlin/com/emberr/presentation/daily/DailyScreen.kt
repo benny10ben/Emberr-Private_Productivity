@@ -102,6 +102,7 @@ fun DailyScreen(
     onNavigateToEditor: (String) -> Unit = {},
     onNavigateToCalendar: () -> Unit = {},
     onNavigateToSettings: () -> Unit = {},
+    onNavigateToProperties: () -> Unit = {},
     onNavigateToTrash: () -> Unit = {},
     showAddNoteDialog: Boolean = false,
     isSearchActive: Boolean = false,
@@ -307,6 +308,9 @@ fun DailyScreen(
             override suspend fun getNoteMetadata(noteId: String) = viewModel.getNoteMetadata(noteId)
             override fun onUpdateLinkedNoteOptions(id: String, showIcon: Boolean, showCoverImage: Boolean) =
                 viewModel.updateLinkedNoteOptions(id, showIcon, showCoverImage)
+            override fun onUpdatePropertyText(id: String, text: String) = viewModel.updatePropertyText(id, text)
+            override fun onUpdatePropertyDate(id: String, date: LocalDate?) = viewModel.updatePropertyDate(id, date)
+            override fun onUpdatePropertyTags(id: String, tags: List<String>) = viewModel.updatePropertyTags(id, tags)
         }
     }
 
@@ -660,6 +664,7 @@ fun DailyScreen(
                                         expanded = showSettingsMenu,
                                         onDismiss = { showSettingsMenu = false },
                                         onNavigateToSettings = onNavigateToSettings,
+                                        onNavigateToProperties = onNavigateToProperties,
                                         onNavigateToTrash = onNavigateToTrash
                                     )
                                 }

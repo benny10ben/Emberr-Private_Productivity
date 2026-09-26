@@ -8,11 +8,13 @@ import com.emberr.data.local.room.dao.CalendarTaskDao
 import com.emberr.data.local.room.dao.CanvasDao
 import com.emberr.data.local.room.dao.CategoryDao
 import com.emberr.data.local.room.dao.ChatSessionDao
+import com.emberr.data.local.room.dao.CustomPropertyDao
 import com.emberr.data.local.room.dao.DocumentBlockDao
 import com.emberr.data.local.room.dao.FolderDao
 import com.emberr.data.local.room.dao.ImageBlockDao
 import com.emberr.data.local.room.dao.MediaReferenceDao
 import com.emberr.data.local.room.dao.NoteDao
+import com.emberr.data.local.room.dao.PropertyTagDao
 import com.emberr.data.local.room.dao.SelfHostDeletedNoteDao
 import com.emberr.data.local.room.dao.SpaceDao
 import com.emberr.data.local.room.entity.CalendarEventExceptionEntity
@@ -28,6 +30,8 @@ class BackupRepositoryImpl(
     private val blockDao: BlockDao,
     private val calendarTaskDao: CalendarTaskDao,
     private val categoryDao: CategoryDao,
+    private val propertyTagDao: PropertyTagDao,
+    private val customPropertyDao: CustomPropertyDao,
     private val imageBlockDao: ImageBlockDao,
     private val documentBlockDao: DocumentBlockDao,
     private val bookmarkBlockDao: BookmarkBlockDao,
@@ -46,6 +50,8 @@ class BackupRepositoryImpl(
         val allSpaces = spaceDao.getAllSpacesForBackup()
         val allFolders = folderDao.getAllFoldersAcrossSpaces().first()
         val allCategories = categoryDao.getAllCategoriesOnceAcrossSpaces()
+        val allPropertyTags = propertyTagDao.getAllTagsForBackup()
+        val allCustomProperties = customPropertyDao.getAllPropertiesForBackup()
         val allTasks = calendarTaskDao.getAllTasksAcrossSpacesFlow().first()
         val allImages = imageBlockDao.getAllImagesAcrossSpacesFlow().first()
         val allDocuments = documentBlockDao.getAllDocumentsAcrossSpacesFlow().first()
@@ -67,6 +73,8 @@ class BackupRepositoryImpl(
             notes = allNotes,
             folders = allFolders,
             categories = allCategories,
+            propertyTags = allPropertyTags,
+            customProperties = allCustomProperties,
             blocks = allBlocks,
             calendarTasks = allTasks,
             imageBlocks = allImages,
@@ -92,6 +100,8 @@ class BackupRepositoryImpl(
 
         backupData.folders.forEach { folderDao.insertFolder(it) }
         backupData.categories.forEach { categoryDao.insertOrUpdateCategory(it) }
+        backupData.propertyTags.forEach { propertyTagDao.insertOrUpdateTag(it) }
+        backupData.customProperties.forEach { customPropertyDao.insertOrUpdateProperty(it) }
 
         val noteIdMapping = mutableMapOf<String, String>()
 

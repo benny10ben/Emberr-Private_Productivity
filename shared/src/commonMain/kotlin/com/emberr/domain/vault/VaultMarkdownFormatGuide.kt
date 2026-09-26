@@ -78,6 +78,33 @@ object VaultMarkdownFormatGuide {
 
         A plain table is just a markdown table with its tag on the line below.
 
+        ## Properties
+
+        A property is a fence with its tag on the line below:
+
+        ```emberr-property
+        property: status
+        value: In progress
+        ```
+
+        `property` is one of `name`, `phone`, `email`, `date`, `status`, `tags`, `link`,
+        `description` or `due_date`. Dates are `YYYY-MM-DD`. Tags are separated by commas, and
+        `status` keeps only the first one.
+
+        A property the user made themselves looks like this:
+
+        ```emberr-property
+        property: custom
+        id: 5f2c9a
+        label: Client
+        type: text
+        value: Acme
+        ```
+
+        `type` is one of `text`, `phone`, `email`, `link`, `date`, `single_choice` or `tags`.
+        Custom properties are created in the app, so only change the `value` of one that already
+        exists and leave its `id`, `label` and `type` alone.
+
         ## Things that cannot be represented this way
 
         - drawings, which appear only as a stroke count

@@ -7,11 +7,15 @@ import com.emberr.data.local.room.dao.CategoryDao
 import com.emberr.data.local.room.dao.ChatSessionDao
 import com.emberr.data.local.room.dao.FolderDao
 import com.emberr.data.local.room.dao.NoteDao
+import com.emberr.data.local.room.dao.PropertyTagDao
+import com.emberr.data.local.room.dao.CustomPropertyDao
 import com.emberr.data.local.room.dao.SelfHostDeletedApiConfigDao
 import com.emberr.data.local.room.dao.SelfHostDeletedNoteDao
 import com.emberr.data.local.room.dao.SpaceDao
 import com.emberr.data.local.room.entity.CalendarEventExceptionEntity
 import com.emberr.data.local.room.entity.CategoryEntity
+import com.emberr.data.local.room.entity.PropertyTagEntity
+import com.emberr.data.local.room.entity.CustomPropertyEntity
 import com.emberr.data.local.room.entity.ChatSessionEntity
 import com.emberr.data.local.room.entity.FolderEntity
 import com.emberr.data.local.room.entity.NoteBlockEntity
@@ -69,6 +73,8 @@ class SelfHostSyncEngine(
     private val blockDao: BlockDao,
     private val folderDao: FolderDao,
     private val categoryDao: CategoryDao,
+    private val propertyTagDao: PropertyTagDao,
+    private val customPropertyDao: CustomPropertyDao,
     private val calendarEventExceptionDao: CalendarEventExceptionDao,
     private val spaceDao: SpaceDao,
     private val spaceRepository: SpaceRepository,
@@ -463,6 +469,12 @@ class SelfHostSyncEngine(
             if (withSyncCoordinatorOrSkip { reconcileCategories() } == null) {
                 SelfHostSyncLog.d("TextSync: categories skipped this cycle, SyncCoordinator.mutex busy - will retry next trigger")
             }
+            if (withSyncCoordinatorOrSkip { reconcilePropertyTags() } == null) {
+                SelfHostSyncLog.d("TextSync: property tags skipped this cycle, SyncCoordinator.mutex busy - will retry next trigger")
+            }
+            if (withSyncCoordinatorOrSkip { reconcileCustomProperties() } == null) {
+                SelfHostSyncLog.d("TextSync: custom properties skipped this cycle, SyncCoordinator.mutex busy - will retry next trigger")
+            }
             if (withSyncCoordinatorOrSkip { reconcileEventExceptions() } == null) {
                 SelfHostSyncLog.d("TextSync: event exceptions skipped this cycle, SyncCoordinator.mutex busy - will retry next trigger")
             }
@@ -666,6 +678,78 @@ class SelfHostSyncEngine(
             SelfHostSyncLog.d("CategorySync: remote categories.json changed concurrently, will retry next cycle")
         } catch (cause: Exception) {
             SelfHostSyncLog.e("CategorySync: failed to sync categories: ${cause.message}", cause)
+        }
+    }
+
+    private suspend fun reconcilePropertyTags() {
+        try {
+            val remoteJsonWithEtag = webDavSyncClient.downloadAndDecryptJsonWithEtag(WebDavSyncPaths.PROPERTY_TAGS_FILE)
+            val remoteJson = remoteJsonWithEtag?.first
+            val remoteTags = remoteJson
+                ?.let { collectionJson.decodeFromString(ListSerializer(PropertyTagEntity.serializer()), it) }
+                .orEmpty()
+            val localTags = propertyTagDao.getTagsModifiedSince(0L)
+
+            val merged = LinkedHashMap<String, PropertyTagEntity>()
+            localTags.forEach { merged[it.tagId] = it }
+            remoteTags.forEach { remote ->
+                val local = merged[remote.tagId]
+                if (local == null || remote.updatedAt >= local.updatedAt) {
+                    merged[remote.tagId] = remote
+                }
+            }
+            val mergedList = merged.values.toList()
+            mergedList.forEach { spaceRepository.ensureSpaceExists(it.spaceId) }
+            mergedList.forEach { propertyTagDao.insertOrUpdateTag(it) }
+
+            if (mergedList.toSet() != remoteTags.toSet()) {
+                webDavSyncClient.uploadEncryptedJson(
+                    WebDavSyncPaths.PROPERTY_TAGS_FILE,
+                    collectionJson.encodeToString(ListSerializer(PropertyTagEntity.serializer()), mergedList),
+                    remoteJsonWithEtag?.second
+                )
+            }
+            SelfHostSyncLog.d("PropertyTagSync: complete, ${mergedList.size} tag(s) reconciled")
+        } catch (cause: WebDavConflictException) {
+            SelfHostSyncLog.d("PropertyTagSync: remote property_tags.json changed concurrently, will retry next cycle")
+        } catch (cause: Exception) {
+            SelfHostSyncLog.e("PropertyTagSync: failed to sync property tags: ${cause.message}", cause)
+        }
+    }
+
+    private suspend fun reconcileCustomProperties() {
+        try {
+            val remoteJsonWithEtag = webDavSyncClient.downloadAndDecryptJsonWithEtag(WebDavSyncPaths.CUSTOM_PROPERTIES_FILE)
+            val remoteJson = remoteJsonWithEtag?.first
+            val remoteProperties = remoteJson
+                ?.let { collectionJson.decodeFromString(ListSerializer(CustomPropertyEntity.serializer()), it) }
+                .orEmpty()
+            val localProperties = customPropertyDao.getPropertiesModifiedSince(0L)
+
+            val merged = LinkedHashMap<String, CustomPropertyEntity>()
+            localProperties.forEach { merged[it.propertyId] = it }
+            remoteProperties.forEach { remote ->
+                val local = merged[remote.propertyId]
+                if (local == null || remote.updatedAt >= local.updatedAt) {
+                    merged[remote.propertyId] = remote
+                }
+            }
+            val mergedList = merged.values.toList()
+            mergedList.forEach { spaceRepository.ensureSpaceExists(it.spaceId) }
+            mergedList.forEach { customPropertyDao.insertOrUpdateProperty(it) }
+
+            if (mergedList.toSet() != remoteProperties.toSet()) {
+                webDavSyncClient.uploadEncryptedJson(
+                    WebDavSyncPaths.CUSTOM_PROPERTIES_FILE,
+                    collectionJson.encodeToString(ListSerializer(CustomPropertyEntity.serializer()), mergedList),
+                    remoteJsonWithEtag?.second
+                )
+            }
+            SelfHostSyncLog.d("CustomPropertySync: complete, ${mergedList.size} propert(y/ies) reconciled")
+        } catch (cause: WebDavConflictException) {
+            SelfHostSyncLog.d("CustomPropertySync: remote custom_properties.json changed concurrently, will retry next cycle")
+        } catch (cause: Exception) {
+            SelfHostSyncLog.e("CustomPropertySync: failed to sync custom properties: ${cause.message}", cause)
         }
     }
 

@@ -1,6 +1,7 @@
 package com.emberr.domain.model
 
 import kotlinx.datetime.DayOfWeek
+import kotlinx.datetime.LocalDate
 
 object TestNoteBlocks {
 
@@ -174,6 +175,14 @@ object TestNoteBlocks {
             indentationLevel = 1,
             isPinned = true,
             updatedAt = 115L
+        ),
+        PropertyBlock(
+            id = "property-1",
+            propertyType = PropertyType.DUE_DATE,
+            date = LocalDate(2026, 9, 27),
+            indentationLevel = 1,
+            isPinned = true,
+            updatedAt = 118L
         ),
         SolidDividerBlock(
             id = "solid-divider-1",

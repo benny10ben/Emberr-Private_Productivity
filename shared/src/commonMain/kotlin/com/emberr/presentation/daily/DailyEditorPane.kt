@@ -43,6 +43,7 @@ import com.emberr.presentation.shared.editor.BlockStyleBar
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
 import org.koin.compose.koinInject
+import kotlinx.datetime.LocalDate
 
 /**
  * Single-day daily editor pane. The caller selects the day via viewModel.selectDate(date);
@@ -235,6 +236,9 @@ fun DailyEditorPane(
             override suspend fun getNoteMetadata(noteId: String) = viewModel.getNoteMetadata(noteId)
             override fun onUpdateLinkedNoteOptions(id: String, showIcon: Boolean, showCoverImage: Boolean) =
                 viewModel.updateLinkedNoteOptions(id, showIcon, showCoverImage)
+            override fun onUpdatePropertyText(id: String, text: String) = viewModel.updatePropertyText(id, text)
+            override fun onUpdatePropertyDate(id: String, date: LocalDate?) = viewModel.updatePropertyDate(id, date)
+            override fun onUpdatePropertyTags(id: String, tags: List<String>) = viewModel.updatePropertyTags(id, tags)
         }
     }
 

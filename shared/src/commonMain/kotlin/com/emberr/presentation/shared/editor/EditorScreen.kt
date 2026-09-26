@@ -68,6 +68,8 @@ import com.emberr.domain.model.ImageBlock
 import com.emberr.domain.model.LinkedNoteBlock
 import com.emberr.domain.model.NoteBlock
 import com.emberr.domain.model.NumberedListBlock
+import com.emberr.domain.model.PropertyBlock
+import com.emberr.domain.model.PropertyType
 import com.emberr.domain.model.QuoteBlock
 import com.emberr.domain.model.TextAlignment
 import com.emberr.domain.model.TextBlock
@@ -81,6 +83,9 @@ import com.emberr.presentation.shared.components.EmberrTextField
 import com.emberr.presentation.shared.components.KmpBackHandler
 import com.emberr.presentation.shared.components.customEmberrShadow
 import com.emberr.presentation.shared.editor.blockViews.LinkedNoteOptionsMenu
+import com.emberr.presentation.shared.editor.blockViews.iconResource
+import com.emberr.domain.repository.NoteRepository
+import org.koin.compose.koinInject
 import dev.chrisbanes.haze.HazeState
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -88,6 +93,7 @@ import androidx.compose.foundation.gestures.animateScrollBy
 import kotlin.time.Duration.Companion.milliseconds
 import androidx.compose.ui.platform.LocalDensity
 import kotlinx.coroutines.flow.MutableSharedFlow
+import com.emberr.data.local.room.entity.CustomPropertyEntity
 import com.emberr.data.local.room.entity.NoteKind
 import com.emberr.data.local.room.entity.NoteMetadataEntity
 import com.emberr.presentation.BOTTOM_BAR_BOTTOM_PADDING
@@ -142,6 +148,7 @@ import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
 import kotlin.math.abs
 import kotlin.math.roundToInt
+import kotlinx.datetime.LocalDate
 
 private val DefaultCornerShape = RoundedCornerShape(12.dp)
 
@@ -292,6 +299,9 @@ interface EditorActions {
     fun onRequestCamera(blockId: String)
     suspend fun getNoteMetadata(noteId: String): NoteMetadataEntity?
     fun onUpdateLinkedNoteOptions(id: String, showIcon: Boolean, showCoverImage: Boolean)
+    fun onUpdatePropertyText(id: String, text: String)
+    fun onUpdatePropertyDate(id: String, date: LocalDate?)
+    fun onUpdatePropertyTags(id: String, tags: List<String>)
 }
 
 @OptIn(ExperimentalLayoutApi::class, ExperimentalFoundationApi::class)
@@ -386,13 +396,15 @@ fun EditorScreen(
 
     var isSlashKilled by remember { mutableStateOf(false) }
     val previousTextMap = remember { mutableMapOf<String, String>() }
-    val slashMenuLabels = remember {
+    val customProperties = rememberCustomProperties()
+    val slashMenuLabels = remember(customProperties) {
         buildSlashMenuSections(
             onChangeBlockType = {},
             onToggleFormat = {},
             onAdjustIndentation = {},
             onSetAlignment = {},
-            onInsertMediaBlock = {}
+            onInsertMediaBlock = {},
+            customProperties = customProperties
         ).flatMap { section -> section.items.map { it.label } }
     }
 
@@ -780,6 +792,7 @@ fun EditorScreen(
                                         || lastBlock is DocumentBlock
                                         || lastBlock is VoiceBlock
                                         || lastBlock is CanvasBlock
+                                        || lastBlock is PropertyBlock
 
                                 if (isMediaBlock) {
                                     wrappedActions.onFocusBlock(lastBlock.id)
@@ -857,6 +870,7 @@ fun EditorScreen(
                         NoteBlockItem(
                             block = block,
                             allLinkableNotes = allLinkableNotes,
+                            customProperties = customProperties,
                             actions = wrappedActions,
                             focusRequest = targetedFocusRequest,
                             selectedBlockIds = immutableSelectedIds,
@@ -893,6 +907,7 @@ fun EditorScreen(
                                                     || lastBlock is DocumentBlock
                                                     || lastBlock is VoiceBlock
                                                     || lastBlock is CanvasBlock
+                                                    || lastBlock is PropertyBlock
 
                                             if (isMediaBlock) {
                                                 wrappedActions.onFocusBlock(lastBlock.id)
@@ -1004,6 +1019,7 @@ fun EditorToolbar(
     hazeState: HazeState
 ) {
     if (isDesktopPlatform) return
+    val customProperties = rememberCustomProperties()
 
     val keyboardController = LocalSoftwareKeyboardController.current
     val tint = MaterialTheme.colorScheme.primary
@@ -1192,7 +1208,8 @@ fun EditorToolbar(
                                             onClearSlashQuery()
                                             onInsertMediaBlock(it)
                                             onMenuStateChange(mobileMenuStateAfterInserting(it))
-                                        }
+                                        },
+                                        customProperties = customProperties
                                     )
                                 }
                             }
@@ -1222,7 +1239,8 @@ fun EditorToolbar(
                                         onInsertMediaBlock = {
                                             onInsertMediaBlock(it)
                                             onMenuStateChange(mobileMenuStateAfterInserting(it))
-                                        }
+                                        },
+                                        customProperties = customProperties
                                     )
                                 }
                             }
@@ -1461,12 +1479,25 @@ private fun MenuDragHandle(onClose: () -> Unit) {
     }
 }
 
+fun propertyInsertKey(propertyType: PropertyType): String = "property_${propertyType.name.lowercase()}"
+
+fun customPropertyInsertKey(propertyId: String): String = "custom_property_$propertyId"
+
+@Composable
+fun rememberCustomProperties(): List<CustomPropertyEntity> {
+    val noteRepository = koinInject<NoteRepository>()
+    val customProperties by remember(noteRepository) { noteRepository.getCustomProperties() }
+        .collectAsState(initial = emptyList())
+    return customProperties
+}
+
 fun buildSlashMenuSections(
     onChangeBlockType: (String) -> Unit,
     onToggleFormat: (String) -> Unit,
     onAdjustIndentation: (Boolean) -> Unit,
     onSetAlignment: (TextAlignment) -> Unit,
-    onInsertMediaBlock: (String) -> Unit
+    onInsertMediaBlock: (String) -> Unit,
+    customProperties: List<CustomPropertyEntity> = emptyList()
 ): List<SlashMenuSectionData> = listOf(
     SlashMenuSectionData("Basic Blocks", listOf(
         SlashMenuItemData("Text", Icons.AutoMirrored.Filled.Subject) { onChangeBlockType("text") },
@@ -1489,6 +1520,16 @@ fun buildSlashMenuSections(
         SlashMenuItemData("Link to Note", Res.drawable.link) { onInsertMediaBlock("linked_note") },
         SlashMenuItemData("Link to Canvas", Res.drawable.group) { onInsertMediaBlock("linked_canvas") }
     )),
+    SlashMenuSectionData(
+        "Properties",
+        PropertyType.entries.map { propertyType ->
+            SlashMenuItemData(propertyType.label, propertyType.iconResource()) { onInsertMediaBlock(propertyInsertKey(propertyType)) }
+        } + customProperties.map { property ->
+            SlashMenuItemData(property.name, property.valueType.iconResource()) {
+                onInsertMediaBlock(customPropertyInsertKey(property.propertyId))
+            }
+        }
+    ),
     SlashMenuSectionData("Inline Text Formatting", listOf(
         SlashMenuItemData("Bold Text", Res.drawable.format_bold, 13.dp) { onToggleFormat("bold") },
         SlashMenuItemData("Italic Text", Res.drawable.italic, 13.dp) { onToggleFormat("italic") },
@@ -1518,9 +1559,10 @@ fun filteredSlashMenuSections(
     onToggleFormat: (String) -> Unit,
     onAdjustIndentation: (Boolean) -> Unit,
     onSetAlignment: (TextAlignment) -> Unit,
-    onInsertMediaBlock: (String) -> Unit
+    onInsertMediaBlock: (String) -> Unit,
+    customProperties: List<CustomPropertyEntity> = emptyList()
 ): List<SlashMenuSectionData> = buildSlashMenuSections(
-    onChangeBlockType, onToggleFormat, onAdjustIndentation, onSetAlignment, onInsertMediaBlock
+    onChangeBlockType, onToggleFormat, onAdjustIndentation, onSetAlignment, onInsertMediaBlock, customProperties
 ).map { section ->
     section.copy(items = section.items.filter { item ->
         query.isBlank() || item.label.contains(query, ignoreCase = true)
@@ -1535,7 +1577,8 @@ fun DesktopSlashMenuContent(
     onAdjustIndentation: (Boolean) -> Unit,
     onSetAlignment: (TextAlignment) -> Unit,
     onInsertMediaBlock: (String) -> Unit,
-    selectedIndex: Int = -1
+    selectedIndex: Int = -1,
+    customProperties: List<CustomPropertyEntity> = emptyList()
 ) {
     val filteredSections = remember(
         query,
@@ -1543,9 +1586,12 @@ fun DesktopSlashMenuContent(
         onToggleFormat,
         onAdjustIndentation,
         onSetAlignment,
-        onInsertMediaBlock
+        onInsertMediaBlock,
+        customProperties
     ) {
-        filteredSlashMenuSections(query, onChangeBlockType, onToggleFormat, onAdjustIndentation, onSetAlignment, onInsertMediaBlock)
+        filteredSlashMenuSections(
+            query, onChangeBlockType, onToggleFormat, onAdjustIndentation, onSetAlignment, onInsertMediaBlock, customProperties
+        )
     }
 
     SlashMenuList(sections = filteredSections, selectedIndex = selectedIndex)
