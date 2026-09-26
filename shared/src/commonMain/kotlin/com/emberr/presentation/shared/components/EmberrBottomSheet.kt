@@ -51,7 +51,7 @@ private val SheetIconSpacing = 8.dp
  * leftover distance is handed to the sheet's drag anchor instead, walking it off the bottom.
  */
 @OptIn(ExperimentalFoundationApi::class)
-private object SheetBringIntoViewSpec : BringIntoViewSpec {
+internal object SheetBringIntoViewSpec : BringIntoViewSpec {
     override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float {
         val leadingEdge = offset
         val trailingEdge = offset + size

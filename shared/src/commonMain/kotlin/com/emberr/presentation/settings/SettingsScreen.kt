@@ -1322,7 +1322,7 @@ fun SettingsGroup(
 }
 
 @Composable
-private fun SettingsRowIcon(icon: Painter, isDestructive: Boolean = false) {
+internal fun SettingsRowIcon(icon: Painter, isDestructive: Boolean = false) {
     val accentColor = if (isDestructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
 
     Box(
@@ -1342,7 +1342,7 @@ private fun SettingsRowIcon(icon: Painter, isDestructive: Boolean = false) {
 }
 
 @Composable
-private fun SettingsValuePill(label: String, isDestructive: Boolean = false) {
+internal fun SettingsValuePill(label: String, isDestructive: Boolean = false) {
     val labelColor = if (isDestructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
 
     Text(
