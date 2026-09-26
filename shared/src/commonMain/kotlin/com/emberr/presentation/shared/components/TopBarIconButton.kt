@@ -3,6 +3,8 @@ package com.emberr.presentation.shared.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.IndicationNodeFactory
 import androidx.compose.foundation.interaction.InteractionSource
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -201,7 +203,8 @@ fun TopBarIconButtonGroup(
     shadowSpotColor: Color = EmberrShadowSpotColor,
     shadowAmbientColor: Color = EmberrShadowAmbientColor,
     isVertical: Boolean = false,
-    horizontalItemSpacing: Dp = 0.dp
+    horizontalItemSpacing: Dp = 0.dp,
+    isHorizontallyScrollable: Boolean = false
 ) {
     val resolvedStyle = hazeStyle ?: EmberrBlur.Regular
     Surface(
@@ -230,7 +233,9 @@ fun TopBarIconButtonGroup(
             }
         } else {
             Row(
-                modifier = Modifier.padding(horizontal = horizontalPadding),
+                modifier = Modifier
+                    .then(if (isHorizontallyScrollable) Modifier.horizontalScroll(rememberScrollState()) else Modifier)
+                    .padding(horizontal = horizontalPadding),
                 horizontalArrangement = Arrangement.spacedBy(horizontalItemSpacing),
                 verticalAlignment = Alignment.CenterVertically
             ) {
