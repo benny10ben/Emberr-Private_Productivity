@@ -30,4 +30,21 @@ actual object ImageClipboard {
             false
         }
     }
+
+    actual suspend fun hasImage(): Boolean = withContext(Dispatchers.Main) {
+        val description = clipboardManager().primaryClipDescription ?: return@withContext false
+        (0 until description.mimeTypeCount).any { index -> description.getMimeType(index).startsWith("image/") }
+    }
+
+    actual suspend fun readImage(): ClipboardImage? = withContext(Dispatchers.Main) {
+        if (!hasImage()) return@withContext null
+        val clip = clipboardManager().primaryClip ?: return@withContext null
+        (0 until clip.itemCount).firstNotNullOfOrNull { index -> clip.getItemAt(index).uri }
+            ?.let { uri -> ClipboardImage.FromFile(uri.toString()) }
+    }
+
+    private fun clipboardManager(): ClipboardManager {
+        val context = KoinPlatform.getKoin().get<Context>()
+        return context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+    }
 }
