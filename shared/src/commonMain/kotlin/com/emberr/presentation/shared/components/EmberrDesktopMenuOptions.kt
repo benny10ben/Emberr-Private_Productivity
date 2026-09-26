@@ -29,6 +29,7 @@ private val DESKTOP_OPTION_VERTICAL_SPACING = 2.dp
 private val DESKTOP_OPTION_OUTER_HORIZONTAL_PADDING = 8.dp
 private val DESKTOP_OPTION_INNER_HORIZONTAL_PADDING = 12.dp
 private val DESKTOP_OPTION_INNER_VERTICAL_PADDING = 10.dp
+private val DESKTOP_ICON_GAP = 12.dp
 private val DESKTOP_TRAILING_GAP = 12.dp
 private val DESKTOP_SELECTED_DOT_SIZE = 8.dp
 
@@ -39,6 +40,7 @@ fun EmberrDesktopMenuOption(
     modifier: Modifier = Modifier,
     isSelected: Boolean = false,
     subtitle: String? = null,
+    icon: (@Composable () -> Unit)? = null,
     trailing: (@Composable () -> Unit)? = null,
     labelMaxLines: Int = 1,
     subtitleMaxLines: Int = 1,
@@ -60,6 +62,11 @@ fun EmberrDesktopMenuOption(
             ),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        if (icon != null) {
+            icon()
+            Spacer(modifier = Modifier.width(DESKTOP_ICON_GAP))
+        }
+
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = label,
