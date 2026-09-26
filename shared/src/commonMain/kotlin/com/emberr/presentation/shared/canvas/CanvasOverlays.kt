@@ -730,8 +730,8 @@ enum class CanvasTextFont(val storageName: String?, val label: String, val hasMe
     FUZZY_BUBBLES("fuzzybubbles", "Fuzzy Bubbles", hasMediumWeight = false),
     YUYU_SHORT("yuyushort", "Yuyu Short", hasMediumWeight = false),
     DEFAULT(null, "Default", hasMediumWeight = true),
-    SERIF("serif", "Serif", hasMediumWeight = true),
-    MONOSPACE("monospace", "Monospace", hasMediumWeight = true);
+    SERIF("serif", "Serif", hasMediumWeight = false),
+    MONOSPACE("monospace", "Monospace", hasMediumWeight = false);
 
     companion object {
         fun named(storageName: String?): CanvasTextFont = entries.firstOrNull { it.storageName == storageName } ?: DEFAULT
