@@ -5,6 +5,7 @@ import androidx.room.Query
 import androidx.room.Upsert
 import com.emberr.data.local.room.entity.CanvasEdgeEntity
 import com.emberr.data.local.room.entity.CanvasNodeEntity
+import com.emberr.data.local.room.entity.CanvasStrokeEntity
 
 @Dao
 interface CanvasDao {
@@ -14,11 +15,17 @@ interface CanvasDao {
     @Query("SELECT * FROM canvas_edges WHERE noteId = :noteId ORDER BY createdAt ASC")
     suspend fun getAllEdgesForNoteIncludingDeleted(noteId: String): List<CanvasEdgeEntity>
 
+    @Query("SELECT * FROM canvas_strokes WHERE noteId = :noteId ORDER BY createdAt ASC")
+    suspend fun getAllStrokesForNoteIncludingDeleted(noteId: String): List<CanvasStrokeEntity>
+
     @Query("SELECT * FROM canvas_nodes")
     suspend fun getAllNodesForBackup(): List<CanvasNodeEntity>
 
     @Query("SELECT * FROM canvas_edges")
     suspend fun getAllEdgesForBackup(): List<CanvasEdgeEntity>
+
+    @Query("SELECT * FROM canvas_strokes")
+    suspend fun getAllStrokesForBackup(): List<CanvasStrokeEntity>
 
     @Upsert
     suspend fun upsertNodes(nodes: List<CanvasNodeEntity>)
@@ -26,9 +33,15 @@ interface CanvasDao {
     @Upsert
     suspend fun upsertEdges(edges: List<CanvasEdgeEntity>)
 
+    @Upsert
+    suspend fun upsertStrokes(strokes: List<CanvasStrokeEntity>)
+
     @Query("DELETE FROM canvas_nodes WHERE noteId = :noteId")
     suspend fun deleteAllNodesForNote(noteId: String)
 
     @Query("DELETE FROM canvas_edges WHERE noteId = :noteId")
     suspend fun deleteAllEdgesForNote(noteId: String)
+
+    @Query("DELETE FROM canvas_strokes WHERE noteId = :noteId")
+    suspend fun deleteAllStrokesForNote(noteId: String)
 }

@@ -3,6 +3,8 @@ package com.emberr.domain.selfhost.translation
 import com.emberr.data.local.room.entity.CanvasEdgeEntity
 import com.emberr.data.local.room.entity.CanvasNodeEntity
 import com.emberr.data.local.room.entity.CanvasSide
+import com.emberr.data.local.room.entity.CanvasStrokeEntity
+import com.emberr.data.local.room.entity.CanvasStrokeTool
 import com.emberr.data.local.room.entity.DEFAULT_SPACE_ID
 import com.emberr.data.local.room.entity.NoteBlockEntity
 import com.emberr.data.local.room.entity.NoteKind
@@ -85,7 +87,7 @@ class NotePayloadRoundTripTest {
     }
 
     @Test
-    fun aCanvasKeepsItsKindBoxesArrowsAndDeletedItemsOnTheTripToAnotherDevice() {
+    fun aCanvasKeepsItsKindBoxesArrowsStrokesAndDeletedItemsOnTheTripToAnotherDevice() {
         val canvasMetadata = metadata.copy(kind = NoteKind.CANVAS)
         val liveNode = CanvasNodeEntity(
             nodeId = "node-1", noteId = metadata.noteId, x = 10f, y = 20f, width = 250f, height = 60f,
@@ -96,7 +98,16 @@ class NotePayloadRoundTripTest {
             edgeId = "edge-1", noteId = metadata.noteId, fromNodeId = "node-1", fromSide = CanvasSide.RIGHT,
             toNodeId = "node-2", toSide = CanvasSide.LEFT, createdAt = 100L, updatedAt = 250L
         )
-        val canvas = CanvasContent(nodes = listOf(liveNode, deletedNode), edges = listOf(edge))
+        val stroke = CanvasStrokeEntity(
+            strokeId = "stroke-1", noteId = metadata.noteId, tool = CanvasStrokeTool.HIGHLIGHTER, x = 5f, y = 6f,
+            points = "0,0 30,40,75", width = 24f, createdAt = 100L, updatedAt = 260L, color = "yellow"
+        )
+        val erasedStroke = stroke.copy(strokeId = "stroke-2", updatedAt = 270L, isDeleted = true)
+        val canvas = CanvasContent(
+            nodes = listOf(liveNode, deletedNode),
+            edges = listOf(edge),
+            strokes = listOf(stroke, erasedStroke)
+        )
 
         val operations = NoteJsonParser.parseJsonToDatabaseOperations(
             NoteJsonCompiler.compileNoteToJson(canvasMetadata, emptyList(), canvas = canvas)

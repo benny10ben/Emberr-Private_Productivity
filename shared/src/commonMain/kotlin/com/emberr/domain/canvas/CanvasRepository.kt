@@ -23,7 +23,8 @@ class CanvasRepository(
     suspend fun loadCanvasIncludingDeleted(noteId: String): CanvasContent = withContext(Dispatchers.IO) {
         CanvasContent(
             nodes = canvasDao.getAllNodesForNoteIncludingDeleted(noteId),
-            edges = canvasDao.getAllEdgesForNoteIncludingDeleted(noteId)
+            edges = canvasDao.getAllEdgesForNoteIncludingDeleted(noteId),
+            strokes = canvasDao.getAllStrokesForNoteIncludingDeleted(noteId)
         )
     }
 
@@ -35,6 +36,7 @@ class CanvasRepository(
                 val ownedChanges = changes.withNoteId(noteId)
                 canvasDao.upsertNodes(ownedChanges.nodes)
                 canvasDao.upsertEdges(ownedChanges.edges)
+                canvasDao.upsertStrokes(ownedChanges.strokes)
                 noteDao.updateNoteUpdatedAt(noteId, System.currentTimeMillis())
             }
             _locallySavedNoteIds.tryEmit(noteId)
@@ -54,6 +56,7 @@ class CanvasRepository(
             if (newerRemoteItems.isEmpty()) return@withContext false
             canvasDao.upsertNodes(newerRemoteItems.nodes)
             canvasDao.upsertEdges(newerRemoteItems.edges)
+            canvasDao.upsertStrokes(newerRemoteItems.strokes)
             val localNoteUpdatedAt = noteDao.getNoteById(noteId)?.updatedAt
             if (remoteNoteUpdatedAt != null && localNoteUpdatedAt != null && remoteNoteUpdatedAt > localNoteUpdatedAt) {
                 noteDao.updateNoteUpdatedAt(noteId, remoteNoteUpdatedAt)

@@ -8,7 +8,8 @@ import kotlinx.serialization.Serializable
 @Serializable
 enum class CanvasNodeType {
     TEXT,
-    GROUP
+    GROUP,
+    FREE_TEXT
 }
 
 @Serializable
@@ -57,5 +58,10 @@ data class CanvasNodeEntity(
     val isDeleted: Boolean = false,
     val color: String? = null,
     @ColumnInfo(defaultValue = "TEXT") val type: CanvasNodeType = CanvasNodeType.TEXT,
-    @ColumnInfo(defaultValue = "RECTANGLE") val shape: CanvasNodeShape = CanvasNodeShape.RECTANGLE
+    @ColumnInfo(defaultValue = "RECTANGLE") val shape: CanvasNodeShape = CanvasNodeShape.RECTANGLE,
+    val fontFamily: String? = null,
+    val fontWeight: Int? = null,
+    val textColor: String? = null,
+    val fontSize: Float? = null,
+    val textAlign: String? = null
 )

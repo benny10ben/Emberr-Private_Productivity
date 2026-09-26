@@ -5,6 +5,7 @@ import com.emberr.data.local.room.entity.CalendarEventExceptionEntity
 import com.emberr.data.local.room.entity.CalendarTaskEntity
 import com.emberr.data.local.room.entity.CanvasEdgeEntity
 import com.emberr.data.local.room.entity.CanvasNodeEntity
+import com.emberr.data.local.room.entity.CanvasStrokeEntity
 import com.emberr.data.local.room.entity.CategoryEntity
 import com.emberr.data.local.room.entity.ChatSessionEntity
 import com.emberr.data.local.room.entity.DatabaseTemplateEntity
@@ -37,5 +38,6 @@ data class EmberrBackupData(
     val calendarEventExceptions: List<CalendarEventExceptionEntity> = emptyList(),
     val noteTombstones: List<SelfHostDeletedNoteEntity> = emptyList(),
     val canvasNodes: List<CanvasNodeEntity> = emptyList(),
-    val canvasEdges: List<CanvasEdgeEntity> = emptyList()
+    val canvasEdges: List<CanvasEdgeEntity> = emptyList(),
+    val canvasStrokes: List<CanvasStrokeEntity> = emptyList()
 )

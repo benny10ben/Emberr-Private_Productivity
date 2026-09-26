@@ -5,6 +5,8 @@ import com.emberr.data.local.room.entity.CanvasNodeEntity
 import com.emberr.data.local.room.entity.CanvasNodeShape
 import com.emberr.data.local.room.entity.CanvasNodeType
 import com.emberr.data.local.room.entity.CanvasSide
+import com.emberr.data.local.room.entity.CanvasStrokeEntity
+import com.emberr.data.local.room.entity.CanvasStrokeTool
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -157,5 +159,50 @@ class CanvasMergeTest {
 
         assertTrue(moved.nodes.all { it.noteId == "canvas-2" })
         assertTrue(moved.edges.all { it.noteId == "canvas-2" })
+    }
+
+    private fun stroke(strokeId: String, updatedAt: Long, x: Float = 0f, isDeleted: Boolean = false) = CanvasStrokeEntity(
+        strokeId = strokeId,
+        noteId = "canvas-1",
+        tool = CanvasStrokeTool.PEN,
+        x = x,
+        y = 0f,
+        points = "0,0 100,100",
+        width = 4f,
+        createdAt = 1L,
+        updatedAt = updatedAt,
+        isDeleted = isDeleted
+    )
+
+    @Test
+    fun aStrokeDrawnOnAnotherDeviceIsAdded() {
+        val winners = CanvasMerge.remoteItemsNewerThanLocal(CanvasContent(), CanvasContent(strokes = listOf(stroke("s", updatedAt = 100L))))
+
+        assertEquals(listOf("s"), winners.strokes.map { it.strokeId })
+    }
+
+    @Test
+    fun theNewerVersionOfAStrokeWinsWhicheverSideItIsOn() {
+        val local = CanvasContent(strokes = listOf(stroke("moved-here", updatedAt = 300L, x = 50f), stroke("moved-there", updatedAt = 100L)))
+        val remote = CanvasContent(strokes = listOf(stroke("moved-here", updatedAt = 200L), stroke("moved-there", updatedAt = 400L, x = 80f)))
+
+        val winners = CanvasMerge.remoteItemsNewerThanLocal(local, remote)
+
+        assertEquals(listOf(stroke("moved-there", updatedAt = 400L, x = 80f)), winners.strokes)
+    }
+
+    @Test
+    fun aStrokeErasedOnAnotherDeviceStaysErasedAndAnUndoneEraseComesBack() {
+        val erasedRemotely = CanvasMerge.remoteItemsNewerThanLocal(
+            CanvasContent(strokes = listOf(stroke("s", updatedAt = 100L))),
+            CanvasContent(strokes = listOf(stroke("s", updatedAt = 200L, isDeleted = true)))
+        )
+        val restoredRemotely = CanvasMerge.remoteItemsNewerThanLocal(
+            CanvasContent(strokes = listOf(stroke("s", updatedAt = 200L, isDeleted = true))),
+            CanvasContent(strokes = listOf(stroke("s", updatedAt = 300L)))
+        )
+
+        assertTrue(erasedRemotely.strokes.single().isDeleted)
+        assertTrue(!restoredRemotely.strokes.single().isDeleted)
     }
 }

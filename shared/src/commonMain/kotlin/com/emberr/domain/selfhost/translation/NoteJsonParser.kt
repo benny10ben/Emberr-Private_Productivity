@@ -69,7 +69,11 @@ object NoteJsonParser {
             blockUpserts = blockUpserts,
             blockDeletions = dedupedTombstones,
             embeddedBlocks = payload.embeddedBlocks,
-            canvas = CanvasContent(nodes = payload.canvasNodes, edges = payload.canvasEdges).withNoteId(payload.noteId)
+            canvas = CanvasContent(
+                nodes = payload.canvasNodes,
+                edges = payload.canvasEdges,
+                strokes = payload.canvasStrokes
+            ).withNoteId(payload.noteId)
         )
     }
 

@@ -684,6 +684,7 @@ class NoteRepositoryImpl(
             blockDao.deleteAllBlocksForNote(noteId)
             canvasDao.deleteAllNodesForNote(noteId)
             canvasDao.deleteAllEdgesForNote(noteId)
+            canvasDao.deleteAllStrokesForNote(noteId)
             mediaReferenceDao.deleteByNoteId(noteId)
             noteIndexer.deleteNoteFromIndex(noteId)
             VaultMirrorTrigger.requestNoteRefresh(noteId)
@@ -1484,7 +1485,8 @@ class NoteRepositoryImpl(
         val now = System.currentTimeMillis()
         val copiedCanvas = CanvasContent(
             nodes = canvasDao.getAllNodesForNoteIncludingDeleted(sourceCanvasNoteId),
-            edges = canvasDao.getAllEdgesForNoteIncludingDeleted(sourceCanvasNoteId)
+            edges = canvasDao.getAllEdgesForNoteIncludingDeleted(sourceCanvasNoteId),
+            strokes = canvasDao.getAllStrokesForNoteIncludingDeleted(sourceCanvasNoteId)
         ).copiedForNote(copyNoteId, now) { UUID.randomUUID().toString() }
         val copyMetadata = NoteMetadataEntity(
             noteId = copyNoteId,
@@ -1502,6 +1504,7 @@ class NoteRepositoryImpl(
             saveNote(copyMetadata, NoteContent(blocks = emptyList()))
             canvasDao.upsertNodes(copiedCanvas.nodes)
             canvasDao.upsertEdges(copiedCanvas.edges)
+            canvasDao.upsertStrokes(copiedCanvas.strokes)
         }
         return copyNoteId
     }

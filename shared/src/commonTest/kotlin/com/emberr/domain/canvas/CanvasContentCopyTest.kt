@@ -3,6 +3,8 @@ package com.emberr.domain.canvas
 import com.emberr.data.local.room.entity.CanvasEdgeEntity
 import com.emberr.data.local.room.entity.CanvasNodeEntity
 import com.emberr.data.local.room.entity.CanvasSide
+import com.emberr.data.local.room.entity.CanvasStrokeEntity
+import com.emberr.data.local.room.entity.CanvasStrokeTool
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -83,5 +85,25 @@ class CanvasContentCopyTest {
 
         assertEquals(listOf("Agenda"), copy.nodes.map { it.text })
         assertTrue(copy.edges.isEmpty())
+    }
+
+    @Test
+    fun liveStrokesAreCopiedWithFreshIdsAndErasedOnesAreLeftBehind() {
+        val drawing = CanvasStrokeEntity(
+            strokeId = "drawing",
+            noteId = "template-canvas",
+            tool = CanvasStrokeTool.PEN,
+            x = 10f,
+            y = 20f,
+            points = "0,0 50,50",
+            width = 4f,
+            createdAt = 5L,
+            updatedAt = 6L
+        )
+        val original = CanvasContent(strokes = listOf(drawing, drawing.copy(strokeId = "erased", isDeleted = true)))
+
+        val copy = copyOf(original)
+
+        assertEquals(listOf(drawing.copy(strokeId = "copy-0", noteId = "new-canvas", updatedAt = 900L)), copy.strokes)
     }
 }

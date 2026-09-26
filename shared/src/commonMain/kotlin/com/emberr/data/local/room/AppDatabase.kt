@@ -26,6 +26,7 @@ import com.emberr.data.local.room.entity.CalendarEventExceptionEntity
 import com.emberr.data.local.room.entity.CalendarTaskEntity
 import com.emberr.data.local.room.entity.CanvasEdgeEntity
 import com.emberr.data.local.room.entity.CanvasNodeEntity
+import com.emberr.data.local.room.entity.CanvasStrokeEntity
 import com.emberr.data.local.room.entity.CategoryEntity
 import com.emberr.data.local.room.entity.ChatSessionEntity
 import com.emberr.data.local.room.entity.DatabaseTemplateEntity
@@ -59,7 +60,8 @@ import com.emberr.data.local.room.entity.TagEntity
         CalendarEventExceptionEntity::class,
         MediaReferenceEntity::class,
         CanvasNodeEntity::class,
-        CanvasEdgeEntity::class
+        CanvasEdgeEntity::class,
+        CanvasStrokeEntity::class
     ],
     version = 1,
     exportSchema = true

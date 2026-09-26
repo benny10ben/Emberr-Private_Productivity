@@ -54,7 +54,8 @@ object NoteJsonCompiler {
             embeddedBlocks = embeddedBlocks,
             kind = metadata.kind,
             canvasNodes = canvas.nodes.filter { it.noteId == metadata.noteId },
-            canvasEdges = canvas.edges.filter { it.noteId == metadata.noteId }
+            canvasEdges = canvas.edges.filter { it.noteId == metadata.noteId },
+            canvasStrokes = canvas.strokes.filter { it.noteId == metadata.noteId }
         )
 
         return try {

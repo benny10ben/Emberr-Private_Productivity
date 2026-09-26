@@ -2,6 +2,7 @@ package com.emberr.domain.selfhost.translation
 
 import com.emberr.data.local.room.entity.CanvasEdgeEntity
 import com.emberr.data.local.room.entity.CanvasNodeEntity
+import com.emberr.data.local.room.entity.CanvasStrokeEntity
 import com.emberr.data.local.room.entity.DEFAULT_SPACE_ID
 import com.emberr.data.local.room.entity.NoteKind
 import kotlinx.serialization.Serializable
@@ -35,7 +36,8 @@ data class NotePayload(
     val embeddedBlocks: List<EmbeddedBlockPayload> = emptyList(),
     val kind: NoteKind = NoteKind.NOTE,
     val canvasNodes: List<CanvasNodeEntity> = emptyList(),
-    val canvasEdges: List<CanvasEdgeEntity> = emptyList()
+    val canvasEdges: List<CanvasEdgeEntity> = emptyList(),
+    val canvasStrokes: List<CanvasStrokeEntity> = emptyList()
 )
 
 @Serializable

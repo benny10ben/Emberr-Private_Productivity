@@ -85,7 +85,8 @@ class BackupRepositoryImpl(
             calendarEventExceptions = allEventExceptions,
             noteTombstones = allNoteTombstones,
             canvasNodes = canvasDao.getAllNodesForBackup(),
-            canvasEdges = canvasDao.getAllEdgesForBackup()
+            canvasEdges = canvasDao.getAllEdgesForBackup(),
+            canvasStrokes = canvasDao.getAllStrokesForBackup()
         )
     }
 
@@ -189,27 +190,33 @@ class BackupRepositoryImpl(
         restoreDatabaseTemplates(backupData.databaseTemplates)
         restoreEventExceptions(backupData.calendarEventExceptions)
         restoreNoteTombstones(backupData.noteTombstones)
-        restoreCanvases(CanvasContent(nodes = backupData.canvasNodes, edges = backupData.canvasEdges))
+        restoreCanvases(
+            CanvasContent(nodes = backupData.canvasNodes, edges = backupData.canvasEdges, strokes = backupData.canvasStrokes)
+        )
 
         settingsManager.saveMediaReferenceListBuilt(false)
         mediaReferenceDao.deleteAllReferences()
     }
 
     private suspend fun restoreCanvases(backupCanvas: CanvasContent) {
-        val noteIds = backupCanvas.nodes.map { it.noteId } + backupCanvas.edges.map { it.noteId }
+        val noteIds = backupCanvas.nodes.map { it.noteId } + backupCanvas.edges.map { it.noteId } +
+            backupCanvas.strokes.map { it.noteId }
         for (noteId in noteIds.distinct()) {
             if (noteDao.getNoteById(noteId) == null) continue
             val localCanvas = CanvasContent(
                 nodes = canvasDao.getAllNodesForNoteIncludingDeleted(noteId),
-                edges = canvasDao.getAllEdgesForNoteIncludingDeleted(noteId)
+                edges = canvasDao.getAllEdgesForNoteIncludingDeleted(noteId),
+                strokes = canvasDao.getAllStrokesForNoteIncludingDeleted(noteId)
             )
             val backupCanvasForNote = CanvasContent(
                 nodes = backupCanvas.nodes.filter { it.noteId == noteId },
-                edges = backupCanvas.edges.filter { it.noteId == noteId }
+                edges = backupCanvas.edges.filter { it.noteId == noteId },
+                strokes = backupCanvas.strokes.filter { it.noteId == noteId }
             )
             val newerBackupItems = CanvasMerge.remoteItemsNewerThanLocal(localCanvas, backupCanvasForNote)
             canvasDao.upsertNodes(newerBackupItems.nodes)
             canvasDao.upsertEdges(newerBackupItems.edges)
+            canvasDao.upsertStrokes(newerBackupItems.strokes)
         }
     }
 

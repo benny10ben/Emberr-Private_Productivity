@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "ac8eade335dfaa26ed0143ac5945ac12",
+    "identityHash": "0ce7ec99b5321141aa7b29e012514dc8",
     "entities": [
       {
         "tableName": "spaces",
@@ -1115,7 +1115,7 @@
       },
       {
         "tableName": "canvas_nodes",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`nodeId` TEXT NOT NULL, `noteId` TEXT NOT NULL, `x` REAL NOT NULL, `y` REAL NOT NULL, `width` REAL NOT NULL, `height` REAL NOT NULL, `text` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `isDeleted` INTEGER NOT NULL, `color` TEXT, `type` TEXT NOT NULL DEFAULT 'TEXT', `shape` TEXT NOT NULL DEFAULT 'RECTANGLE', PRIMARY KEY(`noteId`, `nodeId`), FOREIGN KEY(`noteId`) REFERENCES `notes_metadata`(`noteId`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`nodeId` TEXT NOT NULL, `noteId` TEXT NOT NULL, `x` REAL NOT NULL, `y` REAL NOT NULL, `width` REAL NOT NULL, `height` REAL NOT NULL, `text` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `isDeleted` INTEGER NOT NULL, `color` TEXT, `type` TEXT NOT NULL DEFAULT 'TEXT', `shape` TEXT NOT NULL DEFAULT 'RECTANGLE', `fontFamily` TEXT, `fontWeight` INTEGER, `textColor` TEXT, `fontSize` REAL, `textAlign` TEXT, PRIMARY KEY(`noteId`, `nodeId`), FOREIGN KEY(`noteId`) REFERENCES `notes_metadata`(`noteId`) ON UPDATE NO ACTION ON DELETE CASCADE )",
         "fields": [
           {
             "fieldPath": "nodeId",
@@ -1195,6 +1195,31 @@
             "affinity": "TEXT",
             "notNull": true,
             "defaultValue": "'RECTANGLE'"
+          },
+          {
+            "fieldPath": "fontFamily",
+            "columnName": "fontFamily",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "fontWeight",
+            "columnName": "fontWeight",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "textColor",
+            "columnName": "textColor",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "fontSize",
+            "columnName": "fontSize",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "textAlign",
+            "columnName": "textAlign",
+            "affinity": "TEXT"
           }
         ],
         "primaryKey": {
@@ -1297,11 +1322,128 @@
             ]
           }
         ]
+      },
+      {
+        "tableName": "canvas_strokes",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`strokeId` TEXT NOT NULL, `noteId` TEXT NOT NULL, `tool` TEXT NOT NULL, `x` REAL NOT NULL, `y` REAL NOT NULL, `points` TEXT NOT NULL, `width` REAL NOT NULL, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `isDeleted` INTEGER NOT NULL, `color` TEXT, `opacity` REAL NOT NULL DEFAULT 1, `usesPressure` INTEGER NOT NULL DEFAULT 1, `linePattern` TEXT, `hasArrowHead` INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(`noteId`, `strokeId`), FOREIGN KEY(`noteId`) REFERENCES `notes_metadata`(`noteId`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "strokeId",
+            "columnName": "strokeId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "noteId",
+            "columnName": "noteId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "tool",
+            "columnName": "tool",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "x",
+            "columnName": "x",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "y",
+            "columnName": "y",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "points",
+            "columnName": "points",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "width",
+            "columnName": "width",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "createdAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updatedAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isDeleted",
+            "columnName": "isDeleted",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "color",
+            "columnName": "color",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "opacity",
+            "columnName": "opacity",
+            "affinity": "REAL",
+            "notNull": true,
+            "defaultValue": "1"
+          },
+          {
+            "fieldPath": "usesPressure",
+            "columnName": "usesPressure",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "1"
+          },
+          {
+            "fieldPath": "linePattern",
+            "columnName": "linePattern",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "hasArrowHead",
+            "columnName": "hasArrowHead",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "noteId",
+            "strokeId"
+          ]
+        },
+        "foreignKeys": [
+          {
+            "table": "notes_metadata",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "noteId"
+            ],
+            "referencedColumns": [
+              "noteId"
+            ]
+          }
+        ]
       }
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'ac8eade335dfaa26ed0143ac5945ac12')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '0ce7ec99b5321141aa7b29e012514dc8')"
     ]
   }
 }
