@@ -9,7 +9,8 @@ import kotlinx.serialization.Serializable
 enum class CanvasNodeType {
     TEXT,
     GROUP,
-    FREE_TEXT
+    FREE_TEXT,
+    IMAGE
 }
 
 @Serializable
@@ -63,5 +64,6 @@ data class CanvasNodeEntity(
     val fontWeight: Int? = null,
     val textColor: String? = null,
     val fontSize: Float? = null,
-    val textAlign: String? = null
+    val textAlign: String? = null,
+    val imagePath: String? = null
 )

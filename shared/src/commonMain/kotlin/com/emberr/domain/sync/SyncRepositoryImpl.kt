@@ -17,6 +17,7 @@ import com.emberr.data.local.room.entity.TagEntity
 import com.emberr.domain.ai.external.AiSettingsRepository
 import com.emberr.domain.canvas.CanvasContent
 import com.emberr.domain.canvas.CanvasRepository
+import com.emberr.domain.canvas.liveImageFileNames
 import com.emberr.domain.ai.external.ExternalAiProvider
 import com.emberr.domain.ai.external.ExternalAiProviderConfig
 import com.emberr.domain.model.CellData
@@ -138,8 +139,8 @@ class SyncRepositoryImpl(
         return mediaFiles.distinct()
     }
 
-    private fun downloadMissingMedia(content: NoteContent) {
-        extractMediaFileNames(content).forEach { fileName ->
+    private fun downloadMissingMedia(fileNames: Collection<String>) {
+        fileNames.forEach { fileName ->
             val file = File(mediaStorageHelper.getAbsoluteMediaPath(fileName))
             if (!file.exists()) {
                 launchMediaTransfer(fileName, MediaTransferPhase.DOWNLOADING) {
@@ -153,8 +154,8 @@ class SyncRepositoryImpl(
         }
     }
 
-    private fun uploadLocalMedia(content: NoteContent, remoteFileNames: Set<String>) {
-        extractMediaFileNames(content).forEach { fileName ->
+    private fun uploadLocalMedia(fileNames: Collection<String>, remoteFileNames: Set<String>) {
+        fileNames.forEach { fileName ->
             if (fileName in remoteFileNames) return@forEach
             val file = File(mediaStorageHelper.getAbsoluteMediaPath(fileName))
             if (file.exists()) {
@@ -279,15 +280,16 @@ class SyncRepositoryImpl(
         }
     }
 
-    private suspend fun applyRemoteCanvasIfPresent(envelope: SyncEnvelope, syncKey: String) {
-        if (envelope.canvasJson.isEmpty()) return
-        val localMeta = repository.getNoteById(envelope.entityId) ?: return
+    private suspend fun applyRemoteCanvasIfPresent(envelope: SyncEnvelope, syncKey: String): Set<String> {
+        if (envelope.canvasJson.isEmpty()) return emptySet()
+        val localMeta = repository.getNoteById(envelope.entityId) ?: return emptySet()
         val remoteCanvas = json.decodeFromString<CanvasContent>(
             encryptionManager.decryptPayload(envelope.canvasJson, syncKey)
         )
         if (canvasRepository.applyRemoteCanvasWhileSyncLockHeld(localMeta.noteId, remoteCanvas, envelope.updatedAt)) {
             SyncEventBus.emitSyncCompleted(localMeta.noteId, localMeta.spaceId)
         }
+        return remoteCanvas.liveImageFileNames()
     }
 
     override suspend fun applyRemoteChanges(changes: List<SyncEnvelope>): Boolean =
@@ -299,6 +301,7 @@ class SyncRepositoryImpl(
                 // Media downloads are queued after releasing the lock so large file downloads do not block editor saves.
                 var pendingMediaContent: NoteContent? = null
                 var pendingCoverImagePath: String? = null
+                var pendingCanvasImageFileNames: Set<String> = emptySet()
 
                 val applied = withSyncCoordinatorOrSkip {
                     try {
@@ -424,7 +427,7 @@ class SyncRepositoryImpl(
                                         SyncEventBus.emitSyncCompleted(envelope.entityId, savedMeta.spaceId)
                                     }
                                 }
-                                applyRemoteCanvasIfPresent(envelope, syncKey)
+                                pendingCanvasImageFileNames = applyRemoteCanvasIfPresent(envelope, syncKey)
                             }
 
                             // Daily notes
@@ -639,7 +642,8 @@ class SyncRepositoryImpl(
 
                 // Triggers background downloads for media referenced by newly applied notes.
                 try {
-                    pendingMediaContent?.let { downloadMissingMedia(it) }
+                    pendingMediaContent?.let { downloadMissingMedia(extractMediaFileNames(it)) }
+                    downloadMissingMedia(pendingCanvasImageFileNames)
                     pendingCoverImagePath?.let { path ->
                         val file = File(mediaStorageHelper.getAbsoluteMediaPath(path))
                         if (!file.exists()) {
@@ -707,8 +711,10 @@ class SyncRepositoryImpl(
                     repository.getNoteContent(meta.noteId)
                 } ?: NoteContent(blocks = emptyList())
 
+                val canvas = if (meta.kind == NoteKind.CANVAS) canvasRepository.loadCanvasIncludingDeleted(meta.noteId) else null
+
                 if (uploadMedia) {
-                    uploadLocalMedia(content, remoteFileNames)
+                    uploadLocalMedia(extractMediaFileNames(content) + canvas?.liveImageFileNames().orEmpty(), remoteFileNames)
 
                     val coverPath = meta.coverImagePath
                     if (!meta.isDaily && coverPath != null && coverPath !in remoteFileNames) {
@@ -744,11 +750,8 @@ class SyncRepositoryImpl(
                     )
                 }
 
-                val encryptedCanvas = if (meta.kind == NoteKind.CANVAS) {
-                    encryptionManager.encryptPayload(
-                        json.encodeToString(canvasRepository.loadCanvasIncludingDeleted(meta.noteId)),
-                        syncKey
-                    )
+                val encryptedCanvas = if (canvas != null) {
+                    encryptionManager.encryptPayload(json.encodeToString(canvas), syncKey)
                 } else {
                     ""
                 }

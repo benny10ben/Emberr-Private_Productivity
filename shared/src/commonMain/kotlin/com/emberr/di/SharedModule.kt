@@ -141,6 +141,7 @@ val sharedModule = module {
         com.emberr.domain.media.MediaReferenceIndex(
             noteRepository = get(),
             noteDao = get(),
+            canvasDao = get(),
             mediaReferenceDao = get(),
             settingsManager = get()
         )

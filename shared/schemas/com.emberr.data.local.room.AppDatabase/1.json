@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "0ce7ec99b5321141aa7b29e012514dc8",
+    "identityHash": "a7cd63fd3e59cdb9150dc5513f963dc9",
     "entities": [
       {
         "tableName": "spaces",
@@ -1115,7 +1115,7 @@
       },
       {
         "tableName": "canvas_nodes",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`nodeId` TEXT NOT NULL, `noteId` TEXT NOT NULL, `x` REAL NOT NULL, `y` REAL NOT NULL, `width` REAL NOT NULL, `height` REAL NOT NULL, `text` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `isDeleted` INTEGER NOT NULL, `color` TEXT, `type` TEXT NOT NULL DEFAULT 'TEXT', `shape` TEXT NOT NULL DEFAULT 'RECTANGLE', `fontFamily` TEXT, `fontWeight` INTEGER, `textColor` TEXT, `fontSize` REAL, `textAlign` TEXT, PRIMARY KEY(`noteId`, `nodeId`), FOREIGN KEY(`noteId`) REFERENCES `notes_metadata`(`noteId`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`nodeId` TEXT NOT NULL, `noteId` TEXT NOT NULL, `x` REAL NOT NULL, `y` REAL NOT NULL, `width` REAL NOT NULL, `height` REAL NOT NULL, `text` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `isDeleted` INTEGER NOT NULL, `color` TEXT, `type` TEXT NOT NULL DEFAULT 'TEXT', `shape` TEXT NOT NULL DEFAULT 'RECTANGLE', `fontFamily` TEXT, `fontWeight` INTEGER, `textColor` TEXT, `fontSize` REAL, `textAlign` TEXT, `imagePath` TEXT, PRIMARY KEY(`noteId`, `nodeId`), FOREIGN KEY(`noteId`) REFERENCES `notes_metadata`(`noteId`) ON UPDATE NO ACTION ON DELETE CASCADE )",
         "fields": [
           {
             "fieldPath": "nodeId",
@@ -1219,6 +1219,11 @@
           {
             "fieldPath": "textAlign",
             "columnName": "textAlign",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "imagePath",
+            "columnName": "imagePath",
             "affinity": "TEXT"
           }
         ],
@@ -1443,7 +1448,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '0ce7ec99b5321141aa7b29e012514dc8')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'a7cd63fd3e59cdb9150dc5513f963dc9')"
     ]
   }
 }

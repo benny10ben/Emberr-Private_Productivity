@@ -3,6 +3,7 @@ package com.emberr.domain.vault
 import com.emberr.data.local.room.entity.CanvasSide
 import com.emberr.domain.canvas.CanvasContent
 import com.emberr.domain.canvas.isGroup
+import com.emberr.domain.canvas.isImage
 import com.emberr.ui.theme.HighlightColor
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -42,8 +43,10 @@ object JsonCanvasWriter {
 
     fun write(canvas: CanvasContent): String {
         val liveCanvas = canvas.liveOnly()
+        val exportedNodes = liveCanvas.nodes.filterNot { it.isImage }
+        val exportedNodeIds = exportedNodes.mapTo(HashSet()) { it.nodeId }
         val file = JsonCanvasFile(
-            nodes = liveCanvas.nodes.sortedByDescending { it.isGroup }.map { node ->
+            nodes = exportedNodes.sortedByDescending { it.isGroup }.map { node ->
                 JsonCanvasTextNode(
                     id = node.nodeId,
                     type = if (node.isGroup) "group" else "text",
@@ -56,7 +59,7 @@ object JsonCanvasWriter {
                     color = HighlightColor.entries.firstOrNull { it.storageName == node.color }?.cellBackgroundHex
                 )
             },
-            edges = liveCanvas.edges.map { edge ->
+            edges = liveCanvas.edges.filter { it.fromNodeId in exportedNodeIds && it.toNodeId in exportedNodeIds }.map { edge ->
                 JsonCanvasEdge(
                     id = edge.edgeId,
                     fromNode = edge.fromNodeId,

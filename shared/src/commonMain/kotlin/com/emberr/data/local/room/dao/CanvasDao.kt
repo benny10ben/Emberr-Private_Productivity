@@ -41,6 +41,9 @@ interface CanvasDao {
     )
     suspend fun findFirstNodeTextMatching(noteId: String, query: String): String?
 
+    @Query("SELECT DISTINCT imagePath FROM canvas_nodes WHERE imagePath IS NOT NULL AND isDeleted = 0")
+    suspend fun getAllLiveImagePaths(): List<String>
+
     @Upsert
     suspend fun upsertNodes(nodes: List<CanvasNodeEntity>)
 

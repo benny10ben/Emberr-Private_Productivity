@@ -97,4 +97,26 @@ class JsonCanvasWriterTest {
         assertEquals(1, written.getValue("nodes").jsonArray.size)
         assertEquals(0, written.getValue("edges").jsonArray.size)
     }
+
+    @Test
+    fun imagesAndTheirArrowsAreLeftOutOfTheFile() {
+        val image = node("i", "").copy(
+            type = com.emberr.data.local.room.entity.CanvasNodeType.IMAGE,
+            imagePath = "media_1.jpg"
+        )
+        val canvas = CanvasContent(
+            nodes = listOf(node("a", "Kept"), image),
+            edges = listOf(
+                CanvasEdgeEntity(
+                    edgeId = "e", noteId = "canvas-1", fromNodeId = "a", fromSide = CanvasSide.RIGHT,
+                    toNodeId = "i", toSide = CanvasSide.LEFT, createdAt = 1L, updatedAt = 1L
+                )
+            )
+        )
+
+        val written = Json.parseToJsonElement(JsonCanvasWriter.write(canvas)).jsonObject
+
+        assertEquals("a", written.getValue("nodes").jsonArray.single().jsonObject.getValue("id").jsonPrimitive.content)
+        assertEquals(0, written.getValue("edges").jsonArray.size)
+    }
 }

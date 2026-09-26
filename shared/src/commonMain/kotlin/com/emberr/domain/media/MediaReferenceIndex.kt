@@ -1,6 +1,7 @@
 package com.emberr.domain.media
 
 import com.emberr.data.local.prefs.SettingsManager
+import com.emberr.data.local.room.dao.CanvasDao
 import com.emberr.data.local.room.dao.MediaReferenceDao
 import com.emberr.data.local.room.dao.NoteDao
 import com.emberr.data.local.room.entity.MediaReferenceEntity
@@ -14,6 +15,7 @@ import kotlinx.coroutines.withContext
 class MediaReferenceIndex(
     private val noteRepository: NoteRepository,
     private val noteDao: NoteDao,
+    private val canvasDao: CanvasDao,
     private val mediaReferenceDao: MediaReferenceDao,
     private val settingsManager: SettingsManager
 ) {
@@ -24,7 +26,7 @@ class MediaReferenceIndex(
         if (!settingsManager.isMediaReferenceListBuilt()) {
             rebuildFromStoredNotes()
         } else {
-            mediaReferenceDao.getAllReferencedFileNames().toSet() + loadCoverImageFileNames()
+            mediaReferenceDao.getAllReferencedFileNames().toSet() + loadCoverImageFileNames() + loadCanvasImageFileNames()
         }
     }
 
@@ -55,13 +57,19 @@ class MediaReferenceIndex(
             settingsManager.saveMediaReferenceListBuilt(true)
 
             LocalMediaGcLog.d("rebuildFromStoredNotes: recorded ${rebuiltReferences.size} block media reference(s)")
-            referencedFileNames + loadCoverImageFileNames()
+            referencedFileNames + loadCoverImageFileNames() + loadCanvasImageFileNames()
         }
     }
 
     private suspend fun loadCoverImageFileNames(): Set<String> =
         noteDao.getAllCoverImagePaths()
             .filterNotNull()
+            .map { it.substringAfterLast("/") }
+            .filter { it.isNotBlank() }
+            .toSet()
+
+    private suspend fun loadCanvasImageFileNames(): Set<String> =
+        canvasDao.getAllLiveImagePaths()
             .map { it.substringAfterLast("/") }
             .filter { it.isNotBlank() }
             .toSet()

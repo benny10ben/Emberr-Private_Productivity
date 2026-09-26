@@ -57,6 +57,15 @@ val CanvasNodeEntity.isGroup: Boolean
 val CanvasNodeEntity.isFreeText: Boolean
     get() = type == CanvasNodeType.FREE_TEXT
 
+val CanvasNodeEntity.isImage: Boolean
+    get() = type == CanvasNodeType.IMAGE
+
+fun CanvasContent.liveImageFileNames(): Set<String> =
+    nodes.filter { !it.isDeleted }
+        .mapNotNull { it.imagePath?.substringAfterLast("/") }
+        .filter { it.isNotBlank() }
+        .toSet()
+
 fun CanvasNodeEntity.isInside(group: CanvasNodeEntity): Boolean =
     x >= group.x && y >= group.y && x + width <= group.x + group.width && y + height <= group.y + group.height
 
