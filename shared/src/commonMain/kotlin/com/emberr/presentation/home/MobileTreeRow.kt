@@ -57,7 +57,7 @@ import emberr.shared.generated.resources.plus
 import emberr.shared.generated.resources.star
 import org.jetbrains.compose.resources.painterResource
 
-private val TREE_INDENT_STEP        = 26.dp
+private val TREE_INDENT_STEP        = 32.dp
 private val TREE_ROW_MIN_HEIGHT     = 42.dp
 private val TREE_ROW_SPACING        = 2.dp
 private val TREE_ICON_SIZE          = 24.dp
@@ -290,8 +290,8 @@ private fun DrawScope.drawTreeGuideLines(level: Int, guideLines: TreeGuideLines,
 
     val elbowX = (level - 1) * indentStep + guideColumnStart
     val middleY = size.height / 2f
-    val rowIconStartX = level * indentStep + TREE_ROW_INNER_PADDING.toPx() - TREE_GUIDE_END_GAP.toPx()
-    val cornerRadius = minOf(TREE_GUIDE_CORNER.toPx(), middleY, rowIconStartX - elbowX)
+    val rowBackgroundStartX = level * indentStep - TREE_GUIDE_END_GAP.toPx()
+    val cornerRadius = minOf(TREE_GUIDE_CORNER.toPx(), middleY, rowBackgroundStartX - elbowX)
 
     if (!guideLines.isLastChildOfParent) {
         drawLine(
@@ -308,7 +308,7 @@ private fun DrawScope.drawTreeGuideLines(level: Int, guideLines: TreeGuideLines,
         moveTo(elbowX, elbowStartY)
         lineTo(elbowX, middleY - cornerRadius)
         quadraticTo(elbowX, middleY, elbowX + cornerRadius, middleY)
-        lineTo(rowIconStartX, middleY)
+        lineTo(rowBackgroundStartX, middleY)
     }
     drawPath(path = elbow, color = color, style = Stroke(width = lineWidth, cap = StrokeCap.Round))
 }

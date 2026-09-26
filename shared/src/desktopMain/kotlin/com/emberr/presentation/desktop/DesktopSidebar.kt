@@ -80,7 +80,7 @@ import emberr.shared.generated.resources.star
 import emberr.shared.generated.resources.template
 import org.jetbrains.compose.resources.painterResource
 
-private val INDENT_STEP          = 24.dp
+private val INDENT_STEP          = 32.dp
 private val SIDEBAR_BASE_START   = 8.dp
 private val ROW_ICON_SLOT        = 26.dp
 private val ROW_ICON_SIZE        = 24.dp
@@ -641,8 +641,8 @@ private fun DrawScope.drawSidebarGuideLines(level: Int, guideLines: TreeGuideLin
 
     val elbowX = (level - 1) * indentStep + guideColumnStart
     val middleY = size.height / 2f
-    val rowIconStartX = level * indentStep + ROW_ICON_START.toPx() - GUIDE_END_GAP.toPx()
-    val cornerRadius = minOf(GUIDE_CORNER.toPx(), middleY, rowIconStartX - elbowX)
+    val rowBackgroundStartX = level * indentStep + SIDEBAR_BASE_START.toPx() - GUIDE_END_GAP.toPx()
+    val cornerRadius = minOf(GUIDE_CORNER.toPx(), middleY, rowBackgroundStartX - elbowX)
 
     if (!guideLines.isLastChildOfParent) {
         drawLine(
@@ -659,7 +659,7 @@ private fun DrawScope.drawSidebarGuideLines(level: Int, guideLines: TreeGuideLin
         moveTo(elbowX, elbowStartY)
         lineTo(elbowX, middleY - cornerRadius)
         quadraticTo(elbowX, middleY, elbowX + cornerRadius, middleY)
-        lineTo(rowIconStartX, middleY)
+        lineTo(rowBackgroundStartX, middleY)
     }
     drawPath(path = elbow, color = color, style = Stroke(width = lineWidth, cap = StrokeCap.Round))
 }
