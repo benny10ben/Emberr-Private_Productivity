@@ -45,6 +45,30 @@ class CanvasShapesTest {
     }
 
     @Test
+    fun draggingOneSideOfAWideImageScalesBothSidesAndKeepsItsShape() {
+        val wideImage = Rect(left = 100f, top = 100f, right = 500f, bottom = 300f)
+
+        assertEquals(Rect(100f, 100f, 600f, 350f), wideImage.resizedKeepingAspectRatio(rightEdge, Offset(100f, 0f), minimumShortSide = 40f))
+        assertEquals(Rect(100f, 100f, 300f, 200f), wideImage.resizedKeepingAspectRatio(bottomEdge, Offset(0f, -100f), minimumShortSide = 40f))
+    }
+
+    @Test
+    fun draggingACornerOfAnImageFollowsTheBiggerChangeAndKeepsTheOppositeCornerFixed() {
+        val wideImage = Rect(left = 100f, top = 100f, right = 500f, bottom = 300f)
+
+        assertEquals(Rect(-300f, -100f, 500f, 300f), wideImage.resizedKeepingAspectRatio(topLeftCorner, Offset(-40f, -200f), minimumShortSide = 40f))
+    }
+
+    @Test
+    fun anImageNeverShrinksBelowTheMinimumShortSide() {
+        val wideImage = Rect(left = 100f, top = 100f, right = 500f, bottom = 300f)
+
+        val shrunk = wideImage.resizedKeepingAspectRatio(rightEdge, Offset(-1000f, 0f), minimumShortSide = 40f)
+
+        assertEquals(Rect(100f, 100f, 180f, 140f), shrunk)
+    }
+
+    @Test
     fun otherShapesResizeFreely() {
         assertEquals(Rect(100f, 100f, 350f, 300f), box.resizedForShape(CanvasNodeShape.RECTANGLE, rightEdge, Offset(50f, 0f)))
         assertEquals(Rect(100f, 100f, 350f, 300f), box.resizedForShape(CanvasNodeShape.OVAL, rightEdge, Offset(50f, 0f)))

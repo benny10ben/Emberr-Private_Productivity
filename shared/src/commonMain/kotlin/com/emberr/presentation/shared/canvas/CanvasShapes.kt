@@ -14,6 +14,7 @@ import androidx.compose.ui.unit.LayoutDirection
 import com.emberr.data.local.room.entity.CanvasNodeEntity
 import com.emberr.data.local.room.entity.CanvasNodeShape
 import com.emberr.data.local.room.entity.CanvasSide
+import com.emberr.domain.canvas.isImage
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
@@ -77,6 +78,26 @@ fun CanvasNodeShape.textPadding(width: Float, height: Float): CanvasTextPadding 
 fun Rect.resizedForShape(shape: CanvasNodeShape, edges: CanvasResizeEdges, delta: Offset): Rect {
     val resized = resizedBy(edges, delta, CANVAS_MIN_NODE_WIDTH, CANVAS_MIN_NODE_HEIGHT)
     return if (shape.keepsEqualSides) resized.withEqualSides(edges, minimumSide = CANVAS_MIN_NODE_WIDTH) else resized
+}
+
+fun Rect.resizedFor(node: CanvasNodeEntity, edges: CanvasResizeEdges, delta: Offset): Rect =
+    if (node.isImage) resizedKeepingAspectRatio(edges, delta, minimumShortSide = CANVAS_MIN_NODE_HEIGHT) else resizedForShape(node.shape, edges, delta)
+
+fun Rect.resizedKeepingAspectRatio(grabbedEdges: CanvasResizeEdges, delta: Offset, minimumShortSide: Float): Rect {
+    val isChangingWidth = grabbedEdges.left || grabbedEdges.right
+    val isChangingHeight = grabbedEdges.top || grabbedEdges.bottom
+    val draggedWidth = width + if (grabbedEdges.left) -delta.x else if (grabbedEdges.right) delta.x else 0f
+    val draggedHeight = height + if (grabbedEdges.top) -delta.y else if (grabbedEdges.bottom) delta.y else 0f
+    val scale = when {
+        isChangingWidth && isChangingHeight -> max(draggedWidth / width, draggedHeight / height)
+        isChangingWidth -> draggedWidth / width
+        else -> draggedHeight / height
+    }.coerceAtLeast(minimumShortSide / min(width, height))
+    val newWidth = width * scale
+    val newHeight = height * scale
+    val newLeft = if (grabbedEdges.left) right - newWidth else left
+    val newTop = if (grabbedEdges.top) bottom - newHeight else top
+    return Rect(newLeft, newTop, newLeft + newWidth, newTop + newHeight)
 }
 
 fun Rect.withEqualSides(grabbedEdges: CanvasResizeEdges, minimumSide: Float): Rect {
