@@ -23,7 +23,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -69,6 +68,7 @@ import dev.chrisbanes.haze.hazeSource
 import emberr.shared.generated.resources.Res
 import emberr.shared.generated.resources.chevron_right
 import emberr.shared.generated.resources.plus
+import emberr.shared.generated.resources.trash
 import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
 import org.koin.compose.viewmodel.koinViewModel
@@ -76,7 +76,7 @@ import org.koin.compose.viewmodel.koinViewModel
 private val PropertiesPaneMaxWidth = 760.dp
 private val PropertyEditorMenuWidth = 300.dp
 
-private data class PropertyEditorState(
+internal data class PropertyEditorState(
     val propertyId: String?,
     val originalName: String,
     val name: String,
@@ -301,7 +301,7 @@ private fun PropertyEditorMenu(onDismiss: () -> Unit, content: @Composable () ->
 }
 
 @Composable
-private fun PropertyEditor(
+internal fun PropertyEditor(
     state: PropertyEditorState,
     isNameTaken: Boolean,
     onNameChange: (String) -> Unit,
@@ -401,11 +401,31 @@ private fun PropertyEditor(
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f),
                     modifier = Modifier.padding(start = 4.dp, top = 2.dp)
                 )
-                TextButton(onClick = onDeleteRequest, modifier = Modifier.padding(top = 8.dp)) {
-                    Text(
-                        text = "Delete property",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.error
+                val deleteIcon = @Composable {
+                    Icon(
+                        painter = painterResource(Res.drawable.trash),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                if (isDesktopPlatform) {
+                    EmberrDesktopMenuOption(
+                        label = "Delete property",
+                        onClick = onDeleteRequest,
+                        modifier = Modifier.padding(top = 8.dp),
+                        icon = deleteIcon,
+                        outerHorizontalPadding = 0.dp,
+                        labelColor = MaterialTheme.colorScheme.error
+                    )
+                } else {
+                    EmberrBottomSheetOption(
+                        label = "Delete property",
+                        onClick = onDeleteRequest,
+                        modifier = Modifier.padding(top = 8.dp),
+                        icon = deleteIcon,
+                        outerHorizontalPadding = 0.dp,
+                        labelColor = MaterialTheme.colorScheme.error
                     )
                 }
             }
