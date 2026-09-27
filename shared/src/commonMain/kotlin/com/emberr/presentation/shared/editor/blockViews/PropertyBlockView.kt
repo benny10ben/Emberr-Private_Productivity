@@ -38,6 +38,7 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
@@ -148,7 +149,7 @@ fun PropertyBlockView(
 }
 
 @Composable
-private fun PropertyTextValue(
+internal fun PropertyTextValue(
     block: PropertyBlock,
     inSelectionMode: Boolean,
     onUpdateText: (String) -> Unit,
@@ -256,7 +257,7 @@ private fun PropertyTextValue(
 }
 
 @Composable
-private fun PropertyDateValue(
+internal fun PropertyDateValue(
     block: PropertyBlock,
     inSelectionMode: Boolean,
     onUpdateDate: (LocalDate?) -> Unit,
@@ -318,12 +319,13 @@ private fun PropertyDateValue(
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun PropertyTagsValue(
+internal fun PropertyTagsValue(
     block: PropertyBlock,
     inSelectionMode: Boolean,
     onUpdateTags: (List<String>) -> Unit,
     runAfterKeyboardCloses: (() -> Unit) -> Unit,
-    widthModifier: Modifier
+    widthModifier: Modifier,
+    tagTextStyle: TextStyle = MaterialTheme.typography.bodyMedium
 ) {
     var showTagPicker by remember { mutableStateOf(false) }
 
@@ -344,7 +346,7 @@ private fun PropertyTagsValue(
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    block.tags.forEach { tagName -> PropertyTagChip(tagName = tagName) }
+                    block.tags.forEach { tagName -> PropertyTagChip(tagName = tagName, textStyle = tagTextStyle) }
                 }
             }
         }
@@ -362,7 +364,7 @@ private fun PropertyTagsValue(
     }
 }
 
-private fun formatPropertyDate(date: LocalDate): String {
+internal fun formatPropertyDate(date: LocalDate): String {
     val monthName = date.month.name.take(3).lowercase().replaceFirstChar { it.uppercase() }
     return "$monthName ${date.day}, ${date.year}"
 }
