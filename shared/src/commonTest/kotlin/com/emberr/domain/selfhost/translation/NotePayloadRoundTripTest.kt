@@ -44,7 +44,8 @@ class NotePayloadRoundTripTest {
         sortOrder = 4,
         isTemplate = false,
         selfHostSyncedAt = 9_999L,
-        spaceId = "space-1"
+        spaceId = "space-1",
+        databaseId = "database-1"
     )
 
     private fun entityFor(block: NoteBlock, displayOrder: Int, isDeleted: Boolean = false) =

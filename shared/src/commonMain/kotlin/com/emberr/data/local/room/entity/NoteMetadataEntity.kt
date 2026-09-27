@@ -17,7 +17,8 @@ import kotlinx.serialization.Serializable
     tableName = "notes_metadata",
     indices = [
         Index(value = ["spaceId", "isDaily", "dateString"]),
-        Index(value = ["spaceId", "updatedAt"])
+        Index(value = ["spaceId", "updatedAt"]),
+        Index(value = ["databaseId"])
     ]
 )
 data class NoteMetadataEntity(
@@ -40,5 +41,6 @@ data class NoteMetadataEntity(
     val isTemplate: Boolean = false,
     val selfHostSyncedAt: Long = 0L,
     val spaceId: String = DEFAULT_SPACE_ID,
-    @ColumnInfo(defaultValue = "NOTE") val kind: NoteKind = NoteKind.NOTE
+    @ColumnInfo(defaultValue = "NOTE") val kind: NoteKind = NoteKind.NOTE,
+    val databaseId: String? = null
 )

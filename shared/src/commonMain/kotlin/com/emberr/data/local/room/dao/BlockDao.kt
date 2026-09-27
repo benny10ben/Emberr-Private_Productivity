@@ -36,6 +36,14 @@ interface BlockDao {
     @Query("SELECT * FROM note_blocks WHERE blockDataJson LIKE '%' || :text || '%'")
     suspend fun findBlocksContainingIncludingDeleted(text: String): List<NoteBlockEntity>
 
+    @Query(
+        "SELECT note_blocks.* FROM note_blocks " +
+            "INNER JOIN notes_metadata ON notes_metadata.noteId = note_blocks.noteId " +
+            "WHERE notes_metadata.databaseId = :databaseId AND notes_metadata.trashedAt IS NULL " +
+            "AND note_blocks.isDeleted = 0 AND note_blocks.blockDataJson LIKE '%\"type\":\"property\"%'"
+    )
+    fun observeLivePropertyBlocksOfRowsInTable(databaseId: String): Flow<List<NoteBlockEntity>>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertOrUpdateBlock(block: NoteBlockEntity)
 

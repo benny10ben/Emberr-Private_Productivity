@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "509b6dfc81f8c72d87f1260f1192058d",
+    "identityHash": "2fdf49309c4b2dc7c42aa366281c77b8",
     "entities": [
       {
         "tableName": "spaces",
@@ -54,7 +54,7 @@
       },
       {
         "tableName": "notes_metadata",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`noteId` TEXT NOT NULL, `title` TEXT NOT NULL, `icon` TEXT, `folderId` TEXT, `isDaily` INTEGER NOT NULL, `dateString` TEXT, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `filePath` TEXT NOT NULL, `snippet` TEXT NOT NULL, `isFavorite` INTEGER NOT NULL, `coverImagePath` TEXT, `trashedAt` INTEGER, `isSubNote` INTEGER NOT NULL, `showWordCount` INTEGER NOT NULL, `sortOrder` INTEGER NOT NULL, `isTemplate` INTEGER NOT NULL, `selfHostSyncedAt` INTEGER NOT NULL, `spaceId` TEXT NOT NULL, `kind` TEXT NOT NULL DEFAULT 'NOTE', PRIMARY KEY(`noteId`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`noteId` TEXT NOT NULL, `title` TEXT NOT NULL, `icon` TEXT, `folderId` TEXT, `isDaily` INTEGER NOT NULL, `dateString` TEXT, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `filePath` TEXT NOT NULL, `snippet` TEXT NOT NULL, `isFavorite` INTEGER NOT NULL, `coverImagePath` TEXT, `trashedAt` INTEGER, `isSubNote` INTEGER NOT NULL, `showWordCount` INTEGER NOT NULL, `sortOrder` INTEGER NOT NULL, `isTemplate` INTEGER NOT NULL, `selfHostSyncedAt` INTEGER NOT NULL, `spaceId` TEXT NOT NULL, `kind` TEXT NOT NULL DEFAULT 'NOTE', `databaseId` TEXT, PRIMARY KEY(`noteId`))",
         "fields": [
           {
             "fieldPath": "noteId",
@@ -171,6 +171,11 @@
             "affinity": "TEXT",
             "notNull": true,
             "defaultValue": "'NOTE'"
+          },
+          {
+            "fieldPath": "databaseId",
+            "columnName": "databaseId",
+            "affinity": "TEXT"
           }
         ],
         "primaryKey": {
@@ -200,6 +205,15 @@
             ],
             "orders": [],
             "createSql": "CREATE INDEX IF NOT EXISTS `index_notes_metadata_spaceId_updatedAt` ON `${TABLE_NAME}` (`spaceId`, `updatedAt`)"
+          },
+          {
+            "name": "index_notes_metadata_databaseId",
+            "unique": false,
+            "columnNames": [
+              "databaseId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_notes_metadata_databaseId` ON `${TABLE_NAME}` (`databaseId`)"
           }
         ]
       },
@@ -1477,7 +1491,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '509b6dfc81f8c72d87f1260f1192058d')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '2fdf49309c4b2dc7c42aa366281c77b8')"
     ]
   }
 }

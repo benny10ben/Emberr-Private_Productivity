@@ -94,6 +94,15 @@ interface NoteDao {
     @Query("SELECT * FROM notes_metadata WHERE noteId = :id LIMIT 1")
     fun observeNoteById(id: String): Flow<NoteMetadataEntity?>
 
+    @Query("SELECT * FROM notes_metadata WHERE databaseId = :databaseId AND trashedAt IS NULL")
+    fun observeRowNotesInTable(databaseId: String): Flow<List<NoteMetadataEntity>>
+
+    @Query("SELECT * FROM notes_metadata WHERE databaseId = :databaseId")
+    suspend fun getAllRowNotesIncludingTrashed(databaseId: String): List<NoteMetadataEntity>
+
+    @Query("SELECT DISTINCT databaseId FROM notes_metadata WHERE databaseId IS NOT NULL")
+    suspend fun getDatabaseIdsThatHaveRows(): List<String>
+
     @Query("SELECT * FROM notes_metadata WHERE spaceId = :spaceId AND isDaily = 0 AND trashedAt IS NULL AND isSubNote = 0 AND isTemplate = 0 ORDER BY updatedAt DESC LIMIT :limit")
     suspend fun getRecentNotes(spaceId: String, limit: Int): List<NoteMetadataEntity>
 
@@ -132,7 +141,7 @@ interface NoteDao {
     @Query("SELECT COUNT(*) FROM calendar_tasks WHERE spaceId = :spaceId AND isChecked = 0")
     fun getIncompleteTasksCount(spaceId: String): Flow<Int>
 
-    @Query("SELECT * FROM notes_metadata WHERE spaceId = :spaceId AND isDaily = 0 AND trashedAt IS NULL AND isTemplate = 0 AND NOT (isSubNote = 1 AND kind = 'CANVAS')")
+    @Query("SELECT * FROM notes_metadata WHERE spaceId = :spaceId AND isDaily = 0 AND trashedAt IS NULL AND isTemplate = 0 AND NOT (isSubNote = 1 AND kind = 'CANVAS') AND databaseId IS NULL")
     fun getAllLinkableNotes(spaceId: String): Flow<List<NoteMetadataEntity>>
 
     @Query(

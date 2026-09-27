@@ -37,7 +37,8 @@ data class NotePayload(
     val kind: NoteKind = NoteKind.NOTE,
     val canvasNodes: List<CanvasNodeEntity> = emptyList(),
     val canvasEdges: List<CanvasEdgeEntity> = emptyList(),
-    val canvasStrokes: List<CanvasStrokeEntity> = emptyList()
+    val canvasStrokes: List<CanvasStrokeEntity> = emptyList(),
+    val databaseId: String? = null
 )
 
 @Serializable

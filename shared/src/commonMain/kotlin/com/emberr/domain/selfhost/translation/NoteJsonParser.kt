@@ -50,7 +50,8 @@ object NoteJsonParser {
             sortOrder = payload.sortOrder,
             isTemplate = payload.isTemplate,
             spaceId = payload.spaceId,
-            kind = payload.kind
+            kind = payload.kind,
+            databaseId = payload.databaseId
         )
 
         val blockUpserts = payload.blocks.map { block ->
