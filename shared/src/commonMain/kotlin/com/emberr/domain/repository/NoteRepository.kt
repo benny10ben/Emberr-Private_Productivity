@@ -11,9 +11,15 @@ import com.emberr.data.local.room.entity.NoteMetadataEntity
 import com.emberr.data.local.room.entity.PropertyTagEntity
 import com.emberr.data.local.room.entity.CustomPropertyEntity
 import com.emberr.domain.canvas.CanvasContent
+import com.emberr.domain.database.DatabaseRow
+import com.emberr.domain.database.DatabaseRowChange
+import com.emberr.domain.database.HistoryDirection
+import com.emberr.domain.model.DatabaseBlock
+import com.emberr.domain.model.DatabaseColumnTarget
 import com.emberr.domain.model.NoteBlock
 import com.emberr.domain.model.NoteContent
 import com.emberr.domain.model.NoteSearchResult
+import com.emberr.domain.model.PropertyBlock
 import com.emberr.domain.model.PropertyValueType
 import com.emberr.domain.model.RecurrenceEditScope
 import kotlinx.coroutines.flow.Flow
@@ -147,6 +153,22 @@ interface NoteRepository {
     suspend fun deleteCustomProperty(propertyId: String)
     suspend fun getCustomPropertiesModifiedSince(timestamp: Long): List<CustomPropertyEntity>
     suspend fun applyRemoteCustomProperty(property: CustomPropertyEntity)
+
+    fun observeDatabaseRows(databaseId: String): Flow<List<DatabaseRow>>
+    suspend fun createDatabaseRow(database: DatabaseBlock): DatabaseRowChange.RowPresence
+    suspend fun updateDatabaseCell(
+        database: DatabaseBlock,
+        rowNoteId: String,
+        column: DatabaseColumnTarget,
+        update: (PropertyBlock) -> PropertyBlock
+    ): DatabaseRowChange.Cell?
+    suspend fun renameDatabaseRow(rowNoteId: String, title: String): DatabaseRowChange.Title?
+    suspend fun trashDatabaseRow(rowNoteId: String): DatabaseRowChange.RowPresence?
+    suspend fun addDatabaseColumnToRows(database: DatabaseBlock, column: DatabaseColumnTarget): List<DatabaseRowChange.Cell>
+    suspend fun removeDatabaseColumnFromRows(databaseId: String, column: DatabaseColumnTarget): List<DatabaseRowChange.Cell>
+    suspend fun renameDatabasePropertyInRows(databaseId: String, propertyId: String, newName: String): List<DatabaseRowChange.Cell>
+    suspend fun deleteSavedTagsOf(propertyKey: String)
+    suspend fun applyDatabaseRowChanges(changes: List<DatabaseRowChange>, direction: HistoryDirection)
 
     suspend fun applyRemoteEventException(exception: CalendarEventExceptionEntity)
 

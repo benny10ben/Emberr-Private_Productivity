@@ -105,6 +105,20 @@ object VaultMarkdownFormatGuide {
         Custom properties are created in the app, so only change the `value` of one that already
         exists and leave its `id`, `label` and `type` alone.
 
+        ## Databases
+
+        A database is a fence with its tag on the line below:
+
+        ```emberr-database
+        database: 8d1e4b
+        title: Reading list
+        columns: status, due_date
+        ```
+
+        Each row is its own note in the `Subnotes` folder, and the row's values are the property
+        fences at the top of that note. Only `title` can be changed here. `columns` shows which
+        properties the table has, but columns are added and removed in the app.
+
         ## Things that cannot be represented this way
 
         - drawings, which appear only as a stroke count

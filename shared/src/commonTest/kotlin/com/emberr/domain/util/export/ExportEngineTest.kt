@@ -1,9 +1,14 @@
 package com.emberr.domain.util.export
 
+import com.emberr.domain.database.DatabaseRow
+import com.emberr.domain.database.asExportBlocks
 import com.emberr.domain.model.BookmarkBlock
 import com.emberr.domain.model.BulletedListBlock
 import com.emberr.domain.model.CheckboxBlock
 import com.emberr.domain.model.CodeBlock
+import com.emberr.domain.model.DatabaseBlock
+import com.emberr.domain.model.DatabaseColumnTarget
+import com.emberr.domain.model.DatabaseCustomProperty
 import com.emberr.domain.model.DocumentBlock
 import com.emberr.domain.model.HeadingBlock
 import com.emberr.domain.model.ImageBlock
@@ -242,6 +247,38 @@ class ExportEngineTest {
                     rows = listOf(listOf("Header A", "Header B"), listOf("Cell A", "Cell B"))
                 )
             )
+        )
+    }
+
+    @Test
+    fun aDatabaseIsExportedAsItsTitleAndAMarkdownTable() {
+        val database = DatabaseBlock(
+            id = "database-1",
+            databaseId = "books",
+            title = "Reading list",
+            columns = listOf(
+                DatabaseColumnTarget.Property(PropertyType.STATUS),
+                DatabaseColumnTarget.CustomProperty("client-id")
+            ),
+            customProperties = listOf(DatabaseCustomProperty(id = "client-id", name = "Client", valueType = PropertyValueType.TEXT))
+        )
+        val rows = listOf(
+            DatabaseRow(
+                noteId = "row-1",
+                title = "Dune",
+                createdAt = 0L,
+                cellsByColumn = mapOf(
+                    DatabaseColumnTarget.Property(PropertyType.STATUS) to
+                        PropertyBlock(id = "status-row-1", propertyType = PropertyType.STATUS, tags = listOf("Reading")),
+                    DatabaseColumnTarget.CustomProperty("client-id") to
+                        PropertyBlock(id = "client-id-row-1", customPropertyId = "client-id", customLabel = "Client", text = "Acme")
+                )
+            )
+        )
+
+        assertEquals(
+            "**Reading list**\n\n| Notes | Status | Client |\n| --- | --- | --- |\n| Dune | Reading | Acme |",
+            markdownOf(*database.asExportBlocks(rows).toTypedArray())
         )
     }
 

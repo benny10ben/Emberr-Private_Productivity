@@ -62,6 +62,8 @@ import com.emberr.domain.model.CanvasBlock
 import com.emberr.domain.model.CheckboxBlock
 import com.emberr.domain.util.system.triggerHapticFeedback
 import com.emberr.domain.model.CodeBlock
+import com.emberr.domain.model.DatabaseBlock
+import com.emberr.presentation.shared.editor.blockViews.database.DatabaseBlockView
 import com.emberr.domain.model.DocumentBlock
 import com.emberr.domain.model.HeadingBlock
 import com.emberr.domain.model.ImageBlock
@@ -227,7 +229,7 @@ fun NoteBlockItem(
         }
     }
 
-    val isTextBased = block !is BookmarkBlock && block !is ImageBlock && block !is DocumentBlock && block !is TableBlock && block !is VoiceBlock && block !is SolidDividerBlock && block !is ThreeDotDividerBlock && block !is LinkedNoteBlock && block !is CanvasBlock && block !is PropertyBlock
+    val isTextBased = block !is BookmarkBlock && block !is ImageBlock && block !is DocumentBlock && block !is TableBlock && block !is VoiceBlock && block !is SolidDividerBlock && block !is ThreeDotDividerBlock && block !is LinkedNoteBlock && block !is CanvasBlock && block !is PropertyBlock && block !is DatabaseBlock
     LaunchedEffect(focusRequest?.nonce) {
         if (focusRequest == null || focusRequest.id != block.id) return@LaunchedEffect
 
@@ -313,14 +315,14 @@ fun NoteBlockItem(
 
     val desktopExtraPadding = if (isDesktopPlatform) 16.dp else 0.dp
     val startPadding = when {
-        block is TableBlock -> (block.indentationLevel * 28).dp + desktopExtraPadding
+        block is TableBlock || block is DatabaseBlock -> (block.indentationLevel * 28).dp + desktopExtraPadding
         block is CheckboxBlock -> (18 + (block.indentationLevel * 28)).dp + desktopExtraPadding
         block is BulletedListBlock -> (18 + (block.indentationLevel * 28)).dp + desktopExtraPadding
         block is NumberedListBlock -> (18 + (block.indentationLevel * 28)).dp + desktopExtraPadding
         block is ToggleBlock -> (18 + (block.indentationLevel * 28)).dp + desktopExtraPadding
         else -> (16 + (block.indentationLevel * 28)).dp + desktopExtraPadding
     }
-    val endPadding = (if (block is TableBlock) 0.dp else 16.dp) + desktopExtraPadding
+    val endPadding = (if (block is TableBlock || block is DatabaseBlock) 0.dp else 16.dp) + desktopExtraPadding
 
     val isSlashMenuActiveHere = isDesktopPlatform && isActiveBlock && showSlashMenu
     val isNoteLinkMenuActiveHere = isDesktopPlatform && isActiveBlock && showNoteLinkMenu
@@ -858,6 +860,16 @@ fun NoteBlockItem(
                                 onUpdateTags = { actions.onUpdatePropertyTags(block.id, it) },
                                 runAfterKeyboardCloses = afterKeyboardCloses
                             )
+                            is DatabaseBlock -> actions.databaseBlockEditor?.let { databaseBlockEditor ->
+                                DatabaseBlockView(
+                                    block = block,
+                                    editor = databaseBlockEditor,
+                                    inSelectionMode = inSelectionMode,
+                                    onToggleSelection = { actions.onToggleSelection(block.id) },
+                                    onOpenRow = { actions.onNoteLinkClick(it) },
+                                    runAfterKeyboardCloses = afterKeyboardCloses
+                                )
+                            }
                             is VoiceBlock -> AudioBlockView(
                                 block = block,
                                 inSelectionMode = inSelectionMode,

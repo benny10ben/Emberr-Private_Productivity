@@ -6,6 +6,7 @@ import com.emberr.domain.model.BulletedListBlock
 import com.emberr.domain.model.CanvasBlock
 import com.emberr.domain.model.CheckboxBlock
 import com.emberr.domain.model.CodeBlock
+import com.emberr.domain.model.DatabaseBlock
 import com.emberr.domain.model.DocumentBlock
 import com.emberr.domain.model.HeadingBlock
 import com.emberr.domain.model.ImageBlock
@@ -159,6 +160,8 @@ private fun convertBlockToElements(
     is ImageBlock -> textLine(block, "Image", WidgetTextStyleName.SUBTLE)
 
     is CanvasBlock -> textLine(block, "Canvas", WidgetTextStyleName.SUBTLE)
+
+    is DatabaseBlock -> textLine(block, block.title.ifBlank { "Database" }, WidgetTextStyleName.SUBTLE)
 
     is PropertyBlock -> {
         val value = block.valueAsText()

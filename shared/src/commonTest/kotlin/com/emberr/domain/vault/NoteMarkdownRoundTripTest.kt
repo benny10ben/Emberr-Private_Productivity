@@ -7,6 +7,12 @@ import com.emberr.domain.model.BookmarkBlock
 import com.emberr.domain.model.BulletedListBlock
 import com.emberr.domain.model.CheckboxBlock
 import com.emberr.domain.model.CodeBlock
+import com.emberr.domain.model.DatabaseBlock
+import com.emberr.domain.model.DatabaseColumnTarget
+import com.emberr.domain.model.DatabaseCustomProperty
+import com.emberr.domain.model.DatabaseFilter
+import com.emberr.domain.model.DatabaseFilterCondition
+import com.emberr.domain.model.DatabaseSort
 import com.emberr.domain.model.DocumentBlock
 import com.emberr.domain.model.HeadingBlock
 import com.emberr.domain.model.ImageBlock
@@ -245,6 +251,56 @@ class NoteMarkdownRoundTripTest {
         )
     }
 
+    @Test
+    fun aDatabaseFenceTypedInTheVaultBecomesADatabaseBlock() {
+        val markdown = NoteMarkdownWriter.writeNote(
+            VaultNoteWriteRequest(metadata = noteMetadata(), blocks = emptyList())
+        ) + "```emberr-database\ndatabase: database-id-9\ntitle: Books\ncolumns: status\n```\n"
+
+        val blocks = readBack(markdown, emptyList()).blocks
+
+        assertEquals(
+            listOf<NoteBlock>(DatabaseBlock(id = "generated-0", databaseId = "database-id-9", title = "Books", updatedAt = 9_999L)),
+            blocks
+        )
+    }
+
+    @Test
+    fun aDatabaseFenceWithoutADatabaseIdStaysACodeBlock() {
+        val markdown = NoteMarkdownWriter.writeNote(
+            VaultNoteWriteRequest(metadata = noteMetadata(), blocks = emptyList())
+        ) + "```emberr-database\ntitle: Books\n```\n"
+
+        val blocks = readBack(markdown, emptyList()).blocks
+
+        assertEquals(
+            listOf<NoteBlock>(CodeBlock(id = "generated-0", code = "title: Books", language = "emberr-database", updatedAt = 9_999L)),
+            blocks
+        )
+    }
+
+    @Test
+    fun onlyTheTitleOfADatabaseCanBeChangedInTheVault() {
+        val existing = DatabaseBlock(
+            id = "block-database",
+            databaseId = "database-id-1",
+            title = "Books",
+            columns = listOf(DatabaseColumnTarget.Property(PropertyType.STATUS)),
+            updatedAt = 100L
+        )
+        val markdown = NoteMarkdownWriter.writeNote(
+            VaultNoteWriteRequest(metadata = noteMetadata(), blocks = listOf(existing))
+        )
+        val editedMarkdown = markdown
+            .replace("title: Books", "title: Films")
+            .replace("database: database-id-1", "database: database-id-other")
+            .replace("columns: status", "columns: tags, phone")
+
+        val blocks = readBack(editedMarkdown, listOf(existing)).blocks
+
+        assertEquals(listOf<NoteBlock>(existing.copy(title = "Films", updatedAt = 9_999L)), blocks)
+    }
+
     private fun readBack(markdown: String, existingBlocks: List<NoteBlock>): VaultNoteReadResult {
         var generatedIdCount = 0
         return NoteMarkdownReader.readNote(
@@ -444,6 +500,32 @@ class NoteMarkdownRoundTripTest {
                 date = LocalDate(2026, 10, 1),
                 updatedAt = 130L
             ),
+            DatabaseBlock(
+                id = "block-database",
+                databaseId = "database-id-1",
+                title = "Reading \"list\": 2026",
+                columns = listOf(
+                    DatabaseColumnTarget.Property(PropertyType.STATUS),
+                    DatabaseColumnTarget.Property(PropertyType.DUE_DATE),
+                    DatabaseColumnTarget.CustomProperty("client-id")
+                ),
+                customProperties = listOf(
+                    DatabaseCustomProperty(id = "client-id", name = "Client: \"Big\"", valueType = PropertyValueType.TEXT)
+                ),
+                columnWidths = mapOf(PropertyType.STATUS.name to 180),
+                filters = listOf(
+                    DatabaseFilter(
+                        id = "filter-status",
+                        target = DatabaseColumnTarget.Property(PropertyType.STATUS),
+                        condition = DatabaseFilterCondition.IS,
+                        tagName = "Reading"
+                    )
+                ),
+                sort = DatabaseSort(target = DatabaseColumnTarget.Property(PropertyType.DUE_DATE)),
+                isPinned = true,
+                updatedAt = 131L
+            ),
+            DatabaseBlock(id = "block-database-empty", databaseId = "database-id-2", updatedAt = 132L),
             LinkedNoteBlock(
                 id = "block-linked",
                 linkedNoteId = LINKED_NOTE_ID,

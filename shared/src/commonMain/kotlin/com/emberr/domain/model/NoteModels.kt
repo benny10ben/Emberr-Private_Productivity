@@ -464,6 +464,7 @@ fun cleanPropertyTagName(rawName: String): String =
     rawName.replace(",", " ").trim().replace(Regex("\\s+"), " ")
 
 fun NoteBlock.withPropertyTagReplaced(tagPoolKey: String, oldName: String, newName: String?, now: Long): NoteBlock {
+    if (this is DatabaseBlock) return withFilterTagReplaced(tagPoolKey, oldName, newName, now)
     if (this !is PropertyBlock || isDeleted || this.tagPoolKey != tagPoolKey) return this
     val updatedTags = if (newName == null) {
         tags.filterNot { it.equals(oldName, ignoreCase = true) }
@@ -471,6 +472,19 @@ fun NoteBlock.withPropertyTagReplaced(tagPoolKey: String, oldName: String, newNa
         tags.map { if (it.equals(oldName, ignoreCase = true)) newName else it }.distinctBy { it.lowercase() }
     }
     return if (updatedTags == tags) this else copy(tags = updatedTags, updatedAt = now)
+}
+
+private fun DatabaseBlock.withFilterTagReplaced(tagPoolKey: String, oldName: String, newName: String?, now: Long): DatabaseBlock {
+    if (isDeleted) return this
+    fun usesTheTag(filter: DatabaseFilter): Boolean =
+        filter.target.tagPoolKey == tagPoolKey && filter.tagName.equals(oldName, ignoreCase = true)
+    if (filters.none(::usesTheTag)) return this
+    val updatedFilters = if (newName == null) {
+        filters.filterNot(::usesTheTag)
+    } else {
+        filters.map { if (usesTheTag(it)) it.copy(tagName = newName) else it }
+    }
+    return copy(filters = updatedFilters, updatedAt = now)
 }
 
 fun NoteBlock.withCustomPropertyRenamed(customPropertyId: String, newLabel: String, now: Long): NoteBlock {
@@ -482,6 +496,29 @@ fun NoteBlock.withCustomPropertyRemoved(customPropertyId: String, now: Long): No
     if (this !is PropertyBlock || isDeleted || this.customPropertyId != customPropertyId) return this
     return copy(isDeleted = true, updatedAt = now)
 }
+
+@Immutable
+@Serializable
+@SerialName("database")
+data class DatabaseBlock(
+    override val id: String,
+    val databaseId: String,
+    val title: String = "",
+    val columns: List<DatabaseColumnTarget> = emptyList(),
+    val customProperties: List<DatabaseCustomProperty> = emptyList(),
+    val columnWidths: Map<String, Int> = emptyMap(),
+    val filters: List<DatabaseFilter> = emptyList(),
+    val sort: DatabaseSort? = null,
+    override val indentationLevel: Int = 0,
+    override val isBold: Boolean = false,
+    override val isItalic: Boolean = false,
+    override val isStrikeThrough: Boolean = false,
+    override val isUnderlined: Boolean = false,
+    override val isHighlighted: Boolean = false,
+    override val isDeleted: Boolean = false,
+    override val isPinned: Boolean = false,
+    override val updatedAt: Long = 0L
+) : NoteBlock()
 
 @Immutable
 @Serializable
@@ -531,6 +568,7 @@ fun NoteBlock.markDeleted(): NoteBlock = when (this) {
     is VoiceBlock -> copy(isDeleted = true, updatedAt = System.currentTimeMillis())
     is CanvasBlock -> copy(isDeleted = true, updatedAt = System.currentTimeMillis())
     is PropertyBlock -> copy(isDeleted = true, updatedAt = System.currentTimeMillis())
+    is DatabaseBlock -> copy(isDeleted = true, updatedAt = System.currentTimeMillis())
     is QuoteBlock -> copy(isDeleted = true, updatedAt = System.currentTimeMillis())
     is SolidDividerBlock -> copy(isDeleted = true, updatedAt = System.currentTimeMillis())
     is ThreeDotDividerBlock -> copy(isDeleted = true, updatedAt = System.currentTimeMillis())
@@ -620,6 +658,7 @@ fun NoteBlock.withPin(pinned: Boolean, now: Long): NoteBlock = when (this) {
     is VoiceBlock -> copy(isPinned = pinned, updatedAt = now)
     is CanvasBlock -> copy(isPinned = pinned, updatedAt = now)
     is PropertyBlock -> copy(isPinned = pinned, updatedAt = now)
+    is DatabaseBlock -> copy(isPinned = pinned, updatedAt = now)
     is QuoteBlock -> copy(isPinned = pinned, updatedAt = now)
     is SolidDividerBlock -> copy(isPinned = pinned, updatedAt = now)
     is ThreeDotDividerBlock -> copy(isPinned = pinned, updatedAt = now)
@@ -641,6 +680,7 @@ fun NoteBlock.withUpdatedAt(now: Long): NoteBlock = when (this) {
     is VoiceBlock -> copy(updatedAt = now)
     is CanvasBlock -> copy(updatedAt = now)
     is PropertyBlock -> copy(updatedAt = now)
+    is DatabaseBlock -> copy(updatedAt = now)
     is QuoteBlock -> copy(updatedAt = now)
     is SolidDividerBlock -> copy(updatedAt = now)
     is ThreeDotDividerBlock -> copy(updatedAt = now)
@@ -662,6 +702,7 @@ fun NoteBlock.withDeleted(deleted: Boolean, now: Long): NoteBlock = when (this) 
     is VoiceBlock -> copy(isDeleted = deleted, updatedAt = now)
     is CanvasBlock -> copy(isDeleted = deleted, updatedAt = now)
     is PropertyBlock -> copy(isDeleted = deleted, updatedAt = now)
+    is DatabaseBlock -> copy(isDeleted = deleted, updatedAt = now)
     is QuoteBlock -> copy(isDeleted = deleted, updatedAt = now)
     is SolidDividerBlock -> copy(isDeleted = deleted, updatedAt = now)
     is ThreeDotDividerBlock -> copy(isDeleted = deleted, updatedAt = now)
@@ -692,6 +733,7 @@ fun NoteBlock.deepCopyWithNewIds(): NoteBlock {
         is VoiceBlock -> copy(id = newId)
         is CanvasBlock -> copy(id = newId)
         is PropertyBlock -> copy(id = newId)
+        is DatabaseBlock -> copy(id = newId)
         is SolidDividerBlock -> copy(id = newId)
         is ThreeDotDividerBlock -> copy(id = newId)
     }

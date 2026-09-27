@@ -35,6 +35,7 @@ import com.emberr.presentation.shared.components.KmpBackHandler
 import com.emberr.presentation.shared.editor.BlockSelectionMenuContent
 import com.emberr.presentation.shared.editor.BlockSelectionPill
 import com.emberr.presentation.shared.editor.EditorScreen
+import com.emberr.presentation.shared.editor.DatabaseBlockEditor
 import com.emberr.presentation.shared.editor.EditorActions
 import com.emberr.presentation.shared.editor.FocusRequest
 import dev.chrisbanes.haze.HazeState
@@ -247,6 +248,7 @@ fun TasksScreen(
                         override fun onUpdatePropertyText(id: String, text: String) {}
                         override fun onUpdatePropertyDate(id: String, date: LocalDate?) {}
                         override fun onUpdatePropertyTags(id: String, tags: List<String>) {}
+                        override val databaseBlockEditor: DatabaseBlockEditor? = null
                     }
                 }
 

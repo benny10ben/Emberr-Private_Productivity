@@ -2,6 +2,7 @@ package com.emberr.presentation.home.note
 
 import androidx.lifecycle.viewModelScope
 import com.emberr.data.local.room.entity.NoteMetadataEntity
+import com.emberr.domain.database.withDatabasesAsTables
 import com.emberr.domain.model.*
 import com.emberr.domain.repository.NoteRepository
 import com.emberr.domain.util.voice.AudioRecorder
@@ -386,11 +387,13 @@ class NoteEditorViewModel(
         }
     }
 
-    fun generatePlainTextExport(): String {
+    suspend fun generatePlainTextExport(): String {
         val title = _noteTitle.value.ifBlank { "Untitled Note" }
-        val body = com.emberr.domain.util.export.ExportEngine.generatePlainText(_blocks.value)
+        val body = com.emberr.domain.util.export.ExportEngine.generatePlainText(blocksForExport())
         return "$title\n\n$body"
     }
+
+    suspend fun blocksForExport(): List<NoteBlock> = _blocks.value.withDatabasesAsTables(repository)
 
     suspend fun generateMarkdownExport(): String {
         val title = _noteTitle.value.ifBlank { "Untitled Note" }
@@ -398,7 +401,7 @@ class NoteEditorViewModel(
             .filter { !it.isDeleted }
             .associate { it.categoryId to it.name }
         val body = com.emberr.domain.util.export.ExportEngine.generateMarkdown(
-            blocks = _blocks.value,
+            blocks = blocksForExport(),
             categoryNamesById = categoryNamesById
         )
         return "# $title\n\n$body"

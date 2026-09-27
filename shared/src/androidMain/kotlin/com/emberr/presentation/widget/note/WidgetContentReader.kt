@@ -3,6 +3,7 @@ package com.emberr.presentation.widget.note
 
 import com.emberr.data.local.room.dao.BlockDao
 import com.emberr.data.local.room.dao.NoteDao
+import com.emberr.domain.database.withDatabasesAsTables
 import com.emberr.domain.model.LinkedNoteBlock
 import com.emberr.domain.model.NoteBlock
 import com.emberr.domain.repository.NoteRepository
@@ -40,9 +41,10 @@ class WidgetContentReader(
             val metadata = noteDao.getNoteById(noteId)
             if (metadata == null || metadata.trashedAt != null) return@withContext null
 
+            val blocksWithTables = blocks.withDatabasesAsTables(noteRepository)
             WidgetNoteContent(
                 title = metadata.title.trim().ifBlank { "Untitled" },
-                elements = buildElementsFromBlocks(blocks, resolveLinkedNoteTitles(blocks))
+                elements = buildElementsFromBlocks(blocksWithTables, resolveLinkedNoteTitles(blocksWithTables))
             )
         }
 

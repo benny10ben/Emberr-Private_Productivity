@@ -33,6 +33,7 @@ import com.emberr.domain.model.NoteBlock
 import com.emberr.domain.model.TextAlignment
 import com.emberr.presentation.shared.components.KmpBackHandler
 import com.emberr.presentation.shared.editor.BlockSelectionPill
+import com.emberr.presentation.shared.editor.DatabaseBlockEditor
 import com.emberr.presentation.shared.editor.EditorActions
 import com.emberr.presentation.shared.editor.EditorScreen
 import com.emberr.presentation.shared.editor.SelectionModeObserver
@@ -311,6 +312,7 @@ fun DailyScreen(
             override fun onUpdatePropertyText(id: String, text: String) = viewModel.updatePropertyText(id, text)
             override fun onUpdatePropertyDate(id: String, date: LocalDate?) = viewModel.updatePropertyDate(id, date)
             override fun onUpdatePropertyTags(id: String, tags: List<String>) = viewModel.updatePropertyTags(id, tags)
+            override val databaseBlockEditor: DatabaseBlockEditor get() = viewModel.databaseBlockEditor
         }
     }
 

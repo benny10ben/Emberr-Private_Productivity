@@ -35,11 +35,25 @@ import com.emberr.domain.ai.NoteIndexer
 import com.emberr.domain.canvas.CanvasContent
 import com.emberr.domain.canvas.EmbeddedCanvasCleanup
 import com.emberr.domain.canvas.isEmbeddedCanvas
+import com.emberr.domain.database.DatabaseRow
+import com.emberr.domain.database.DatabaseRowChange
+import com.emberr.domain.database.DatabaseRowCleanup
+import com.emberr.domain.database.HistoryDirection
+import com.emberr.domain.database.buildDatabaseRow
+import com.emberr.domain.database.databaseCellForEditing
+import com.emberr.domain.database.databaseCellOrNull
+import com.emberr.domain.database.newRowBlocks
+import com.emberr.domain.database.withDatabaseCellRenamed
+import com.emberr.domain.database.withDatabaseCellPlaced
+import com.emberr.domain.database.withDatabaseColumnRemoved
+import com.emberr.domain.database.withDatabaseColumnShown
 import com.emberr.domain.model.BookmarkBlock
 import com.emberr.domain.model.BulletedListBlock
 import com.emberr.domain.model.CanvasBlock
 import com.emberr.domain.model.CheckboxBlock
 import com.emberr.domain.model.CodeBlock
+import com.emberr.domain.model.DatabaseBlock
+import com.emberr.domain.model.DatabaseColumnTarget
 import com.emberr.domain.model.DocumentBlock
 import com.emberr.domain.model.HeadingBlock
 import com.emberr.domain.model.ImageBlock
@@ -62,6 +76,8 @@ import com.emberr.domain.model.valueAsText
 import com.emberr.domain.selfhost.media.MediaReferenceScanner
 import com.emberr.domain.util.sync.SyncCoordinator
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.sync.withLock
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
@@ -647,9 +663,10 @@ class NoteRepositoryImpl(
             // so its own next manifest upload would silently resurrect the note everywhere.
             val metadata = noteDao.getNoteById(noteId)
             val previousTombstone = selfHostDeletedNoteDao.getTombstoneByNoteId(noteId)
-            val embeddedCanvasIds = blockDao.getAllBlocksForNoteIncludingDeleted(noteId)
-                .mapNotNull { (decodeBlockOrNull(it.blockDataJson) as? CanvasBlock)?.canvasNoteId }
-                .toSet()
+            val blocksOfNote = blockDao.getAllBlocksForNoteIncludingDeleted(noteId)
+                .mapNotNull { decodeBlockOrNull(it.blockDataJson) }
+            val embeddedCanvasIds = blocksOfNote.mapNotNull { (it as? CanvasBlock)?.canvasNoteId }.toSet()
+            val shownDatabaseIds = blocksOfNote.mapNotNull { (it as? DatabaseBlock)?.databaseId }.toSet()
             hardDeleteLocalNote(noteId)
             selfHostDeletedNoteDao.upsertTombstone(
                 SelfHostDeletedNoteEntity(
@@ -662,6 +679,16 @@ class NoteRepositoryImpl(
             )
             AutoSyncTrigger.requestSync()
             deleteEmbeddedCanvasesNoLongerShown(embeddedCanvasIds)
+            deleteRowsOfDatabasesNoLongerShown(shownDatabaseIds)
+        }
+    }
+
+    private suspend fun deleteRowsOfDatabasesNoLongerShown(candidateDatabaseIds: Set<String>) {
+        if (candidateDatabaseIds.isEmpty()) return
+        val remainingDatabaseBlocks = blockDao.findBlocksContainingIncludingDeleted(DatabaseRowCleanup.DATABASE_BLOCK_JSON_MARKER)
+            .mapNotNull { decodeBlockOrNull(it.blockDataJson) as? DatabaseBlock }
+        DatabaseRowCleanup.databasesNoLiveBlockUses(candidateDatabaseIds, remainingDatabaseBlocks).forEach { databaseId ->
+            noteDao.getAllRowNotesIncludingTrashed(databaseId).forEach { rowNote -> deleteNote(rowNote.noteId, "") }
         }
     }
 
@@ -942,7 +969,10 @@ class NoteRepositoryImpl(
         rewrite: (NoteBlock, Long) -> NoteBlock
     ): List<Pair<NoteMetadataEntity, NoteContent>> {
         val rewrittenNotes = mutableListOf<Pair<NoteMetadataEntity, NoteContent>>()
-        val noteIds = blockDao.findNoteIdsMatchingContent(activeSpaceId(), "\"type\":\"property\"")
+        val noteIds = (
+            blockDao.findNoteIdsMatchingContent(activeSpaceId(), "\"type\":\"property\"") +
+                blockDao.findNoteIdsMatchingContent(activeSpaceId(), "\"type\":\"database\"")
+            ).distinct()
         for (noteId in noteIds) {
             val metadata = noteDao.getNoteById(noteId) ?: continue
             val dailyDateString = metadata.dateString?.takeIf { metadata.isDaily }
@@ -1040,6 +1070,188 @@ class NoteRepositoryImpl(
                 customPropertyDao.insertOrUpdateProperty(property)
             }
         }
+
+    override fun observeDatabaseRows(databaseId: String): Flow<List<DatabaseRow>> =
+        combine(
+            noteDao.observeRowNotesInTable(databaseId),
+            blockDao.observeLivePropertyBlocksOfRowsInTable(databaseId)
+        ) { rowNotes, propertyBlockEntities ->
+            val blocksByRowNoteId = propertyBlockEntities.groupBy(
+                keySelector = { it.noteId },
+                valueTransform = { decodeBlockOrNull(it.blockDataJson) }
+            )
+            rowNotes.map { rowNote ->
+                buildDatabaseRow(
+                    noteId = rowNote.noteId,
+                    title = rowNote.title,
+                    createdAt = rowNote.createdAt,
+                    blocks = blocksByRowNoteId[rowNote.noteId].orEmpty().filterNotNull()
+                )
+            }
+        }
+            .distinctUntilChanged()
+            .flowOn(Dispatchers.Default)
+
+    override suspend fun createDatabaseRow(database: DatabaseBlock): DatabaseRowChange.RowPresence =
+        withContext(Dispatchers.IO) {
+            val rowNoteId = UUID.randomUUID().toString()
+            val now = System.currentTimeMillis()
+            val rowNote = NoteMetadataEntity(
+                noteId = rowNoteId,
+                title = "",
+                folderId = null,
+                isDaily = false,
+                dateString = null,
+                createdAt = now,
+                updatedAt = now,
+                filePath = "",
+                isSubNote = true,
+                databaseId = database.databaseId
+            )
+            SyncCoordinator.mutex.withLock {
+                saveNote(rowNote, NoteContent(blocks = database.newRowBlocks(rowNoteId, now)))
+            }
+            DatabaseRowChange.RowPresence(rowNoteId, wasInTable = false, isInTable = true)
+        }
+
+    override suspend fun updateDatabaseCell(
+        database: DatabaseBlock,
+        rowNoteId: String,
+        column: DatabaseColumnTarget,
+        update: (PropertyBlock) -> PropertyBlock
+    ): DatabaseRowChange.Cell? =
+        withContext(Dispatchers.IO) {
+            SyncCoordinator.mutex.withLock {
+                val rowNote = noteDao.getNoteById(rowNoteId) ?: return@withLock null
+                val blocks = getNoteContent(rowNoteId)?.blocks.orEmpty()
+                val now = System.currentTimeMillis()
+                val cellBefore = blocks.databaseCellOrNull(column, rowNoteId)
+                val cellToEdit = blocks.databaseCellForEditing(database, column, rowNoteId, now) ?: return@withLock null
+                val cellAfter = update(cellToEdit).copy(isDeleted = false, updatedAt = now)
+                if (cellBefore?.copy(updatedAt = 0L) == cellAfter.copy(updatedAt = 0L)) return@withLock null
+
+                saveNote(rowNote, NoteContent(blocks = blocks.withDatabaseCellPlaced(cellAfter)))
+                DatabaseRowChange.Cell(rowNoteId, before = cellBefore, after = cellAfter)
+            }
+        }
+
+    override suspend fun renameDatabaseRow(rowNoteId: String, title: String): DatabaseRowChange.Title? =
+        withContext(Dispatchers.IO) {
+            SyncCoordinator.mutex.withLock {
+                val rowNote = noteDao.getNoteById(rowNoteId) ?: return@withLock null
+                if (rowNote.title == title) return@withLock null
+
+                saveRowNoteKeepingItsBlocks(rowNote.copy(title = title))
+                DatabaseRowChange.Title(rowNoteId, before = rowNote.title, after = title)
+            }
+        }
+
+    override suspend fun trashDatabaseRow(rowNoteId: String): DatabaseRowChange.RowPresence? =
+        withContext(Dispatchers.IO) {
+            SyncCoordinator.mutex.withLock {
+                val rowNote = noteDao.getNoteById(rowNoteId) ?: return@withLock null
+                if (rowNote.trashedAt != null) return@withLock null
+
+                saveRowNoteKeepingItsBlocks(rowNote.copy(trashedAt = System.currentTimeMillis()))
+                DatabaseRowChange.RowPresence(rowNoteId, wasInTable = true, isInTable = false)
+            }
+        }
+
+    override suspend fun addDatabaseColumnToRows(database: DatabaseBlock, column: DatabaseColumnTarget): List<DatabaseRowChange.Cell> =
+        changeColumnInEveryRow(database.databaseId, column) { blocks, rowNoteId, now ->
+            blocks.withDatabaseColumnShown(database, column, rowNoteId, now)
+        }
+
+    override suspend fun removeDatabaseColumnFromRows(databaseId: String, column: DatabaseColumnTarget): List<DatabaseRowChange.Cell> =
+        changeColumnInEveryRow(databaseId, column) { blocks, rowNoteId, now ->
+            blocks.withDatabaseColumnRemoved(column, rowNoteId, now)
+        }
+
+    override suspend fun renameDatabasePropertyInRows(
+        databaseId: String,
+        propertyId: String,
+        newName: String
+    ): List<DatabaseRowChange.Cell> =
+        changeColumnInEveryRow(databaseId, DatabaseColumnTarget.CustomProperty(propertyId)) { blocks, rowNoteId, now ->
+            blocks.withDatabaseCellRenamed(propertyId, rowNoteId, newName, now)
+        }
+
+    override suspend fun deleteSavedTagsOf(propertyKey: String) =
+        withContext(Dispatchers.IO) {
+            val now = System.currentTimeMillis()
+            propertyTagDao.getAllTagsOnce(activeSpaceId())
+                .filter { it.propertyKey == propertyKey }
+                .forEach { propertyTagDao.insertOrUpdateTag(it.copy(isDeleted = true, updatedAt = now)) }
+            AutoSyncTrigger.requestSync()
+        }
+
+    private suspend fun changeColumnInEveryRow(
+        databaseId: String,
+        column: DatabaseColumnTarget,
+        changeRowBlocks: (blocks: List<NoteBlock>, rowNoteId: String, now: Long) -> List<NoteBlock>
+    ): List<DatabaseRowChange.Cell> =
+        withContext(Dispatchers.IO) {
+            SyncCoordinator.mutex.withLock {
+                val now = System.currentTimeMillis()
+                noteDao.getAllRowNotesIncludingTrashed(databaseId).mapNotNull { rowNote ->
+                    val blocks = getNoteContent(rowNote.noteId)?.blocks.orEmpty()
+                    val changedBlocks = changeRowBlocks(blocks, rowNote.noteId, now)
+                    if (changedBlocks === blocks) return@mapNotNull null
+                    val cellAfter = changedBlocks.databaseCellOrNull(column, rowNote.noteId) ?: return@mapNotNull null
+
+                    saveNote(rowNote, NoteContent(blocks = changedBlocks))
+                    DatabaseRowChange.Cell(
+                        rowNoteId = rowNote.noteId,
+                        before = blocks.databaseCellOrNull(column, rowNote.noteId),
+                        after = cellAfter
+                    )
+                }
+            }
+        }
+
+    override suspend fun applyDatabaseRowChanges(changes: List<DatabaseRowChange>, direction: HistoryDirection) =
+        withContext(Dispatchers.IO) {
+            val changesInApplyOrder = if (direction == HistoryDirection.UNDO) changes.asReversed() else changes
+            SyncCoordinator.mutex.withLock {
+                val now = System.currentTimeMillis()
+                changesInApplyOrder.groupBy { it.rowNoteId }.forEach { (rowNoteId, rowChanges) ->
+                    val rowNote = noteDao.getNoteById(rowNoteId) ?: return@forEach
+                    val blocks = getNoteContent(rowNoteId)?.blocks.orEmpty()
+                    var updatedRowNote = rowNote
+                    var updatedBlocks = blocks
+
+                    rowChanges.forEach { change ->
+                        when (change) {
+                            is DatabaseRowChange.Cell -> {
+                                val currentCell = updatedBlocks.firstOrNull { it.id == change.after.id } as? PropertyBlock
+                                change.cellToWrite(direction, currentCell, now)?.let { cellToWrite ->
+                                    updatedBlocks = updatedBlocks.withDatabaseCellPlaced(cellToWrite)
+                                }
+                            }
+                            is DatabaseRowChange.Title -> {
+                                change.titleToWrite(direction, updatedRowNote.title)?.let { titleToWrite ->
+                                    updatedRowNote = updatedRowNote.copy(title = titleToWrite)
+                                }
+                            }
+                            is DatabaseRowChange.RowPresence -> {
+                                change.inTableStateToWrite(direction, isCurrentlyInTable = updatedRowNote.trashedAt == null)
+                                    ?.let { shouldBeInTable ->
+                                        updatedRowNote = updatedRowNote.copy(trashedAt = if (shouldBeInTable) null else now)
+                                    }
+                            }
+                        }
+                    }
+
+                    if (updatedRowNote != rowNote || updatedBlocks !== blocks) {
+                        saveNote(updatedRowNote, NoteContent(blocks = updatedBlocks))
+                    }
+                }
+            }
+        }
+
+    private suspend fun saveRowNoteKeepingItsBlocks(rowNote: NoteMetadataEntity) {
+        saveNote(rowNote, getNoteContent(rowNote.noteId) ?: NoteContent(blocks = emptyList()))
+    }
 
     override fun getAllTemplates(): Flow<List<NoteMetadataEntity>> = inActiveSpace { noteDao.getAllTemplates(it) }
 

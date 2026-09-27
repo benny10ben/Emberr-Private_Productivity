@@ -62,6 +62,7 @@ import com.emberr.domain.model.BookmarkBlock
 import com.emberr.domain.model.BulletedListBlock
 import com.emberr.domain.model.CanvasBlock
 import com.emberr.domain.model.CheckboxBlock
+import com.emberr.domain.model.DatabaseBlock
 import com.emberr.domain.model.DocumentBlock
 import com.emberr.domain.model.HeadingBlock
 import com.emberr.domain.model.ImageBlock
@@ -130,6 +131,7 @@ import emberr.shared.generated.resources.quote_down2
 import emberr.shared.generated.resources.redo_circle
 import emberr.shared.generated.resources.scissor2
 import emberr.shared.generated.resources.table
+import emberr.shared.generated.resources.database
 import emberr.shared.generated.resources.group
 import emberr.shared.generated.resources.text_tool_2
 import emberr.shared.generated.resources.text_x
@@ -302,6 +304,7 @@ interface EditorActions {
     fun onUpdatePropertyText(id: String, text: String)
     fun onUpdatePropertyDate(id: String, date: LocalDate?)
     fun onUpdatePropertyTags(id: String, tags: List<String>)
+    val databaseBlockEditor: DatabaseBlockEditor?
 }
 
 @OptIn(ExperimentalLayoutApi::class, ExperimentalFoundationApi::class)
@@ -793,6 +796,7 @@ fun EditorScreen(
                                         || lastBlock is VoiceBlock
                                         || lastBlock is CanvasBlock
                                         || lastBlock is PropertyBlock
+                                        || lastBlock is DatabaseBlock
 
                                 if (isMediaBlock) {
                                     wrappedActions.onFocusBlock(lastBlock.id)
@@ -908,6 +912,7 @@ fun EditorScreen(
                                                     || lastBlock is VoiceBlock
                                                     || lastBlock is CanvasBlock
                                                     || lastBlock is PropertyBlock
+                                                    || lastBlock is DatabaseBlock
 
                                             if (isMediaBlock) {
                                                 wrappedActions.onFocusBlock(lastBlock.id)
@@ -1516,6 +1521,7 @@ fun buildSlashMenuSections(
         SlashMenuItemData("Document / File", Res.drawable.file_text) { onInsertMediaBlock("document") },
         SlashMenuItemData("Web Bookmark", Res.drawable.bookmark) { onInsertMediaBlock("bookmark") },
         SlashMenuItemData("Simple Table", Res.drawable.table) { onInsertMediaBlock("table") },
+        SlashMenuItemData("Database", Res.drawable.database) { onInsertMediaBlock("database") },
         SlashMenuItemData("Canvas", Res.drawable.group) { onInsertMediaBlock("canvas") },
         SlashMenuItemData("Link to Note", Res.drawable.link) { onInsertMediaBlock("linked_note") },
         SlashMenuItemData("Link to Canvas", Res.drawable.group) { onInsertMediaBlock("linked_canvas") }

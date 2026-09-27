@@ -8,6 +8,9 @@ import com.emberr.domain.model.BulletedListBlock
 import com.emberr.domain.model.CanvasBlock
 import com.emberr.domain.model.CheckboxBlock
 import com.emberr.domain.model.CodeBlock
+import com.emberr.domain.model.DatabaseBlock
+import com.emberr.domain.model.DatabaseColumnTarget
+import com.emberr.domain.model.labelOf
 import com.emberr.domain.model.DocumentBlock
 import com.emberr.domain.model.HeadingBlock
 import com.emberr.domain.model.ImageBlock
@@ -173,6 +176,7 @@ object NoteMarkdownWriter {
             is VoiceBlock -> renderVoice(block, tag, options)
             is CanvasBlock -> renderCanvas(block, tag, options)
             is PropertyBlock -> renderProperty(block, tag, options)
+            is DatabaseBlock -> renderDatabase(block, tag, options)
             is TableBlock -> renderTable(block, tag)
             is SolidDividerBlock -> withTagOnItsOwnLine(VaultFormat.SOLID_DIVIDER_LINE, tag)
             is ThreeDotDividerBlock -> withTagOnItsOwnLine(VaultFormat.DOT_DIVIDER_LINE, tag)
@@ -314,6 +318,21 @@ object NoteMarkdownWriter {
                 appendLine("type: ${block.customValueType.name.lowercase()}")
             }
             appendLine("value: ${yamlScalar(value)}")
+            append("```")
+        }
+        return withTagOnItsOwnLine(fence, tag)
+    }
+
+    private fun renderDatabase(block: DatabaseBlock, tag: String?, options: RenderOptions): String {
+        if (!options.isVault) return ""
+        val columnNames = block.columns.joinToString(", ") { column ->
+            if (column is DatabaseColumnTarget.Property) column.propertyType.name.lowercase() else flattenLineBreaks(block.labelOf(column))
+        }
+        val fence = buildString {
+            appendLine("```${VaultFormat.DATABASE_FENCE_NAME}")
+            appendLine("database: ${block.databaseId}")
+            appendLine("title: ${yamlScalar(block.title)}")
+            appendLine(if (columnNames.isEmpty()) "columns:" else "columns: $columnNames")
             append("```")
         }
         return withTagOnItsOwnLine(fence, tag)

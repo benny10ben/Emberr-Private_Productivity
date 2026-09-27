@@ -49,6 +49,7 @@ import com.emberr.domain.model.NoteBlock
 import com.emberr.domain.model.NoteContent
 import com.emberr.domain.model.TextAlignment
 import com.emberr.presentation.LocalCanvasFullScreenOverlay
+import com.emberr.presentation.shared.editor.DatabaseBlockEditor
 import com.emberr.presentation.shared.editor.EditorActions
 import com.emberr.presentation.settings.SettingsScreen
 import com.emberr.presentation.settings.selfhost.SelfHostSetupScreen
@@ -1764,6 +1765,7 @@ fun DesktopMainScreen(
                             override fun onUpdatePropertyText(id: String, text: String) = dailyViewModel.updatePropertyText(id, text)
                             override fun onUpdatePropertyDate(id: String, date: LocalDate?) = dailyViewModel.updatePropertyDate(id, date)
                             override fun onUpdatePropertyTags(id: String, tags: List<String>) = dailyViewModel.updatePropertyTags(id, tags)
+                            override val databaseBlockEditor: DatabaseBlockEditor get() = dailyViewModel.databaseBlockEditor
                         }
                     }
 

@@ -184,6 +184,52 @@ object TestNoteBlocks {
             isPinned = true,
             updatedAt = 118L
         ),
+        DatabaseBlock(
+            id = "database-1",
+            databaseId = "database-id-3",
+            title = "Reading list",
+            columns = listOf(
+                DatabaseColumnTarget.Property(PropertyType.STATUS),
+                DatabaseColumnTarget.Property(PropertyType.DUE_DATE),
+                DatabaseColumnTarget.Property(PropertyType.TAGS),
+                DatabaseColumnTarget.CustomProperty("client-id")
+            ),
+            customProperties = listOf(
+                DatabaseCustomProperty(id = "client-id", name = "Client", valueType = PropertyValueType.SINGLE_CHOICE),
+                DatabaseCustomProperty(id = "kickoff-id", name = "Kickoff", valueType = PropertyValueType.DATE)
+            ),
+            columnWidths = mapOf(NOTES_COLUMN_KEY to 240, PropertyType.STATUS.name to 160, "client-id" to 200),
+            filters = listOf(
+                DatabaseFilter(
+                    id = "filter-1",
+                    target = DatabaseColumnTarget.Property(PropertyType.STATUS),
+                    condition = DatabaseFilterCondition.IS,
+                    tagName = "Reading"
+                ),
+                DatabaseFilter(
+                    id = "filter-2",
+                    target = DatabaseColumnTarget.Property(PropertyType.DUE_DATE),
+                    condition = DatabaseFilterCondition.IS_BEFORE,
+                    date = LocalDate(2026, 12, 31)
+                ),
+                DatabaseFilter(
+                    id = "filter-3",
+                    target = DatabaseColumnTarget.NotesTitle,
+                    condition = DatabaseFilterCondition.CONTAINS,
+                    text = "dune"
+                ),
+                DatabaseFilter(
+                    id = "filter-4",
+                    target = DatabaseColumnTarget.CustomProperty("client-id"),
+                    condition = DatabaseFilterCondition.IS,
+                    tagName = "Acme"
+                )
+            ),
+            sort = DatabaseSort(target = DatabaseColumnTarget.NotesTitle, isDescending = true),
+            indentationLevel = 1,
+            isPinned = true,
+            updatedAt = 119L
+        ),
         SolidDividerBlock(
             id = "solid-divider-1",
             indentationLevel = 1,

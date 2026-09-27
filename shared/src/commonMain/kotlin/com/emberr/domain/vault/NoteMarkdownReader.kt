@@ -7,6 +7,7 @@ import com.emberr.domain.model.BulletedListBlock
 import com.emberr.domain.model.CanvasBlock
 import com.emberr.domain.model.CheckboxBlock
 import com.emberr.domain.model.CodeBlock
+import com.emberr.domain.model.DatabaseBlock
 import com.emberr.domain.model.DocumentBlock
 import com.emberr.domain.model.HeadingBlock
 import com.emberr.domain.model.ImageBlock
@@ -412,6 +413,7 @@ object NoteMarkdownReader {
         VaultFormat.VOICE_FENCE_NAME -> buildVoiceBlock(chunk, existing, request)
         VaultFormat.CANVAS_FENCE_NAME -> buildCanvasBlock(chunk, existing, request)
         VaultFormat.PROPERTY_FENCE_NAME -> buildPropertyBlock(chunk, existing, request)
+        VaultFormat.DATABASE_FENCE_NAME -> buildDatabaseBlock(chunk, existing, request)
         else -> buildCodeBlock(chunk, existing, request)
     }
 
@@ -505,6 +507,20 @@ object NoteMarkdownReader {
             existing,
             request.timestamp
         )
+    }
+
+    private fun buildDatabaseBlock(
+        chunk: VaultMarkdownChunk,
+        existing: NoteBlock?,
+        request: VaultNoteReadRequest
+    ): NoteBlock {
+        val fields = VaultMarkdownScanner.parseKeyValueLines(chunk.lines)
+        val existingDatabase = existing as? DatabaseBlock
+        val databaseId = existingDatabase?.databaseId
+            ?: fields["database"]?.takeIf { it.isNotBlank() }
+            ?: return buildCodeBlock(chunk, existing, request)
+        val base = existingDatabase ?: DatabaseBlock(id = idFor(existing, request), databaseId = databaseId)
+        return settle(base.copy(title = fields["title"] ?: base.title), existing, request.timestamp)
     }
 
     private fun parsePropertyDate(value: String, base: PropertyBlock): LocalDate? {

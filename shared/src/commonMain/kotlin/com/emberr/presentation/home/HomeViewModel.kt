@@ -8,6 +8,8 @@ import com.emberr.data.local.room.entity.FolderEntity
 import com.emberr.data.local.room.entity.NoteKind
 import com.emberr.data.local.room.entity.NoteMetadataEntity
 import com.emberr.domain.canvas.EmbeddedCanvasCleaner
+import com.emberr.domain.database.DatabaseRowCleaner
+import com.emberr.domain.database.withFreshDatabaseIds
 import com.emberr.domain.media.LocalMediaGarbageCollector
 import com.emberr.domain.model.*
 import com.emberr.domain.repository.FavoriteNoteOrderStore
@@ -42,6 +44,7 @@ class HomeViewModel(
     private val sampleNotesSeeder: SampleNotesSeeder,
     private val localMediaGarbageCollector: LocalMediaGarbageCollector,
     private val embeddedCanvasCleaner: EmbeddedCanvasCleaner,
+    private val databaseRowCleaner: DatabaseRowCleaner,
     private val favoriteNoteOrderStore: FavoriteNoteOrderStore,
     private val activeSpaceStore: ActiveSpaceStore
 ) : ViewModel() {
@@ -408,6 +411,7 @@ class HomeViewModel(
             localMediaGarbageCollector.collectAndDeleteOrphanedMedia()
             embeddedCanvasCleaner.deleteCanvasesOfRemovedBlocks()
             embeddedCanvasCleaner.forgetViewPositionsOfDeletedCanvases()
+            databaseRowCleaner.deleteRowsOfRemovedDatabases()
             com.emberr.domain.ai.models.cleanupPendingModelDeletions()
         }
         viewModelScope.launch {
@@ -678,7 +682,8 @@ class HomeViewModel(
                 isTemplate = false
             )
 
-            repository.saveNote(metadata, repository.copyEmbeddedCanvasesIn(templateContent.deepCopyWithNewIds()))
+            val contentWithFreshIds = templateContent.deepCopyWithNewIds().withFreshDatabaseIds { UUID.randomUUID().toString() }
+            repository.saveNote(metadata, repository.copyEmbeddedCanvasesIn(contentWithFreshIds))
 
             withContext(Dispatchers.Main) {
                 onNoteCreated(newNoteId)

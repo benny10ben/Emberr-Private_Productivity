@@ -53,6 +53,7 @@ class NoteBlockDeepCopyTest {
         is VoiceBlock -> copy(id = other.id)
         is CanvasBlock -> copy(id = other.id)
         is PropertyBlock -> copy(id = other.id)
+        is DatabaseBlock -> copy(id = other.id)
         is SolidDividerBlock -> copy(id = other.id)
         is ThreeDotDividerBlock -> copy(id = other.id)
     }

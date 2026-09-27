@@ -45,6 +45,7 @@ import com.emberr.presentation.shared.stableStatusBarsPadding
 import com.emberr.presentation.shared.editor.BlockSelectionMenuContent
 import com.emberr.presentation.shared.editor.BlockSelectionPill
 import com.emberr.presentation.shared.editor.EditorScreen
+import com.emberr.presentation.shared.editor.DatabaseBlockEditor
 import com.emberr.presentation.shared.editor.EditorActions
 import com.emberr.presentation.shared.editor.SelectionModeObserver
 import com.emberr.presentation.calendar.EventEditorSheetHost
@@ -304,9 +305,11 @@ fun NoteScreen(
 
     val handleCopyPlain: () -> Unit = {
         showOptionsMenu = false
-        val text = viewModel.generatePlainTextExport()
-        clipboardManager.setText(AnnotatedString(text))
-        showFeedback("Copied to clipboard")
+        scope.launch {
+            val text = viewModel.generatePlainTextExport()
+            clipboardManager.setText(AnnotatedString(text))
+            showFeedback("Copied to clipboard")
+        }
     }
 
     // Copy and Download both render through the same engine the AI vault uses:
@@ -334,7 +337,7 @@ fun NoteScreen(
         scope.launch {
             delay(300.milliseconds)
             val safeTitle = noteTitle.ifBlank { "Untitled_Note" }.replace(Regex("[^a-zA-Z0-9.-]"), "_")
-            onExportPdf("$safeTitle.pdf", noteTitle, blocks)
+            onExportPdf("$safeTitle.pdf", noteTitle, viewModel.blocksForExport())
         }
     }
 
@@ -460,6 +463,7 @@ fun NoteScreen(
             override fun onUpdatePropertyText(id: String, text: String) = viewModel.updatePropertyText(id, text)
             override fun onUpdatePropertyDate(id: String, date: LocalDate?) = viewModel.updatePropertyDate(id, date)
             override fun onUpdatePropertyTags(id: String, tags: List<String>) = viewModel.updatePropertyTags(id, tags)
+            override val databaseBlockEditor: DatabaseBlockEditor get() = viewModel.databaseBlockEditor
         }
     }
 

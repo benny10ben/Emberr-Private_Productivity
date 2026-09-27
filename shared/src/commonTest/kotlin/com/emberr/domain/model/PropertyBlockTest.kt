@@ -83,6 +83,65 @@ class PropertyBlockTest {
         assertSame(tagsBlock, tagsBlock.withPropertyTagReplaced("TAGS", "missing", "urgent", now = 500L))
     }
 
+    private val statusFilter = DatabaseFilter(
+        id = "f1",
+        target = DatabaseColumnTarget.Property(PropertyType.STATUS),
+        condition = DatabaseFilterCondition.IS,
+        tagName = "Doing"
+    )
+    private val tagsFilter = DatabaseFilter(
+        id = "f2",
+        target = DatabaseColumnTarget.Property(PropertyType.TAGS),
+        condition = DatabaseFilterCondition.CONTAINS,
+        tagName = "doing"
+    )
+    private val database = DatabaseBlock(
+        id = "d1",
+        databaseId = "database-1",
+        columns = listOf(DatabaseColumnTarget.Property(PropertyType.STATUS), DatabaseColumnTarget.Property(PropertyType.TAGS)),
+        filters = listOf(statusFilter, tagsFilter),
+        updatedAt = 100L
+    )
+
+    @Test
+    fun renamingATagAlsoRenamesItInDatabaseFiltersOnThatProperty() {
+        val renamed = database.withPropertyTagReplaced("STATUS", "DOING", "In progress", now = 500L)
+
+        assertEquals(
+            database.copy(filters = listOf(statusFilter.copy(tagName = "In progress"), tagsFilter), updatedAt = 500L),
+            renamed
+        )
+    }
+
+    @Test
+    fun deletingATagRemovesTheDatabaseFiltersThatUsedIt() {
+        val withoutTag = database.withPropertyTagReplaced("STATUS", "doing", null, now = 500L)
+
+        assertEquals(database.copy(filters = listOf(tagsFilter), updatedAt = 500L), withoutTag)
+    }
+
+    @Test
+    fun renamingATagOfADatabaseOnlyPropertyRenamesItsFilter() {
+        val clientFilter = DatabaseFilter(
+            id = "f3",
+            target = DatabaseColumnTarget.CustomProperty("client-id"),
+            condition = DatabaseFilterCondition.IS,
+            tagName = "Acme"
+        )
+        val withClientFilter = database.copy(filters = listOf(clientFilter))
+
+        assertEquals(
+            withClientFilter.copy(filters = listOf(clientFilter.copy(tagName = "Acme Corp")), updatedAt = 500L),
+            withClientFilter.withPropertyTagReplaced("client-id", "acme", "Acme Corp", now = 500L)
+        )
+    }
+
+    @Test
+    fun aDatabaseWithNoFilterOnTheTagIsLeftExactlyAsItWas() {
+        assertSame(database, database.withPropertyTagReplaced("STATUS", "Done", "Finished", now = 500L))
+        assertSame(database, database.withPropertyTagReplaced("NAME", "Doing", "Finished", now = 500L))
+    }
+
     @Test
     fun applyingTheSameRenameTwiceChangesNothingTheSecondTime() {
         val renamed = tagsBlock.withPropertyTagReplaced("TAGS", "urgnet", "urgent", now = 500L)
