@@ -35,11 +35,13 @@ import com.emberr.domain.ai.NoteIndexer
 import com.emberr.domain.canvas.CanvasContent
 import com.emberr.domain.canvas.EmbeddedCanvasCleanup
 import com.emberr.domain.canvas.isEmbeddedCanvas
+import com.emberr.domain.ai.DatabaseRowLocation
 import com.emberr.domain.database.DatabaseRow
 import com.emberr.domain.database.DatabaseRowChange
 import com.emberr.domain.database.DatabaseRowCleanup
 import com.emberr.domain.database.HistoryDirection
 import com.emberr.domain.database.buildDatabaseRow
+import com.emberr.domain.database.copiedForRow
 import com.emberr.domain.database.databaseCellForEditing
 import com.emberr.domain.database.databaseCellOrNull
 import com.emberr.domain.database.newRowBlocks
@@ -57,6 +59,7 @@ import com.emberr.domain.model.DatabaseColumnTarget
 import com.emberr.domain.model.DocumentBlock
 import com.emberr.domain.model.HeadingBlock
 import com.emberr.domain.model.ImageBlock
+import com.emberr.domain.model.LinkedNoteBlock
 import com.emberr.domain.model.NoteBlock
 import com.emberr.domain.model.NoteContent
 import com.emberr.domain.model.NoteSearchResult
@@ -73,6 +76,10 @@ import com.emberr.domain.model.withPropertyTagReplaced
 import com.emberr.domain.model.withCustomPropertyRenamed
 import com.emberr.domain.model.withCustomPropertyRemoved
 import com.emberr.domain.model.valueAsText
+import com.emberr.domain.search.LINKED_NOTE_BLOCK_JSON_MARKER
+import com.emberr.domain.search.latestParentByChildId
+import com.emberr.domain.search.subNoteParentTitles
+import com.emberr.domain.search.withSubNoteParents
 import com.emberr.domain.selfhost.media.MediaReferenceScanner
 import com.emberr.domain.util.sync.SyncCoordinator
 import kotlinx.coroutines.flow.combine
@@ -463,12 +470,13 @@ class NoteRepositoryImpl(
     override suspend fun searchNoteTitlesAndSnippets(query: String): List<NoteSearchResult> =
         withContext(Dispatchers.IO) {
             if (query.isBlank()) return@withContext emptyList()
-            noteDao.searchNotesByTitleOrSnippet(activeSpaceId(), query).map { metadata ->
+            val results = noteDao.searchNotesByTitleOrSnippet(activeSpaceId(), query).map { metadata ->
                 NoteSearchResult(
                     note = metadata,
                     matchedText = metadata.snippet.ifBlank { metadata.title }
                 )
             }
+            resolveSubNoteParents(results)
         }
 
     // Cross-note search. Runs the two DAO queries added for this feature:
@@ -500,8 +508,47 @@ class NoteRepositoryImpl(
             val alreadyFoundIds = matchedIds + contentMatches.map { it.note.noteId }
             val canvasMatches = findCanvasTextMatches(spaceId, query).filterNot { it.note.noteId in alreadyFoundIds }
 
-            (metadataResults + contentMatches + canvasMatches).sortedByDescending { it.note.updatedAt }
+            (metadataResults + resolveSubNoteParents(contentMatches + canvasMatches)).sortedByDescending { it.note.updatedAt }
         }
+
+    private suspend fun resolveSubNoteParents(results: List<NoteSearchResult>): List<NoteSearchResult> {
+        if (results.none { it.note.isSubNote }) return results
+        val loadLiveParents: suspend (List<String>) -> List<NoteMetadataEntity> = { noteIds ->
+            noteDao.getNotesByIds(noteIds).filter { it.trashedAt == null }
+        }
+        val parentsByDatabaseId = parentsOf(DatabaseRowCleanup.DATABASE_BLOCK_JSON_MARKER, loadLiveParents) { (it as? DatabaseBlock)?.databaseId }
+        val parentsByLinkedNoteId = parentsOf(LINKED_NOTE_BLOCK_JSON_MARKER, loadLiveParents) { (it as? LinkedNoteBlock)?.linkedNoteId }
+        return results.withSubNoteParents(parentsByDatabaseId, parentsByLinkedNoteId)
+    }
+
+    override suspend fun parentTitlesOfSubNotes(notes: List<NoteMetadataEntity>): Map<String, String> =
+        withContext(Dispatchers.IO) {
+            if (notes.none { it.isSubNote }) return@withContext emptyMap()
+            val loadAnyParents: suspend (List<String>) -> List<NoteMetadataEntity> = { noteIds ->
+                noteDao.getNotesByIdsIncludingTemplates(noteIds)
+            }
+            val parentsByDatabaseId = parentsOf(DatabaseRowCleanup.DATABASE_BLOCK_JSON_MARKER, loadAnyParents) { (it as? DatabaseBlock)?.databaseId }
+            val parentsByLinkedNoteId = parentsOf(LINKED_NOTE_BLOCK_JSON_MARKER, loadAnyParents) { (it as? LinkedNoteBlock)?.linkedNoteId }
+            notes.subNoteParentTitles(parentsByDatabaseId, parentsByLinkedNoteId)
+        }
+
+    private suspend fun parentsOf(
+        blockJsonMarker: String,
+        loadParents: suspend (List<String>) -> List<NoteMetadataEntity>,
+        childIdOf: (NoteBlock) -> String?
+    ): Map<String, NoteMetadataEntity> {
+        val parentNoteIdByChildId = blockDao.findBlocksContainingIncludingDeleted(blockJsonMarker)
+            .filter { !it.isDeleted }
+            .mapNotNull { entity ->
+                val childId = decodeBlockOrNull(entity.blockDataJson)?.let(childIdOf) ?: return@mapNotNull null
+                childId to entity.noteId
+            }
+        if (parentNoteIdByChildId.isEmpty()) return emptyMap()
+        val parentsByNoteId = loadParents(parentNoteIdByChildId.map { it.second }.distinct()).associateBy { it.noteId }
+        return parentNoteIdByChildId
+            .mapNotNull { (childId, parentNoteId) -> parentsByNoteId[parentNoteId]?.let { parent -> childId to parent } }
+            .latestParentByChildId()
+    }
 
     private suspend fun findCanvasTextMatches(spaceId: String, query: String): List<NoteSearchResult> {
         val resultsByNoteId = LinkedHashMap<String, NoteSearchResult>()
@@ -551,6 +598,7 @@ class NoteRepositoryImpl(
         is BookmarkBlock -> block.title?.takeIf { it.isNotBlank() } ?: block.url
         is DocumentBlock -> block.fileName
         is PropertyBlock -> block.valueAsText()
+        is DatabaseBlock -> block.title
         else -> null
     }.let { text -> text?.takeIf { it.isNotBlank() } }
 
@@ -1270,11 +1318,25 @@ class NoteRepositoryImpl(
     override suspend fun indexNote(metadata: NoteMetadataEntity, content: NoteContent) =
         withContext(Dispatchers.IO) {
             try {
-                noteIndexer.indexNote(metadata, content)
+                noteIndexer.indexNote(metadata, content, databaseRowLocationOf(metadata))
             } catch (e: Exception) {
                 e.printStackTrace()
             }
         }
+
+    private suspend fun databaseRowLocationOf(rowNote: NoteMetadataEntity): DatabaseRowLocation? {
+        val databaseId = rowNote.databaseId ?: return null
+        return blockDao.findBlocksContainingIncludingDeleted(databaseId)
+            .filter { !it.isDeleted }
+            .firstNotNullOfOrNull { entity ->
+                val databaseBlock = decodeBlockOrNull(entity.blockDataJson) as? DatabaseBlock ?: return@firstNotNullOfOrNull null
+                if (databaseBlock.databaseId != databaseId) return@firstNotNullOfOrNull null
+                DatabaseRowLocation(
+                    databaseTitle = databaseBlock.title,
+                    hostNoteTitle = noteDao.getNoteById(entity.noteId)?.title
+                )
+            }
+    }
 
     override suspend fun indexCanvas(noteId: String, canvas: CanvasContent) =
         withContext(Dispatchers.IO) {
@@ -1894,6 +1956,62 @@ class NoteRepositoryImpl(
             canvasDao.upsertStrokes(copiedCanvas.strokes)
         }
         return copyNoteId
+    }
+
+    override suspend fun copyDatabasesIn(content: NoteContent): NoteContent = withContext(Dispatchers.IO) {
+        copyDatabasesIn(content, copyIdsBySourceDatabaseId = mutableMapOf())
+    }
+
+    private suspend fun copyDatabasesIn(content: NoteContent, copyIdsBySourceDatabaseId: MutableMap<String, String>): NoteContent {
+        val liveSourceDatabaseIds = content.blocks.filterIsInstance<DatabaseBlock>().filterNot { it.isDeleted }.mapTo(HashSet()) { it.databaseId }
+        val blocks = content.blocks.map { block ->
+            if (block !is DatabaseBlock) return@map block
+            val copiedDatabaseId = copyIdsBySourceDatabaseId[block.databaseId] ?: UUID.randomUUID().toString().also { copiedDatabaseId ->
+                copyIdsBySourceDatabaseId[block.databaseId] = copiedDatabaseId
+                if (block.databaseId in liveSourceDatabaseIds) {
+                    copyDatabaseRows(block.databaseId, copiedDatabaseId, copyIdsBySourceDatabaseId)
+                }
+            }
+            block.copy(databaseId = copiedDatabaseId)
+        }
+        return content.copy(blocks = blocks)
+    }
+
+    private suspend fun copyDatabaseRows(
+        sourceDatabaseId: String,
+        copyDatabaseId: String,
+        copyIdsBySourceDatabaseId: MutableMap<String, String>
+    ) {
+        val sourceRows = noteDao.getAllRowNotesIncludingTrashed(sourceDatabaseId)
+            .filter { it.trashedAt == null }
+            .sortedWith(compareBy({ it.createdAt }, { it.noteId }))
+        val now = System.currentTimeMillis()
+        sourceRows.forEachIndexed { index, sourceRow ->
+            val copyRowNoteId = UUID.randomUUID().toString()
+            val sourceBlocks = getNoteContent(sourceRow.noteId)?.blocks.orEmpty()
+            val copiedContent = copyDatabasesIn(
+                copyEmbeddedCanvasesIn(NoteContent(blocks = sourceBlocks.copiedForRow(sourceRow.noteId, copyRowNoteId))),
+                copyIdsBySourceDatabaseId
+            )
+            val copyMetadata = NoteMetadataEntity(
+                noteId = copyRowNoteId,
+                title = sourceRow.title,
+                icon = sourceRow.icon,
+                coverImagePath = sourceRow.coverImagePath,
+                showWordCount = sourceRow.showWordCount,
+                folderId = null,
+                isDaily = false,
+                dateString = null,
+                createdAt = now + index,
+                updatedAt = now,
+                filePath = "",
+                isSubNote = true,
+                databaseId = copyDatabaseId
+            )
+            SyncCoordinator.mutex.withLock {
+                saveNote(copyMetadata, copiedContent)
+            }
+        }
     }
 
     override suspend fun updateNoteSortOrder(noteId: String, order: Int) =

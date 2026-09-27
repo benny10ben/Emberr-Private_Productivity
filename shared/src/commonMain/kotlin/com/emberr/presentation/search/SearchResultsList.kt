@@ -149,6 +149,16 @@ private fun SearchResultRow(
                 modifier = Modifier.padding(top = 2.dp)
             )
         }
+        result.parentTitle?.let { parentTitle ->
+            Text(
+                text = "in $parentTitle",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(top = 6.dp)
+            )
+        }
         if (dailyDateString != null) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,

@@ -1286,7 +1286,8 @@ fun NoteCard(
     isSelected: Boolean,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
-    handlesGestures: Boolean = true
+    handlesGestures: Boolean = true,
+    parentTitle: String? = null
 ) {
     val mediaStorageHelper: com.emberr.domain.util.media.MediaStorageHelper = koinInject()
     val bgColor = when {
@@ -1348,6 +1349,15 @@ fun NoteCard(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
+                parentTitle?.let {
+                    Text(
+                        text = "in $it",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = mutedColor,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
                 Spacer(Modifier.height(4.dp))
                 Text(text = note.snippet.takeIf { it.isNotBlank() } ?: "Empty note...",
                     style = MaterialTheme.typography.labelSmall,

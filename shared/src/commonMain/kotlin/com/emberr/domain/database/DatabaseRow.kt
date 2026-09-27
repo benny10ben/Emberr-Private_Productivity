@@ -26,7 +26,7 @@ fun buildDatabaseRow(noteId: String, title: String, createdAt: Long, blocks: Lis
     return DatabaseRow(noteId = noteId, title = title, createdAt = createdAt, cellsByColumn = liveCellsByColumn)
 }
 
-private fun PropertyBlock.databaseColumn(): DatabaseColumnTarget? {
+fun PropertyBlock.databaseColumn(): DatabaseColumnTarget? {
     val builtInType = propertyType
     val customId = customPropertyId
     return when {

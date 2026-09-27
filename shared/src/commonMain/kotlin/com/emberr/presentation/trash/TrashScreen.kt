@@ -48,6 +48,7 @@ fun TrashScreen(
     viewModel: TrashViewModel = koinViewModel()
 ) {
     val trashedNotes by viewModel.trashedNotes.collectAsState()
+    val parentTitlesByNoteId by viewModel.parentTitlesByNoteId.collectAsState()
     var selectedNoteToManage by remember { mutableStateOf<NoteMetadataEntity?>(null) }
     var showEmptyTrashConfirm by remember { mutableStateOf(false) }
 
@@ -104,7 +105,8 @@ fun TrashScreen(
                         note = note,
                         isSelected = false,
                         onClick = { selectedNoteToManage = note },
-                        onLongClick = { selectedNoteToManage = note }
+                        onLongClick = { selectedNoteToManage = note },
+                        parentTitle = parentTitlesByNoteId[note.noteId]
                     )
                 }
             }

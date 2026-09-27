@@ -1,0 +1,313 @@
+package com.emberr.domain.repository
+
+import androidx.room.Room
+import androidx.sqlite.driver.bundled.BundledSQLiteDriver
+import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
+import com.emberr.data.local.prefs.SettingsManager
+import com.emberr.data.local.room.AppDatabase
+import com.emberr.data.local.room.entity.DEFAULT_SPACE_ID
+import com.emberr.data.local.room.entity.NoteMetadataEntity
+import com.emberr.database.EmberrDatabase
+import com.emberr.domain.ai.LocalAiEngine
+import com.emberr.domain.ai.NoteIndexer
+import com.emberr.domain.ai.external.AiSettingsRepository
+import com.emberr.domain.database.DatabaseRow
+import com.emberr.domain.database.HistoryDirection
+import com.emberr.domain.database.databaseCellBlockId
+import com.emberr.domain.model.DatabaseBlock
+import com.emberr.domain.model.DatabaseColumnTarget
+import com.emberr.domain.model.NoteBlock
+import com.emberr.domain.model.NoteContent
+import com.emberr.domain.model.PropertyBlock
+import com.emberr.domain.model.PropertyType
+import com.emberr.domain.space.ActiveSpaceStore
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.test.runTest
+import java.lang.reflect.Proxy
+import kotlin.test.AfterTest
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertNotEquals
+import kotlin.test.assertNull
+import kotlin.test.assertTrue
+
+class NoteRepositoryDatabaseRowsTest {
+
+    private val appDatabase = Room.inMemoryDatabaseBuilder<AppDatabase>()
+        .setDriver(BundledSQLiteDriver())
+        .build()
+    private val aiIndexDriver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY).also { EmberrDatabase.Schema.create(it) }
+
+    private val settings: SettingsManager = stubOf { methodName ->
+        when (methodName) {
+            "getActiveSpaceId" -> DEFAULT_SPACE_ID
+            "getActiveSpaceIdFlow" -> flowOf(DEFAULT_SPACE_ID)
+            "isAiFeaturesDisabled" -> true
+            else -> error("These tests do not expect SettingsManager.$methodName to be called")
+        }
+    }
+    private val aiSettingsThatAreNeverRead: AiSettingsRepository = stubOf { methodName ->
+        error("These tests do not expect AiSettingsRepository.$methodName to be called")
+    }
+
+    private val repository = NoteRepositoryImpl(
+        activeSpaceStore = ActiveSpaceStore(settings),
+        noteDao = appDatabase.noteDao(),
+        folderDao = appDatabase.folderDao(),
+        blockDao = appDatabase.blockDao(),
+        noteIndexer = NoteIndexer(EmberrDatabase(aiIndexDriver), LocalAiEngine(aiSettingsThatAreNeverRead), settings),
+        calendarTaskDao = appDatabase.calendarTaskDao(),
+        calendarEventExceptionDao = appDatabase.calendarEventExceptionDao(),
+        imageBlockDao = appDatabase.imageBlockDao(),
+        documentBlockDao = appDatabase.documentBlockDao(),
+        bookmarkBlockDao = appDatabase.bookmarkBlockDao(),
+        categoryDao = appDatabase.categoryDao(),
+        propertyTagDao = appDatabase.propertyTagDao(),
+        customPropertyDao = appDatabase.customPropertyDao(),
+        selfHostDeletedNoteDao = appDatabase.selfHostDeletedNoteDao(),
+        mediaReferenceDao = appDatabase.mediaReferenceDao(),
+        canvasDao = appDatabase.canvasDao()
+    )
+
+    private val nameColumn = DatabaseColumnTarget.Property(PropertyType.NAME)
+    private val statusColumn = DatabaseColumnTarget.Property(PropertyType.STATUS)
+    private val days = DatabaseBlock(id = "days-block", databaseId = "days", title = "Days", columns = listOf(nameColumn), updatedAt = 1L)
+    private val daysWithStatus = days.copy(columns = listOf(nameColumn, statusColumn))
+
+    @AfterTest
+    fun closeDatabases() {
+        appDatabase.close()
+        aiIndexDriver.close()
+    }
+
+    private inline fun <reified T : Any> stubOf(crossinline answer: (methodName: String) -> Any?): T =
+        Proxy.newProxyInstance(T::class.java.classLoader, arrayOf(T::class.java)) { stub, method, arguments ->
+            when (method.name) {
+                "toString" -> "stub of ${T::class.simpleName}"
+                "hashCode" -> System.identityHashCode(stub)
+                "equals" -> stub === arguments?.firstOrNull()
+                else -> answer(method.name)
+            }
+        } as T
+
+    private fun waitForTheClockToTick() {
+        val startMillis = System.currentTimeMillis()
+        while (System.currentTimeMillis() == startMillis) Thread.onSpinWait()
+    }
+
+    private suspend fun rowsOf(databaseId: String): List<DatabaseRow> =
+        repository.observeDatabaseRows(databaseId).first().sortedBy { it.createdAt }
+
+    private fun note(
+        noteId: String,
+        title: String,
+        databaseId: String? = null,
+        createdAt: Long = 1L,
+        trashedAt: Long? = null,
+        isTemplate: Boolean = false
+    ) = NoteMetadataEntity(
+        noteId = noteId,
+        title = title,
+        folderId = null,
+        isDaily = false,
+        dateString = null,
+        createdAt = createdAt,
+        updatedAt = createdAt,
+        filePath = "",
+        trashedAt = trashedAt,
+        isSubNote = databaseId != null,
+        isTemplate = isTemplate,
+        databaseId = databaseId
+    )
+
+    private suspend fun saveNote(metadata: NoteMetadataEntity, vararg blocks: NoteBlock) {
+        repository.saveNote(metadata, NoteContent(blocks = blocks.toList()))
+    }
+
+    private suspend fun saveRow(
+        rowNoteId: String,
+        databaseId: String,
+        title: String,
+        name: String,
+        createdAt: Long = 1L,
+        trashedAt: Long? = null
+    ) {
+        val nameCell = PropertyBlock(
+            id = databaseCellBlockId(nameColumn, rowNoteId),
+            propertyType = PropertyType.NAME,
+            text = name,
+            updatedAt = 1L
+        )
+        saveNote(note(rowNoteId, title, databaseId, createdAt, trashedAt), nameCell)
+    }
+
+    @Test
+    fun aNewRowIsAHiddenSubNoteInTheTableWithAnEmptyCellForEachColumn() = runTest {
+        val change = repository.createDatabaseRow(days)
+
+        val rows = rowsOf("days")
+        val rowNote = repository.getNoteById(change.rowNoteId)
+
+        assertEquals(listOf(change.rowNoteId), rows.map { it.noteId })
+        assertEquals("", rows.single().cell(nameColumn)?.text)
+        assertEquals(true, rowNote?.isSubNote)
+        assertEquals("days", rowNote?.databaseId)
+    }
+
+    @Test
+    fun editingACellSavesTheValueAndReportsTheValueBeforeAndAfter() = runTest {
+        val rowNoteId = repository.createDatabaseRow(days).rowNoteId
+        waitForTheClockToTick()
+
+        val change = repository.updateDatabaseCell(days, rowNoteId, nameColumn) { it.copy(text = "Gym") }
+
+        assertEquals("Gym", rowsOf("days").single().cell(nameColumn)?.text)
+        assertEquals("", change?.before?.text)
+        assertEquals("Gym", change?.after?.text)
+    }
+
+    @Test
+    fun writingTheSameCellValueAgainIsNotAChange() = runTest {
+        val rowNoteId = repository.createDatabaseRow(days).rowNoteId
+        waitForTheClockToTick()
+        repository.updateDatabaseCell(days, rowNoteId, nameColumn) { it.copy(text = "Gym") }
+
+        val secondChange = repository.updateDatabaseCell(days, rowNoteId, nameColumn) { it.copy(text = "Gym") }
+
+        assertNull(secondChange)
+    }
+
+    @Test
+    fun addingAColumnGivesEveryRowACellAndRemovingItHidesThemAll() = runTest {
+        repository.createDatabaseRow(days)
+        repository.createDatabaseRow(days)
+
+        val addChanges = repository.addDatabaseColumnToRows(daysWithStatus, statusColumn)
+        val rowsWithStatus = rowsOf("days")
+        val removeChanges = repository.removeDatabaseColumnFromRows("days", statusColumn)
+        val rowsWithoutStatus = rowsOf("days")
+
+        assertEquals(2, addChanges.size)
+        assertTrue(rowsWithStatus.all { it.cell(statusColumn) != null })
+        assertEquals(2, removeChanges.size)
+        assertTrue(rowsWithoutStatus.all { it.cell(statusColumn) == null })
+    }
+
+    @Test
+    fun undoingARemovedColumnBringsBackItsValuesAndRedoRemovesThemAgain() = runTest {
+        val rowNoteId = repository.createDatabaseRow(daysWithStatus).rowNoteId
+        waitForTheClockToTick()
+        repository.updateDatabaseCell(daysWithStatus, rowNoteId, statusColumn) { it.copy(tags = listOf("Done")) }
+        val removal = repository.removeDatabaseColumnFromRows("days", statusColumn)
+
+        repository.applyDatabaseRowChanges(removal, HistoryDirection.UNDO)
+        val statusAfterUndo = rowsOf("days").single().cell(statusColumn)?.tags
+        repository.applyDatabaseRowChanges(removal, HistoryDirection.REDO)
+        val statusAfterRedo = rowsOf("days").single().cell(statusColumn)
+
+        assertEquals(listOf("Done"), statusAfterUndo)
+        assertNull(statusAfterRedo)
+    }
+
+    @Test
+    fun undoingANewRowTakesItOutOfTheTableAndRedoPutsItBack() = runTest {
+        val change = repository.createDatabaseRow(days)
+
+        repository.applyDatabaseRowChanges(listOf(change), HistoryDirection.UNDO)
+        val rowsAfterUndo = rowsOf("days")
+        repository.applyDatabaseRowChanges(listOf(change), HistoryDirection.REDO)
+        val rowsAfterRedo = rowsOf("days")
+
+        assertEquals(emptyList(), rowsAfterUndo)
+        assertEquals(listOf(change.rowNoteId), rowsAfterRedo.map { it.noteId })
+    }
+
+    @Test
+    fun undoingACellEditAndARenameTogetherRestoresBothAndRedoReappliesThem() = runTest {
+        val rowNoteId = repository.createDatabaseRow(days).rowNoteId
+        waitForTheClockToTick()
+        val cellChange = repository.updateDatabaseCell(days, rowNoteId, nameColumn) { it.copy(text = "Gym") }!!
+        val titleChange = repository.renameDatabaseRow(rowNoteId, "Monday")!!
+        waitForTheClockToTick()
+
+        repository.applyDatabaseRowChanges(listOf(cellChange, titleChange), HistoryDirection.UNDO)
+        val rowAfterUndo = rowsOf("days").single()
+        waitForTheClockToTick()
+        repository.applyDatabaseRowChanges(listOf(cellChange, titleChange), HistoryDirection.REDO)
+        val rowAfterRedo = rowsOf("days").single()
+
+        assertEquals("" to "", rowAfterUndo.title to rowAfterUndo.cell(nameColumn)?.text)
+        assertEquals("Monday" to "Gym", rowAfterRedo.title to rowAfterRedo.cell(nameColumn)?.text)
+    }
+
+    @Test
+    fun aNoteMadeFromATemplateGetsItsOwnCopyOfTheLiveRowsInTheSameOrder() = runTest {
+        saveRow("tuesday", "days", title = "Tuesday", name = "Rest", createdAt = 20L)
+        saveRow("monday", "days", title = "Monday", name = "Gym", createdAt = 10L)
+        saveRow("old", "days", title = "Old", name = "Gone", createdAt = 5L, trashedAt = 30L)
+
+        val copiedContent = repository.copyDatabasesIn(NoteContent(blocks = listOf(days)))
+        val copiedDatabaseId = (copiedContent.blocks.single() as DatabaseBlock).databaseId
+        val copiedRows = rowsOf(copiedDatabaseId)
+
+        assertNotEquals("days", copiedDatabaseId)
+        assertEquals(listOf("Monday", "Tuesday"), copiedRows.map { it.title })
+        assertEquals(listOf("Gym", "Rest"), copiedRows.map { it.cell(nameColumn)?.text })
+        assertTrue(copiedRows.none { it.noteId in setOf("monday", "tuesday", "old") })
+    }
+
+    @Test
+    fun editingACopiedRowLeavesTheTemplateRowAndOtherCopiesAlone() = runTest {
+        saveRow("monday", "days", title = "Monday", name = "Gym")
+        val firstCopyId = (repository.copyDatabasesIn(NoteContent(blocks = listOf(days))).blocks.single() as DatabaseBlock).databaseId
+        val secondCopyId = (repository.copyDatabasesIn(NoteContent(blocks = listOf(days))).blocks.single() as DatabaseBlock).databaseId
+        val firstCopyRowId = rowsOf(firstCopyId).single().noteId
+
+        repository.updateDatabaseCell(days.copy(databaseId = firstCopyId), firstCopyRowId, nameColumn) { it.copy(text = "Swim") }
+
+        assertNotEquals(firstCopyId, secondCopyId)
+        assertEquals("Swim", rowsOf(firstCopyId).single().cell(nameColumn)?.text)
+        assertEquals("Gym", rowsOf(secondCopyId).single().cell(nameColumn)?.text)
+        assertEquals("Gym", rowsOf("days").single().cell(nameColumn)?.text)
+    }
+
+    @Test
+    fun searchFindsARowByItsTitleOrCellsAndNamesTheNoteThatShowsItsTable() = runTest {
+        saveNote(note("week-plan", "Week plan"), days)
+        saveRow("monday", "days", title = "Monday", name = "Gym at seven")
+
+        val titleResults = repository.searchNoteTitlesAndSnippets("Monday")
+        val contentResults = repository.searchNotes("Gym at seven")
+
+        assertEquals(listOf("monday" to "Week plan"), titleResults.map { it.note.noteId to it.parentTitle })
+        assertEquals(listOf("monday" to "Week plan"), contentResults.map { it.note.noteId to it.parentTitle })
+    }
+
+    @Test
+    fun trashedRowsAreLabelledWithTheirNoteEvenWhenThatNoteIsTrashedOrATemplate() = runTest {
+        val templateTable = days.copy(id = "template-block", databaseId = "template-days")
+        saveNote(note("week-plan", "Week plan", trashedAt = 50L), days)
+        saveNote(note("template", "Week template", isTemplate = true), templateTable)
+        saveRow("monday", "days", title = "Monday", name = "Gym", trashedAt = 60L)
+        saveRow("template-monday", "template-days", title = "Monday", name = "Gym", trashedAt = 60L)
+        saveNote(note("plain", "Shopping", trashedAt = 70L))
+        val trashedNotes = listOf("monday", "template-monday", "plain").mapNotNull { repository.getNoteById(it) }
+
+        val parentTitles = repository.parentTitlesOfSubNotes(trashedNotes)
+
+        assertEquals(mapOf("monday" to "Week plan", "template-monday" to "Week template"), parentTitles)
+    }
+
+    @Test
+    fun searchLeavesOutRowsWhoseTableIsOnlyInATemplateOrNowhere() = runTest {
+        val templateTable = days.copy(id = "template-block", databaseId = "template-days")
+        saveNote(note("template", "Week template", isTemplate = true), templateTable)
+        saveRow("template-monday", "template-days", title = "Monday", name = "Gym")
+        saveRow("orphan-monday", "nowhere", title = "Monday", name = "Gym")
+
+        val results = repository.searchNotes("Monday")
+
+        assertEquals(emptyList(), results.map { it.note.noteId })
+    }
+}

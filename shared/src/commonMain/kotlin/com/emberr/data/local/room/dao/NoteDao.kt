@@ -56,7 +56,7 @@ interface NoteDao {
     @Query(
         """
         SELECT * FROM notes_metadata
-        WHERE spaceId = :spaceId AND trashedAt IS NULL AND isSubNote = 0 AND isTemplate = 0
+        WHERE spaceId = :spaceId AND trashedAt IS NULL AND NOT (isSubNote = 1 AND kind = 'CANVAS') AND isTemplate = 0
         AND (title LIKE '%' || :query || '%' OR snippet LIKE '%' || :query || '%')
         ORDER BY updatedAt DESC
         """
@@ -74,7 +74,7 @@ interface NoteDao {
     @Query(
         """
         SELECT * FROM notes_metadata
-        WHERE noteId IN (:ids) AND trashedAt IS NULL AND isSubNote = 0 AND isTemplate = 0
+        WHERE noteId IN (:ids) AND trashedAt IS NULL AND NOT (isSubNote = 1 AND kind = 'CANVAS') AND isTemplate = 0
         """
     )
     suspend fun getSearchableNotesByIds(ids: List<String>): List<NoteMetadataEntity>

@@ -117,6 +117,7 @@ interface NoteRepository {
     // Favorites and Trash management
     fun getFavoriteNotes(): Flow<List<NoteMetadataEntity>>
     fun getTrashedNotes(): Flow<List<NoteMetadataEntity>>
+    suspend fun parentTitlesOfSubNotes(notes: List<NoteMetadataEntity>): Map<String, String>
     suspend fun restoreNote(noteId: String)
     suspend fun cleanupOldTrashedNotes()
 
@@ -207,6 +208,7 @@ interface NoteRepository {
     suspend fun getLinkableCanvases(): List<NoteMetadataEntity>
 
     suspend fun copyEmbeddedCanvasesIn(content: NoteContent): NoteContent
+    suspend fun copyDatabasesIn(content: NoteContent): NoteContent
 
     fun observeNoteMetadata(noteId: String): Flow<NoteMetadataEntity?>
 

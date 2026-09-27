@@ -1,17 +1,15 @@
 package com.emberr.domain.database
 
-import com.emberr.domain.model.DatabaseBlock
-import com.emberr.domain.model.NoteContent
+import com.emberr.domain.model.NoteBlock
+import com.emberr.domain.model.PropertyBlock
+import com.emberr.domain.model.deepCopyWithNewIds
 
-fun NoteContent.withFreshDatabaseIds(newDatabaseId: () -> String): NoteContent {
-    val freshIdsByOldId = mutableMapOf<String, String>()
-    return copy(
-        blocks = blocks.map { block ->
-            if (block is DatabaseBlock) {
-                block.copy(databaseId = freshIdsByOldId.getOrPut(block.databaseId, newDatabaseId))
-            } else {
-                block
-            }
+fun List<NoteBlock>.copiedForRow(sourceRowNoteId: String, copyRowNoteId: String): List<NoteBlock> =
+    filterNot { it.isDeleted }.map { block ->
+        val column = (block as? PropertyBlock)?.databaseColumn()
+        if (block is PropertyBlock && column != null && block.id == databaseCellBlockId(column, sourceRowNoteId)) {
+            block.copy(id = databaseCellBlockId(column, copyRowNoteId))
+        } else {
+            block.deepCopyWithNewIds()
         }
-    )
-}
+    }

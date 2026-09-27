@@ -4,6 +4,7 @@ import androidx.room.Room
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import com.emberr.data.local.room.entity.DEFAULT_SPACE_ID
 import com.emberr.data.local.room.entity.NoteBlockEntity
+import com.emberr.data.local.room.entity.NoteKind
 import com.emberr.data.local.room.entity.NoteMetadataEntity
 import com.emberr.domain.model.NoteBlock
 import com.emberr.domain.model.PropertyBlock
@@ -104,5 +105,24 @@ class DatabaseRowQueriesTest {
         val linkableNoteIds = noteDao.getAllLinkableNotes(DEFAULT_SPACE_ID).first().map { it.noteId }.toSet()
 
         assertEquals(setOf("plain-note", "linked-sub-note"), linkableNoteIds)
+    }
+
+    @Test
+    fun searchFindsRowsAndSubNotesButNotEmbeddedCanvases() = runTest {
+        val notes = listOf(
+            note("plain-note"),
+            note("linked-sub-note", isSubNote = true),
+            note("row", databaseId = "books"),
+            note("embedded-canvas", isSubNote = true).copy(kind = NoteKind.CANVAS),
+            note("trashed-row", databaseId = "books", trashedAt = 5L)
+        )
+        notes.forEach { noteDao.insertOrUpdateMetadata(it.copy(title = "Monday")) }
+        val expectedIds = setOf("plain-note", "linked-sub-note", "row")
+
+        val titleMatchIds = noteDao.searchNotesByTitleOrSnippet(DEFAULT_SPACE_ID, "Monday").map { it.noteId }.toSet()
+        val searchableIds = noteDao.getSearchableNotesByIds(notes.map { it.noteId }).map { it.noteId }.toSet()
+
+        assertEquals(expectedIds, titleMatchIds)
+        assertEquals(expectedIds, searchableIds)
     }
 }
