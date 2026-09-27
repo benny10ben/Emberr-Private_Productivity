@@ -61,12 +61,12 @@ class NoteIndexer(
     private fun timestampToDate(millis: Long): String =
         dateOnlyFormatter.format(Date(millis))
 
-    suspend fun indexNote(metadata: NoteMetadataEntity, content: NoteContent) {
+    suspend fun indexNote(metadata: NoteMetadataEntity, content: NoteContent, rowLocation: DatabaseRowLocation? = null) {
         if (settingsManager.isAiFeaturesDisabled()) return
         if (aiEngine.unsupportedHardwareReason != null) return
         if (metadata.noteId == "global_pinned") return
 
-        val baseContext = buildContextString(metadata)
+        val baseContext = if (metadata.databaseId != null) databaseRowIndexContext(metadata, rowLocation) else buildContextString(metadata)
 
         val blockIds = mutableListOf<String>()
         val chunkTexts = mutableListOf<String>()
