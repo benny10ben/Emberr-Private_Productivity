@@ -44,7 +44,8 @@ fun EmberrDesktopMenuOption(
     trailing: (@Composable () -> Unit)? = null,
     labelMaxLines: Int = 1,
     subtitleMaxLines: Int = 1,
-    outerHorizontalPadding: Dp = DESKTOP_OPTION_OUTER_HORIZONTAL_PADDING
+    outerHorizontalPadding: Dp = DESKTOP_OPTION_OUTER_HORIZONTAL_PADDING,
+    labelColor: Color? = null
 ) {
     Row(
         modifier = modifier
@@ -72,7 +73,7 @@ fun EmberrDesktopMenuOption(
                 text = label,
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.Normal,
-                color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                color = labelColor ?: if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                 maxLines = labelMaxLines,
                 overflow = TextOverflow.Ellipsis
             )

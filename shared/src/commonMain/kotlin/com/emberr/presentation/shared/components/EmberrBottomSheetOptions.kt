@@ -48,7 +48,8 @@ fun EmberrBottomSheetOption(
     labelFontFamily: FontFamily? = null,
     labelMaxLines: Int = Int.MAX_VALUE,
     subtitleMaxLines: Int = Int.MAX_VALUE,
-    outerHorizontalPadding: Dp = OPTION_OUTER_HORIZONTAL_PADDING
+    outerHorizontalPadding: Dp = OPTION_OUTER_HORIZONTAL_PADDING,
+    labelColor: Color? = null
 ) {
     Row(
         modifier = modifier
@@ -81,7 +82,7 @@ fun EmberrBottomSheetOption(
                 fontFamily = labelFontFamily,
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.Normal,
-                color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                color = labelColor ?: if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                 maxLines = labelMaxLines,
                 overflow = TextOverflow.Ellipsis
             )
