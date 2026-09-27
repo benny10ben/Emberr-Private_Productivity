@@ -10,6 +10,7 @@ import androidx.compose.foundation.gestures.LocalBringIntoViewSpec
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -24,7 +25,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalRippleConfiguration
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -39,6 +39,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.emberr.domain.model.cleanPropertyTagName
@@ -46,9 +47,11 @@ import com.emberr.domain.model.withPropertyTagReplaced
 import com.emberr.domain.repository.NoteRepository
 import com.emberr.domain.util.system.isDesktopPlatform
 import com.emberr.presentation.shared.components.EmberrBottomSheet
+import com.emberr.presentation.shared.components.EmberrBottomSheetOption
 import com.emberr.presentation.shared.components.EmberrButtonPrimary
 import com.emberr.presentation.shared.components.EmberrButtonSecondary
 import com.emberr.presentation.shared.components.EmberrDesktopMenu
+import com.emberr.presentation.shared.components.EmberrDesktopMenuOption
 import com.emberr.presentation.shared.components.EmberrTextField
 import com.emberr.presentation.shared.components.NoRippleIndicationNodeFactory
 import com.emberr.presentation.shared.components.SheetBringIntoViewSpec
@@ -59,6 +62,7 @@ import emberr.shared.generated.resources.Res
 import emberr.shared.generated.resources.check
 import emberr.shared.generated.resources.pen
 import emberr.shared.generated.resources.plus
+import emberr.shared.generated.resources.trash
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -74,10 +78,14 @@ fun propertyTagColor(tagName: String, isDarkTheme: Boolean): Color {
 }
 
 @Composable
-fun PropertyTagChip(tagName: String, modifier: Modifier = Modifier) {
+fun PropertyTagChip(
+    tagName: String,
+    modifier: Modifier = Modifier,
+    textStyle: TextStyle = MaterialTheme.typography.bodyMedium
+) {
     Text(
         text = tagName,
-        style = MaterialTheme.typography.bodyMedium,
+        style = textStyle,
         color = MaterialTheme.colorScheme.onSurface,
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
@@ -104,7 +112,6 @@ fun PropertyTagPicker(
     var searchText by remember { mutableStateOf("") }
     var tagBeingEdited by remember { mutableStateOf<String?>(null) }
     var editedTagName by remember { mutableStateOf("") }
-    var isConfirmingDelete by remember { mutableStateOf(false) }
 
     val allTagNames = (savedTags.map { it.name } + selectedTags).distinctBy { it.lowercase() }
     val cleanedSearch = cleanPropertyTagName(searchText)
@@ -149,12 +156,10 @@ fun PropertyTagPicker(
     fun openTagEditor(tagName: String) {
         tagBeingEdited = tagName
         editedTagName = tagName
-        isConfirmingDelete = false
     }
 
     fun closeTagEditor() {
         tagBeingEdited = null
-        isConfirmingDelete = false
     }
 
     fun changeTagInEveryNote(oldName: String, newName: String?) {
@@ -175,17 +180,18 @@ fun PropertyTagPicker(
         }
     }
 
-    fun saveRename() {
+    fun saveRename(closeEditorAnd: (() -> Unit) -> Unit) {
         val oldName = tagBeingEdited ?: return
         if (!canSaveRename) return
-        if (cleanedEditedName != oldName) changeTagInEveryNote(oldName, cleanedEditedName)
-        closeTagEditor()
+        val newName = cleanedEditedName
+        closeEditorAnd {
+            if (newName != oldName) changeTagInEveryNote(oldName, newName)
+        }
     }
 
-    fun deleteEditedTag() {
+    fun deleteEditedTag(closeEditorAnd: (() -> Unit) -> Unit) {
         val tagName = tagBeingEdited ?: return
-        changeTagInEveryNote(tagName, null)
-        closeTagEditor()
+        closeEditorAnd { changeTagInEveryNote(tagName, null) }
     }
 
     fun submitSearch() {
@@ -210,12 +216,28 @@ fun PropertyTagPicker(
             Spacer(modifier = Modifier.height(8.dp))
 
             matchingTagNames.forEach { tagName ->
-                PropertyTagOptionRow(
-                    tagName = tagName,
-                    isSelected = isSelected(tagName),
-                    onClick = { toggleTag(tagName) },
-                    onEdit = { openTagEditor(tagName) }
-                )
+                Box {
+                    PropertyTagOptionRow(
+                        tagName = tagName,
+                        isSelected = isSelected(tagName),
+                        onClick = { toggleTag(tagName) },
+                        onEdit = { openTagEditor(tagName) }
+                    )
+                    if (tagName == tagBeingEdited) {
+                        PropertyTagLayer(title = "Edit tag", onDismiss = { closeTagEditor() }) { closeEditorAnd ->
+                            EditTagContent(
+                                originalTagName = tagName,
+                                tagName = editedTagName,
+                                onTagNameChange = { editedTagName = it },
+                                isNameTaken = editedNameIsTaken,
+                                canSave = canSaveRename,
+                                onSave = { saveRename(closeEditorAnd) },
+                                onCancel = { closeEditorAnd { } },
+                                onDeleteConfirmed = { deleteEditedTag(closeEditorAnd) }
+                            )
+                        }
+                    }
+                }
             }
 
             if (canCreateTag) {
@@ -233,29 +255,36 @@ fun PropertyTagPicker(
         }
     }
 
-    val pickerContent = @Composable { searchFieldModifier: Modifier ->
-        val editingTag = tagBeingEdited
-        when {
-            editingTag != null && isConfirmingDelete -> DeleteTagConfirmation(
-                tagName = editingTag,
-                onCancel = { isConfirmingDelete = false },
-                onDelete = { deleteEditedTag() }
-            )
-            editingTag != null -> EditTagContent(
-                tagName = editedTagName,
-                onTagNameChange = { editedTagName = it },
-                isNameTaken = editedNameIsTaken,
-                canSave = canSaveRename,
-                onSave = { saveRename() },
-                onCancel = { closeTagEditor() },
-                onDelete = { isConfirmingDelete = true }
-            )
-            else -> tagListContent(searchFieldModifier)
+    PropertyTagLayer(title = title, onDismiss = onDismiss) { closeAnd ->
+        if (isDesktopPlatform) {
+            val searchFocusRequester = remember { FocusRequester() }
+            tagListContent(Modifier.focusRequester(searchFocusRequester))
+            LaunchedEffect(Unit) {
+                runCatching { searchFocusRequester.requestFocus() }
+            }
+        } else {
+            CompositionLocalProvider(
+                LocalIndication provides NoRippleIndicationNodeFactory,
+                LocalRippleConfiguration provides null
+            ) {
+                tagListContent(Modifier)
+                EmberrButtonPrimary(
+                    text = "Done",
+                    onClick = { closeAnd(onDismiss) },
+                    modifier = Modifier.fillMaxWidth().padding(top = 12.dp)
+                )
+            }
         }
     }
+}
 
+@Composable
+private fun PropertyTagLayer(
+    title: String,
+    onDismiss: () -> Unit,
+    content: @Composable ColumnScope.(closeAnd: (() -> Unit) -> Unit) -> Unit
+) {
     if (isDesktopPlatform) {
-        val searchFocusRequester = remember { FocusRequester() }
         EmberrDesktopMenu(
             expanded = true,
             onDismissRequest = onDismiss,
@@ -263,29 +292,17 @@ fun PropertyTagPicker(
         ) {
             CompositionLocalProvider(LocalBringIntoViewSpec provides SheetBringIntoViewSpec) {
                 Column(modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)) {
-                    pickerContent(Modifier.focusRequester(searchFocusRequester))
+                    content { action ->
+                        action()
+                        onDismiss()
+                    }
                 }
-            }
-            LaunchedEffect(Unit) {
-                runCatching { searchFocusRequester.requestFocus() }
             }
         }
     } else {
         EmberrBottomSheet(expanded = true, onDismiss = onDismiss, title = title) { closeAnd ->
-            CompositionLocalProvider(
-                LocalIndication provides NoRippleIndicationNodeFactory,
-                LocalRippleConfiguration provides null
-            ) {
-                Column(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)) {
-                    pickerContent(Modifier)
-                    if (tagBeingEdited == null) {
-                        EmberrButtonPrimary(
-                            text = "Done",
-                            onClick = { closeAnd(onDismiss) },
-                            modifier = Modifier.fillMaxWidth().padding(top = 12.dp)
-                        )
-                    }
-                }
+            Column(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)) {
+                content(closeAnd)
             }
         }
     }
@@ -328,15 +345,17 @@ private fun PropertyTagOptionRow(tagName: String, isSelected: Boolean, onClick: 
 
 @Composable
 private fun EditTagContent(
+    originalTagName: String,
     tagName: String,
     onTagNameChange: (String) -> Unit,
     isNameTaken: Boolean,
     canSave: Boolean,
     onSave: () -> Unit,
     onCancel: () -> Unit,
-    onDelete: () -> Unit
+    onDeleteConfirmed: () -> Unit
 ) {
     val nameFocusRequester = remember { FocusRequester() }
+    var isConfirmingDelete by remember { mutableStateOf(false) }
 
     Column(modifier = Modifier.fillMaxWidth()) {
         EmberrTextField(
@@ -354,12 +373,17 @@ private fun EditTagContent(
                 modifier = Modifier.padding(start = 4.dp, top = 6.dp)
             )
         }
-        TextButton(onClick = onDelete, modifier = Modifier.padding(top = 8.dp)) {
-            Text(
-                text = "Delete tag",
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.error
-            )
+        Box(modifier = Modifier.padding(top = 8.dp)) {
+            DeleteTagOption(onClick = { isConfirmingDelete = true })
+            if (isConfirmingDelete) {
+                PropertyTagLayer(title = "Delete tag", onDismiss = { isConfirmingDelete = false }) { closeConfirmationAnd ->
+                    DeleteTagConfirmation(
+                        tagName = originalTagName,
+                        onCancel = { closeConfirmationAnd { } },
+                        onDelete = { closeConfirmationAnd(onDeleteConfirmed) }
+                    )
+                }
+            }
         }
         Row(
             modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
@@ -372,6 +396,35 @@ private fun EditTagContent(
 
     LaunchedEffect(Unit) {
         if (isDesktopPlatform) runCatching { nameFocusRequester.requestFocus() }
+    }
+}
+
+@Composable
+private fun DeleteTagOption(onClick: () -> Unit) {
+    val deleteIcon = @Composable {
+        Icon(
+            painter = painterResource(Res.drawable.trash),
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.error,
+            modifier = Modifier.size(20.dp)
+        )
+    }
+    if (isDesktopPlatform) {
+        EmberrDesktopMenuOption(
+            label = "Delete tag",
+            onClick = onClick,
+            icon = deleteIcon,
+            outerHorizontalPadding = 0.dp,
+            labelColor = MaterialTheme.colorScheme.error
+        )
+    } else {
+        EmberrBottomSheetOption(
+            label = "Delete tag",
+            onClick = onClick,
+            icon = deleteIcon,
+            outerHorizontalPadding = 0.dp,
+            labelColor = MaterialTheme.colorScheme.error
+        )
     }
 }
 
