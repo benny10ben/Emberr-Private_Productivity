@@ -2,6 +2,7 @@
 
 package com.emberr.domain.vault
 
+import com.emberr.domain.database.withSettingTimesStamped
 import com.emberr.domain.model.BookmarkBlock
 import com.emberr.domain.model.BulletedListBlock
 import com.emberr.domain.model.CanvasBlock
@@ -520,7 +521,8 @@ object NoteMarkdownReader {
             ?: fields["database"]?.takeIf { it.isNotBlank() }
             ?: return buildCodeBlock(chunk, existing, request)
         val base = existingDatabase ?: DatabaseBlock(id = idFor(existing, request), databaseId = databaseId)
-        return settle(base.copy(title = fields["title"] ?: base.title), existing, request.timestamp)
+        val retitled = base.copy(title = fields["title"] ?: base.title).withSettingTimesStamped(before = base, now = request.timestamp)
+        return settle(retitled, existing, request.timestamp)
     }
 
     private fun parsePropertyDate(value: String, base: PropertyBlock): LocalDate? {

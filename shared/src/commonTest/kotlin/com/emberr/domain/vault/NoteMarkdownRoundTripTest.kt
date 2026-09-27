@@ -12,6 +12,7 @@ import com.emberr.domain.model.DatabaseColumnTarget
 import com.emberr.domain.model.DatabaseCustomProperty
 import com.emberr.domain.model.DatabaseFilter
 import com.emberr.domain.model.DatabaseFilterCondition
+import com.emberr.domain.model.DatabaseSettingTime
 import com.emberr.domain.model.DatabaseSort
 import com.emberr.domain.model.DocumentBlock
 import com.emberr.domain.model.HeadingBlock
@@ -260,7 +261,15 @@ class NoteMarkdownRoundTripTest {
         val blocks = readBack(markdown, emptyList()).blocks
 
         assertEquals(
-            listOf<NoteBlock>(DatabaseBlock(id = "generated-0", databaseId = "database-id-9", title = "Books", updatedAt = 9_999L)),
+            listOf<NoteBlock>(
+                DatabaseBlock(
+                    id = "generated-0",
+                    databaseId = "database-id-9",
+                    title = "Books",
+                    settingTimes = mapOf("title" to DatabaseSettingTime(9_999L)),
+                    updatedAt = 9_999L
+                )
+            ),
             blocks
         )
     }
@@ -298,7 +307,12 @@ class NoteMarkdownRoundTripTest {
 
         val blocks = readBack(editedMarkdown, listOf(existing)).blocks
 
-        assertEquals(listOf<NoteBlock>(existing.copy(title = "Films", updatedAt = 9_999L)), blocks)
+        assertEquals(
+            listOf<NoteBlock>(
+                existing.copy(title = "Films", settingTimes = mapOf("title" to DatabaseSettingTime(9_999L)), updatedAt = 9_999L)
+            ),
+            blocks
+        )
     }
 
     private fun readBack(markdown: String, existingBlocks: List<NoteBlock>): VaultNoteReadResult {

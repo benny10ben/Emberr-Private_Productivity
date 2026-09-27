@@ -11,6 +11,7 @@ import com.emberr.data.local.room.entity.NoteMetadataEntity
 import com.emberr.domain.database.DatabaseRowChange
 import com.emberr.domain.database.HistoryDirection
 import com.emberr.domain.database.mergedWith
+import com.emberr.domain.database.withSettingTimesStamped
 import com.emberr.domain.model.*
 import com.emberr.domain.repository.NoteRepository
 import com.emberr.domain.util.eventbus.AiEventBus
@@ -633,7 +634,7 @@ abstract class BaseEditorViewModel(
 
     private fun DatabaseBlock.changedBy(change: (DatabaseBlock) -> DatabaseBlock, now: Long): DatabaseBlock {
         val changedBlock = change(this)
-        return if (changedBlock == this) this else changedBlock.copy(updatedAt = now)
+        return if (changedBlock == this) this else changedBlock.copy(updatedAt = now).withSettingTimesStamped(before = this, now)
     }
 
     private fun focusHistoryTarget(entry: HistoryEntry, restoreBefore: Boolean) {
@@ -710,7 +711,14 @@ abstract class BaseEditorViewModel(
                     if (liveBlock != null && expectedBlock != null && !historySameContent(liveBlock, expectedBlock)) {
                         result.add(liveBlock)
                     } else {
-                        result.add(targetBlock.withUpdatedAt(now))
+                        val restoredBlock = targetBlock.withUpdatedAt(now)
+                        result.add(
+                            if (restoredBlock is DatabaseBlock && liveBlock is DatabaseBlock) {
+                                restoredBlock.withSettingTimesStamped(before = liveBlock, now)
+                            } else {
+                                restoredBlock
+                            }
+                        )
                     }
                 } else {
                     result.add(liveBlock ?: targetBlock)

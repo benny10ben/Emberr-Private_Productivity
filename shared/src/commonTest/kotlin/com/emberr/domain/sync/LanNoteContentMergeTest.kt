@@ -1,6 +1,10 @@
 package com.emberr.domain.sync
 
+import com.emberr.domain.database.withSettingTimesStamped
+import com.emberr.domain.model.DatabaseBlock
+import com.emberr.domain.model.DatabaseColumnTarget
 import com.emberr.domain.model.NoteContent
+import com.emberr.domain.model.PropertyType
 import com.emberr.domain.model.TextBlock
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -57,6 +61,24 @@ class LanNoteContentMergeTest {
         val merged = NoteMergeHelper.mergeNoteContent(local, 100L, remote, 200L)
 
         assertEquals("edited here last", textAt(merged, 0))
+    }
+
+    @Test
+    fun aTableEditedOnBothDevicesKeepsTheChangesFromBoth() {
+        val nameColumn = DatabaseColumnTarget.Property(PropertyType.NAME)
+        val tagsColumn = DatabaseColumnTarget.Property(PropertyType.TAGS)
+        val synced = DatabaseBlock(id = "table", databaseId = "days", title = "Days", updatedAt = 100L)
+        val localTable = synced.copy(columns = listOf(nameColumn), updatedAt = 200L).withSettingTimesStamped(before = synced, now = 200L)
+        val remoteTable = synced.copy(columns = listOf(tagsColumn), updatedAt = 300L).withSettingTimesStamped(before = synced, now = 300L)
+
+        val merged = NoteMergeHelper.mergeNoteContent(
+            NoteContent(blocks = listOf(localTable)),
+            200L,
+            NoteContent(blocks = listOf(remoteTable)),
+            300L
+        )
+
+        assertEquals(listOf(tagsColumn, nameColumn), (merged.blocks.single() as DatabaseBlock).columns)
     }
 
     @Test

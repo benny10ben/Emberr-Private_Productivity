@@ -108,7 +108,11 @@ class PropertyBlockTest {
         val renamed = database.withPropertyTagReplaced("STATUS", "DOING", "In progress", now = 500L)
 
         assertEquals(
-            database.copy(filters = listOf(statusFilter.copy(tagName = "In progress"), tagsFilter), updatedAt = 500L),
+            database.copy(
+                filters = listOf(statusFilter.copy(tagName = "In progress"), tagsFilter),
+                settingTimes = mapOf("filter:f1" to DatabaseSettingTime(500L)),
+                updatedAt = 500L
+            ),
             renamed
         )
     }
@@ -117,7 +121,14 @@ class PropertyBlockTest {
     fun deletingATagRemovesTheDatabaseFiltersThatUsedIt() {
         val withoutTag = database.withPropertyTagReplaced("STATUS", "doing", null, now = 500L)
 
-        assertEquals(database.copy(filters = listOf(tagsFilter), updatedAt = 500L), withoutTag)
+        assertEquals(
+            database.copy(
+                filters = listOf(tagsFilter),
+                settingTimes = mapOf("filter:f1" to DatabaseSettingTime(500L, isDeleted = true)),
+                updatedAt = 500L
+            ),
+            withoutTag
+        )
     }
 
     @Test
@@ -131,7 +142,11 @@ class PropertyBlockTest {
         val withClientFilter = database.copy(filters = listOf(clientFilter))
 
         assertEquals(
-            withClientFilter.copy(filters = listOf(clientFilter.copy(tagName = "Acme Corp")), updatedAt = 500L),
+            withClientFilter.copy(
+                filters = listOf(clientFilter.copy(tagName = "Acme Corp")),
+                settingTimes = mapOf("filter:f3" to DatabaseSettingTime(500L)),
+                updatedAt = 500L
+            ),
             withClientFilter.withPropertyTagReplaced("client-id", "acme", "Acme Corp", now = 500L)
         )
     }

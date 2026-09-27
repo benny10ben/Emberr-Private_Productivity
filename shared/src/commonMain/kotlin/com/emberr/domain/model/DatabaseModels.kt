@@ -95,3 +95,10 @@ data class DatabaseSort(
     val target: DatabaseColumnTarget,
     val isDescending: Boolean = false
 )
+
+@Immutable
+@Serializable
+data class DatabaseSettingTime(
+    val updatedAt: Long,
+    val isDeleted: Boolean = false
+)

@@ -2,6 +2,7 @@ package com.emberr.domain.model
 
 import androidx.compose.runtime.Immutable
 import com.emberr.data.local.room.entity.NoteMetadataEntity
+import com.emberr.domain.database.withSettingTimesStamped
 import kotlinx.datetime.LocalDate
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -27,7 +28,8 @@ data class NoteContent(
 @Immutable
 data class NoteSearchResult(
     val note: NoteMetadataEntity,
-    val matchedText: String
+    val matchedText: String,
+    val parentTitle: String? = null
 )
 
 /**
@@ -484,7 +486,7 @@ private fun DatabaseBlock.withFilterTagReplaced(tagPoolKey: String, oldName: Str
     } else {
         filters.map { if (usesTheTag(it)) it.copy(tagName = newName) else it }
     }
-    return copy(filters = updatedFilters, updatedAt = now)
+    return copy(filters = updatedFilters, updatedAt = now).withSettingTimesStamped(before = this, now)
 }
 
 fun NoteBlock.withCustomPropertyRenamed(customPropertyId: String, newLabel: String, now: Long): NoteBlock {
@@ -509,6 +511,7 @@ data class DatabaseBlock(
     val columnWidths: Map<String, Int> = emptyMap(),
     val filters: List<DatabaseFilter> = emptyList(),
     val sort: DatabaseSort? = null,
+    val settingTimes: Map<String, DatabaseSettingTime> = emptyMap(),
     override val indentationLevel: Int = 0,
     override val isBold: Boolean = false,
     override val isItalic: Boolean = false,

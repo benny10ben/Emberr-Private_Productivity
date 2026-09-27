@@ -1,5 +1,7 @@
 package com.emberr.domain.sync
 
+import com.emberr.domain.database.mergeDatabaseBlocks
+import com.emberr.domain.model.DatabaseBlock
 import com.emberr.domain.model.NoteBlock
 import com.emberr.domain.model.NoteContent
 
@@ -50,6 +52,7 @@ object NoteMergeHelper {
         val other = otherById[baseBlock.id]
         when {
             other == null -> baseBlock
+            baseBlock is DatabaseBlock && other is DatabaseBlock -> mergeDatabaseBlocks(baseBlock, other)
             other.updatedAt > baseBlock.updatedAt -> other
             else -> baseBlock
         }
