@@ -28,14 +28,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -85,6 +82,9 @@ import com.emberr.domain.util.system.isDesktopPlatform
 import com.emberr.presentation.shared.components.EmberrBottomSheet
 import com.emberr.presentation.shared.components.EmberrButtonPrimary
 import com.emberr.presentation.shared.components.EmberrDesktopMenu
+import com.emberr.presentation.shared.components.MenuAtTap
+import com.emberr.presentation.shared.components.menuTapAnchor
+import com.emberr.presentation.shared.components.rememberMenuTapAnchor
 import com.emberr.presentation.shared.components.rememberKeyboardHandoff
 import com.emberr.presentation.shared.editor.WebLinkVisualTransformation
 import com.emberr.presentation.shared.editor.GlobalEditorState
@@ -100,7 +100,18 @@ import com.emberr.presentation.shared.editor.components.DesktopCursor
 import com.emberr.presentation.shared.editor.components.desktopPointerCursor
 import com.emberr.presentation.shared.components.EmberrHorizontalScrollbar
 import com.emberr.presentation.shared.components.smoothWheelScroll
+import com.emberr.presentation.shared.editor.blockViews.database.DatabaseAlignmentOptions
+import com.emberr.presentation.shared.editor.blockViews.database.DatabaseMenuLayer
+import com.emberr.presentation.shared.editor.blockViews.database.DatabaseMenuOption
+import com.emberr.presentation.shared.editor.blockViews.database.DatabaseMenuSectionDivider
+import com.emberr.presentation.shared.editor.blockViews.database.DatabaseMenuSectionLabel
+import com.emberr.presentation.shared.editor.blockViews.database.DatabaseOptionIcon
+import com.emberr.presentation.shared.editor.blockViews.database.DatabaseStyleColorChoices
+import com.emberr.presentation.shared.editor.blockViews.database.databaseBackgroundColorNamed
+import com.emberr.presentation.shared.editor.blockViews.database.databaseTextColorNamed
+import com.emberr.ui.theme.HighlightColor
 import com.emberr.ui.theme.LocalAppIsDark
+import com.emberr.ui.theme.tableGridLineColor
 import emberr.shared.generated.resources.Res
 import emberr.shared.generated.resources.arrow_down
 import emberr.shared.generated.resources.arrow_left
@@ -114,16 +125,15 @@ import emberr.shared.generated.resources.mail
 import emberr.shared.generated.resources.minus
 import emberr.shared.generated.resources.move_left
 import emberr.shared.generated.resources.move_right
+import emberr.shared.generated.resources.palette
 import emberr.shared.generated.resources.phone
 import emberr.shared.generated.resources.plus
 import emberr.shared.generated.resources.text_x
-import emberr.shared.generated.resources.textalign_center2
-import emberr.shared.generated.resources.textalign_left2
-import emberr.shared.generated.resources.textalign_right2
 import emberr.shared.generated.resources.trash
 import emberr.shared.generated.resources.underline
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -133,11 +143,17 @@ private val CellHorizontalPadding = 12.dp
 private val CellVerticalPadding = 9.dp
 private val GutterSize = 44.dp
 private val SidePadding = 18.dp
+private val MenuMinWidth = 240.dp
+private val MenuMaxWidth = 300.dp
 
-private val TableStylePalette = listOf(
-    "#FFADAD", "#FFD6A5", "#FDFFB6", "#CAFFBF",
-    "#9BF6FF", "#A0C4FF", "#BDB2FF", "#FFC6FF"
-)
+private val MenuRowInset: Dp
+    get() = if (isDesktopPlatform) 8.dp else 0.dp
+
+private val MenuRowInnerPadding: Dp
+    get() = if (isDesktopPlatform) 12.dp else 0.dp
+
+private val MenuTextInset: Dp
+    get() = if (isDesktopPlatform) 20.dp else 0.dp
 
 private fun String.toColorOrNull(): Color? = try {
     Color(this.removePrefix("#").toLong(16) or 0xFF000000)
@@ -162,8 +178,7 @@ fun TableBlockView(
 ) {
     val rows = block.rows
     val columnCount = rows.firstOrNull()?.size ?: 0
-    val borderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.65f)
-    val borderColor1 = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
+    val borderColor = tableGridLineColor
     val scrollState = rememberScrollState()
     val coroutineScope = rememberCoroutineScope()
     val keyboardHandoff = rememberKeyboardHandoff()
@@ -171,11 +186,9 @@ fun TableBlockView(
     var activeRowIndex by remember { mutableStateOf(-1) }
     var activeColIndex by remember { mutableStateOf(-1) }
     var showCellActions by remember { mutableStateOf(false) }
-    var styleScope by remember { mutableStateOf<TableStyleScope?>(null) }
 
     fun closeMenu() {
         showCellActions = false
-        styleScope = null
         activeRowIndex = -1
         activeColIndex = -1
     }
@@ -183,21 +196,7 @@ fun TableBlockView(
     fun openCellActions(rowIndex: Int, colIndex: Int) {
         activeRowIndex = rowIndex
         activeColIndex = colIndex
-        styleScope = null
         keyboardHandoff.run { showCellActions = true }
-    }
-
-    // Deliberately closes the Cell Actions sheet/menu and opens the Style one as two distinct,
-    // sequential animations rather than swapping content within a single sheet instance. Routes
-    // the actual open through keyboardHandoff too - dismissing the first sheet can transiently
-    // hand focus back to the cell's text field, and if that pops the IME back up mid-transition,
-    // this waits it back out instead of racing the style sheet's own open animation against it.
-    fun openStyleFromCellActions(scope: TableStyleScope) {
-        showCellActions = false
-        coroutineScope.launch {
-            delay(250.milliseconds)
-            keyboardHandoff.run { styleScope = scope }
-        }
     }
 
     fun updateCell(rowIndex: Int, colIndex: Int, newValue: String) {
@@ -356,13 +355,6 @@ fun TableBlockView(
         )
     }
 
-    val styleSheetTitle = when (styleScope) {
-        TableStyleScope.CELL -> "Style Cell"
-        TableStyleScope.ROW -> "Style Row"
-        TableStyleScope.COLUMN -> "Style Column"
-        null -> ""
-    }
-
     val cellActionsBody = @Composable {
         val rowIndex = activeRowIndex
         val colIndex = activeColIndex
@@ -380,10 +372,7 @@ fun TableBlockView(
                 insertColumnAt(colIndex + 1); closeMenu()
             }
 
-            HorizontalDivider(
-                modifier = Modifier.padding(vertical = 12.dp),
-                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)
-            )
+            TableMenuDivider()
 
             if (rowIndex > 0) {
                 SheetMenuRow(rememberVectorPainter(Icons.Default.ArrowUpward), "Move Row Up") {
@@ -407,10 +396,7 @@ fun TableBlockView(
             }
 
             if (!isDesktopPlatform) {
-                HorizontalDivider(
-                    modifier = Modifier.padding(vertical = 12.dp),
-                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)
-                )
+                TableMenuDivider()
 
                 StyleSectionLabel("Column Width")
                 Row(
@@ -456,20 +442,22 @@ fun TableBlockView(
                 }
             }
 
-            HorizontalDivider(
-                modifier = Modifier.padding(vertical = 12.dp),
-                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)
-            )
+            TableMenuDivider()
 
-            val paletteIcon = rememberVectorPainter(Icons.Default.Palette)
-            SheetMenuRow(paletteIcon, "Style Cell") { openStyleFromCellActions(TableStyleScope.CELL) }
-            SheetMenuRow(paletteIcon, "Style Row") { openStyleFromCellActions(TableStyleScope.ROW) }
-            SheetMenuRow(paletteIcon, "Style Column") { openStyleFromCellActions(TableStyleScope.COLUMN) }
+            listOf(
+                "Style Cell" to TableStyleScope.CELL,
+                "Style Row" to TableStyleScope.ROW,
+                "Style Column" to TableStyleScope.COLUMN
+            ).forEach { (label, scope) ->
+                TableStyleMenuLayer(
+                    label = label,
+                    style = currentStyleFor(scope),
+                    onStyleChange = { applyStyle(scope, it) },
+                    onReset = { resetStyle(scope); closeMenu() }
+                )
+            }
 
-            HorizontalDivider(
-                modifier = Modifier.padding(vertical = 12.dp),
-                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)
-            )
+            TableMenuDivider()
 
             SheetMenuRow(painterResource(Res.drawable.trash), "Delete Row", MaterialTheme.colorScheme.error) {
                 deleteRowAt(rowIndex); closeMenu()
@@ -477,17 +465,6 @@ fun TableBlockView(
             SheetMenuRow(painterResource(Res.drawable.trash), "Delete Column", MaterialTheme.colorScheme.error) {
                 deleteColumnAt(colIndex); closeMenu()
             }
-        }
-    }
-
-    val styleSheetBody = @Composable {
-        val scope = styleScope
-        if (scope != null) {
-            TableStyleSheetContent(
-                style = currentStyleFor(scope),
-                onStyleChange = { applyStyle(scope, it) },
-                onReset = { resetStyle(scope); closeMenu() }
-            )
         }
     }
 
@@ -502,18 +479,19 @@ fun TableBlockView(
                 Surface(
                     shape = RoundedCornerShape(0.dp),
                     color = Color.Transparent,
-                    border = BorderStroke(0.6.dp, borderColor1)
+                    border = BorderStroke(0.6.dp, borderColor)
                 ) {
                     Column {
                         rows.forEachIndexed { rowIndex, row ->
                             Row(modifier = Modifier.height(IntrinsicSize.Max).defaultMinSize(minHeight = CellMinHeight)) {
                                 row.forEachIndexed { columnIndex, cellValue ->
                                     val isActiveCell = activeRowIndex == rowIndex && activeColIndex == columnIndex
-                                    val isHighlighted = isActiveCell && (showCellActions || styleScope != null)
+                                    val isHighlighted = isActiveCell && showCellActions
                                     val cellStyle = effectiveStyle(rowIndex, columnIndex)
                                     val cellKey = "$rowIndex:$columnIndex"
+                                    val tapAnchor = rememberMenuTapAnchor()
 
-                                    Box {
+                                    Box(modifier = Modifier.menuTapAnchor(tapAnchor)) {
                                         TableGridCell(
                                             value = cellValue,
                                             cellKey = cellKey,
@@ -528,17 +506,13 @@ fun TableBlockView(
                                         )
 
                                         if (isDesktopPlatform) {
-                                            EmberrDesktopMenu(
-                                                expanded = isActiveCell && showCellActions,
-                                                onDismissRequest = { closeMenu() }
-                                            ) {
-                                                TableMenuPopupContent(title = "Cell Actions") { cellActionsBody() }
-                                            }
-                                            EmberrDesktopMenu(
-                                                expanded = isActiveCell && styleScope != null,
-                                                onDismissRequest = { closeMenu() }
-                                            ) {
-                                                TableMenuPopupContent(title = styleSheetTitle) { styleSheetBody() }
+                                            MenuAtTap(tapAnchor, menuWidth = MenuMaxWidth) {
+                                                EmberrDesktopMenu(
+                                                    expanded = isActiveCell && showCellActions,
+                                                    onDismissRequest = { closeMenu() }
+                                                ) {
+                                                    TableMenuPopupContent(title = "Cell Actions") { cellActionsBody() }
+                                                }
                                             }
 
                                             if (rowIndex == 0) {
@@ -629,22 +603,7 @@ fun TableBlockView(
                     text = "Close",
                     onClick = { closeMenu() },
                     modifier = Modifier.fillMaxWidth()
-                        .padding(vertical = 12.dp, horizontal = 20.dp)
-                )
-            }
-        }
-        EmberrBottomSheet(
-            expanded = styleScope != null,
-            onDismiss = { closeMenu() },
-            title = styleSheetTitle
-        ) { _ ->
-            Column(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)) {
-                styleSheetBody()
-                EmberrButtonPrimary(
-                    text = "Close",
-                    onClick = { closeMenu() },
-                    modifier = Modifier.fillMaxWidth()
-                        .padding(vertical = 12.dp, horizontal = 20.dp)
+                        .padding(top = 12.dp)
                 )
             }
         }
@@ -653,14 +612,14 @@ fun TableBlockView(
 
 @Composable
 private fun TableMenuPopupContent(title: String, content: @Composable () -> Unit) {
-    Box(modifier = Modifier.widthIn(min = 240.dp, max = 300.dp).padding(horizontal = 8.dp, vertical = 4.dp)) {
+    Box(modifier = Modifier.widthIn(min = MenuMinWidth, max = MenuMaxWidth).padding(vertical = 4.dp)) {
         Column {
             Text(
                 text = title,
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.padding(bottom = 10.dp, top = 4.dp).padding(horizontal = 12.dp)
+                modifier = Modifier.padding(bottom = 10.dp, top = 4.dp).padding(horizontal = MenuTextInset)
             )
             content()
         }
@@ -705,8 +664,12 @@ private fun TableGridCell(
         }
     }
 
-    val backgroundColor = style.backgroundColorHex?.toColorOrNull() ?: Color.Transparent
-    val textColor = style.textColorHex?.toColorOrNull() ?: MaterialTheme.colorScheme.onBackground
+    val backgroundColor = highlightColorForHex(style.backgroundColorHex)?.backgroundFor(isDarkTheme)
+        ?: style.backgroundColorHex?.toColorOrNull()
+        ?: Color.Transparent
+    val textColor = highlightColorForHex(style.textColorHex)?.backgroundFor(!isDarkTheme)
+        ?: style.textColorHex?.toColorOrNull()
+        ?: MaterialTheme.colorScheme.onBackground
     val textDecoration = when {
         style.isStrikeThrough && style.isUnderlined -> TextDecoration.LineThrough + TextDecoration.Underline
         style.isStrikeThrough -> TextDecoration.LineThrough
@@ -843,63 +806,93 @@ private fun TableGridCell(
 }
 
 @Composable
+private fun TableStyleMenuLayer(
+    label: String,
+    style: TableCellStyle,
+    onStyleChange: (TableCellStyle) -> Unit,
+    onReset: () -> Unit
+) {
+    DatabaseMenuLayer(
+        title = label,
+        anchor = { openLayer -> SheetMenuRow(painterResource(Res.drawable.palette), label, onClick = openLayer) }
+    ) { _ ->
+        TableStyleSheetContent(style = style, onStyleChange = onStyleChange, onReset = onReset)
+    }
+}
+
+@Composable
 private fun TableStyleSheetContent(
     style: TableCellStyle,
     onStyleChange: (TableCellStyle) -> Unit,
     onReset: () -> Unit
 ) {
-    Column(modifier = Modifier.fillMaxWidth()) {
-        StyleSectionLabel("Background Color")
-        ColorSwatchRow(selectedHex = style.backgroundColorHex) { onStyleChange(style.copy(backgroundColorHex = it)) }
+    DatabaseMenuSectionLabel(text = "Text color")
+    DatabaseStyleColorChoices(
+        selectedColorName = colorChoiceNameFor(style.textColorHex),
+        colorOf = { databaseTextColorNamed(it.storageName) },
+        onColorChosen = { onStyleChange(style.copy(textColorHex = cellHexFor(it))) }
+    )
 
-        StyleSectionLabel("Text Color")
-        ColorSwatchRow(selectedHex = style.textColorHex) { onStyleChange(style.copy(textColorHex = it)) }
+    DatabaseMenuSectionDivider()
+    DatabaseMenuSectionLabel(text = "Background color")
+    DatabaseStyleColorChoices(
+        selectedColorName = colorChoiceNameFor(style.backgroundColorHex),
+        colorOf = { databaseBackgroundColorNamed(it.storageName) },
+        onColorChosen = { onStyleChange(style.copy(backgroundColorHex = cellHexFor(it))) }
+    )
 
-        StyleSectionLabel("Format")
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            StyleToggleButton(painterResource(Res.drawable.format_bold), style.isBold, 14.dp) { onStyleChange(style.copy(isBold = !style.isBold)) }
-            StyleToggleButton(painterResource(Res.drawable.italic), style.isItalic, 14.dp) { onStyleChange(style.copy(isItalic = !style.isItalic)) }
-            StyleToggleButton(painterResource(Res.drawable.underline), style.isUnderlined, 16.dp) { onStyleChange(style.copy(isUnderlined = !style.isUnderlined)) }
-            StyleToggleButton(painterResource(Res.drawable.text_x), style.isStrikeThrough, 16.dp) { onStyleChange(style.copy(isStrikeThrough = !style.isStrikeThrough)) }
-            StyleToggleButton(painterResource(Res.drawable.code), style.isCode) { onStyleChange(style.copy(isCode = !style.isCode)) }
-        }
+    DatabaseMenuSectionDivider()
+    DatabaseMenuSectionLabel(text = "Alignment")
+    DatabaseAlignmentOptions(selectedAlignment = style.alignment) { onStyleChange(style.copy(alignment = it)) }
 
-        StyleSectionLabel("Content Type")
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            StyleToggleButton(painterResource(Res.drawable.link), style.contentType == TableCellContentType.LINK) {
-                onStyleChange(style.copy(contentType = if (style.contentType == TableCellContentType.LINK) TableCellContentType.NONE else TableCellContentType.LINK))
-            }
-            StyleToggleButton(painterResource(Res.drawable.phone), style.contentType == TableCellContentType.PHONE) {
-                onStyleChange(style.copy(contentType = if (style.contentType == TableCellContentType.PHONE) TableCellContentType.NONE else TableCellContentType.PHONE))
-            }
-            StyleToggleButton(painterResource(Res.drawable.mail), style.contentType == TableCellContentType.EMAIL) {
-                onStyleChange(style.copy(contentType = if (style.contentType == TableCellContentType.EMAIL) TableCellContentType.NONE else TableCellContentType.EMAIL))
-            }
-        }
+    DatabaseMenuSectionDivider()
+    DatabaseMenuSectionLabel(text = "Format")
+    TableStyleToggleOption("Bold", Res.drawable.format_bold, style.isBold) { onStyleChange(style.copy(isBold = !style.isBold)) }
+    TableStyleToggleOption("Italic", Res.drawable.italic, style.isItalic) { onStyleChange(style.copy(isItalic = !style.isItalic)) }
+    TableStyleToggleOption("Underline", Res.drawable.underline, style.isUnderlined) { onStyleChange(style.copy(isUnderlined = !style.isUnderlined)) }
+    TableStyleToggleOption("Strikethrough", Res.drawable.text_x, style.isStrikeThrough) { onStyleChange(style.copy(isStrikeThrough = !style.isStrikeThrough)) }
+    TableStyleToggleOption("Code", Res.drawable.code, style.isCode) { onStyleChange(style.copy(isCode = !style.isCode)) }
 
-        StyleSectionLabel("Alignment")
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            StyleToggleButton(painterResource(Res.drawable.textalign_left2), style.alignment == TextAlignment.LEFT) {
-                onStyleChange(style.copy(alignment = if (style.alignment == TextAlignment.LEFT) null else TextAlignment.LEFT))
-            }
-            StyleToggleButton(painterResource(Res.drawable.textalign_center2), style.alignment == TextAlignment.CENTER) {
-                onStyleChange(style.copy(alignment = if (style.alignment == TextAlignment.CENTER) null else TextAlignment.CENTER))
-            }
-            StyleToggleButton(painterResource(Res.drawable.textalign_right2), style.alignment == TextAlignment.RIGHT) {
-                onStyleChange(style.copy(alignment = if (style.alignment == TextAlignment.RIGHT) null else TextAlignment.RIGHT))
-            }
-        }
+    DatabaseMenuSectionDivider()
+    DatabaseMenuSectionLabel(text = "Content type")
+    TableContentTypeOption("Link", Res.drawable.link, TableCellContentType.LINK, style, onStyleChange)
+    TableContentTypeOption("Phone", Res.drawable.phone, TableCellContentType.PHONE, style, onStyleChange)
+    TableContentTypeOption("Email", Res.drawable.mail, TableCellContentType.EMAIL, style, onStyleChange)
 
-        HorizontalDivider(
-            modifier = Modifier.padding(vertical = 12.dp),
-            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)
-        )
+    DatabaseMenuSectionDivider()
+    DatabaseMenuOption(
+        label = "Reset style",
+        icon = { DatabaseOptionIcon(Res.drawable.trash, tint = MaterialTheme.colorScheme.error) },
+        labelColor = MaterialTheme.colorScheme.error,
+        onClick = onReset
+    )
+}
 
-        SheetMenuRow(painterResource(Res.drawable.trash), "Reset Style", MaterialTheme.colorScheme.error) {
-            onReset()
-        }
+@Composable
+private fun TableStyleToggleOption(label: String, icon: DrawableResource, isOn: Boolean, onClick: () -> Unit) {
+    DatabaseMenuOption(label = label, isSelected = isOn, icon = { DatabaseOptionIcon(icon) }, onClick = onClick)
+}
+
+@Composable
+private fun TableContentTypeOption(
+    label: String,
+    icon: DrawableResource,
+    contentType: TableCellContentType,
+    style: TableCellStyle,
+    onStyleChange: (TableCellStyle) -> Unit
+) {
+    val isSelected = style.contentType == contentType
+    TableStyleToggleOption(label, icon, isSelected) {
+        onStyleChange(style.copy(contentType = if (isSelected) TableCellContentType.NONE else contentType))
     }
 }
+
+private fun highlightColorForHex(hex: String?): HighlightColor? =
+    HighlightColor.entries.firstOrNull { it.cellBackgroundHex == hex }
+
+private fun colorChoiceNameFor(hex: String?): String? = hex?.let { highlightColorForHex(it)?.storageName ?: it }
+
+private fun cellHexFor(colorName: String?): String? = colorName?.let { HighlightColor.named(it).cellBackgroundHex }
 
 @Composable
 private fun StyleSectionLabel(text: String) {
@@ -908,65 +901,21 @@ private fun StyleSectionLabel(text: String) {
         style = MaterialTheme.typography.labelSmall,
         fontWeight = FontWeight.SemiBold,
         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-        modifier = Modifier.padding(top = 14.dp, bottom = 8.dp)
+        modifier = Modifier.padding(
+            start = MenuTextInset,
+            end = MenuTextInset,
+            top = if (isDesktopPlatform) 8.dp else 14.dp,
+            bottom = if (isDesktopPlatform) 4.dp else 8.dp
+        )
     )
 }
 
 @Composable
-private fun ColorSwatchRow(selectedHex: String?, onSelect: (String?) -> Unit) {
-    Row(
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
-    ) {
-        Box(
-            modifier = Modifier
-                .size(28.dp)
-                .clip(CircleShape)
-                .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.4f), CircleShape)
-                .clickable { onSelect(null) },
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                Icons.Default.Close,
-                contentDescription = "No color",
-                modifier = Modifier.size(14.dp),
-                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-            )
-        }
-        TableStylePalette.forEach { hex ->
-            val isSelected = hex == selectedHex
-            Box(
-                modifier = Modifier
-                    .size(28.dp)
-                    .background(hex.toColorOrNull() ?: Color.Gray, CircleShape)
-                    .border(
-                        width = if (isSelected) 2.dp else 0.dp,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
-                        shape = CircleShape
-                    )
-                    .clickable { onSelect(hex) }
-            )
-        }
-    }
-}
-
-@Composable
-private fun StyleToggleButton(icon: Painter, isActive: Boolean, iconSize: Dp = 18.dp, onClick: () -> Unit) {
-    Box(
-        modifier = Modifier
-            .size(36.dp)
-            .clip(RoundedCornerShape(8.dp))
-            .background(if (isActive) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else Color.Transparent)
-            .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center
-    ) {
-        Icon(
-            icon,
-            contentDescription = null,
-            modifier = Modifier.size(iconSize),
-            tint = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
-        )
-    }
+private fun TableMenuDivider() {
+    HorizontalDivider(
+        modifier = Modifier.padding(horizontal = MenuTextInset, vertical = if (isDesktopPlatform) 8.dp else 12.dp),
+        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)
+    )
 }
 
 @Composable
@@ -979,13 +928,13 @@ private fun SheetMenuRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 2.dp)
+            .padding(horizontal = MenuRowInset, vertical = 2.dp)
             .clip(RoundedCornerShape(12.dp))
             .clickable { onClick() }
-            .padding(vertical = 10.dp),
+            .padding(horizontal = MenuRowInnerPadding, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(icon, null, tint = color, modifier = Modifier.size(20.dp))
+        Icon(icon, null, tint = color, modifier = Modifier.size(if (isDesktopPlatform) 18.dp else 20.dp))
         Spacer(Modifier.width(12.dp))
         Text(text, style = MaterialTheme.typography.bodyLarge, color = color, modifier = Modifier.weight(1f))
     }
