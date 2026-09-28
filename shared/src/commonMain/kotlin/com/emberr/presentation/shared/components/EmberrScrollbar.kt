@@ -40,8 +40,13 @@ fun EmberrVerticalScrollbar(gridState: LazyGridState, modifier: Modifier = Modif
 }
 
 @Composable
-fun EmberrHorizontalScrollbar(scrollState: ScrollState, modifier: Modifier = Modifier) {
-    if (!rememberScrollbarsVisible()) return
+fun EmberrHorizontalScrollbar(
+    scrollState: ScrollState,
+    modifier: Modifier = Modifier,
+    showsWhenScrollbarsAreOff: Boolean = false
+) {
+    val isVisible = if (showsWhenScrollbarsAreOff) isDesktopPlatform else rememberScrollbarsVisible()
+    if (!isVisible) return
     PlatformHorizontalScrollbar(scrollState, modifier)
 }
 
