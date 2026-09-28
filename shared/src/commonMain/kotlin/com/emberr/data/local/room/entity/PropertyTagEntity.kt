@@ -1,5 +1,6 @@
 package com.emberr.data.local.room.entity
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
@@ -17,5 +18,7 @@ data class PropertyTagEntity(
     val createdAt: Long,
     val updatedAt: Long = 0L,
     val isDeleted: Boolean = false,
-    val spaceId: String = DEFAULT_SPACE_ID
+    val spaceId: String = DEFAULT_SPACE_ID,
+    @ColumnInfo(defaultValue = "0") val sortOrder: Int = 0,
+    val colorName: String? = null
 )

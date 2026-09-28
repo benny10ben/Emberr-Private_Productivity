@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "e753836b58b02d5d01412a457b85497e",
+    "identityHash": "585ec2de5cce05feb46e0ffc56d3e0a8",
     "entities": [
       {
         "tableName": "spaces",
@@ -765,7 +765,7 @@
       },
       {
         "tableName": "property_tags",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`tagId` TEXT NOT NULL, `propertyKey` TEXT NOT NULL, `name` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `isDeleted` INTEGER NOT NULL, `spaceId` TEXT NOT NULL, PRIMARY KEY(`tagId`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`tagId` TEXT NOT NULL, `propertyKey` TEXT NOT NULL, `name` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `isDeleted` INTEGER NOT NULL, `spaceId` TEXT NOT NULL, `sortOrder` INTEGER NOT NULL DEFAULT 0, `colorName` TEXT, PRIMARY KEY(`tagId`))",
         "fields": [
           {
             "fieldPath": "tagId",
@@ -808,6 +808,18 @@
             "columnName": "spaceId",
             "affinity": "TEXT",
             "notNull": true
+          },
+          {
+            "fieldPath": "sortOrder",
+            "columnName": "sortOrder",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
+          },
+          {
+            "fieldPath": "colorName",
+            "columnName": "colorName",
+            "affinity": "TEXT"
           }
         ],
         "primaryKey": {
@@ -1498,7 +1510,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'e753836b58b02d5d01412a457b85497e')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '585ec2de5cce05feb46e0ffc56d3e0a8')"
     ]
   }
 }

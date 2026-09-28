@@ -12,7 +12,7 @@ interface PropertyTagDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertOrUpdateTag(tag: PropertyTagEntity)
 
-    @Query("SELECT * FROM property_tags WHERE spaceId = :spaceId AND isDeleted = 0 ORDER BY createdAt ASC")
+    @Query("SELECT * FROM property_tags WHERE spaceId = :spaceId AND isDeleted = 0 ORDER BY sortOrder ASC, createdAt ASC")
     fun getAllTags(spaceId: String): Flow<List<PropertyTagEntity>>
 
     @Query("SELECT * FROM property_tags WHERE spaceId = :spaceId AND isDeleted = 0")
