@@ -82,7 +82,7 @@ fun ShareReceiverSheet(
                 text = "Close",
                 onClick = onDismiss,
                 modifier = Modifier.fillMaxWidth()
-                    .padding(vertical = 12.dp, horizontal = 20.dp)
+                    .padding(vertical = 12.dp)
             )
         }
     }
