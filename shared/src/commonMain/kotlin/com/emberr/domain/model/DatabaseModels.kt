@@ -173,6 +173,14 @@ data class DatabaseSort(
 
 @Immutable
 @Serializable
+data class DatabaseCellStyle(
+    val textColorName: String? = null,
+    val backgroundColorName: String? = null,
+    val alignment: TextAlignment? = null
+)
+
+@Immutable
+@Serializable
 data class DatabaseSettingTime(
     val updatedAt: Long,
     val isDeleted: Boolean = false

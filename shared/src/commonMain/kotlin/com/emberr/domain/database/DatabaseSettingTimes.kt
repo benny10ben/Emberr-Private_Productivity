@@ -17,6 +17,9 @@ private fun calculationSettingKey(columnKey: String) = "calculation:$columnKey"
 private fun viewSettingKey(viewId: String) = "view:$viewId"
 private fun propertySettingKey(propertyId: String) = "property:$propertyId"
 private fun filterSettingKey(filterId: String) = "filter:$filterId"
+private fun cellStyleSettingKey(styleKey: String) = "cell_style:$styleKey"
+private fun rowStyleSettingKey(rowNoteId: String) = "row_style:$rowNoteId"
+private fun columnStyleSettingKey(columnKey: String) = "column_style:$columnKey"
 
 fun DatabaseBlock.withSettingTimesStamped(before: DatabaseBlock, now: Long): DatabaseBlock {
     val settingsBefore = before.settingsByKey()
@@ -39,6 +42,12 @@ fun mergeDatabaseBlocks(first: DatabaseBlock, second: DatabaseBlock): DatabaseBl
         calculations = merge.mergedList(newer.calculations.entries.toList(), older.calculations.entries.toList()) { calculationSettingKey(it.key) }
             .associate { it.key to it.value },
         filters = merge.mergedList(newer.filters, older.filters) { filterSettingKey(it.id) },
+        cellStyles = merge.mergedList(newer.cellStyles.entries.toList(), older.cellStyles.entries.toList()) { cellStyleSettingKey(it.key) }
+            .associate { it.key to it.value },
+        rowStyles = merge.mergedList(newer.rowStyles.entries.toList(), older.rowStyles.entries.toList()) { rowStyleSettingKey(it.key) }
+            .associate { it.key to it.value },
+        columnStyles = merge.mergedList(newer.columnStyles.entries.toList(), older.columnStyles.entries.toList()) { columnStyleSettingKey(it.key) }
+            .associate { it.key to it.value },
         sort = merge.mergedValue(SORT_SETTING_KEY, newer.sort, older.sort),
         defaultTemplateId = merge.mergedValue(DEFAULT_TEMPLATE_SETTING_KEY, newer.defaultTemplateId, older.defaultTemplateId),
         showsRowCount = merge.mergedValue(ROW_COUNT_SETTING_KEY, newer.showsRowCount.takeIf { it }, older.showsRowCount.takeIf { it }) ?: false,
@@ -92,4 +101,7 @@ private fun DatabaseBlock.settingsByKey(): Map<String, Any> = buildMap {
     calculations.forEach { (columnKey, calculation) -> put(calculationSettingKey(columnKey), calculation) }
     customProperties.forEach { put(propertySettingKey(it.id), it) }
     filters.forEach { put(filterSettingKey(it.id), it) }
+    cellStyles.forEach { (styleKey, style) -> put(cellStyleSettingKey(styleKey), style) }
+    rowStyles.forEach { (rowNoteId, style) -> put(rowStyleSettingKey(rowNoteId), style) }
+    columnStyles.forEach { (columnKey, style) -> put(columnStyleSettingKey(columnKey), style) }
 }

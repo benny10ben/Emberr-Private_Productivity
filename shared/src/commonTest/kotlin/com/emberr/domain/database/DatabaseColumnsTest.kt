@@ -61,6 +61,35 @@ class DatabaseColumnsTest {
     }
 
     @Test
+    fun addingAColumnBeforeAnotherPutsItRightThere() {
+        val budgetColumn = DatabaseColumnTarget.CustomProperty("budget-id")
+
+        assertEquals(
+            listOf(statusColumn, budgetColumn, dueDateColumn, clientColumn),
+            database.withColumnAdded(budgetColumn, beforeColumn = dueDateColumn).columns
+        )
+        assertEquals(
+            listOf(budgetColumn, statusColumn, dueDateColumn, clientColumn),
+            database.withColumnAdded(budgetColumn, beforeColumn = statusColumn).columns
+        )
+    }
+
+    @Test
+    fun creatingAPropertyBeforeAColumnPutsItsColumnThere() {
+        val kickoff = DatabaseCustomProperty(id = "kickoff-id", name = "Kickoff", valueType = PropertyValueType.DATE)
+
+        val result = database.withDatabasePropertyCreated(kickoff, beforeColumn = clientColumn)
+
+        assertEquals(listOf(statusColumn, dueDateColumn, DatabaseColumnTarget.CustomProperty("kickoff-id"), clientColumn), result.columns)
+    }
+
+    @Test
+    fun movingAColumnBeforeAnotherSwapsNeighbours() {
+        assertEquals(listOf(dueDateColumn, statusColumn, clientColumn), database.withColumnMovedBefore(dueDateColumn, statusColumn).columns)
+        assertEquals(listOf(statusColumn, clientColumn, dueDateColumn), database.withColumnMovedBefore(clientColumn, dueDateColumn).columns)
+    }
+
+    @Test
     fun removingAColumnAlsoDropsItsWidthFiltersAndSort() {
         val result = database.withColumnRemoved(statusColumn)
 

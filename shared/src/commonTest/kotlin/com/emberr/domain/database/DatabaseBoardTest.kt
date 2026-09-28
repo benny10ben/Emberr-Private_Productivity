@@ -254,6 +254,47 @@ class DatabaseBoardTest {
     }
 
     @Test
+    fun placingANewRowAboveOrBelowAnotherPutsItNextToThatRow() {
+        val shownRowIds = listOf("a", "b", "c")
+
+        assertEquals(
+            listOf("a", "new", "b", "c"),
+            manualRowOrderWithRowPlaced(shownRowIds, emptyList(), rowId = "new", nextToRowId = "b", isAfter = false)
+        )
+        assertEquals(
+            listOf("a", "b", "new", "c"),
+            manualRowOrderWithRowPlaced(shownRowIds, emptyList(), rowId = "new", nextToRowId = "b", isAfter = true)
+        )
+    }
+
+    @Test
+    fun movingARowUpOrDownSwapsItWithItsNeighbour() {
+        val shownRowIds = listOf("a", "b", "c")
+
+        assertEquals(
+            listOf("b", "a", "c"),
+            manualRowOrderWithRowPlaced(shownRowIds, emptyList(), rowId = "b", nextToRowId = "a", isAfter = false)
+        )
+        assertEquals(
+            listOf("a", "c", "b"),
+            manualRowOrderWithRowPlaced(shownRowIds, emptyList(), rowId = "b", nextToRowId = "c", isAfter = true)
+        )
+    }
+
+    @Test
+    fun placingARowKeepsRowsHiddenByFiltersAfterTheShownOnes() {
+        val order = manualRowOrderWithRowPlaced(
+            shownRowIds = listOf("a", "c"),
+            previousManualOrder = listOf("a", "hidden", "c"),
+            rowId = "c",
+            nextToRowId = "a",
+            isAfter = false
+        )
+
+        assertEquals(listOf("c", "a", "hidden"), order)
+    }
+
+    @Test
     fun onlyChoiceTagsCheckboxAndDatePropertiesCanGroupABoard() {
         assertEquals(
             listOf(PropertyValueType.DATE, PropertyValueType.SINGLE_CHOICE, PropertyValueType.TAGS, PropertyValueType.CHECKBOX),

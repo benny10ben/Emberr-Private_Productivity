@@ -35,23 +35,28 @@ fun DatabaseBlock.withColumnShown(viewId: String, column: DatabaseColumnTarget, 
         view.copy(hiddenColumnKeys = hiddenColumnKeys)
     }
 
-fun DatabaseBlock.withColumnAdded(column: DatabaseColumnTarget): DatabaseBlock {
+fun DatabaseBlock.withColumnAdded(column: DatabaseColumnTarget, beforeColumn: DatabaseColumnTarget? = null): DatabaseBlock {
     if (column == DatabaseColumnTarget.NotesTitle || column in columns) return this
     if (column is DatabaseColumnTarget.CustomProperty && customPropertyWithId(column.propertyId) == null) return this
-    return copy(columns = columns + column)
+    return copy(columns = (columns + column).withItemMovedBefore(column, beforeColumn))
 }
+
+fun DatabaseBlock.withColumnMovedBefore(column: DatabaseColumnTarget, beforeColumn: DatabaseColumnTarget): DatabaseBlock =
+    copy(columns = columns.withItemMovedBefore(column, beforeColumn))
 
 fun DatabaseBlock.withColumnRemoved(column: DatabaseColumnTarget): DatabaseBlock = copy(
     columns = columns - column,
     columnWidths = columnWidths - column.columnKey,
     calculations = calculations - column.columnKey,
+    columnStyles = columnStyles - column.columnKey,
+    cellStyles = cellStyles.withoutCellsOfColumn(column.columnKey),
     views = views.map { view -> view.copy(hiddenColumnKeys = view.hiddenColumnKeys - column.columnKey) },
     filters = filters.filterNot { it.target == column },
     sort = sort?.takeUnless { it.target == column }
 )
 
-fun DatabaseBlock.withDatabasePropertyCreated(property: DatabaseCustomProperty): DatabaseBlock =
-    copy(customProperties = customProperties + property).withColumnAdded(DatabaseColumnTarget.CustomProperty(property.id))
+fun DatabaseBlock.withDatabasePropertyCreated(property: DatabaseCustomProperty, beforeColumn: DatabaseColumnTarget? = null): DatabaseBlock =
+    copy(customProperties = customProperties + property).withColumnAdded(DatabaseColumnTarget.CustomProperty(property.id), beforeColumn)
 
 fun DatabaseBlock.withDatabasePropertyRenamed(propertyId: String, newName: String): DatabaseBlock =
     copy(customProperties = customProperties.map { if (it.id == propertyId) it.copy(name = newName) else it })

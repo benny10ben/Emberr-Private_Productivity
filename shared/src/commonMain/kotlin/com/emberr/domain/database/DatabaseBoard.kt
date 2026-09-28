@@ -168,3 +168,17 @@ fun manualRowOrderAfterDrop(
     val shownRowIdSet = shownRowIds.toSet()
     return reorderedShownRows + previousManualOrder.filterNot { it in shownRowIdSet }
 }
+
+fun manualRowOrderWithRowPlaced(
+    shownRowIds: List<String>,
+    previousManualOrder: List<String>,
+    rowId: String,
+    nextToRowId: String,
+    isAfter: Boolean
+): List<String> = manualRowOrderAfterDrop(
+    shownRowIds = shownRowIds,
+    previousManualOrder = previousManualOrder,
+    draggedRowId = rowId,
+    beforeRowId = nextToRowId.takeUnless { isAfter },
+    lastOtherRowIdInTargetColumn = nextToRowId.takeIf { isAfter }
+)
