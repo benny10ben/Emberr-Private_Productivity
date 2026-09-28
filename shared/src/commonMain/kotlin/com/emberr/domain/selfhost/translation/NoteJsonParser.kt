@@ -51,7 +51,8 @@ object NoteJsonParser {
             isTemplate = payload.isTemplate,
             spaceId = payload.spaceId,
             kind = payload.kind,
-            databaseId = payload.databaseId
+            databaseId = payload.databaseId,
+            isDatabaseTemplate = payload.isDatabaseTemplate
         )
 
         val blockUpserts = payload.blocks.map { block ->

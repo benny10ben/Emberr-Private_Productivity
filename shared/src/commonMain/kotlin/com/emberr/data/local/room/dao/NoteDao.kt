@@ -185,6 +185,9 @@ interface NoteDao {
 
     // Templates menu: every reusable template (predefined + user-saved), alphabetical so the
     // search/filter UI has a stable starting order.
-    @Query("SELECT * FROM notes_metadata WHERE spaceId = :spaceId AND isTemplate = 1 AND trashedAt IS NULL ORDER BY title ASC")
+    @Query("SELECT * FROM notes_metadata WHERE spaceId = :spaceId AND isTemplate = 1 AND isDatabaseTemplate = 0 AND trashedAt IS NULL ORDER BY title ASC")
     fun getAllTemplates(spaceId: String): Flow<List<NoteMetadataEntity>>
+
+    @Query("SELECT * FROM notes_metadata WHERE spaceId = :spaceId AND isTemplate = 1 AND isDatabaseTemplate = 1 AND trashedAt IS NULL ORDER BY title ASC")
+    fun getAllDatabaseTemplates(spaceId: String): Flow<List<NoteMetadataEntity>>
 }

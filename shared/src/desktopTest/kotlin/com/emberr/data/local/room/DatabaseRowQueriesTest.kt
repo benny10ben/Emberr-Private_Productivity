@@ -77,6 +77,17 @@ class DatabaseRowQueriesTest {
     }
 
     @Test
+    fun databaseTemplatesAndNoteTemplatesAreListedSeparately() = runTest {
+        noteDao.insertOrUpdateMetadata(note("note-template").copy(isTemplate = true))
+        noteDao.insertOrUpdateMetadata(note("row-template").copy(isTemplate = true, isDatabaseTemplate = true))
+        noteDao.insertOrUpdateMetadata(note("deleted-row-template", trashedAt = 5L).copy(isTemplate = true, isDatabaseTemplate = true))
+        noteDao.insertOrUpdateMetadata(note("plain-note"))
+
+        assertEquals(listOf("note-template"), noteDao.getAllTemplates(DEFAULT_SPACE_ID).first().map { it.noteId })
+        assertEquals(listOf("row-template"), noteDao.getAllDatabaseTemplates(DEFAULT_SPACE_ID).first().map { it.noteId })
+    }
+
+    @Test
     fun onlyLivePropertyBlocksOfRowsInTheTableAreObserved() = runTest {
         noteDao.insertOrUpdateMetadata(note("row-live", databaseId = "books"))
         noteDao.insertOrUpdateMetadata(note("row-trashed", databaseId = "books", trashedAt = 5L))

@@ -42,5 +42,6 @@ data class NoteMetadataEntity(
     val selfHostSyncedAt: Long = 0L,
     val spaceId: String = DEFAULT_SPACE_ID,
     @ColumnInfo(defaultValue = "NOTE") val kind: NoteKind = NoteKind.NOTE,
-    val databaseId: String? = null
+    val databaseId: String? = null,
+    @ColumnInfo(defaultValue = "0") val isDatabaseTemplate: Boolean = false
 )

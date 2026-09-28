@@ -56,7 +56,8 @@ object NoteJsonCompiler {
             canvasNodes = canvas.nodes.filter { it.noteId == metadata.noteId },
             canvasEdges = canvas.edges.filter { it.noteId == metadata.noteId },
             canvasStrokes = canvas.strokes.filter { it.noteId == metadata.noteId },
-            databaseId = metadata.databaseId
+            databaseId = metadata.databaseId,
+            isDatabaseTemplate = metadata.isDatabaseTemplate
         )
 
         return try {

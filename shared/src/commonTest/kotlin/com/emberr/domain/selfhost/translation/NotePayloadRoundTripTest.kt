@@ -88,6 +88,16 @@ class NotePayloadRoundTripTest {
     }
 
     @Test
+    fun aDatabaseTemplateStaysADatabaseTemplateOnTheTripToAnotherDevice() {
+        val templateMetadata = metadata.copy(isSubNote = false, databaseId = null, isTemplate = true, isDatabaseTemplate = true)
+        val payloadJson = NoteJsonCompiler.compileNoteToJson(templateMetadata, emptyList())
+
+        val restored = NoteJsonParser.parseJsonToDatabaseOperations(payloadJson).metadataUpsert
+
+        assertEquals(templateMetadata.copy(filePath = "", selfHostSyncedAt = 0L), restored)
+    }
+
+    @Test
     fun aCanvasKeepsItsKindBoxesArrowsStrokesAndDeletedItemsOnTheTripToAnotherDevice() {
         val canvasMetadata = metadata.copy(kind = NoteKind.CANVAS)
         val liveNode = CanvasNodeEntity(
