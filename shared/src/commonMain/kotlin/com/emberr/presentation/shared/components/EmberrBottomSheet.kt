@@ -1,6 +1,7 @@
 package com.emberr.presentation.shared.components
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.BringIntoViewSpec
@@ -354,7 +355,9 @@ private fun EmberrModalBottomSheet(
                         .verticalScroll(rememberScrollState())
                         .padding(horizontal = contentHorizontalPadding)
                 ) {
-                    content { action -> closeAnd(action) }
+                    CompositionLocalProvider(LocalIndication provides NoRippleIndicationNodeFactory) {
+                        content { action -> closeAnd(action) }
+                    }
                 }
             }
         }
