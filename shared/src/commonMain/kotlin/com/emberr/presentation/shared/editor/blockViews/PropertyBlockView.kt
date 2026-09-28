@@ -18,10 +18,14 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -30,6 +34,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
@@ -48,6 +53,7 @@ import androidx.compose.ui.unit.dp
 import com.emberr.domain.model.PropertyBlock
 import com.emberr.domain.model.PropertyType
 import com.emberr.domain.model.PropertyValueType
+import com.emberr.domain.model.isNumberBeingTyped
 import com.emberr.domain.util.system.isDesktopPlatform
 import com.emberr.presentation.shared.components.MinimalDatePickerDialog
 import com.emberr.presentation.shared.editor.DefaultBlockShape
@@ -57,10 +63,12 @@ import emberr.shared.generated.resources.calendar_clock
 import emberr.shared.generated.resources.calendar_day
 import emberr.shared.generated.resources.doc_text
 import emberr.shared.generated.resources.flag
+import emberr.shared.generated.resources.hash
 import emberr.shared.generated.resources.link
 import emberr.shared.generated.resources.mail
 import emberr.shared.generated.resources.phone
 import emberr.shared.generated.resources.square_arrow_out_up_right
+import emberr.shared.generated.resources.square_check
 import emberr.shared.generated.resources.tags
 import emberr.shared.generated.resources.text_type
 import emberr.shared.generated.resources.x
@@ -87,6 +95,8 @@ fun PropertyType.iconResource(): DrawableResource = when (this) {
     PropertyType.LINK -> Res.drawable.link
     PropertyType.DESCRIPTION -> Res.drawable.doc_text
     PropertyType.DUE_DATE -> Res.drawable.calendar_clock
+    PropertyType.CHECKBOX -> Res.drawable.square_check
+    PropertyType.NUMBER -> Res.drawable.hash
 }
 
 fun PropertyValueType.iconResource(): DrawableResource = when (this) {
@@ -97,6 +107,8 @@ fun PropertyValueType.iconResource(): DrawableResource = when (this) {
     PropertyValueType.DATE -> Res.drawable.calendar_day
     PropertyValueType.SINGLE_CHOICE -> Res.drawable.flag
     PropertyValueType.TAGS -> Res.drawable.tags
+    PropertyValueType.CHECKBOX -> Res.drawable.square_check
+    PropertyValueType.NUMBER -> Res.drawable.hash
 }
 
 @Composable
@@ -106,6 +118,7 @@ fun PropertyBlockView(
     onUpdateText: (String) -> Unit,
     onUpdateDate: (LocalDate?) -> Unit,
     onUpdateTags: (List<String>) -> Unit,
+    onUpdateChecked: (Boolean) -> Unit,
     runAfterKeyboardCloses: (() -> Unit) -> Unit = { action -> action() }
 ) {
     val labelWidth = if (isDesktopPlatform) 150.dp else 120.dp
@@ -141,6 +154,8 @@ fun PropertyBlockView(
                         PropertyDateValue(block, inSelectionMode, onUpdateDate, runAfterKeyboardCloses, valueWidthModifier)
                     block.valueType.holdsTags ->
                         PropertyTagsValue(block, inSelectionMode, onUpdateTags, runAfterKeyboardCloses, valueWidthModifier)
+                    block.valueType.holdsCheck ->
+                        PropertyCheckboxValue(block, inSelectionMode, onUpdateChecked, valueWidthModifier)
                     else -> PropertyTextValue(block, inSelectionMode, onUpdateText, valueWidthModifier)
                 }
             }
@@ -174,6 +189,7 @@ internal fun PropertyTextValue(
         PropertyValueType.PHONE -> KeyboardType.Phone
         PropertyValueType.EMAIL -> KeyboardType.Email
         PropertyValueType.LINK -> KeyboardType.Uri
+        PropertyValueType.NUMBER -> KeyboardType.Decimal
         else -> KeyboardType.Text
     }
     val capitalization = when {
@@ -197,6 +213,7 @@ internal fun PropertyTextValue(
         value = fieldValue,
         onValueChange = { newValue ->
             val cleanedValue = newValue.copy(text = newValue.text.replace('\n', ' ').replace('\r', ' '))
+            if (block.valueType.holdsNumber && !isNumberBeingTyped(cleanedValue.text)) return@BasicTextField
             val textChanged = cleanedValue.text != fieldValue.text
             fieldValue = cleanedValue
             if (textChanged) {
@@ -360,6 +377,35 @@ internal fun PropertyTagsValue(
                 onDismiss = { showTagPicker = false },
                 onSelectedTagsChange = onUpdateTags
             )
+        }
+    }
+}
+
+@Composable
+internal fun PropertyCheckboxValue(
+    block: PropertyBlock,
+    inSelectionMode: Boolean,
+    onUpdateChecked: (Boolean) -> Unit,
+    widthModifier: Modifier
+) {
+    Box(
+        modifier = widthModifier
+            .clickable(enabled = !inSelectionMode) { onUpdateChecked(!block.isChecked) }
+            .padding(horizontal = PropertyValueHorizontalPadding, vertical = PropertyValueVerticalPadding)
+    ) {
+        Box(modifier = Modifier.size(24.dp), contentAlignment = Alignment.Center) {
+            CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
+                Checkbox(
+                    checked = block.isChecked,
+                    onCheckedChange = null,
+                    modifier = Modifier.scale(0.9f).size(16.dp),
+                    colors = CheckboxDefaults.colors(
+                        checkedColor = MaterialTheme.colorScheme.surface,
+                        checkmarkColor = MaterialTheme.colorScheme.primary,
+                        uncheckedColor = MaterialTheme.colorScheme.outline
+                    )
+                )
+            }
         }
     }
 }

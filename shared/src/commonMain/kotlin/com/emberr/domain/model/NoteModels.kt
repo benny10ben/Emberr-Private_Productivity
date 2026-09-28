@@ -409,9 +409,13 @@ enum class PropertyValueType(val label: String) {
     LINK("Link"),
     DATE("Date"),
     SINGLE_CHOICE("Single choice"),
-    TAGS("Tags");
+    TAGS("Tags"),
+    CHECKBOX("Checkbox"),
+    NUMBER("Number");
 
     val holdsDate: Boolean get() = this == DATE
+    val holdsCheck: Boolean get() = this == CHECKBOX
+    val holdsNumber: Boolean get() = this == NUMBER
     val holdsTags: Boolean get() = this == SINGLE_CHOICE || this == TAGS
     val allowsManyTags: Boolean get() = this == TAGS
 }
@@ -426,7 +430,9 @@ enum class PropertyType(val label: String, val valueType: PropertyValueType) {
     TAGS("Tags", PropertyValueType.TAGS),
     LINK("Link", PropertyValueType.LINK),
     DESCRIPTION("Description", PropertyValueType.TEXT),
-    DUE_DATE("Due Date", PropertyValueType.DATE)
+    DUE_DATE("Due Date", PropertyValueType.DATE),
+    CHECKBOX("Checkbox", PropertyValueType.CHECKBOX),
+    NUMBER("Number", PropertyValueType.NUMBER)
 }
 
 @Immutable
@@ -441,6 +447,7 @@ data class PropertyBlock(
     val text: String = "",
     val date: LocalDate? = null,
     val tags: List<String> = emptyList(),
+    val isChecked: Boolean = false,
     override val indentationLevel: Int = 0,
     override val isBold: Boolean = false,
     override val isItalic: Boolean = false,
@@ -456,11 +463,20 @@ data class PropertyBlock(
     val tagPoolKey: String get() = propertyType?.name ?: customPropertyId.orEmpty()
 }
 
+const val CHECKED_PROPERTY_TEXT = "Yes"
+
 fun PropertyBlock.valueAsText(): String = when {
     valueType.holdsDate -> date?.toString().orEmpty()
     valueType.holdsTags -> tags.joinToString(", ")
+    valueType.holdsCheck -> if (isChecked) CHECKED_PROPERTY_TEXT else ""
     else -> text
 }
+
+private val numberBeingTyped = Regex("-?\\d*\\.?\\d*")
+
+fun isNumberBeingTyped(text: String): Boolean = numberBeingTyped.matches(text)
+
+fun PropertyBlock.numberOrNull(): Double? = if (valueType.holdsNumber) text.trim().toDoubleOrNull() else null
 
 fun cleanPropertyTagName(rawName: String): String =
     rawName.replace(",", " ").trim().replace(Regex("\\s+"), " ")
@@ -511,6 +527,11 @@ data class DatabaseBlock(
     val columnWidths: Map<String, Int> = emptyMap(),
     val filters: List<DatabaseFilter> = emptyList(),
     val sort: DatabaseSort? = null,
+    val defaultTemplateId: String? = null,
+    val calculations: Map<String, DatabaseCalculation> = emptyMap(),
+    val showsRowCount: Boolean = false,
+    val views: List<DatabaseView> = emptyList(),
+    val activeViewId: String? = null,
     val settingTimes: Map<String, DatabaseSettingTime> = emptyMap(),
     override val indentationLevel: Int = 0,
     override val isBold: Boolean = false,

@@ -43,6 +43,25 @@ class PropertyBlockTest {
         assertEquals("", block.valueAsText())
     }
 
+    @Test
+    fun onlyTextThatCanBecomeANumberCanBeTypedIntoANumberProperty() {
+        listOf("", "-", "12", "-12.5", "0.", ".5").forEach { assertEquals(true, isNumberBeingTyped(it), it) }
+        listOf("1,5", "12a", "1.2.3", "--1", "1-", " 1").forEach { assertEquals(false, isNumberBeingTyped(it), it) }
+    }
+
+    @Test
+    fun aNumberPropertyReadsItsTextAsANumber() {
+        assertEquals(12.5, PropertyBlock(id = "p1", propertyType = PropertyType.NUMBER, text = " 12.5 ").numberOrNull())
+        assertEquals(null, PropertyBlock(id = "p2", propertyType = PropertyType.NUMBER, text = "").numberOrNull())
+        assertEquals(null, PropertyBlock(id = "p3", propertyType = PropertyType.NAME, text = "12").numberOrNull())
+    }
+
+    @Test
+    fun aCheckboxPropertyReadsYesWhenCheckedAndEmptyWhenNot() {
+        assertEquals("Yes", PropertyBlock(id = "p1", propertyType = PropertyType.CHECKBOX, isChecked = true).valueAsText())
+        assertEquals("", PropertyBlock(id = "p2", propertyType = PropertyType.CHECKBOX, text = "leftover").valueAsText())
+    }
+
     private val tagsBlock = PropertyBlock(
         id = "p1",
         propertyType = PropertyType.TAGS,

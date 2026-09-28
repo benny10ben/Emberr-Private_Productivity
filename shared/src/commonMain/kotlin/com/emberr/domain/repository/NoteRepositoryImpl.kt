@@ -45,6 +45,7 @@ import com.emberr.domain.database.copiedForRow
 import com.emberr.domain.database.databaseCellForEditing
 import com.emberr.domain.database.databaseCellOrNull
 import com.emberr.domain.database.newRowBlocks
+import com.emberr.domain.database.rowBlocksFromTemplate
 import com.emberr.domain.database.withDatabaseCellRenamed
 import com.emberr.domain.database.withDatabaseCellPlaced
 import com.emberr.domain.database.withDatabaseColumnRemoved
@@ -1133,20 +1134,33 @@ class NoteRepositoryImpl(
                     noteId = rowNote.noteId,
                     title = rowNote.title,
                     createdAt = rowNote.createdAt,
-                    blocks = blocksByRowNoteId[rowNote.noteId].orEmpty().filterNotNull()
+                    blocks = blocksByRowNoteId[rowNote.noteId].orEmpty().filterNotNull(),
+                    icon = rowNote.icon,
+                    coverImagePath = rowNote.coverImagePath
                 )
             }
         }
             .distinctUntilChanged()
             .flowOn(Dispatchers.Default)
 
-    override suspend fun createDatabaseRow(database: DatabaseBlock): DatabaseRowChange.RowPresence =
+    override suspend fun createDatabaseRow(database: DatabaseBlock, templateNoteId: String?): DatabaseRowChange.RowPresence =
         withContext(Dispatchers.IO) {
             val rowNoteId = UUID.randomUUID().toString()
             val now = System.currentTimeMillis()
+            val template = templateNoteId?.let { noteDao.getNoteById(it) }?.takeIf { it.isTemplate && it.trashedAt == null }
+            val rowBlocks = if (template == null) {
+                database.newRowBlocks(rowNoteId, now)
+            } else {
+                val templateBlocks = getNoteContent(template.noteId)?.blocks.orEmpty()
+                val blocksFromTemplate = database.rowBlocksFromTemplate(templateBlocks, template.noteId, rowNoteId, now)
+                copyDatabasesIn(copyEmbeddedCanvasesIn(NoteContent(blocks = blocksFromTemplate))).blocks
+            }
             val rowNote = NoteMetadataEntity(
                 noteId = rowNoteId,
-                title = "",
+                title = template?.title.orEmpty(),
+                icon = template?.icon,
+                coverImagePath = template?.coverImagePath,
+                showWordCount = template?.showWordCount ?: false,
                 folderId = null,
                 isDaily = false,
                 dateString = null,
@@ -1157,7 +1171,7 @@ class NoteRepositoryImpl(
                 databaseId = database.databaseId
             )
             SyncCoordinator.mutex.withLock {
-                saveNote(rowNote, NoteContent(blocks = database.newRowBlocks(rowNoteId, now)))
+                saveNote(rowNote, NoteContent(blocks = rowBlocks))
             }
             DatabaseRowChange.RowPresence(rowNoteId, wasInTable = false, isInTable = true)
         }
@@ -1302,6 +1316,30 @@ class NoteRepositoryImpl(
     }
 
     override fun getAllTemplates(): Flow<List<NoteMetadataEntity>> = inActiveSpace { noteDao.getAllTemplates(it) }
+
+    override fun getAllDatabaseTemplates(): Flow<List<NoteMetadataEntity>> = inActiveSpace { noteDao.getAllDatabaseTemplates(it) }
+
+    override suspend fun createDatabaseTemplate(database: DatabaseBlock): String =
+        withContext(Dispatchers.IO) {
+            val templateNoteId = UUID.randomUUID().toString()
+            val now = System.currentTimeMillis()
+            val templateNote = NoteMetadataEntity(
+                noteId = templateNoteId,
+                title = "",
+                folderId = null,
+                isDaily = false,
+                dateString = null,
+                createdAt = now,
+                updatedAt = now,
+                filePath = "",
+                isTemplate = true,
+                isDatabaseTemplate = true
+            )
+            SyncCoordinator.mutex.withLock {
+                saveNote(templateNote, NoteContent(blocks = database.newRowBlocks(templateNoteId, now)))
+            }
+            templateNoteId
+        }
 
     override suspend fun deleteTemplate(templateId: String) =
         withContext(Dispatchers.IO) {

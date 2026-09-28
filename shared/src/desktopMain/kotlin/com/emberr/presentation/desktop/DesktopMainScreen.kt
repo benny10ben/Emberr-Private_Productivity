@@ -1775,6 +1775,7 @@ fun DesktopMainScreen(
                             override fun onUpdatePropertyText(id: String, text: String) = dailyViewModel.updatePropertyText(id, text)
                             override fun onUpdatePropertyDate(id: String, date: LocalDate?) = dailyViewModel.updatePropertyDate(id, date)
                             override fun onUpdatePropertyTags(id: String, tags: List<String>) = dailyViewModel.updatePropertyTags(id, tags)
+                            override fun onUpdatePropertyChecked(id: String, isChecked: Boolean) = dailyViewModel.updatePropertyChecked(id, isChecked)
                             override val databaseBlockEditor: DatabaseBlockEditor get() = dailyViewModel.databaseBlockEditor
                         }
                     }

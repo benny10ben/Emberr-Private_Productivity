@@ -73,9 +73,67 @@ enum class DatabaseFilterCondition(val label: String) {
     IS_BEFORE("is before"),
     IS_AFTER("is after"),
     IS_EMPTY("is empty"),
-    IS_NOT_EMPTY("is not empty");
+    IS_NOT_EMPTY("is not empty"),
+    IS_CHECKED("is checked"),
+    IS_UNCHECKED("is unchecked"),
+    IS_GREATER_THAN("is greater than"),
+    IS_LESS_THAN("is less than");
 
-    val needsValue: Boolean get() = this != IS_EMPTY && this != IS_NOT_EMPTY
+    val needsValue: Boolean get() = this !in listOf(IS_EMPTY, IS_NOT_EMPTY, IS_CHECKED, IS_UNCHECKED)
+}
+
+@Serializable
+enum class DatabaseViewType(val label: String) {
+    TABLE("Table"),
+    GALLERY("Gallery")
+}
+
+@Serializable
+enum class DatabaseCardSize(val label: String) {
+    SMALL("Small"),
+    MEDIUM("Medium"),
+    LARGE("Large")
+}
+
+@Immutable
+@Serializable
+data class DatabaseView(
+    val id: String,
+    val name: String,
+    val type: DatabaseViewType,
+    val showsIcon: Boolean = true,
+    val showsCoverImage: Boolean = true,
+    val cardSize: DatabaseCardSize = DatabaseCardSize.MEDIUM,
+    val hiddenColumnKeys: List<String> = emptyList()
+)
+
+const val DEFAULT_VIEW_ID = "default-table"
+
+enum class DatabaseCalculationGroup(val label: String) {
+    COUNT("Count"),
+    PERCENT("Percent"),
+    MORE("More options")
+}
+
+@Serializable
+enum class DatabaseCalculation(val label: String, val shortLabel: String, val group: DatabaseCalculationGroup) {
+    COUNT_ALL("Count all", "Count", DatabaseCalculationGroup.COUNT),
+    COUNT_VALUES("Count values", "Values", DatabaseCalculationGroup.COUNT),
+    COUNT_UNIQUE_VALUES("Count unique values", "Unique", DatabaseCalculationGroup.COUNT),
+    COUNT_EMPTY("Count empty", "Empty", DatabaseCalculationGroup.COUNT),
+    COUNT_NOT_EMPTY("Count not empty", "Not empty", DatabaseCalculationGroup.COUNT),
+    CHECKED("Checked", "Checked", DatabaseCalculationGroup.COUNT),
+    UNCHECKED("Unchecked", "Unchecked", DatabaseCalculationGroup.COUNT),
+    PERCENT_EMPTY("Percent empty", "Empty", DatabaseCalculationGroup.PERCENT),
+    PERCENT_NOT_EMPTY("Percent not empty", "Not empty", DatabaseCalculationGroup.PERCENT),
+    PERCENT_CHECKED("Percent checked", "Checked", DatabaseCalculationGroup.PERCENT),
+    PERCENT_UNCHECKED("Percent unchecked", "Unchecked", DatabaseCalculationGroup.PERCENT),
+    SUM("Sum", "Sum", DatabaseCalculationGroup.MORE),
+    AVERAGE("Average", "Average", DatabaseCalculationGroup.MORE),
+    MEDIAN("Median", "Median", DatabaseCalculationGroup.MORE),
+    MIN("Min", "Min", DatabaseCalculationGroup.MORE),
+    MAX("Max", "Max", DatabaseCalculationGroup.MORE),
+    RANGE("Range", "Range", DatabaseCalculationGroup.MORE)
 }
 
 @Immutable

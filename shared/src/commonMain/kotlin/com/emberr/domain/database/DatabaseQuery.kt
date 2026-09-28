@@ -6,6 +6,7 @@ import com.emberr.domain.model.DatabaseFilter
 import com.emberr.domain.model.DatabaseFilterCondition
 import com.emberr.domain.model.DatabaseSort
 import com.emberr.domain.model.PropertyValueType
+import com.emberr.domain.model.numberOrNull
 import com.emberr.domain.model.valueAsText
 import com.emberr.domain.model.valueTypeOf
 import kotlinx.datetime.LocalDate
@@ -34,6 +35,18 @@ fun filterConditionsFor(valueType: PropertyValueType): List<DatabaseFilterCondit
         DatabaseFilterCondition.IS_EMPTY,
         DatabaseFilterCondition.IS_NOT_EMPTY
     )
+    PropertyValueType.CHECKBOX -> listOf(
+        DatabaseFilterCondition.IS_CHECKED,
+        DatabaseFilterCondition.IS_UNCHECKED
+    )
+    PropertyValueType.NUMBER -> listOf(
+        DatabaseFilterCondition.IS,
+        DatabaseFilterCondition.IS_NOT,
+        DatabaseFilterCondition.IS_GREATER_THAN,
+        DatabaseFilterCondition.IS_LESS_THAN,
+        DatabaseFilterCondition.IS_EMPTY,
+        DatabaseFilterCondition.IS_NOT_EMPTY
+    )
 }
 
 fun applyFiltersAndSort(rows: List<DatabaseRow>, database: DatabaseBlock): List<DatabaseRow> {
@@ -52,6 +65,7 @@ private fun DatabaseFilter.isUsable(valueType: PropertyValueType): Boolean {
     return when {
         valueType.holdsDate -> date != null
         valueType.holdsTags -> !tagName.isNullOrBlank()
+        valueType.holdsNumber -> text.trim().toDoubleOrNull() != null
         else -> text.isNotBlank()
     }
 }
@@ -59,9 +73,23 @@ private fun DatabaseFilter.isUsable(valueType: PropertyValueType): Boolean {
 private fun DatabaseRow.matches(filter: DatabaseFilter, valueType: PropertyValueType): Boolean = when {
     filter.condition == DatabaseFilterCondition.IS_EMPTY -> isEmptyAt(filter.target)
     filter.condition == DatabaseFilterCondition.IS_NOT_EMPTY -> !isEmptyAt(filter.target)
+    filter.condition == DatabaseFilterCondition.IS_CHECKED -> isCheckedAt(filter.target)
+    filter.condition == DatabaseFilterCondition.IS_UNCHECKED -> !isCheckedAt(filter.target)
     valueType.holdsDate -> dateMatches(dateAt(filter.target), filter)
     valueType.holdsTags -> tagsMatch(tagsAt(filter.target), filter)
+    valueType.holdsNumber -> numberMatches(numberAt(filter.target), filter)
     else -> textMatches(displayValueAt(filter.target), filter)
+}
+
+private fun numberMatches(value: Double?, filter: DatabaseFilter): Boolean {
+    val filterNumber = filter.text.trim().toDoubleOrNull() ?: return true
+    return when (filter.condition) {
+        DatabaseFilterCondition.IS -> value == filterNumber
+        DatabaseFilterCondition.IS_NOT -> value != filterNumber
+        DatabaseFilterCondition.IS_GREATER_THAN -> value != null && value > filterNumber
+        DatabaseFilterCondition.IS_LESS_THAN -> value != null && value < filterNumber
+        else -> true
+    }
 }
 
 private fun textMatches(value: String, filter: DatabaseFilter): Boolean {
@@ -100,23 +128,31 @@ private fun rowOrder(database: DatabaseBlock): Comparator<DatabaseRow> {
 }
 
 private fun compareSortValues(first: DatabaseRow, second: DatabaseRow, sort: DatabaseSort, valueType: PropertyValueType): Int {
+    val (earlier, later) = if (sort.isDescending) second to first else first to second
+    if (valueType.holdsCheck) return earlier.isCheckedAt(sort.target).compareTo(later.isCheckedAt(sort.target))
+
     val firstIsEmpty = first.isEmptyAt(sort.target)
     val secondIsEmpty = second.isEmptyAt(sort.target)
     if (firstIsEmpty || secondIsEmpty) return firstIsEmpty.compareTo(secondIsEmpty)
 
-    val (earlier, later) = if (sort.isDescending) second to first else first to second
     return if (valueType.holdsDate) {
         compareValues(earlier.dateAt(sort.target), later.dateAt(sort.target))
+    } else if (valueType.holdsNumber) {
+        compareValues(earlier.numberAt(sort.target), later.numberAt(sort.target))
     } else {
         earlier.displayValueAt(sort.target).compareTo(later.displayValueAt(sort.target), ignoreCase = true)
     }
 }
 
-private fun DatabaseRow.isEmptyAt(target: DatabaseColumnTarget): Boolean = displayValueAt(target).isBlank()
+internal fun DatabaseRow.isEmptyAt(target: DatabaseColumnTarget): Boolean = displayValueAt(target).isBlank()
 
-private fun DatabaseRow.displayValueAt(target: DatabaseColumnTarget): String =
+internal fun DatabaseRow.displayValueAt(target: DatabaseColumnTarget): String =
     if (target == DatabaseColumnTarget.NotesTitle) title else cell(target)?.valueAsText().orEmpty()
 
-private fun DatabaseRow.dateAt(target: DatabaseColumnTarget): LocalDate? = cell(target)?.date
+internal fun DatabaseRow.dateAt(target: DatabaseColumnTarget): LocalDate? = cell(target)?.date
 
 private fun DatabaseRow.tagsAt(target: DatabaseColumnTarget): List<String> = cell(target)?.tags.orEmpty()
+
+internal fun DatabaseRow.numberAt(target: DatabaseColumnTarget): Double? = cell(target)?.numberOrNull()
+
+internal fun DatabaseRow.isCheckedAt(target: DatabaseColumnTarget): Boolean = cell(target)?.isChecked == true

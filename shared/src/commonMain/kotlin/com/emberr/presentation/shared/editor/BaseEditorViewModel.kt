@@ -11,6 +11,7 @@ import com.emberr.data.local.room.entity.NoteMetadataEntity
 import com.emberr.domain.database.DatabaseRowChange
 import com.emberr.domain.database.HistoryDirection
 import com.emberr.domain.database.mergedWith
+import com.emberr.domain.database.withActiveView
 import com.emberr.domain.database.withSettingTimesStamped
 import com.emberr.domain.model.*
 import com.emberr.domain.repository.NoteRepository
@@ -413,7 +414,7 @@ abstract class BaseEditorViewModel(
         if (currentList == newList) return
 
         lastLocalMutationTime = System.currentTimeMillis()
-        if (!isApplyingHistory && !isRecordingDatabaseStepByHand) recordHistory(currentList, newList)
+        if (!isApplyingHistory && !isRecordingDatabaseStepByHand && !isShowingDatabaseView) recordHistory(currentList, newList)
     }
 
     private data class HistoryEntry(
@@ -427,6 +428,7 @@ abstract class BaseEditorViewModel(
     private val redoStack = ArrayDeque<HistoryEntry>()
     private var isApplyingHistory = false
     private var isRecordingDatabaseStepByHand = false
+    private var isShowingDatabaseView = false
     private var historyGeneration = 0
     private var historyCoalescingSealed = true
     private val maxHistoryDepth = 100
@@ -587,6 +589,31 @@ abstract class BaseEditorViewModel(
             modifyBlocks { list ->
                 mapBlockById(list, blockId) { if (it is DatabaseBlock) it.changedBy(change, now) else it }
             }
+            scheduleAutosave()
+        }
+
+        override fun showDatabaseView(blockId: String, viewId: String) {
+            val now = System.currentTimeMillis()
+            fun withViewShown(blocks: List<NoteBlock>): List<NoteBlock> =
+                mapBlockById(blocks, blockId) { if (it is DatabaseBlock) it.withActiveView(viewId, now) else it }
+
+            isShowingDatabaseView = true
+            modifyBlocks { list ->
+                mapBlockById(list, blockId) { block ->
+                    if (block !is DatabaseBlock) return@mapBlockById block
+                    val shown = block.withActiveView(viewId, now)
+                    if (shown === block) block else shown.copy(updatedAt = now)
+                }
+            }
+            isShowingDatabaseView = false
+
+            fun HistoryEntry.withViewShown(): HistoryEntry {
+                val shownBefore = withViewShown(before)
+                val shownAfter = if (after === before) shownBefore else withViewShown(after)
+                return copy(before = shownBefore, after = shownAfter)
+            }
+            for (index in undoStack.indices) undoStack[index] = undoStack[index].withViewShown()
+            for (index in redoStack.indices) redoStack[index] = redoStack[index].withViewShown()
             scheduleAutosave()
         }
 
@@ -2082,6 +2109,14 @@ abstract class BaseEditorViewModel(
         val now = System.currentTimeMillis()
         modifyBlocks { list ->
             mapBlockById(list, blockId) { if (it is PropertyBlock) it.copy(tags = tags, updatedAt = now) else it }
+        }
+        scheduleAutosave()
+    }
+
+    fun updatePropertyChecked(blockId: String, isChecked: Boolean) {
+        val now = System.currentTimeMillis()
+        modifyBlocks { list ->
+            mapBlockById(list, blockId) { if (it is PropertyBlock) it.copy(isChecked = isChecked, updatedAt = now) else it }
         }
         scheduleAutosave()
     }

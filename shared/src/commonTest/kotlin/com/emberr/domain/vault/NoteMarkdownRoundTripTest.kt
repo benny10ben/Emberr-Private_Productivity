@@ -239,6 +239,21 @@ class NoteMarkdownRoundTripTest {
     }
 
     @Test
+    fun aCheckboxPropertyTypedInTheVaultIsCheckedOnlyByYes() {
+        fun checkboxValueRead(value: String): Boolean {
+            val markdown = NoteMarkdownWriter.writeNote(
+                VaultNoteWriteRequest(metadata = noteMetadata(), blocks = emptyList())
+            ) + "```emberr-property\nproperty: checkbox\nvalue: $value\n```\n"
+            return (readBack(markdown, emptyList()).blocks.single() as PropertyBlock).isChecked
+        }
+
+        assertEquals(true, checkboxValueRead("Yes"))
+        assertEquals(true, checkboxValueRead("yes"))
+        assertEquals(false, checkboxValueRead(""))
+        assertEquals(false, checkboxValueRead("no"))
+    }
+
+    @Test
     fun aPropertyFenceWithAnUnknownPropertyStaysACodeBlock() {
         val markdown = NoteMarkdownWriter.writeNote(
             VaultNoteWriteRequest(metadata = noteMetadata(), blocks = emptyList())
@@ -513,6 +528,15 @@ class NoteMarkdownRoundTripTest {
                 customValueType = PropertyValueType.DATE,
                 date = LocalDate(2026, 10, 1),
                 updatedAt = 130L
+            ),
+            PropertyBlock(id = "block-property-checkbox", propertyType = PropertyType.CHECKBOX, isChecked = true, updatedAt = 133L),
+            PropertyBlock(id = "block-property-number", propertyType = PropertyType.NUMBER, text = "-12.5", updatedAt = 135L),
+            PropertyBlock(
+                id = "block-property-custom-approved",
+                customPropertyId = "approved-id",
+                customLabel = "Approved",
+                customValueType = PropertyValueType.CHECKBOX,
+                updatedAt = 134L
             ),
             DatabaseBlock(
                 id = "block-database",

@@ -722,7 +722,8 @@ private fun TimelineBlockContent(
             inSelectionMode = true,
             onUpdateText = {},
             onUpdateDate = {},
-            onUpdateTags = {}
+            onUpdateTags = {},
+            onUpdateChecked = {}
         )
 
         is SolidDividerBlock -> Box(

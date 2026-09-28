@@ -19,6 +19,8 @@ class DatabaseQueryTest {
     private val statusColumn = DatabaseColumnTarget.Property(PropertyType.STATUS)
     private val tagsColumn = DatabaseColumnTarget.Property(PropertyType.TAGS)
     private val dueDateColumn = DatabaseColumnTarget.Property(PropertyType.DUE_DATE)
+    private val checkboxColumn = DatabaseColumnTarget.Property(PropertyType.CHECKBOX)
+    private val numberColumn = DatabaseColumnTarget.Property(PropertyType.NUMBER)
 
     private val clientColumn = DatabaseColumnTarget.CustomProperty("client-id")
     private val kickoffColumn = DatabaseColumnTarget.CustomProperty("kickoff-id")
@@ -31,6 +33,8 @@ class DatabaseQueryTest {
         status: String? = null,
         tags: List<String> = emptyList(),
         dueDate: LocalDate? = null,
+        checked: Boolean? = null,
+        number: String? = null,
         client: String? = null,
         kickoff: LocalDate? = null
     ): DatabaseRow {
@@ -41,6 +45,10 @@ class DatabaseQueryTest {
                 tagsColumn to PropertyBlock(id = "tags-$noteId", propertyType = PropertyType.TAGS, tags = it)
             },
             dueDate?.let { dueDateColumn to PropertyBlock(id = "due_date-$noteId", propertyType = PropertyType.DUE_DATE, date = it) },
+            checked?.let {
+                checkboxColumn to PropertyBlock(id = "checkbox-$noteId", propertyType = PropertyType.CHECKBOX, isChecked = it)
+            },
+            number?.let { numberColumn to PropertyBlock(id = "number-$noteId", propertyType = PropertyType.NUMBER, text = it) },
             client?.let {
                 clientColumn to PropertyBlock(
                     id = "client-id-$noteId",
@@ -69,7 +77,7 @@ class DatabaseQueryTest {
             DatabaseBlock(
                 id = "block-1",
                 databaseId = "database-1",
-                columns = listOf(nameColumn, statusColumn, tagsColumn, dueDateColumn, clientColumn, kickoffColumn),
+                columns = listOf(nameColumn, statusColumn, tagsColumn, dueDateColumn, checkboxColumn, numberColumn, clientColumn, kickoffColumn),
                 customProperties = listOf(
                     DatabaseCustomProperty(id = "client-id", name = "Client", valueType = PropertyValueType.SINGLE_CHOICE),
                     DatabaseCustomProperty(id = "kickoff-id", name = "Kickoff", valueType = PropertyValueType.DATE)
@@ -265,6 +273,73 @@ class DatabaseQueryTest {
         val result = query(rows, emptyList(), DatabaseSort(statusColumn, isDescending = true))
 
         assertEquals(listOf("first", "second", "third"), noteIdsOf(result))
+    }
+
+    @Test
+    fun checkboxFiltersSplitRowsAndTreatAMissingCellAsUnchecked() {
+        val rows = listOf(row("done", checked = true), row("open", checked = false), row("missing"))
+
+        val checkedRows = query(rows, listOf(filter(checkboxColumn, DatabaseFilterCondition.IS_CHECKED)), null)
+        val uncheckedRows = query(rows, listOf(filter(checkboxColumn, DatabaseFilterCondition.IS_UNCHECKED)), null)
+
+        assertEquals(listOf("done"), noteIdsOf(checkedRows))
+        assertEquals(listOf("missing", "open"), noteIdsOf(uncheckedRows))
+    }
+
+    @Test
+    fun sortingByCheckboxPutsUncheckedFirstAndCanBeReversed() {
+        val rows = listOf(
+            row("done", checked = true, createdAt = 1L),
+            row("open", checked = false, createdAt = 2L),
+            row("missing", createdAt = 3L)
+        )
+
+        val ascending = query(rows, emptyList(), DatabaseSort(checkboxColumn))
+        val descending = query(rows, emptyList(), DatabaseSort(checkboxColumn, isDescending = true))
+
+        assertEquals(listOf("open", "missing", "done"), noteIdsOf(ascending))
+        assertEquals(listOf("done", "open", "missing"), noteIdsOf(descending))
+    }
+
+    @Test
+    fun aCheckboxOffersOnlyCheckedAndUncheckedConditions() {
+        assertEquals(
+            listOf(DatabaseFilterCondition.IS_CHECKED, DatabaseFilterCondition.IS_UNCHECKED),
+            filterConditionsFor(PropertyValueType.CHECKBOX)
+        )
+        assertEquals(false, DatabaseFilterCondition.IS_CHECKED.needsValue)
+        assertEquals(false, DatabaseFilterCondition.IS_UNCHECKED.needsValue)
+    }
+
+    @Test
+    fun numberFiltersCompareTheValueAsANumber() {
+        val rows = listOf(row("nine", number = "9"), row("ten", number = "10.0"), row("eleven", number = "11"), row("none"))
+
+        fun matching(condition: DatabaseFilterCondition) =
+            noteIdsOf(query(rows, listOf(filter(numberColumn, condition, text = "10")), null))
+
+        assertEquals(listOf("ten"), matching(DatabaseFilterCondition.IS))
+        assertEquals(listOf("eleven", "nine", "none"), matching(DatabaseFilterCondition.IS_NOT))
+        assertEquals(listOf("eleven"), matching(DatabaseFilterCondition.IS_GREATER_THAN))
+        assertEquals(listOf("nine"), matching(DatabaseFilterCondition.IS_LESS_THAN))
+    }
+
+    @Test
+    fun aNumberFilterWhoseValueIsNotANumberIsIgnored() {
+        val rows = listOf(row("nine", number = "9"), row("none"))
+
+        val result = query(rows, listOf(filter(numberColumn, DatabaseFilterCondition.IS_GREATER_THAN, text = "abc")), null)
+
+        assertEquals(listOf("nine", "none"), noteIdsOf(result))
+    }
+
+    @Test
+    fun sortingByNumberIsNumericNotAlphabetical() {
+        val rows = listOf(row("ten", number = "10"), row("nine", number = "9"), row("hundred", number = "100"), row("none"))
+
+        val ascending = query(rows, emptyList(), DatabaseSort(numberColumn))
+
+        assertEquals(listOf("nine", "ten", "hundred", "none"), noteIdsOf(ascending))
     }
 
     @Test

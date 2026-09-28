@@ -1,12 +1,16 @@
 package com.emberr.domain.database
 
+import com.emberr.domain.model.DEFAULT_VIEW_ID
 import com.emberr.domain.model.DatabaseBlock
+import com.emberr.domain.model.DatabaseCalculation
 import com.emberr.domain.model.DatabaseColumnTarget
 import com.emberr.domain.model.DatabaseCustomProperty
 import com.emberr.domain.model.DatabaseFilter
 import com.emberr.domain.model.DatabaseFilterCondition
 import com.emberr.domain.model.DatabaseSettingTime
 import com.emberr.domain.model.DatabaseSort
+import com.emberr.domain.model.DatabaseView
+import com.emberr.domain.model.DatabaseViewType
 import com.emberr.domain.model.PropertyType
 import com.emberr.domain.model.PropertyValueType
 import com.emberr.domain.model.withPropertyTagReplaced
@@ -147,6 +151,86 @@ class DatabaseSettingTimesTest {
 
         assertNull(merged.sort)
         assertEquals(listOf(statusColumn, tagsColumn), merged.columns)
+    }
+
+    @Test
+    fun aDefaultTemplateChosenOnOneDeviceSurvivesAnOtherEditOnTheOtherDevice() {
+        val phone = syncedTable.editedAt(300L) { it.copy(defaultTemplateId = "task-template") }
+        val laptop = syncedTable.editedAt(400L) { it.copy(title = "Week") }
+
+        val merged = mergeDatabaseBlocks(laptop, phone)
+
+        assertEquals("task-template", merged.defaultTemplateId)
+        assertEquals("Week", merged.title)
+    }
+
+    @Test
+    fun aClearedDefaultTemplateStaysClearedWhenTheOtherDeviceStillHasTheOldOne() {
+        val tableWithDefault = syncedTable.copy(defaultTemplateId = "task-template")
+        val phone = tableWithDefault.editedAt(300L) { it.copy(defaultTemplateId = null) }
+        val laptop = tableWithDefault.editedAt(400L) { it.withColumnAdded(tagsColumn) }
+
+        val merged = mergeDatabaseBlocks(laptop, phone)
+
+        assertNull(merged.defaultTemplateId)
+        assertEquals(listOf(statusColumn, tagsColumn), merged.columns)
+    }
+
+    @Test
+    fun calculationsChosenOnTwoDevicesForDifferentColumnsAreBothKept() {
+        val phone = syncedTable.editedAt(300L) { it.copy(calculations = mapOf("STATUS" to DatabaseCalculation.COUNT_EMPTY)) }
+        val laptop = syncedTable.editedAt(400L) { it.copy(calculations = mapOf("notes" to DatabaseCalculation.COUNT_ALL)) }
+
+        val merged = mergeDatabaseBlocks(laptop, phone)
+
+        assertEquals(mapOf("notes" to DatabaseCalculation.COUNT_ALL, "STATUS" to DatabaseCalculation.COUNT_EMPTY), merged.calculations)
+    }
+
+    @Test
+    fun aColumnHiddenInAViewOnOneDeviceStaysHiddenAfterAnOtherEditOnTheOtherDevice() {
+        val phone = syncedTable.editedAt(300L) { it.withColumnShown(DEFAULT_VIEW_ID, statusColumn, isShown = false) }
+        val laptop = syncedTable.editedAt(400L) { it.copy(title = "Week") }
+
+        val merged = mergeDatabaseBlocks(laptop, phone)
+
+        assertEquals(listOf("STATUS"), merged.activeView().hiddenColumnKeys)
+        assertEquals("Week", merged.title)
+    }
+
+    @Test
+    fun turningTheRowCountOffWinsOverTheOlderDeviceThatStillHasItOn() {
+        val countedTable = syncedTable.copy(showsRowCount = true)
+        val phone = countedTable.editedAt(300L) { it.copy(showsRowCount = false) }
+        val laptop = countedTable.editedAt(200L) { it.copy(title = "Week") }
+
+        assertEquals(false, mergeDatabaseBlocks(laptop, phone).showsRowCount)
+        assertEquals(true, mergeDatabaseBlocks(laptop, countedTable.editedAt(100L) { it }).showsRowCount)
+    }
+
+    @Test
+    fun viewsAddedOnTwoDevicesAreBothKept() {
+        val phoneGallery = DatabaseView(id = "phone-gallery", name = "Gallery", type = DatabaseViewType.GALLERY)
+        val laptopTable = DatabaseView(id = "laptop-table", name = "Table 2", type = DatabaseViewType.TABLE)
+        val phone = syncedTable.editedAt(300L) { it.withViewAdded(phoneGallery) }
+        val laptop = syncedTable.editedAt(400L) { it.withViewAdded(laptopTable) }
+
+        val merged = mergeDatabaseBlocks(laptop, phone)
+
+        assertEquals(setOf(DEFAULT_VIEW_ID, "laptop-table", "phone-gallery"), merged.allViews().map { it.id }.toSet())
+        assertEquals("laptop-table", merged.activeViewId)
+    }
+
+    @Test
+    fun aViewDeletedOnOneDeviceStaysDeleted() {
+        val gallery = DatabaseView(id = "gallery", name = "Gallery", type = DatabaseViewType.GALLERY)
+        val withGallery = syncedTable.withViewAdded(gallery)
+        val phone = withGallery.editedAt(300L) { it.withViewDeleted("gallery") }
+        val laptop = withGallery.editedAt(200L) { it.copy(title = "Week") }
+
+        val merged = mergeDatabaseBlocks(laptop, phone)
+
+        assertEquals(listOf(DEFAULT_VIEW_ID), merged.allViews().map { it.id })
+        assertEquals("Week", merged.title)
     }
 
     @Test

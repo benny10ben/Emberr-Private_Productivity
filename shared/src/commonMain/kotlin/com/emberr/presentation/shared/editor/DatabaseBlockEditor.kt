@@ -7,16 +7,26 @@ import com.emberr.domain.database.HistoryDirection
 import com.emberr.domain.database.newDatabaseFilter
 import com.emberr.domain.database.withColumnAdded
 import com.emberr.domain.database.withColumnRemoved
+import com.emberr.domain.database.newViewName
+import com.emberr.domain.database.withColumnShown
+import com.emberr.domain.database.withViewAdded
+import com.emberr.domain.database.withViewChanged
+import com.emberr.domain.database.withViewDeleted
 import com.emberr.domain.database.withDatabasePropertyCreated
 import com.emberr.domain.database.withDatabasePropertyDeleted
 import com.emberr.domain.database.withDatabasePropertyRenamed
 import com.emberr.domain.database.isPropertyNameTaken
+import com.emberr.data.local.room.entity.NoteMetadataEntity
 import com.emberr.data.local.room.entity.PropertyTagEntity
 import com.emberr.domain.model.DatabaseBlock
+import com.emberr.domain.model.DatabaseCalculation
+import com.emberr.domain.model.DatabaseCardSize
 import com.emberr.domain.model.DatabaseColumnTarget
 import com.emberr.domain.model.DatabaseCustomProperty
 import com.emberr.domain.model.DatabaseFilter
 import com.emberr.domain.model.DatabaseSort
+import com.emberr.domain.model.DatabaseView
+import com.emberr.domain.model.DatabaseViewType
 import com.emberr.domain.model.PropertyBlock
 import com.emberr.domain.model.PropertyValueType
 import com.emberr.domain.model.columnKey
@@ -46,6 +56,7 @@ interface DatabaseBlockHost {
     val historyGeneration: Int
     fun findDatabaseBlock(blockId: String): DatabaseBlock?
     fun changeDatabaseBlock(blockId: String, change: (DatabaseBlock) -> DatabaseBlock)
+    fun showDatabaseView(blockId: String, viewId: String)
     fun changeDatabaseBlockTogetherWithRows(
         blockId: String,
         rowChanges: List<DatabaseRowChange>,
@@ -86,6 +97,8 @@ class DatabaseBlockEditor(
 
     fun rowsOf(databaseId: String): Flow<List<DatabaseRow>> = repository.observeDatabaseRows(databaseId)
 
+    val databaseTemplates: Flow<List<NoteMetadataEntity>> = repository.getAllDatabaseTemplates()
+
     fun setTitle(blockId: String, title: String) {
         host.changeDatabaseBlock(blockId) { it.copy(title = title) }
     }
@@ -117,17 +130,91 @@ class DatabaseBlockEditor(
         host.changeDatabaseBlock(blockId) { it.copy(sort = sort) }
     }
 
+    fun showView(blockId: String, viewId: String) {
+        host.showDatabaseView(blockId, viewId)
+    }
+
+    @OptIn(ExperimentalUuidApi::class)
+    fun addView(blockId: String, type: DatabaseViewType) {
+        val databaseBlock = host.findDatabaseBlock(blockId) ?: return
+        val view = DatabaseView(id = Uuid.random().toString(), name = databaseBlock.newViewName(type), type = type)
+        host.changeDatabaseBlock(blockId) { it.withViewAdded(view) }
+    }
+
+    fun renameView(blockId: String, viewId: String, name: String) {
+        host.changeDatabaseBlock(blockId) { databaseBlock -> databaseBlock.withViewChanged(viewId) { it.copy(name = name) } }
+    }
+
+    fun deleteView(blockId: String, viewId: String) {
+        host.changeDatabaseBlock(blockId) { it.withViewDeleted(viewId) }
+    }
+
+    fun setViewShowsIcon(blockId: String, viewId: String, showsIcon: Boolean) {
+        host.changeDatabaseBlock(blockId) { databaseBlock -> databaseBlock.withViewChanged(viewId) { it.copy(showsIcon = showsIcon) } }
+    }
+
+    fun setViewShowsCoverImage(blockId: String, viewId: String, showsCoverImage: Boolean) {
+        host.changeDatabaseBlock(blockId) { databaseBlock ->
+            databaseBlock.withViewChanged(viewId) { it.copy(showsCoverImage = showsCoverImage) }
+        }
+    }
+
+    fun setViewCardSize(blockId: String, viewId: String, cardSize: DatabaseCardSize) {
+        host.changeDatabaseBlock(blockId) { databaseBlock -> databaseBlock.withViewChanged(viewId) { it.copy(cardSize = cardSize) } }
+    }
+
+    fun setColumnShown(blockId: String, viewId: String, column: DatabaseColumnTarget, isShown: Boolean) {
+        host.changeDatabaseBlock(blockId) { it.withColumnShown(viewId, column, isShown) }
+    }
+
+    fun setShowsRowCount(blockId: String, showsRowCount: Boolean) {
+        host.changeDatabaseBlock(blockId) { it.copy(showsRowCount = showsRowCount) }
+    }
+
+    fun setCalculation(blockId: String, column: DatabaseColumnTarget, calculation: DatabaseCalculation?) {
+        host.changeDatabaseBlock(blockId) { databaseBlock ->
+            val calculations = if (calculation == null) {
+                databaseBlock.calculations - column.columnKey
+            } else {
+                databaseBlock.calculations + (column.columnKey to calculation)
+            }
+            databaseBlock.copy(calculations = calculations)
+        }
+    }
+
     fun savedTagsOf(tagPoolKey: String): Flow<List<PropertyTagEntity>> = repository.getPropertyTags(tagPoolKey)
 
     fun addRow(blockId: String) {
+        val databaseBlock = host.findDatabaseBlock(blockId) ?: return
+        addRowFromTemplate(blockId, databaseBlock.defaultTemplateId)
+    }
+
+    fun addRowFromTemplate(blockId: String, templateNoteId: String?) {
         if (host.findDatabaseBlock(blockId) == null) return
         writeTextEditsNow()
         writeInOrder { historyGeneration ->
             val databaseBlock = host.findDatabaseBlock(blockId) ?: return@writeInOrder
-            val change = repository.createDatabaseRow(databaseBlock)
+            val change = repository.createDatabaseRow(databaseBlock, templateNoteId)
             rememberRowWasWritten(change.rowNoteId)
             host.recordDatabaseRowStep(listOf(change), typingKey = null, historyGeneration = historyGeneration)
             _rowToFocus.value = change.rowNoteId
+        }
+    }
+
+    fun setDefaultTemplate(blockId: String, templateNoteId: String?) {
+        host.changeDatabaseBlock(blockId) { it.copy(defaultTemplateId = templateNoteId) }
+    }
+
+    fun createTemplate(blockId: String, onCreated: (String) -> Unit) {
+        val databaseBlock = host.findDatabaseBlock(blockId) ?: return
+        writeInOrder {
+            onCreated(repository.createDatabaseTemplate(databaseBlock))
+        }
+    }
+
+    fun deleteTemplate(templateNoteId: String) {
+        writeInOrder {
+            repository.deleteTemplate(templateNoteId)
         }
     }
 
@@ -149,6 +236,10 @@ class DatabaseBlockEditor(
 
     fun updateCellTags(blockId: String, rowNoteId: String, column: DatabaseColumnTarget, tags: List<String>) {
         writeCellNow(blockId, rowNoteId, column) { it.copy(tags = tags) }
+    }
+
+    fun updateCellChecked(blockId: String, rowNoteId: String, column: DatabaseColumnTarget, isChecked: Boolean) {
+        writeCellNow(blockId, rowNoteId, column) { it.copy(isChecked = isChecked) }
     }
 
     fun finishTyping() {

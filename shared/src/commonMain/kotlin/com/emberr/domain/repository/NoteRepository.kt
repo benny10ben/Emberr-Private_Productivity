@@ -156,7 +156,7 @@ interface NoteRepository {
     suspend fun applyRemoteCustomProperty(property: CustomPropertyEntity)
 
     fun observeDatabaseRows(databaseId: String): Flow<List<DatabaseRow>>
-    suspend fun createDatabaseRow(database: DatabaseBlock): DatabaseRowChange.RowPresence
+    suspend fun createDatabaseRow(database: DatabaseBlock, templateNoteId: String? = null): DatabaseRowChange.RowPresence
     suspend fun updateDatabaseCell(
         database: DatabaseBlock,
         rowNoteId: String,
@@ -175,6 +175,8 @@ interface NoteRepository {
 
     // Note templates (full NoteMetadataEntity + NoteContent, reusable as a starting point for new notes)
     fun getAllTemplates(): Flow<List<NoteMetadataEntity>>
+    fun getAllDatabaseTemplates(): Flow<List<NoteMetadataEntity>>
+    suspend fun createDatabaseTemplate(database: DatabaseBlock): String
     suspend fun deleteTemplate(templateId: String)
 
     // sync

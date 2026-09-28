@@ -1,5 +1,6 @@
 package com.emberr.domain.database
 
+import com.emberr.domain.model.DatabaseBlock
 import com.emberr.domain.model.DatabaseColumnTarget
 import com.emberr.domain.model.PropertyBlock
 import com.emberr.domain.model.PropertyType
@@ -75,5 +76,20 @@ class DatabaseCopiesTest {
         val copiedBlocks = listOf(deletedCell, deletedText, clientCell).copiedForRow("source-row", "copy-row")
 
         assertEquals(listOf(clientCell.copy(id = databaseCellBlockId(clientColumn, "copy-row"))), copiedBlocks)
+    }
+
+    @Test
+    fun aRowMadeFromATemplateKeepsTheTemplateValuesAndGetsAnEmptyCellForEveryOtherColumn() {
+        val nameColumn = DatabaseColumnTarget.Property(PropertyType.NAME)
+        val database = DatabaseBlock(id = "block", databaseId = "tasks", columns = listOf(statusColumn, nameColumn))
+        val body = TextBlock(id = "text-1", text = "Checklist", updatedAt = 100L)
+
+        val rowBlocks = database.rowBlocksFromTemplate(listOf(statusCell, body), "source-row", "new-row", now = 500L)
+        val row = buildDatabaseRow(noteId = "new-row", title = "Task", createdAt = 1L, blocks = rowBlocks)
+
+        assertEquals("Done", row.cell(statusColumn)?.text)
+        assertEquals(PropertyBlock(id = databaseCellBlockId(nameColumn, "new-row"), propertyType = PropertyType.NAME, updatedAt = 500L), row.cell(nameColumn))
+        assertEquals("Checklist", (rowBlocks.last() as TextBlock).text)
+        assertNotEquals(body.id, rowBlocks.last().id)
     }
 }

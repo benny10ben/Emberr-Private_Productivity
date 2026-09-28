@@ -304,6 +304,7 @@ interface EditorActions {
     fun onUpdatePropertyText(id: String, text: String)
     fun onUpdatePropertyDate(id: String, date: LocalDate?)
     fun onUpdatePropertyTags(id: String, tags: List<String>)
+    fun onUpdatePropertyChecked(id: String, isChecked: Boolean)
     val databaseBlockEditor: DatabaseBlockEditor?
 }
 

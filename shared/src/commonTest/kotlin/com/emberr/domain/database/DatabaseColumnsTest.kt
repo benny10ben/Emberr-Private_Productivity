@@ -1,11 +1,15 @@
 package com.emberr.domain.database
 
+import com.emberr.domain.model.DEFAULT_VIEW_ID
 import com.emberr.domain.model.DatabaseBlock
+import com.emberr.domain.model.DatabaseCalculation
 import com.emberr.domain.model.DatabaseColumnTarget
 import com.emberr.domain.model.DatabaseCustomProperty
 import com.emberr.domain.model.DatabaseFilter
 import com.emberr.domain.model.DatabaseFilterCondition
 import com.emberr.domain.model.DatabaseSort
+import com.emberr.domain.model.DatabaseView
+import com.emberr.domain.model.DatabaseViewType
 import com.emberr.domain.model.NOTES_COLUMN_KEY
 import com.emberr.domain.model.PropertyType
 import com.emberr.domain.model.PropertyValueType
@@ -64,6 +68,57 @@ class DatabaseColumnsTest {
         assertEquals(mapOf(NOTES_COLUMN_KEY to 300, "client-id" to 180), result.columnWidths)
         assertEquals(listOf("client-filter", "title-filter"), result.filters.map { it.id })
         assertEquals(null, result.sort)
+    }
+
+    @Test
+    fun removingAColumnAlsoDropsItsCalculation() {
+        val calculated = database.copy(
+            calculations = mapOf(PropertyType.STATUS.name to DatabaseCalculation.COUNT_EMPTY, NOTES_COLUMN_KEY to DatabaseCalculation.COUNT_ALL)
+        )
+
+        val result = calculated.withColumnRemoved(statusColumn)
+
+        assertEquals(mapOf(NOTES_COLUMN_KEY to DatabaseCalculation.COUNT_ALL), result.calculations)
+    }
+
+    @Test
+    fun aColumnHiddenInOneViewStillShowsInTheOtherViews() {
+        val gallery = DatabaseView(id = "gallery", name = "Gallery", type = DatabaseViewType.GALLERY)
+        val hiddenInGallery = database.withViewAdded(gallery).withColumnShown("gallery", dueDateColumn, isShown = false)
+
+        assertEquals(listOf(statusColumn, clientColumn), hiddenInGallery.visibleColumns())
+        assertEquals(listOf(statusColumn, dueDateColumn, clientColumn), hiddenInGallery.copy(activeViewId = DEFAULT_VIEW_ID).visibleColumns())
+        assertEquals(listOf(statusColumn, dueDateColumn, clientColumn), hiddenInGallery.columns)
+    }
+
+    @Test
+    fun showingAHiddenColumnAgainPutsItBackInItsPlace() {
+        val hidden = database.withColumnShown(DEFAULT_VIEW_ID, dueDateColumn, isShown = false)
+
+        val shownAgain = hidden.withColumnShown(DEFAULT_VIEW_ID, dueDateColumn, isShown = true)
+
+        assertEquals(listOf(statusColumn, dueDateColumn, clientColumn), shownAgain.visibleColumns())
+    }
+
+    @Test
+    fun hidingAColumnTwiceMarksItOnce() {
+        val hidden = database
+            .withColumnShown(DEFAULT_VIEW_ID, dueDateColumn, isShown = false)
+            .withColumnShown(DEFAULT_VIEW_ID, dueDateColumn, isShown = false)
+
+        assertEquals(listOf(PropertyType.DUE_DATE.name), hidden.activeView().hiddenColumnKeys)
+    }
+
+    @Test
+    fun removingAHiddenColumnForgetsThatItWasHiddenInEveryView() {
+        val gallery = DatabaseView(id = "gallery", name = "Gallery", type = DatabaseViewType.GALLERY)
+        val hiddenEverywhere = database.withViewAdded(gallery)
+            .withColumnShown(DEFAULT_VIEW_ID, statusColumn, isShown = false)
+            .withColumnShown("gallery", statusColumn, isShown = false)
+
+        val result = hiddenEverywhere.withColumnRemoved(statusColumn)
+
+        assertEquals(listOf(emptyList<String>(), emptyList()), result.views.map { it.hiddenColumnKeys })
     }
 
     @Test

@@ -463,6 +463,7 @@ fun NoteScreen(
             override fun onUpdatePropertyText(id: String, text: String) = viewModel.updatePropertyText(id, text)
             override fun onUpdatePropertyDate(id: String, date: LocalDate?) = viewModel.updatePropertyDate(id, date)
             override fun onUpdatePropertyTags(id: String, tags: List<String>) = viewModel.updatePropertyTags(id, tags)
+            override fun onUpdatePropertyChecked(id: String, isChecked: Boolean) = viewModel.updatePropertyChecked(id, isChecked)
             override val databaseBlockEditor: DatabaseBlockEditor get() = viewModel.databaseBlockEditor
         }
     }

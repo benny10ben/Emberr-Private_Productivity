@@ -248,6 +248,7 @@ fun TasksScreen(
                         override fun onUpdatePropertyText(id: String, text: String) {}
                         override fun onUpdatePropertyDate(id: String, date: LocalDate?) {}
                         override fun onUpdatePropertyTags(id: String, tags: List<String>) {}
+                        override fun onUpdatePropertyChecked(id: String, isChecked: Boolean) {}
                         override val databaseBlockEditor: DatabaseBlockEditor? = null
                     }
                 }

@@ -4,6 +4,8 @@ package com.emberr.presentation.shared.editor.blockViews.database
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.gestures.LocalBringIntoViewSpec
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,7 +26,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import com.emberr.domain.model.DatabaseBlock
 import com.emberr.domain.model.DatabaseColumnTarget
@@ -66,13 +74,15 @@ internal fun DatabaseMenu(
     title: String,
     onDismiss: () -> Unit,
     desktopWidth: Dp = DesktopDatabaseMenuWidth,
+    desktopOffset: DpOffset = DpOffset.Zero,
     content: @Composable ColumnScope.(closeAnd: (() -> Unit) -> Unit) -> Unit
 ) {
     if (isDesktopPlatform) {
         EmberrDesktopMenu(
             expanded = expanded,
             onDismissRequest = onDismiss,
-            modifier = Modifier.width(desktopWidth)
+            modifier = Modifier.width(desktopWidth),
+            offset = desktopOffset
         ) {
             CompositionLocalProvider(LocalBringIntoViewSpec provides SheetBringIntoViewSpec) {
                 Column(modifier = Modifier.fillMaxWidth().padding(vertical = DesktopMenuVerticalPadding)) {
@@ -101,13 +111,41 @@ internal fun DatabaseMenu(
 internal fun DatabaseMenuLayer(
     title: String,
     anchor: @Composable (openLayer: () -> Unit) -> Unit,
+    opensAtTapOnDesktop: Boolean = false,
+    desktopWidth: Dp = DesktopDatabaseMenuWidth,
     content: @Composable ColumnScope.(closeLayerAnd: (() -> Unit) -> Unit) -> Unit
 ) {
     var isOpen by remember { mutableStateOf(false) }
+    var anchorHeight by remember { mutableStateOf(0) }
+    var tapPosition by remember { mutableStateOf(Offset.Zero) }
+    val density = LocalDensity.current
+    val desktopOffset = if (opensAtTapOnDesktop) {
+        with(density) { DpOffset(x = tapPosition.x.toDp(), y = (tapPosition.y - anchorHeight).toDp()) }
+    } else {
+        DpOffset.Zero
+    }
+    val tapTracking = if (opensAtTapOnDesktop) {
+        Modifier
+            .onSizeChanged { anchorHeight = it.height }
+            .pointerInput(Unit) {
+                awaitEachGesture {
+                    tapPosition = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial).position
+                }
+            }
+    } else {
+        Modifier
+    }
 
-    Box {
+    Box(modifier = tapTracking) {
         anchor { isOpen = true }
-        DatabaseMenu(expanded = isOpen, title = title, onDismiss = { isOpen = false }, content = content)
+        DatabaseMenu(
+            expanded = isOpen,
+            title = title,
+            onDismiss = { isOpen = false },
+            desktopWidth = desktopWidth,
+            desktopOffset = desktopOffset,
+            content = content
+        )
     }
 }
 

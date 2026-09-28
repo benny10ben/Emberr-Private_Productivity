@@ -13,6 +13,21 @@ fun DatabaseBlock.builtInPropertiesNotYetAdded(): List<PropertyType> =
 fun DatabaseBlock.customPropertiesNotShown(): List<DatabaseCustomProperty> =
     customProperties.filterNot { DatabaseColumnTarget.CustomProperty(it.id) in columns }
 
+fun DatabaseBlock.visibleColumns(): List<DatabaseColumnTarget> {
+    val hiddenColumnKeys = activeView().hiddenColumnKeys
+    return columns.filterNot { it.columnKey in hiddenColumnKeys }
+}
+
+fun DatabaseBlock.withColumnShown(viewId: String, column: DatabaseColumnTarget, isShown: Boolean): DatabaseBlock =
+    withViewChanged(viewId) { view ->
+        val hiddenColumnKeys = if (isShown) {
+            view.hiddenColumnKeys - column.columnKey
+        } else {
+            (view.hiddenColumnKeys + column.columnKey).distinct()
+        }
+        view.copy(hiddenColumnKeys = hiddenColumnKeys)
+    }
+
 fun DatabaseBlock.withColumnAdded(column: DatabaseColumnTarget): DatabaseBlock {
     if (column == DatabaseColumnTarget.NotesTitle || column in columns) return this
     if (column is DatabaseColumnTarget.CustomProperty && customPropertyWithId(column.propertyId) == null) return this
@@ -22,6 +37,8 @@ fun DatabaseBlock.withColumnAdded(column: DatabaseColumnTarget): DatabaseBlock {
 fun DatabaseBlock.withColumnRemoved(column: DatabaseColumnTarget): DatabaseBlock = copy(
     columns = columns - column,
     columnWidths = columnWidths - column.columnKey,
+    calculations = calculations - column.columnKey,
+    views = views.map { view -> view.copy(hiddenColumnKeys = view.hiddenColumnKeys - column.columnKey) },
     filters = filters.filterNot { it.target == column },
     sort = sort?.takeUnless { it.target == column }
 )

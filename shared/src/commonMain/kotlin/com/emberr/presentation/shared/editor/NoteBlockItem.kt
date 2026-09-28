@@ -858,6 +858,7 @@ fun NoteBlockItem(
                                 onUpdateText = { actions.onUpdatePropertyText(block.id, it) },
                                 onUpdateDate = { actions.onUpdatePropertyDate(block.id, it) },
                                 onUpdateTags = { actions.onUpdatePropertyTags(block.id, it) },
+                                onUpdateChecked = { actions.onUpdatePropertyChecked(block.id, it) },
                                 runAfterKeyboardCloses = afterKeyboardCloses
                             )
                             is DatabaseBlock -> actions.databaseBlockEditor?.let { databaseBlockEditor ->

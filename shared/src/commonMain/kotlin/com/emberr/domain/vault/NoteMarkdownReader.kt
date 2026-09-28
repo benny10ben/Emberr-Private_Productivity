@@ -6,6 +6,7 @@ import com.emberr.domain.database.withSettingTimesStamped
 import com.emberr.domain.model.BookmarkBlock
 import com.emberr.domain.model.BulletedListBlock
 import com.emberr.domain.model.CanvasBlock
+import com.emberr.domain.model.CHECKED_PROPERTY_TEXT
 import com.emberr.domain.model.CheckboxBlock
 import com.emberr.domain.model.CodeBlock
 import com.emberr.domain.model.DatabaseBlock
@@ -498,12 +499,13 @@ object NoteMarkdownReader {
 
         val value = fields["value"].orEmpty()
         val valueType = base.valueType
-        val holdsText = !valueType.holdsDate && !valueType.holdsTags
+        val holdsText = !valueType.holdsDate && !valueType.holdsTags && !valueType.holdsCheck
         return settle(
             base.copy(
                 text = if (holdsText) value else "",
                 date = if (valueType.holdsDate) parsePropertyDate(value, base) else null,
-                tags = if (valueType.holdsTags) parsePropertyTags(value, valueType) else emptyList()
+                tags = if (valueType.holdsTags) parsePropertyTags(value, valueType) else emptyList(),
+                isChecked = valueType.holdsCheck && value.trim().equals(CHECKED_PROPERTY_TEXT, ignoreCase = true)
             ),
             existing,
             request.timestamp

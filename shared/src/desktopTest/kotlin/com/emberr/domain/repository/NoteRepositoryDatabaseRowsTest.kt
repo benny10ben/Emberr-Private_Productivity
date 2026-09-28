@@ -20,6 +20,7 @@ import com.emberr.domain.model.NoteBlock
 import com.emberr.domain.model.NoteContent
 import com.emberr.domain.model.PropertyBlock
 import com.emberr.domain.model.PropertyType
+import com.emberr.domain.model.TextBlock
 import com.emberr.domain.space.ActiveSpaceStore
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
@@ -309,5 +310,77 @@ class NoteRepositoryDatabaseRowsTest {
         val results = repository.searchNotes("Monday")
 
         assertEquals(emptyList(), results.map { it.note.noteId })
+    }
+
+    @Test
+    fun aNewDatabaseTemplateHasAnEmptyCellForEachColumnAndIsOnlyListedWithDatabaseTemplates() = runTest {
+        val templateNoteId = repository.createDatabaseTemplate(daysWithStatus)
+
+        val templateBlocks = repository.getNoteContent(templateNoteId)?.blocks.orEmpty()
+
+        assertEquals(
+            listOf(databaseCellBlockId(nameColumn, templateNoteId), databaseCellBlockId(statusColumn, templateNoteId)),
+            templateBlocks.map { it.id }
+        )
+        assertEquals(listOf(templateNoteId), repository.getAllDatabaseTemplates().first().map { it.noteId })
+        assertEquals(emptyList(), repository.getAllTemplates().first())
+    }
+
+    @Test
+    fun aRowMadeFromATemplateGetsItsTitleCellValuesAndBody() = runTest {
+        val templateNoteId = repository.createDatabaseTemplate(daysWithStatus)
+        val templateNameCell = PropertyBlock(
+            id = databaseCellBlockId(nameColumn, templateNoteId),
+            propertyType = PropertyType.NAME,
+            text = "Gym",
+            updatedAt = 1L
+        )
+        val templateBody = TextBlock(id = "template-text", text = "Warm up first", updatedAt = 1L)
+        saveNote(note(templateNoteId, "Workout", isTemplate = true).copy(isDatabaseTemplate = true), templateNameCell, templateBody)
+
+        val rowNoteId = repository.createDatabaseRow(daysWithStatus, templateNoteId).rowNoteId
+
+        val row = rowsOf("days").single()
+        val rowBody = repository.getNoteContent(rowNoteId)?.blocks.orEmpty().filterIsInstance<TextBlock>().single()
+        assertEquals("Workout", row.title)
+        assertEquals("Gym", row.cell(nameColumn)?.text)
+        assertEquals("", row.cell(statusColumn)?.text)
+        assertEquals("Warm up first", rowBody.text)
+        assertNotEquals("template-text", rowBody.id)
+    }
+
+    @Test
+    fun editingARowMadeFromATemplateLeavesTheTemplateAlone() = runTest {
+        val templateNoteId = repository.createDatabaseTemplate(days)
+        val rowNoteId = repository.createDatabaseRow(days, templateNoteId).rowNoteId
+
+        repository.updateDatabaseCell(days, rowNoteId, nameColumn) { it.copy(text = "Swim") }
+
+        val templateNameCell = repository.getNoteContent(templateNoteId)?.blocks.orEmpty().single() as PropertyBlock
+        assertEquals("Swim", rowsOf("days").single().cell(nameColumn)?.text)
+        assertEquals("", templateNameCell.text)
+    }
+
+    @Test
+    fun aRowFromADeletedTemplateStartsEmpty() = runTest {
+        val templateNoteId = repository.createDatabaseTemplate(days)
+        saveNote(note(templateNoteId, "Workout", isTemplate = true).copy(isDatabaseTemplate = true))
+        repository.deleteTemplate(templateNoteId)
+
+        repository.createDatabaseRow(days, templateNoteId)
+
+        val row = rowsOf("days").single()
+        assertEquals("", row.title)
+        assertEquals("", row.cell(nameColumn)?.text)
+    }
+
+    @Test
+    fun aRowCarriesItsNotesIconAndCoverImage() = runTest {
+        saveNote(note("dune", "Dune", databaseId = "days").copy(icon = "📚", coverImagePath = "dune-cover.jpg"))
+
+        val row = rowsOf("days").single()
+
+        assertEquals("📚", row.icon)
+        assertEquals("dune-cover.jpg", row.coverImagePath)
     }
 }

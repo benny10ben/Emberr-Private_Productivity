@@ -47,9 +47,11 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import com.emberr.domain.database.DatabaseRow
 import com.emberr.domain.database.emptyCell
+import com.emberr.domain.database.visibleColumns
 import com.emberr.domain.model.DatabaseBlock
 import com.emberr.domain.model.DatabaseColumnTarget
 import com.emberr.presentation.shared.editor.DatabaseBlockEditor
+import com.emberr.presentation.shared.editor.blockViews.PropertyCheckboxValue
 import com.emberr.presentation.shared.editor.blockViews.PropertyDateValue
 import com.emberr.presentation.shared.editor.blockViews.PropertyTagsValue
 import com.emberr.presentation.shared.editor.blockViews.PropertyTextValue
@@ -64,6 +66,7 @@ internal fun DatabaseRowItem(
     row: DatabaseRow,
     database: DatabaseBlock,
     columnWidth: (DatabaseColumnTarget) -> Int,
+    showsIcon: Boolean,
     inSelectionMode: Boolean,
     shouldTakeFocus: Boolean,
     historyStepsApplied: Int,
@@ -75,6 +78,7 @@ internal fun DatabaseRowItem(
         key(historyStepsApplied) {
             DatabaseTitleCell(
                 title = row.title,
+                icon = row.icon.takeIf { showsIcon },
                 width = columnWidth(DatabaseColumnTarget.NotesTitle),
                 inSelectionMode = inSelectionMode,
                 shouldTakeFocus = shouldTakeFocus,
@@ -84,7 +88,7 @@ internal fun DatabaseRowItem(
                 onOpen = { editor.openRow(row.noteId, onOpenRow) }
             )
         }
-        database.columns.forEach { column ->
+        database.visibleColumns().forEach { column ->
             DatabasePropertyCell(
                 row = row,
                 database = database,
@@ -108,6 +112,7 @@ internal fun DatabaseRowItem(
 @Composable
 private fun DatabaseTitleCell(
     title: String,
+    icon: String?,
     width: Int,
     inSelectionMode: Boolean,
     shouldTakeFocus: Boolean,
@@ -154,6 +159,9 @@ private fun DatabaseTitleCell(
             modifier = Modifier.fillMaxWidth().padding(start = DatabaseCellHorizontalPadding, end = 6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            if (icon != null) {
+                Text(text = icon, style = textStyle, modifier = Modifier.padding(end = 6.dp))
+            }
             BasicTextField(
                 value = fieldValue,
                 onValueChange = { newValue ->
@@ -254,6 +262,12 @@ private fun DatabasePropertyCell(
                 runAfterKeyboardCloses = runAfterKeyboardCloses,
                 widthModifier = valueModifier,
                 tagTextStyle = MaterialTheme.typography.labelSmall
+            )
+            cell.valueType.holdsCheck -> PropertyCheckboxValue(
+                block = cell,
+                inSelectionMode = inSelectionMode,
+                onUpdateChecked = { editor.updateCellChecked(database.id, row.noteId, column, it) },
+                widthModifier = valueModifier
             )
             else -> key(historyStepsApplied) {
                 PropertyTextValue(

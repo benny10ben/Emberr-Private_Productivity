@@ -40,6 +40,7 @@ import androidx.compose.ui.unit.dp
 import com.emberr.domain.database.builtInPropertiesNotYetAdded
 import com.emberr.domain.database.customPropertiesNotShown
 import com.emberr.domain.database.isPropertyNameTaken
+import com.emberr.domain.database.visibleColumns
 import com.emberr.domain.model.DatabaseBlock
 import com.emberr.domain.model.DatabaseColumnTarget
 import com.emberr.domain.model.DatabaseCustomProperty
@@ -54,6 +55,7 @@ import com.emberr.presentation.shared.editor.blockViews.iconResource
 import com.emberr.presentation.shared.editor.components.DesktopCursor
 import com.emberr.presentation.shared.editor.components.desktopPointerCursor
 import emberr.shared.generated.resources.Res
+import emberr.shared.generated.resources.funnel
 import emberr.shared.generated.resources.minus
 import emberr.shared.generated.resources.pen
 import emberr.shared.generated.resources.plus
@@ -72,7 +74,7 @@ internal fun DatabaseHeaderRow(
     editor: DatabaseBlockEditor,
     runAfterKeyboardCloses: (() -> Unit) -> Unit
 ) {
-    val headerColumns = listOf<DatabaseColumnTarget>(DatabaseColumnTarget.NotesTitle) + block.columns
+    val headerColumns = listOf<DatabaseColumnTarget>(DatabaseColumnTarget.NotesTitle) + block.visibleColumns()
 
     Row(modifier = Modifier.height(IntrinsicSize.Max)) {
         headerColumns.forEach { column ->
@@ -112,8 +114,7 @@ private fun DatabaseColumnHeader(
 ) {
     var showMenu by remember { mutableStateOf(false) }
     val lineColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.65f)
-    val isNotesColumn = column == DatabaseColumnTarget.NotesTitle
-    val canOpenMenu = !inSelectionMode && (!isNotesColumn || !isDesktopPlatform)
+    val canOpenMenu = !inSelectionMode
 
     Box(
         modifier = Modifier
@@ -141,8 +142,18 @@ private fun DatabaseColumnHeader(
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.outline,
                 maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false)
             )
+            if (block.filters.any { it.target == column }) {
+                Spacer(modifier = Modifier.width(6.dp))
+                Icon(
+                    painter = painterResource(Res.drawable.funnel),
+                    contentDescription = "Filtered",
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(12.dp)
+                )
+            }
         }
 
         if (isDesktopPlatform && !inSelectionMode) {
@@ -240,6 +251,8 @@ private fun DatabaseColumnMenu(
                 )
             }
         }
+        DatabaseColumnFilterOption(block = block, column = column, editor = editor)
+        DatabaseCalculateOption(block = block, column = column, editor = editor, closeMenuAnd = closeMenuAnd)
         if (column != DatabaseColumnTarget.NotesTitle) {
             DatabaseMenuLayer(
                 title = "Remove column",
@@ -297,7 +310,7 @@ private fun DatabaseDeletePropertyConfirmation(
     DatabaseMenuButtons(cancelText = "Cancel", onCancel = onCancel, confirmText = "Delete", onConfirm = onDelete)
 }
 
-private fun rowCountText(rowCount: Int): String = if (rowCount == 1) "1 row" else "$rowCount rows"
+internal fun rowCountText(rowCount: Int): String = if (rowCount == 1) "1 row" else "$rowCount rows"
 
 @Composable
 private fun DatabaseColumnWidthStepper(width: Int, onWidthChosen: (Int) -> Unit) {
