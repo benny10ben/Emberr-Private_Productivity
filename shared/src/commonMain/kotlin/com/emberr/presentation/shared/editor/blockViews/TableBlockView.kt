@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -929,6 +930,7 @@ private fun SheetMenuRow(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = MenuRowInset, vertical = 2.dp)
+            .then(if (!isDesktopPlatform) Modifier.heightIn(min = 48.dp) else Modifier)
             .clip(RoundedCornerShape(12.dp))
             .clickable { onClick() }
             .padding(horizontal = MenuRowInnerPadding, vertical = 10.dp),

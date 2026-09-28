@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -172,6 +173,7 @@ private fun CategoryRow(
                     horizontal = if (isDesktopPlatform) 0.dp else 12.dp,
                     vertical = 2.dp
                 )
+                .then(if (!isDesktopPlatform) Modifier.heightIn(min = 48.dp) else Modifier)
                 .clip(RoundedCornerShape(14.dp))
                 .clickable(onClick = onClick)
                 .padding(
@@ -260,6 +262,7 @@ private fun AddCategoryRow(
                     horizontal = if (isDesktopPlatform) 0.dp else 12.dp,
                     vertical = 2.dp
                 )
+                .then(if (!isDesktopPlatform) Modifier.heightIn(min = 48.dp) else Modifier)
                 .clip(RoundedCornerShape(14.dp))
                 .clickable(onClick = onClick)
                 .padding(

@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -336,6 +337,7 @@ private fun PropertyTagOptionRow(tagName: String, tagPoolKey: String, isSelected
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .then(if (!isDesktopPlatform) Modifier.heightIn(min = 48.dp) else Modifier)
             .clip(RoundedCornerShape(10.dp))
             .clickable(onClick = onClick)
             .padding(horizontal = 8.dp, vertical = 8.dp),
@@ -495,6 +497,7 @@ private fun CreatePropertyTagRow(tagName: String, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .then(if (!isDesktopPlatform) Modifier.heightIn(min = 48.dp) else Modifier)
             .clip(RoundedCornerShape(10.dp))
             .clickable(onClick = onClick)
             .padding(horizontal = 8.dp, vertical = 8.dp),

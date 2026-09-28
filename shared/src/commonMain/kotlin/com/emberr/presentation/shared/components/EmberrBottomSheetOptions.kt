@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -32,6 +33,7 @@ private val OPTION_VERTICAL_SPACING = 2.dp
 private val OPTION_OUTER_HORIZONTAL_PADDING = 20.dp
 private val OPTION_INNER_HORIZONTAL_PADDING = 12.dp
 private val OPTION_INNER_VERTICAL_PADDING = 14.dp
+private val OPTION_MIN_HEIGHT = 48.dp
 private val ICON_GAP = 14.dp
 private val TRAILING_GAP = 12.dp
 private val SELECTED_DOT_SIZE = 8.dp
@@ -59,6 +61,7 @@ fun EmberrBottomSheetOption(
                 horizontal = outerHorizontalPadding,
                 vertical = OPTION_VERTICAL_SPACING
             )
+            .heightIn(min = OPTION_MIN_HEIGHT)
             .clip(OPTION_SHAPE)
             .background(if (isSelected) SelectedOptionBackground else Color.Transparent)
             .clickable(

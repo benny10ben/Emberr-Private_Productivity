@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -199,6 +200,7 @@ private fun DatabaseSheetActionRow(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = DatabaseMenuRowInset, vertical = SheetActionRowSpacing)
+            .heightIn(min = 48.dp)
             .clip(SheetActionRowShape)
             .clickable(onClick = onClick)
             .padding(vertical = SheetOptionVerticalPadding),

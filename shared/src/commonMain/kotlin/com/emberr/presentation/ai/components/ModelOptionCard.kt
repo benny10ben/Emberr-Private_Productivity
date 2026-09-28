@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
@@ -41,6 +42,7 @@ internal fun ModelOptionCard(
         shadowElevation = EmberrShadowElevation.None,
         modifier = modifier
             .fillMaxWidth()
+            .heightIn(min = 48.dp)
             .clip(shape)
             .clickableWithoutMobileRipple(onClick)
     ) {

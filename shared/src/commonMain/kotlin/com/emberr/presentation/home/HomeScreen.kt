@@ -1692,6 +1692,7 @@ fun TemplatesMenuContent(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = if (isDesktopPlatform) 8.dp else 0.dp, vertical = 2.dp)
+                .then(if (!isDesktopPlatform) Modifier.heightIn(min = 48.dp) else Modifier)
                 .clip(RoundedCornerShape(12.dp))
                 .clickable {(onCreateNewTemplate())}
                 .padding(horizontal = if (isDesktopPlatform) 12.dp else 0.dp, vertical = 12.dp),
@@ -1741,6 +1742,7 @@ private fun TemplateRow(
         modifier = Modifier
             .fillMaxWidth()
             .padding(if (isDesktopPlatform) 8.dp else 0.dp, vertical = 2.dp)
+            .then(if (!isDesktopPlatform) Modifier.heightIn(min = 48.dp) else Modifier)
             .clip(RoundedCornerShape(12.dp))
             .clickable {(onClick())}
             .padding(horizontal = if (isDesktopPlatform) 12.dp else 0.dp, vertical = 12.dp),

@@ -176,6 +176,7 @@ private fun UserSettingsSheetRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .heightIn(min = 48.dp)
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = NoRippleIndicationNodeFactory,
