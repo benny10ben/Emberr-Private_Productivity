@@ -84,6 +84,7 @@ import com.emberr.domain.util.system.isDesktopPlatform
 import com.emberr.presentation.shared.components.EmberrHorizontalScrollbar
 import com.emberr.presentation.shared.components.EmberrTextField
 import com.emberr.presentation.shared.components.MenuAtTap
+import com.emberr.presentation.shared.components.customEmberrShadow
 import com.emberr.presentation.shared.components.menuTapAnchor
 import com.emberr.presentation.shared.components.rememberMenuTapAnchor
 import com.emberr.presentation.shared.editor.DatabaseBlockEditor
@@ -551,9 +552,8 @@ private fun DatabaseBoardColumn(
             .width(width)
             .onGloballyPositioned { dragState.columnBoundsInRoot[group.key] = it.boundsInRoot() }
             .alpha(if (isBeingDragged) DraggedItemSourceAlpha else 1f)
-            .clip(BoardColumnShape)
-            .background(rememberBoardGroupBackground(group.value, tagPoolKey))
-            .background(if (isDropTarget) MaterialTheme.colorScheme.onSurface.copy(alpha = DropTargetShadeAlpha) else Color.Transparent)
+            .background(rememberBoardGroupBackground(group.value, tagPoolKey), BoardColumnShape)
+            .background(if (isDropTarget) MaterialTheme.colorScheme.onSurface.copy(alpha = DropTargetShadeAlpha) else Color.Transparent, BoardColumnShape)
             .padding(BoardColumnPadding),
         verticalArrangement = Arrangement.spacedBy(BoardCardGap)
     ) {
@@ -626,7 +626,8 @@ private fun DatabaseBoardCard(
                 gestureCoordinates.coordinates = coordinates
                 dragState.cardBoundsInRoot[boundsKey] = coordinates.boundsInRoot()
             }
-            .alpha(if (isBeingDragged) DraggedItemSourceAlpha else 1f),
+            .alpha(if (isBeingDragged) DraggedItemSourceAlpha else 1f)
+            .customEmberrShadow(RoundedCornerShape(10.dp)),
         gestureModifier = Modifier.boardDragGesture(
             key = boundsKey,
             isEnabled = !inSelectionMode,
