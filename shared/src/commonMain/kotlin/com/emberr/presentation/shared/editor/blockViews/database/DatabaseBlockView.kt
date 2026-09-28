@@ -183,20 +183,6 @@ fun DatabaseBlockView(
                     modifier = Modifier.weight(1f)
                 )
                 DatabaseHeaderButton(
-                    label = "Settings",
-                    icon = Res.drawable.sliders_horizontal,
-                    isActive = false,
-                    enabled = !inSelectionMode,
-                    onClick = { runAfterKeyboardCloses { showSettingsMenu = true } }
-                ) {
-                    DatabaseSettingsMenu(
-                        expanded = showSettingsMenu,
-                        block = block,
-                        editor = editor,
-                        onDismiss = { showSettingsMenu = false }
-                    )
-                }
-                DatabaseHeaderButton(
                     label = "Sort",
                     icon = Res.drawable.list_sort_descending,
                     isActive = block.sort != null,
@@ -208,6 +194,20 @@ fun DatabaseBlockView(
                         block = block,
                         editor = editor,
                         onDismiss = { showSortMenu = false }
+                    )
+                }
+                DatabaseHeaderButton(
+                    label = "Settings",
+                    icon = Res.drawable.sliders_horizontal,
+                    isActive = false,
+                    enabled = !inSelectionMode,
+                    onClick = { runAfterKeyboardCloses { showSettingsMenu = true } }
+                ) {
+                    DatabaseSettingsMenu(
+                        expanded = showSettingsMenu,
+                        block = block,
+                        editor = editor,
+                        onDismiss = { showSettingsMenu = false }
                     )
                 }
                 DatabaseNewRowButton(
