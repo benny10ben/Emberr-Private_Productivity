@@ -981,7 +981,10 @@ fun EditorScreen(
             ) {
                 EmberrDesktopMenu(
                     expanded = true,
-                    onDismissRequest = closeSelectionMenu,
+                    onDismissRequest = {
+                        closeSelectionMenu()
+                        latestOnClearSelection()
+                    },
                     modifier = Modifier.width(260.dp)
                 ) {
                     selectionMenuContent(closeSelectionMenu)
