@@ -66,9 +66,6 @@ internal fun DatabaseSettingsMenu(
             trailing = { DatabaseSettingSwitch(isOn = activeView.showsIcon) },
             onClick = { editor.setViewShowsIcon(block.id, activeView.id, !activeView.showsIcon) }
         )
-        if (activeView.type == DatabaseViewType.BOARD) {
-            DatabaseBoardGroupingOptions(block = block, view = activeView, editor = editor)
-        }
         if (activeView.type != DatabaseViewType.TABLE) {
             DatabaseMenuOption(
                 label = "Show cover image",
@@ -76,6 +73,11 @@ internal fun DatabaseSettingsMenu(
                 trailing = { DatabaseSettingSwitch(isOn = activeView.showsCoverImage) },
                 onClick = { editor.setViewShowsCoverImage(block.id, activeView.id, !activeView.showsCoverImage) }
             )
+        }
+        if (activeView.type == DatabaseViewType.BOARD) {
+            DatabaseBoardGroupingOptions(block = block, view = activeView, editor = editor)
+        }
+        if (activeView.type != DatabaseViewType.TABLE) {
             DatabaseMenuLayer(
                 title = "Card size",
                 anchor = { openLayer ->
