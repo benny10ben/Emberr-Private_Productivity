@@ -1532,7 +1532,7 @@ fun buildSlashMenuSections(
     )),
     SlashMenuSectionData(
         "Properties",
-        PropertyType.entries.map { propertyType ->
+        PropertyType.entries.filterNot { it.isOnlyForDatabases }.map { propertyType ->
             SlashMenuItemData(propertyType.label, propertyType.iconResource()) { onInsertMediaBlock(propertyInsertKey(propertyType)) }
         } + customProperties.map { property ->
             SlashMenuItemData(property.name, property.valueType.iconResource()) {

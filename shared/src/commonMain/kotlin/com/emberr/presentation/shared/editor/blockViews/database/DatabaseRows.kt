@@ -51,11 +51,12 @@ import androidx.compose.ui.unit.dp
 import com.emberr.domain.database.DatabaseRow
 import com.emberr.domain.database.effectiveStyleOf
 import com.emberr.domain.database.emptyCell
-import com.emberr.domain.database.visibleColumns
+import com.emberr.domain.database.visibleColumnsInTableOrder
 import com.emberr.domain.model.DatabaseBlock
 import com.emberr.domain.model.DatabaseCellStyle
 import com.emberr.domain.model.DatabaseColumnTarget
 import com.emberr.domain.model.TextAlignment
+import com.emberr.domain.model.columnKey
 import com.emberr.domain.util.system.isDesktopPlatform
 import com.emberr.presentation.shared.editor.DatabaseBlockEditor
 import com.emberr.presentation.shared.editor.blockViews.PropertyCheckboxValue
@@ -82,67 +83,62 @@ internal fun DatabaseRowItem(
     inSelectionMode: Boolean,
     shouldTakeFocus: Boolean,
     historyStepsApplied: Int,
+    columnDragState: DatabaseColumnDragState,
     editor: DatabaseBlockEditor,
     onOpenRow: (String) -> Unit,
     runAfterKeyboardCloses: (() -> Unit) -> Unit
 ) {
+    val draggedBackground = draggedColumnBackground()
     Row(modifier = Modifier.height(IntrinsicSize.Max).defaultMinSize(minHeight = DatabaseCellMinHeight)) {
-        val titleStyle = database.effectiveStyleOf(row.noteId, DatabaseColumnTarget.NotesTitle)
-        DatabaseCellWithActions(
-            block = database,
-            rowNoteId = row.noteId,
-            column = DatabaseColumnTarget.NotesTitle,
-            style = titleStyle,
-            shownRowIds = shownRowIds,
-            rowCount = rowCount,
-            width = columnWidth(DatabaseColumnTarget.NotesTitle),
-            onWidthChosen = { onColumnWidthChosen(DatabaseColumnTarget.NotesTitle, it) },
-            inSelectionMode = inSelectionMode,
-            editor = editor,
-            runAfterKeyboardCloses = runAfterKeyboardCloses
-        ) {
-            key(historyStepsApplied) {
-                DatabaseTitleCell(
-                    title = row.title,
-                    icon = row.icon.takeIf { showsIcon },
-                    width = columnWidth(DatabaseColumnTarget.NotesTitle),
-                    textColor = databaseTextColorNamed(titleStyle.textColorName),
-                    alignment = titleStyle.alignment,
-                    inSelectionMode = inSelectionMode,
-                    shouldTakeFocus = shouldTakeFocus,
-                    onTitleChange = { editor.renameRow(database.id, row.noteId, it) },
-                    onFocusLost = { editor.finishTyping() },
-                    onFocusTaken = { editor.clearRowToFocus() },
-                    onOpen = { editor.openRow(row.noteId, onOpenRow) }
-                )
-            }
-        }
-        database.visibleColumns().forEach { column ->
-            val cellStyle = database.effectiveStyleOf(row.noteId, column)
-            DatabaseCellWithActions(
-                block = database,
-                rowNoteId = row.noteId,
-                column = column,
-                style = cellStyle,
-                shownRowIds = shownRowIds,
-                rowCount = rowCount,
-                width = columnWidth(column),
-                onWidthChosen = { onColumnWidthChosen(column, it) },
-                inSelectionMode = inSelectionMode,
-                editor = editor,
-                runAfterKeyboardCloses = runAfterKeyboardCloses
-            ) {
-                DatabasePropertyCell(
-                    row = row,
-                    database = database,
+        database.visibleColumnsInTableOrder().forEach { column ->
+            key(column.columnKey) {
+                val cellStyle = database.effectiveStyleOf(row.noteId, column)
+                DatabaseCellWithActions(
+                    block = database,
+                    rowNoteId = row.noteId,
                     column = column,
                     style = cellStyle,
+                    shownRowIds = shownRowIds,
+                    rowCount = rowCount,
                     width = columnWidth(column),
+                    onWidthChosen = { onColumnWidthChosen(column, it) },
                     inSelectionMode = inSelectionMode,
-                    historyStepsApplied = historyStepsApplied,
                     editor = editor,
-                    runAfterKeyboardCloses = runAfterKeyboardCloses
-                )
+                    runAfterKeyboardCloses = runAfterKeyboardCloses,
+                    modifier = Modifier
+                        .raisedWhileColumnDragged(columnDragState, column)
+                        .followsColumnDrag(columnDragState, column, draggedBackground)
+                ) {
+                    if (column == DatabaseColumnTarget.NotesTitle) {
+                        key(historyStepsApplied) {
+                            DatabaseTitleCell(
+                                title = row.title,
+                                icon = row.icon.takeIf { showsIcon },
+                                width = columnWidth(column),
+                                textColor = databaseTextColorNamed(cellStyle.textColorName),
+                                alignment = cellStyle.alignment,
+                                inSelectionMode = inSelectionMode,
+                                shouldTakeFocus = shouldTakeFocus,
+                                onTitleChange = { editor.renameRow(database.id, row.noteId, it) },
+                                onFocusLost = { editor.finishTyping() },
+                                onFocusTaken = { editor.clearRowToFocus() },
+                                onOpen = { editor.openRow(row.noteId, onOpenRow) }
+                            )
+                        }
+                    } else {
+                        DatabasePropertyCell(
+                            row = row,
+                            database = database,
+                            column = column,
+                            style = cellStyle,
+                            width = columnWidth(column),
+                            inSelectionMode = inSelectionMode,
+                            historyStepsApplied = historyStepsApplied,
+                            editor = editor,
+                            runAfterKeyboardCloses = runAfterKeyboardCloses
+                        )
+                    }
+                }
             }
         }
         DatabaseRowMenuButton(
@@ -296,6 +292,7 @@ private fun DatabasePropertyCell(
     runAfterKeyboardCloses: (() -> Unit) -> Unit
 ) {
     val cell = row.cell(column) ?: database.emptyCell(column, row.noteId, now = 0L)
+    val formulaResult = row.formulaResult(column)
     val lineColor = tableGridLineColor
     val valueModifier = Modifier.fillMaxWidth()
     val textColor = databaseTextColorNamed(style.textColorName)
@@ -314,6 +311,12 @@ private fun DatabasePropertyCell(
         contentAlignment = Alignment.CenterStart
     ) {
         when {
+            formulaResult != null -> DatabaseFormulaValue(
+                result = formulaResult,
+                textColor = textColor,
+                alignment = style.alignment,
+                modifier = valueModifier
+            )
             cell == null -> Unit
             cell.valueType.holdsDate -> PropertyDateValue(
                 block = cell,

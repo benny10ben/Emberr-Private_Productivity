@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -33,18 +34,22 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.onPlaced
+import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.emberr.domain.database.builtInPropertiesNotYetAdded
 import com.emberr.domain.database.customPropertiesNotShown
+import com.emberr.domain.database.isFormulaColumn
 import com.emberr.domain.database.isPropertyNameTaken
-import com.emberr.domain.database.visibleColumns
+import com.emberr.domain.database.visibleColumnsInTableOrder
 import com.emberr.domain.model.DatabaseBlock
 import com.emberr.domain.model.DatabaseColumnTarget
 import com.emberr.domain.model.DatabaseCustomProperty
 import com.emberr.domain.model.PropertyValueType
+import com.emberr.domain.model.columnKey
 import com.emberr.domain.model.customPropertyWithId
 import com.emberr.domain.model.labelOf
 import com.emberr.domain.util.system.isDesktopPlatform
@@ -75,24 +80,38 @@ internal fun DatabaseHeaderRow(
     columnWidth: (DatabaseColumnTarget) -> Int,
     onColumnWidthDragged: (DatabaseColumnTarget, Int) -> Unit,
     onColumnWidthChosen: (DatabaseColumnTarget, Int) -> Unit,
+    dragState: DatabaseColumnDragState,
     editor: DatabaseBlockEditor,
     runAfterKeyboardCloses: (() -> Unit) -> Unit
 ) {
-    val headerColumns = listOf<DatabaseColumnTarget>(DatabaseColumnTarget.NotesTitle) + block.visibleColumns()
+    val headerColumns = block.visibleColumnsInTableOrder()
+
+    fun dropDraggedColumn() {
+        val draggedColumn = dragState.draggedColumn ?: return
+        val beforeColumn = columnToDropBefore(headerColumns, dragState.headerSpans, dragState.pointerX)
+        dragState.reset()
+        if (!dropKeepsColumnInPlace(headerColumns, draggedColumn, beforeColumn)) {
+            editor.moveColumnBefore(block.id, draggedColumn, beforeColumn)
+        }
+    }
 
     Row(modifier = Modifier.height(IntrinsicSize.Max)) {
         headerColumns.forEach { column ->
-            DatabaseColumnHeader(
-                block = block,
-                column = column,
-                width = columnWidth(column),
-                rowCount = rowCount,
-                inSelectionMode = inSelectionMode,
-                onWidthDragged = { onColumnWidthDragged(column, it) },
-                onWidthChosen = { onColumnWidthChosen(column, it) },
-                editor = editor,
-                runAfterKeyboardCloses = runAfterKeyboardCloses
-            )
+            key(column.columnKey) {
+                DatabaseColumnHeader(
+                    block = block,
+                    column = column,
+                    width = columnWidth(column),
+                    rowCount = rowCount,
+                    inSelectionMode = inSelectionMode,
+                    onWidthDragged = { onColumnWidthDragged(column, it) },
+                    onWidthChosen = { onColumnWidthChosen(column, it) },
+                    dragState = dragState,
+                    onDrop = ::dropDraggedColumn,
+                    editor = editor,
+                    runAfterKeyboardCloses = runAfterKeyboardCloses
+                )
+            }
         }
         DatabaseAddColumnButton(
             block = block,
@@ -113,52 +132,67 @@ private fun DatabaseColumnHeader(
     inSelectionMode: Boolean,
     onWidthDragged: (Int) -> Unit,
     onWidthChosen: (Int) -> Unit,
+    dragState: DatabaseColumnDragState,
+    onDrop: () -> Unit,
     editor: DatabaseBlockEditor,
     runAfterKeyboardCloses: (() -> Unit) -> Unit
 ) {
     var showMenu by remember { mutableStateOf(false) }
     val lineColor = tableGridLineColor
     val canOpenMenu = !inSelectionMode
+    val latestOnDrop by rememberUpdatedState(onDrop)
     val tapAnchor = rememberMenuTapAnchor()
 
     Box(
         modifier = Modifier
+            .onPlaced { coordinates ->
+                val headerLeft = coordinates.positionInParent().x
+                val span = HeaderSpan(left = headerLeft, right = headerLeft + coordinates.size.width)
+                if (dragState.headerSpans[column] != span) dragState.headerSpans[column] = span
+            }
+            .raisedWhileColumnDragged(dragState, column)
             .menuTapAnchor(tapAnchor)
             .width(width.dp)
             .fillMaxHeight()
             .defaultMinSize(minHeight = DatabaseCellMinHeight)
-            .databaseCellLines(lineColor)
             .clickable(enabled = canOpenMenu) { runAfterKeyboardCloses { showMenu = true } }
+            .columnDragGesture(dragState, column, isEnabled = canOpenMenu, onDrop = { latestOnDrop() })
     ) {
-        Row(
+        Box(
             modifier = Modifier
-                .align(Alignment.CenterStart)
-                .padding(horizontal = DatabaseCellHorizontalPadding, vertical = DatabaseCellVerticalPadding),
-            verticalAlignment = Alignment.CenterVertically
+                .fillMaxSize()
+                .followsColumnDrag(dragState, column, draggedColumnBackground())
+                .databaseCellLines(lineColor),
+            contentAlignment = Alignment.CenterStart
         ) {
-            Icon(
-                painter = painterResource(block.iconOf(column)),
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.outline,
-                modifier = Modifier.size(16.dp)
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = block.labelOf(column),
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.outline,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f, fill = false)
-            )
-            if (block.filters.any { it.target == column }) {
-                Spacer(modifier = Modifier.width(6.dp))
+            Row(
+                modifier = Modifier.padding(horizontal = DatabaseCellHorizontalPadding, vertical = DatabaseCellVerticalPadding),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Icon(
-                    painter = painterResource(Res.drawable.funnel),
-                    contentDescription = "Filtered",
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(12.dp)
+                    painter = painterResource(block.iconOf(column)),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.outline,
+                    modifier = Modifier.size(16.dp)
                 )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = block.labelOf(column),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.outline,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false)
+                )
+                if (block.filters.any { it.target == column }) {
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Icon(
+                        painter = painterResource(Res.drawable.funnel),
+                        contentDescription = "Filtered",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(12.dp)
+                    )
+                }
             }
         }
 
@@ -260,6 +294,9 @@ private fun DatabaseColumnMenu(
                     closeAnd = { action -> closeLayerAnd { closeMenuAnd(action) } }
                 )
             }
+        }
+        if (block.isFormulaColumn(column)) {
+            DatabaseEditFormulaOption(block = block, column = column, editor = editor, closeMenuAnd = closeMenuAnd)
         }
         DatabaseColumnFilterOption(block = block, column = column, editor = editor)
         DatabaseCalculateOption(block = block, column = column, editor = editor, closeMenuAnd = closeMenuAnd)

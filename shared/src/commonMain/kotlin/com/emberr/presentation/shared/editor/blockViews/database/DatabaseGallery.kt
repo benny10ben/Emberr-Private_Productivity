@@ -36,6 +36,7 @@ import coil3.compose.AsyncImage
 import coil3.compose.LocalPlatformContext
 import coil3.request.ImageRequest
 import com.emberr.domain.database.DatabaseRow
+import com.emberr.domain.database.FormulaValue
 import com.emberr.domain.database.visibleColumns
 import com.emberr.domain.model.DatabaseBlock
 import com.emberr.domain.model.DatabaseCardSize
@@ -157,10 +158,15 @@ internal fun DatabaseRowCard(
                     overflow = TextOverflow.Ellipsis
                 )
             }
-            block.visibleColumns()
-                .mapNotNull { column -> row.cell(column) }
-                .filter { it.hasValueToShowOnCard() }
-                .forEach { cell -> DatabaseCardValue(cell = cell) }
+            block.visibleColumns().forEach { column ->
+                val formulaResult = row.formulaResult(column)
+                val cell = row.cell(column)
+                if (formulaResult != null) {
+                    DatabaseCardFormulaValue(result = formulaResult)
+                } else if (cell != null && cell.hasValueToShowOnCard()) {
+                    DatabaseCardValue(cell = cell)
+                }
+            }
         }
     }
 }
@@ -199,6 +205,18 @@ private fun PropertyBlock.hasValueToShowOnCard(): Boolean = when {
     valueType.holdsCheck -> isChecked
     valueType.holdsDate -> date != null
     else -> text.isNotBlank()
+}
+
+@Composable
+private fun DatabaseCardFormulaValue(result: FormulaValue) {
+    if (result is FormulaValue.Error || result.displayText.isBlank()) return
+    Text(
+        text = result.textToShow(),
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f),
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis
+    )
 }
 
 @OptIn(ExperimentalLayoutApi::class)

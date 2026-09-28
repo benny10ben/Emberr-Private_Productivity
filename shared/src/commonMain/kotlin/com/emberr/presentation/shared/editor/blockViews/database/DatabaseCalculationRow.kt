@@ -23,7 +23,7 @@ import com.emberr.domain.database.calculate
 import com.emberr.domain.database.calculationOf
 import com.emberr.domain.database.calculationsFor
 import com.emberr.domain.database.formatCalculatedNumber
-import com.emberr.domain.database.visibleColumns
+import com.emberr.domain.database.visibleColumnsInTableOrder
 import com.emberr.domain.model.DatabaseBlock
 import com.emberr.domain.model.DatabaseColumnTarget
 import com.emberr.domain.model.PropertyValueType
@@ -43,15 +43,25 @@ private val CalculationCellMinHeight = 36.dp
 internal fun DatabaseCalculationRow(
     block: DatabaseBlock,
     rows: List<DatabaseRow>,
-    columnWidth: (DatabaseColumnTarget) -> Int
+    columnWidth: (DatabaseColumnTarget) -> Int,
+    columnDragState: DatabaseColumnDragState
 ) {
-    val columns = listOf<DatabaseColumnTarget>(DatabaseColumnTarget.NotesTitle) + block.visibleColumns()
+    val columns = block.visibleColumnsInTableOrder()
     if (columns.none { block.calculationOf(it) != null }) return
+    val draggedBackground = draggedColumnBackground()
 
     Row {
         columns.forEach { column ->
             key(column.columnKey) {
-                DatabaseCalculationCell(block = block, rows = rows, column = column, width = columnWidth(column))
+                DatabaseCalculationCell(
+                    block = block,
+                    rows = rows,
+                    column = column,
+                    width = columnWidth(column),
+                    modifier = Modifier
+                        .raisedWhileColumnDragged(columnDragState, column)
+                        .followsColumnDrag(columnDragState, column, draggedBackground)
+                )
             }
         }
     }
@@ -62,7 +72,8 @@ private fun DatabaseCalculationCell(
     block: DatabaseBlock,
     rows: List<DatabaseRow>,
     column: DatabaseColumnTarget,
-    width: Int
+    width: Int,
+    modifier: Modifier = Modifier
 ) {
     val calculation = block.calculationOf(column)
     val valueType = block.valueTypeOf(column) ?: PropertyValueType.TEXT
@@ -71,7 +82,7 @@ private fun DatabaseCalculationCell(
     }
 
     Box(
-        modifier = Modifier
+        modifier = modifier
             .width(width.dp)
             .defaultMinSize(minHeight = CalculationCellMinHeight)
             .padding(horizontal = DatabaseCellHorizontalPadding, vertical = 8.dp),

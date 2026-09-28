@@ -105,6 +105,17 @@ class DatabaseSettingTimesTest {
     }
 
     @Test
+    fun movingTheNotesColumnOnOneDeviceIsKeptWhenTheOtherChangesSomethingElse() {
+        val phone = syncedTable.editedAt(200L) { it.withColumnMovedBefore(DatabaseColumnTarget.NotesTitle, beforeColumn = null) }
+        val laptop = syncedTable.editedAt(300L) { it.copy(filters = it.filters + doneFilter) }
+
+        val merged = mergeDatabaseBlocks(phone, laptop)
+
+        assertEquals(listOf(statusColumn, DatabaseColumnTarget.NotesTitle), merged.columnsInTableOrder())
+        assertEquals(listOf(doneFilter), merged.filters)
+    }
+
+    @Test
     fun aDifferentPropertyAddedOnEachDeviceIsKeptFromBoth() {
         val phone = syncedTable.editedAt(200L) { it.withPropertyColumn(priorityProperty) }
         val laptop = syncedTable.editedAt(300L) { it.withPropertyColumn(ownerProperty) }

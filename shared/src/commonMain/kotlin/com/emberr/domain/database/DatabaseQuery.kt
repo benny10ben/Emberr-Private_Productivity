@@ -29,7 +29,8 @@ fun filterConditionsFor(valueType: PropertyValueType): List<DatabaseFilterCondit
     PropertyValueType.PHONE,
     PropertyValueType.EMAIL,
     PropertyValueType.LINK,
-    PropertyValueType.TAGS -> listOf(
+    PropertyValueType.TAGS,
+    PropertyValueType.FORMULA -> listOf(
         DatabaseFilterCondition.CONTAINS,
         DatabaseFilterCondition.DOES_NOT_CONTAIN,
         DatabaseFilterCondition.IS_EMPTY,
@@ -139,6 +140,8 @@ private fun compareSortValues(first: DatabaseRow, second: DatabaseRow, sort: Dat
         compareValues(earlier.dateAt(sort.target), later.dateAt(sort.target))
     } else if (valueType.holdsNumber) {
         compareValues(earlier.numberAt(sort.target), later.numberAt(sort.target))
+    } else if (valueType.holdsFormula) {
+        compareFormulaResults(earlier.formulaResult(sort.target), later.formulaResult(sort.target))
     } else {
         earlier.displayValueAt(sort.target).compareTo(later.displayValueAt(sort.target), ignoreCase = true)
     }
@@ -147,12 +150,15 @@ private fun compareSortValues(first: DatabaseRow, second: DatabaseRow, sort: Dat
 internal fun DatabaseRow.isEmptyAt(target: DatabaseColumnTarget): Boolean = displayValueAt(target).isBlank()
 
 internal fun DatabaseRow.displayValueAt(target: DatabaseColumnTarget): String =
-    if (target == DatabaseColumnTarget.NotesTitle) title else cell(target)?.valueAsText().orEmpty()
+    if (target == DatabaseColumnTarget.NotesTitle) title else formulaResult(target)?.displayText ?: cell(target)?.valueAsText().orEmpty()
 
-internal fun DatabaseRow.dateAt(target: DatabaseColumnTarget): LocalDate? = cell(target)?.date
+internal fun DatabaseRow.dateAt(target: DatabaseColumnTarget): LocalDate? =
+    (formulaResult(target) as? FormulaValue.DateValue)?.date ?: cell(target)?.date
 
 internal fun DatabaseRow.tagsAt(target: DatabaseColumnTarget): List<String> = cell(target)?.tags.orEmpty()
 
-internal fun DatabaseRow.numberAt(target: DatabaseColumnTarget): Double? = cell(target)?.numberOrNull()
+internal fun DatabaseRow.numberAt(target: DatabaseColumnTarget): Double? =
+    (formulaResult(target) as? FormulaValue.NumberValue)?.number ?: cell(target)?.numberOrNull()
 
-internal fun DatabaseRow.isCheckedAt(target: DatabaseColumnTarget): Boolean = cell(target)?.isChecked == true
+internal fun DatabaseRow.isCheckedAt(target: DatabaseColumnTarget): Boolean =
+    (formulaResult(target) as? FormulaValue.BooleanValue)?.isTrue ?: (cell(target)?.isChecked == true)

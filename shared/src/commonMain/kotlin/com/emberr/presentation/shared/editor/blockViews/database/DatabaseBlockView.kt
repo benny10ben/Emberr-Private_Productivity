@@ -3,6 +3,7 @@ package com.emberr.presentation.shared.editor.blockViews.database
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -29,10 +30,12 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -46,6 +49,8 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
@@ -59,6 +64,8 @@ import com.emberr.domain.database.activeView
 import com.emberr.domain.database.applyFiltersAndSort
 import com.emberr.domain.database.inManualOrder
 import com.emberr.domain.database.visibleColumns
+import com.emberr.domain.database.visibleColumnsInTableOrder
+import com.emberr.domain.database.withFormulaResults
 import com.emberr.domain.model.DatabaseBlock
 import com.emberr.domain.model.DatabaseColumnTarget
 import com.emberr.domain.model.DatabaseViewType
@@ -118,11 +125,15 @@ fun DatabaseBlockView(
     onOpenRow: (String) -> Unit,
     runAfterKeyboardCloses: (() -> Unit) -> Unit
 ) {
-    val rows by remember(block.databaseId) { editor.rowsOf(block.databaseId) }.collectAsState(initial = emptyList())
+    val savedRows by remember(block.databaseId) { editor.rowsOf(block.databaseId) }.collectAsState(initial = emptyList())
+    val rows = remember(savedRows, block) { savedRows.withFormulaResults(block) }
     val visibleRows = remember(rows, block) { applyFiltersAndSort(rows, block) }
     val historyStepsApplied by editor.historyStepsApplied.collectAsState()
     val rowToFocus by editor.rowToFocus.collectAsState()
     val scrollState = rememberScrollState()
+    val columnDragState = remember { DatabaseColumnDragState() }
+    var tableViewportWidth by remember { mutableIntStateOf(0) }
+    val density = LocalDensity.current
     val tableBorderColor = tableGridLineColor
     val liveColumnWidths = remember(block.columnWidths) { mutableStateMapOf<String, Int>() }
     var showSettingsMenu by remember { mutableStateOf(false) }
@@ -146,6 +157,19 @@ fun DatabaseBlockView(
     val tableWidth = (columnWidth(DatabaseColumnTarget.NotesTitle) + block.visibleColumns().sumOf { columnWidth(it) }).dp + DatabaseGutterWidth
     val activeView = block.activeView()
     val rowCountCaption = if (block.showsRowCount) rowCountLabel(shownRowCount = visibleRows.size, totalRowCount = rows.size) else null
+
+    LaunchedEffect(columnDragState.isDragging) {
+        if (!columnDragState.isDragging) return@LaunchedEffect
+        val tableStartPx = with(density) { DatabaseSidePadding.toPx() }
+        val edgeWidthPx = with(density) { ColumnAutoScrollEdgeWidth.toPx() }
+        val maxStepPx = with(density) { ColumnAutoScrollMaxStep.toPx() }
+        while (true) {
+            withFrameNanos { }
+            val pointerInViewport = columnDragState.pointerX + tableStartPx - scrollState.value
+            val step = columnAutoScrollStep(pointerInViewport, tableViewportWidth.toFloat(), edgeWidthPx, maxStepPx)
+            if (step != 0f) columnDragState.pointerX += scrollState.scrollBy(step)
+        }
+    }
 
     LaunchedEffect(rowToFocus, activeView.type) {
         val newRowNoteId = rowToFocus ?: return@LaunchedEffect
@@ -272,6 +296,7 @@ fun DatabaseBlockView(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
+                            .onSizeChanged { tableViewportWidth = it.width }
                             .horizontalScroll(scrollState)
                             .smoothWheelScroll(scrollState, horizontal = true)
                     ) {
@@ -281,7 +306,13 @@ fun DatabaseBlockView(
                                 color = Color.Transparent,
                                 border = BorderStroke(0.6.dp, tableBorderColor)
                             ) {
-                                Column {
+                                Column(
+                                    modifier = Modifier.columnDropLine(
+                                        dragState = columnDragState,
+                                        columns = block.visibleColumnsInTableOrder(),
+                                        lineColor = MaterialTheme.colorScheme.primary
+                                    )
+                                ) {
                                     DatabaseHeaderRow(
                                         block = block,
                                         rowCount = rows.size,
@@ -289,6 +320,7 @@ fun DatabaseBlockView(
                                         columnWidth = ::columnWidth,
                                         onColumnWidthDragged = { target, width -> liveColumnWidths[target.columnKey] = width },
                                         onColumnWidthChosen = ::chooseColumnWidth,
+                                        dragState = columnDragState,
                                         editor = editor,
                                         runAfterKeyboardCloses = runAfterKeyboardCloses
                                     )
@@ -305,6 +337,7 @@ fun DatabaseBlockView(
                                                 inSelectionMode = inSelectionMode,
                                                 shouldTakeFocus = rowToFocus == row.noteId,
                                                 historyStepsApplied = historyStepsApplied,
+                                                columnDragState = columnDragState,
                                                 editor = editor,
                                                 onOpenRow = onOpenRow,
                                                 runAfterKeyboardCloses = runAfterKeyboardCloses
@@ -314,7 +347,12 @@ fun DatabaseBlockView(
                                 }
                             }
 
-                            DatabaseCalculationRow(block = block, rows = visibleRows, columnWidth = ::columnWidth)
+                            DatabaseCalculationRow(
+                                block = block,
+                                rows = visibleRows,
+                                columnWidth = ::columnWidth,
+                                columnDragState = columnDragState
+                            )
 
                             DatabaseNewRowLine(
                                 showsNewButton = !inSelectionMode,

@@ -23,6 +23,7 @@ import com.emberr.domain.database.withViewGroupedBy
 import com.emberr.domain.database.withDatabasePropertyCreated
 import com.emberr.domain.database.withDatabasePropertyDeleted
 import com.emberr.domain.database.withDatabasePropertyRenamed
+import com.emberr.domain.database.withFormulaSet
 import com.emberr.domain.database.isPropertyNameTaken
 import com.emberr.data.local.room.entity.NoteMetadataEntity
 import com.emberr.data.local.room.entity.PropertyTagEntity
@@ -193,6 +194,10 @@ class DatabaseBlockEditor(
             }
             databaseBlock.copy(calculations = calculations)
         }
+    }
+
+    fun setFormula(blockId: String, column: DatabaseColumnTarget, formula: String) {
+        host.changeDatabaseBlock(blockId) { it.withFormulaSet(column, formula) }
     }
 
     fun savedTagsOf(tagPoolKey: String): Flow<List<PropertyTagEntity>> = repository.getPropertyTags(tagPoolKey)
@@ -380,7 +385,7 @@ class DatabaseBlockEditor(
         host.changeDatabaseBlock(blockId) { it.withStyle(target, rowNoteId, column, style) }
     }
 
-    fun moveColumnBefore(blockId: String, column: DatabaseColumnTarget, beforeColumn: DatabaseColumnTarget) {
+    fun moveColumnBefore(blockId: String, column: DatabaseColumnTarget, beforeColumn: DatabaseColumnTarget?) {
         host.changeDatabaseBlock(blockId) { it.withColumnMovedBefore(column, beforeColumn) }
     }
 

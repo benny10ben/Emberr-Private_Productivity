@@ -87,6 +87,58 @@ class DatabaseColumnsTest {
     fun movingAColumnBeforeAnotherSwapsNeighbours() {
         assertEquals(listOf(dueDateColumn, statusColumn, clientColumn), database.withColumnMovedBefore(dueDateColumn, statusColumn).columns)
         assertEquals(listOf(statusColumn, clientColumn, dueDateColumn), database.withColumnMovedBefore(clientColumn, dueDateColumn).columns)
+        assertEquals(listOf(dueDateColumn, clientColumn, statusColumn), database.withColumnMovedBefore(statusColumn, beforeColumn = null).columns)
+    }
+
+    @Test
+    fun theNotesColumnStartsFirstAndCanBeMovedAnywhere() {
+        val notes = DatabaseColumnTarget.NotesTitle
+        val notesBeforeClient = database.withColumnMovedBefore(notes, clientColumn)
+
+        assertEquals(listOf(notes, statusColumn, dueDateColumn, clientColumn), database.columnsInTableOrder())
+        assertEquals(listOf(statusColumn, dueDateColumn, notes, clientColumn), notesBeforeClient.columnsInTableOrder())
+        assertEquals(listOf(statusColumn, dueDateColumn, clientColumn), notesBeforeClient.columns)
+        assertEquals(listOf(statusColumn, dueDateColumn, clientColumn, notes), database.withColumnMovedBefore(notes, beforeColumn = null).columnsInTableOrder())
+        assertEquals(database, notesBeforeClient.withColumnMovedBefore(notes, statusColumn))
+    }
+
+    @Test
+    fun columnsCanBeMovedAndAddedAroundTheNotesColumn() {
+        val notes = DatabaseColumnTarget.NotesTitle
+        val tagsColumn = DatabaseColumnTarget.Property(PropertyType.TAGS)
+        val notesInTheMiddle = database.withColumnMovedBefore(notes, dueDateColumn)
+
+        assertEquals(
+            listOf(clientColumn, statusColumn, notes, dueDateColumn),
+            notesInTheMiddle.withColumnMovedBefore(clientColumn, statusColumn).columnsInTableOrder()
+        )
+        assertEquals(
+            listOf(statusColumn, clientColumn, notes, dueDateColumn),
+            notesInTheMiddle.withColumnMovedBefore(clientColumn, notes).columnsInTableOrder()
+        )
+        assertEquals(
+            listOf(statusColumn, tagsColumn, notes, dueDateColumn, clientColumn),
+            notesInTheMiddle.withColumnAdded(tagsColumn, beforeColumn = notes).columnsInTableOrder()
+        )
+    }
+
+    @Test
+    fun removingTheColumnInFrontOfNotesKeepsNotesWhereItWas() {
+        val notesAfterDueDate = database.withColumnMovedBefore(DatabaseColumnTarget.NotesTitle, clientColumn)
+
+        assertEquals(
+            listOf(statusColumn, DatabaseColumnTarget.NotesTitle, clientColumn),
+            notesAfterDueDate.withColumnRemoved(dueDateColumn).columnsInTableOrder()
+        )
+    }
+
+    @Test
+    fun hidingAColumnDoesNotMoveTheNotesColumn() {
+        val notesAfterDueDate = database.withColumnMovedBefore(DatabaseColumnTarget.NotesTitle, clientColumn)
+
+        val hidden = notesAfterDueDate.withColumnShown(DEFAULT_VIEW_ID, dueDateColumn, isShown = false)
+
+        assertEquals(listOf(statusColumn, DatabaseColumnTarget.NotesTitle, clientColumn), hidden.visibleColumnsInTableOrder())
     }
 
     @Test

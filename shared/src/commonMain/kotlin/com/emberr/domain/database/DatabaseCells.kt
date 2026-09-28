@@ -14,12 +14,12 @@ fun databaseCellBlockId(column: DatabaseColumnTarget, rowNoteId: String): String
 
 fun DatabaseBlock.emptyCell(column: DatabaseColumnTarget, rowNoteId: String, now: Long): PropertyBlock? = when (column) {
     DatabaseColumnTarget.NotesTitle -> null
-    is DatabaseColumnTarget.Property -> PropertyBlock(
+    is DatabaseColumnTarget.Property -> if (column.propertyType.valueType.holdsFormula) null else PropertyBlock(
         id = databaseCellBlockId(column, rowNoteId),
         propertyType = column.propertyType,
         updatedAt = now
     )
-    is DatabaseColumnTarget.CustomProperty -> customPropertyWithId(column.propertyId)?.let { property ->
+    is DatabaseColumnTarget.CustomProperty -> customPropertyWithId(column.propertyId)?.takeUnless { it.valueType.holdsFormula }?.let { property ->
         PropertyBlock(
             id = databaseCellBlockId(column, rowNoteId),
             customPropertyId = property.id,

@@ -12,9 +12,12 @@ data class DatabaseRow(
     val createdAt: Long,
     val cellsByColumn: Map<DatabaseColumnTarget, PropertyBlock>,
     val icon: String? = null,
-    val coverImagePath: String? = null
+    val coverImagePath: String? = null,
+    val formulaResults: Map<DatabaseColumnTarget, FormulaValue> = emptyMap()
 ) {
     fun cell(column: DatabaseColumnTarget): PropertyBlock? = cellsByColumn[column]
+
+    fun formulaResult(column: DatabaseColumnTarget): FormulaValue? = formulaResults[column]
 }
 
 fun buildDatabaseRow(

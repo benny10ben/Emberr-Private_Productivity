@@ -6,14 +6,16 @@ import com.emberr.domain.model.NoteBlock
 import com.emberr.domain.model.TableBlock
 import com.emberr.domain.model.TextBlock
 import com.emberr.domain.model.labelOf
-import com.emberr.domain.model.valueAsText
 import com.emberr.domain.repository.NoteRepository
 import kotlinx.coroutines.flow.first
 
 fun DatabaseBlock.asExportBlocks(rows: List<DatabaseRow>): List<NoteBlock> {
-    val headerRow = listOf(labelOf(DatabaseColumnTarget.NotesTitle)) + columns.map { labelOf(it) }
-    val valueRows = applyFiltersAndSort(rows, this).map { row ->
-        listOf(row.title.ifBlank { "Untitled" }) + columns.map { row.cell(it)?.valueAsText().orEmpty() }
+    val tableColumns = columnsInTableOrder()
+    val headerRow = tableColumns.map { labelOf(it) }
+    val valueRows = applyFiltersAndSort(rows.withFormulaResults(this), this).map { row ->
+        tableColumns.map { column ->
+            if (column == DatabaseColumnTarget.NotesTitle) row.title.ifBlank { "Untitled" } else row.displayValueAt(column)
+        }
     }
     val table = TableBlock(
         id = id,

@@ -76,6 +76,7 @@ import emberr.shared.generated.resources.hash
 import emberr.shared.generated.resources.link
 import emberr.shared.generated.resources.mail
 import emberr.shared.generated.resources.phone
+import emberr.shared.generated.resources.sigma
 import emberr.shared.generated.resources.square_arrow_out_up_right
 import emberr.shared.generated.resources.square_check
 import emberr.shared.generated.resources.tags
@@ -120,6 +121,7 @@ fun PropertyType.iconResource(): DrawableResource = when (this) {
     PropertyType.DUE_DATE -> Res.drawable.calendar_clock
     PropertyType.CHECKBOX -> Res.drawable.square_check
     PropertyType.NUMBER -> Res.drawable.hash
+    PropertyType.FORMULA -> Res.drawable.sigma
 }
 
 fun PropertyValueType.iconResource(): DrawableResource = when (this) {
@@ -132,6 +134,7 @@ fun PropertyValueType.iconResource(): DrawableResource = when (this) {
     PropertyValueType.TAGS -> Res.drawable.tags
     PropertyValueType.CHECKBOX -> Res.drawable.square_check
     PropertyValueType.NUMBER -> Res.drawable.hash
+    PropertyValueType.FORMULA -> Res.drawable.sigma
 }
 
 @Composable

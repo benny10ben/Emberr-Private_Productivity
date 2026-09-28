@@ -411,11 +411,14 @@ enum class PropertyValueType(val label: String) {
     SINGLE_CHOICE("Single choice"),
     TAGS("Tags"),
     CHECKBOX("Checkbox"),
-    NUMBER("Number");
+    NUMBER("Number"),
+    FORMULA("Formula");
 
     val holdsDate: Boolean get() = this == DATE
     val holdsCheck: Boolean get() = this == CHECKBOX
     val holdsNumber: Boolean get() = this == NUMBER
+    val holdsFormula: Boolean get() = this == FORMULA
+    val isOnlyForDatabases: Boolean get() = this == FORMULA
     val holdsTags: Boolean get() = this == SINGLE_CHOICE || this == TAGS
     val allowsManyTags: Boolean get() = this == TAGS
 }
@@ -432,7 +435,10 @@ enum class PropertyType(val label: String, val valueType: PropertyValueType) {
     DESCRIPTION("Description", PropertyValueType.TEXT),
     DUE_DATE("Due Date", PropertyValueType.DATE),
     CHECKBOX("Checkbox", PropertyValueType.CHECKBOX),
-    NUMBER("Number", PropertyValueType.NUMBER)
+    NUMBER("Number", PropertyValueType.NUMBER),
+    FORMULA("Formula", PropertyValueType.FORMULA);
+
+    val isOnlyForDatabases: Boolean get() = valueType.isOnlyForDatabases
 }
 
 @Immutable
@@ -523,12 +529,14 @@ data class DatabaseBlock(
     val databaseId: String,
     val title: String = "",
     val columns: List<DatabaseColumnTarget> = emptyList(),
+    val notesColumnAfterKey: String? = null,
     val customProperties: List<DatabaseCustomProperty> = emptyList(),
     val columnWidths: Map<String, Int> = emptyMap(),
     val filters: List<DatabaseFilter> = emptyList(),
     val sort: DatabaseSort? = null,
     val defaultTemplateId: String? = null,
     val calculations: Map<String, DatabaseCalculation> = emptyMap(),
+    val formulas: Map<String, String> = emptyMap(),
     val showsRowCount: Boolean = false,
     val views: List<DatabaseView> = emptyList(),
     val activeViewId: String? = null,

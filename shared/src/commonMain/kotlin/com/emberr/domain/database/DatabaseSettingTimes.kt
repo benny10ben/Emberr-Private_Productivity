@@ -10,10 +10,12 @@ private const val SORT_SETTING_KEY = "sort"
 private const val DEFAULT_TEMPLATE_SETTING_KEY = "default_template"
 private const val ROW_COUNT_SETTING_KEY = "row_count"
 private const val ACTIVE_VIEW_SETTING_KEY = "active_view"
+private const val NOTES_POSITION_SETTING_KEY = "notes_position"
 
 private fun columnSettingKey(column: DatabaseColumnTarget) = "column:${column.columnKey}"
 private fun widthSettingKey(columnKey: String) = "width:$columnKey"
 private fun calculationSettingKey(columnKey: String) = "calculation:$columnKey"
+private fun formulaSettingKey(columnKey: String) = "formula:$columnKey"
 private fun viewSettingKey(viewId: String) = "view:$viewId"
 private fun propertySettingKey(propertyId: String) = "property:$propertyId"
 private fun filterSettingKey(filterId: String) = "filter:$filterId"
@@ -36,10 +38,13 @@ fun mergeDatabaseBlocks(first: DatabaseBlock, second: DatabaseBlock): DatabaseBl
     return newer.copy(
         title = merge.mergedValue(TITLE_SETTING_KEY, newer.title, older.title) ?: newer.title,
         columns = merge.mergedList(newer.columns, older.columns, ::columnSettingKey),
+        notesColumnAfterKey = merge.mergedValue(NOTES_POSITION_SETTING_KEY, newer.notesColumnAfterKey, older.notesColumnAfterKey),
         customProperties = merge.mergedList(newer.customProperties, older.customProperties) { propertySettingKey(it.id) },
         columnWidths = merge.mergedList(newer.columnWidths.entries.toList(), older.columnWidths.entries.toList()) { widthSettingKey(it.key) }
             .associate { it.key to it.value },
         calculations = merge.mergedList(newer.calculations.entries.toList(), older.calculations.entries.toList()) { calculationSettingKey(it.key) }
+            .associate { it.key to it.value },
+        formulas = merge.mergedList(newer.formulas.entries.toList(), older.formulas.entries.toList()) { formulaSettingKey(it.key) }
             .associate { it.key to it.value },
         filters = merge.mergedList(newer.filters, older.filters) { filterSettingKey(it.id) },
         cellStyles = merge.mergedList(newer.cellStyles.entries.toList(), older.cellStyles.entries.toList()) { cellStyleSettingKey(it.key) }
@@ -97,8 +102,10 @@ private fun DatabaseBlock.settingsByKey(): Map<String, Any> = buildMap {
     views.forEach { put(viewSettingKey(it.id), it) }
     activeViewId?.let { put(ACTIVE_VIEW_SETTING_KEY, it) }
     columns.forEach { put(columnSettingKey(it), it) }
+    notesColumnAfterKey?.let { put(NOTES_POSITION_SETTING_KEY, it) }
     columnWidths.forEach { (columnKey, width) -> put(widthSettingKey(columnKey), width) }
     calculations.forEach { (columnKey, calculation) -> put(calculationSettingKey(columnKey), calculation) }
+    formulas.forEach { (columnKey, formula) -> put(formulaSettingKey(columnKey), formula) }
     customProperties.forEach { put(propertySettingKey(it.id), it) }
     filters.forEach { put(filterSettingKey(it.id), it) }
     cellStyles.forEach { (styleKey, style) -> put(cellStyleSettingKey(styleKey), style) }

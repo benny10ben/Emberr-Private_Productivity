@@ -28,7 +28,8 @@ import androidx.compose.ui.input.pointer.isSecondaryPressed
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import com.emberr.domain.database.activeView
-import com.emberr.domain.database.visibleColumns
+import com.emberr.domain.database.columnsInTableOrder
+import com.emberr.domain.database.visibleColumnsInTableOrder
 import com.emberr.domain.model.DatabaseBlock
 import com.emberr.domain.model.DatabaseCellStyle
 import com.emberr.domain.model.DatabaseColumnTarget
@@ -61,6 +62,7 @@ internal fun DatabaseCellWithActions(
     inSelectionMode: Boolean,
     editor: DatabaseBlockEditor,
     runAfterKeyboardCloses: (() -> Unit) -> Unit,
+    modifier: Modifier = Modifier,
     cell: @Composable () -> Unit
 ) {
     var showsActions by remember { mutableStateOf(false) }
@@ -69,7 +71,7 @@ internal fun DatabaseCellWithActions(
     val backgroundColor = databaseBackgroundColorNamed(style.backgroundColorName)
 
     Box(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxHeight()
             .then(if (backgroundColor != null) Modifier.background(backgroundColor) else Modifier)
             .menuTapAnchor(tapAnchor)
@@ -143,11 +145,12 @@ private fun DatabaseCellActionsMenu(
     val rowBelow = shownRowIds.getOrNull(rowPosition + 1).takeIf { canPlaceRows }
 
     val isPropertyColumn = column != DatabaseColumnTarget.NotesTitle
-    val visibleColumns = block.visibleColumns()
+    val visibleColumns = block.visibleColumnsInTableOrder()
     val columnPosition = visibleColumns.indexOf(column)
-    val columnToTheLeft = visibleColumns.getOrNull(columnPosition - 1).takeIf { isPropertyColumn }
-    val columnToTheRight = visibleColumns.getOrNull(columnPosition + 1).takeIf { isPropertyColumn }
-    val columnAfterThisOne = block.columns.getOrNull(block.columns.indexOf(column) + 1)
+    val columnToTheLeft = visibleColumns.getOrNull(columnPosition - 1)
+    val columnToTheRight = visibleColumns.getOrNull(columnPosition + 1)
+    val allColumns = block.columnsInTableOrder()
+    val columnAfterThisOne = allColumns.getOrNull(allColumns.indexOf(column) + 1)
     val canMoveSomething = rowAbove != null || rowBelow != null || columnToTheLeft != null || columnToTheRight != null
 
     DatabaseMenu(expanded = expanded, title = "Cell actions", onDismiss = onDismiss) { closeAnd ->
@@ -163,17 +166,15 @@ private fun DatabaseCellActionsMenu(
                 onClick = { closeAnd { editor.insertRow(block.id, view.id, shownRowIds, rowNoteId, isAfter = true) } }
             )
         }
-        if (isPropertyColumn) {
-            DatabaseInsertColumnOption(
-                label = "Insert column left",
-                icon = Res.drawable.arrow_left,
-                block = block,
-                rowCount = rowCount,
-                beforeColumn = column,
-                editor = editor,
-                closeMenuAnd = closeAnd
-            )
-        }
+        DatabaseInsertColumnOption(
+            label = "Insert column left",
+            icon = Res.drawable.arrow_left,
+            block = block,
+            rowCount = rowCount,
+            beforeColumn = column,
+            editor = editor,
+            closeMenuAnd = closeAnd
+        )
         DatabaseInsertColumnOption(
             label = "Insert column right",
             icon = Res.drawable.arrow_right,

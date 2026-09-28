@@ -145,7 +145,7 @@ fun PropertiesScreen(
         ) {
             Column(modifier = Modifier.widthIn(max = PropertiesPaneMaxWidth).fillMaxWidth()) {
                 SettingsGroup(title = "Built-in") {
-                    PropertyType.entries.forEachIndexed { index, propertyType ->
+                    PropertyType.entries.filterNot { it.isOnlyForDatabases }.forEachIndexed { index, propertyType ->
                         if (index > 0) SettingsDivider()
                         PropertyRow(
                             icon = propertyType.iconResource(),
@@ -311,7 +311,7 @@ internal fun PropertyEditor(
     onDeleteConfirm: () -> Unit,
     onCancel: () -> Unit,
     onSave: () -> Unit,
-    allowedValueTypes: List<PropertyValueType> = PropertyValueType.entries
+    allowedValueTypes: List<PropertyValueType> = PropertyValueType.entries.filterNot { it.isOnlyForDatabases }
 ) {
     val isNew = state.propertyId == null
 

@@ -38,7 +38,7 @@ fun calculationsFor(valueType: PropertyValueType): List<DatabaseCalculation> = w
         DatabaseCalculation.PERCENT_CHECKED,
         DatabaseCalculation.PERCENT_UNCHECKED
     )
-    valueType.holdsNumber -> calculationsForEveryColumn + listOf(
+    valueType.holdsNumber || valueType.holdsFormula -> calculationsForEveryColumn + listOf(
         DatabaseCalculation.SUM,
         DatabaseCalculation.AVERAGE,
         DatabaseCalculation.MEDIAN,
@@ -140,6 +140,7 @@ private fun DatabaseRow.valuesAt(column: DatabaseColumnTarget): List<String> {
     val cell = cell(column)
     val values = when {
         column == DatabaseColumnTarget.NotesTitle -> listOf(title)
+        formulaResult(column) != null -> listOf(displayValueAt(column))
         cell == null -> emptyList()
         cell.valueType.holdsTags -> cell.tags.map { it.lowercase() }
         else -> listOf(displayValueAt(column))

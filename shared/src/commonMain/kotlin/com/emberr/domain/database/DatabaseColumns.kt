@@ -25,6 +25,24 @@ fun DatabaseBlock.visibleColumns(): List<DatabaseColumnTarget> {
     return columns.filterNot { it.columnKey in hiddenColumnKeys }
 }
 
+fun DatabaseBlock.columnsInTableOrder(): List<DatabaseColumnTarget> {
+    val notesPosition = columns.indexOfFirst { it.columnKey == notesColumnAfterKey } + 1
+    return columns.toMutableList().apply { add(notesPosition, DatabaseColumnTarget.NotesTitle) }
+}
+
+fun DatabaseBlock.visibleColumnsInTableOrder(): List<DatabaseColumnTarget> {
+    val hiddenColumnKeys = activeView().hiddenColumnKeys
+    return columnsInTableOrder().filter { it == DatabaseColumnTarget.NotesTitle || it.columnKey !in hiddenColumnKeys }
+}
+
+private fun DatabaseBlock.withTableOrder(tableOrder: List<DatabaseColumnTarget>): DatabaseBlock {
+    val notesPosition = tableOrder.indexOf(DatabaseColumnTarget.NotesTitle)
+    return copy(
+        columns = tableOrder - DatabaseColumnTarget.NotesTitle,
+        notesColumnAfterKey = tableOrder.getOrNull(notesPosition - 1)?.columnKey
+    )
+}
+
 fun DatabaseBlock.withColumnShown(viewId: String, column: DatabaseColumnTarget, isShown: Boolean): DatabaseBlock =
     withViewChanged(viewId) { view ->
         val hiddenColumnKeys = if (isShown) {
@@ -38,16 +56,22 @@ fun DatabaseBlock.withColumnShown(viewId: String, column: DatabaseColumnTarget, 
 fun DatabaseBlock.withColumnAdded(column: DatabaseColumnTarget, beforeColumn: DatabaseColumnTarget? = null): DatabaseBlock {
     if (column == DatabaseColumnTarget.NotesTitle || column in columns) return this
     if (column is DatabaseColumnTarget.CustomProperty && customPropertyWithId(column.propertyId) == null) return this
-    return copy(columns = (columns + column).withItemMovedBefore(column, beforeColumn))
+    return withTableOrder((columnsInTableOrder() + column).withItemMovedBefore(column, beforeColumn))
 }
 
-fun DatabaseBlock.withColumnMovedBefore(column: DatabaseColumnTarget, beforeColumn: DatabaseColumnTarget): DatabaseBlock =
-    copy(columns = columns.withItemMovedBefore(column, beforeColumn))
+fun DatabaseBlock.withColumnMovedBefore(column: DatabaseColumnTarget, beforeColumn: DatabaseColumnTarget?): DatabaseBlock =
+    withTableOrder(columnsInTableOrder().withItemMovedBefore(column, beforeColumn))
 
 fun DatabaseBlock.withColumnRemoved(column: DatabaseColumnTarget): DatabaseBlock = copy(
     columns = columns - column,
+    notesColumnAfterKey = if (notesColumnAfterKey == column.columnKey) {
+        columns.getOrNull(columns.indexOf(column) - 1)?.columnKey
+    } else {
+        notesColumnAfterKey
+    },
     columnWidths = columnWidths - column.columnKey,
     calculations = calculations - column.columnKey,
+    formulas = formulas - column.columnKey,
     columnStyles = columnStyles - column.columnKey,
     cellStyles = cellStyles.withoutCellsOfColumn(column.columnKey),
     views = views.map { view -> view.copy(hiddenColumnKeys = view.hiddenColumnKeys - column.columnKey) },
@@ -58,8 +82,13 @@ fun DatabaseBlock.withColumnRemoved(column: DatabaseColumnTarget): DatabaseBlock
 fun DatabaseBlock.withDatabasePropertyCreated(property: DatabaseCustomProperty, beforeColumn: DatabaseColumnTarget? = null): DatabaseBlock =
     copy(customProperties = customProperties + property).withColumnAdded(DatabaseColumnTarget.CustomProperty(property.id), beforeColumn)
 
-fun DatabaseBlock.withDatabasePropertyRenamed(propertyId: String, newName: String): DatabaseBlock =
-    copy(customProperties = customProperties.map { if (it.id == propertyId) it.copy(name = newName) else it })
+fun DatabaseBlock.withDatabasePropertyRenamed(propertyId: String, newName: String): DatabaseBlock {
+    val oldName = customPropertyWithId(propertyId)?.name ?: return this
+    return copy(
+        customProperties = customProperties.map { if (it.id == propertyId) it.copy(name = newName) else it },
+        formulas = formulas.mapValues { (_, formula) -> formula.withPropertyReferenceRenamed(oldName, newName) }
+    )
+}
 
 fun DatabaseBlock.withDatabasePropertyDeleted(propertyId: String): DatabaseBlock =
     withColumnRemoved(DatabaseColumnTarget.CustomProperty(propertyId))

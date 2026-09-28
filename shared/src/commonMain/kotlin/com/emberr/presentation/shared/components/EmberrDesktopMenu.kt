@@ -3,6 +3,7 @@ package com.emberr.presentation.shared.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.MaterialTheme
@@ -27,6 +28,7 @@ import androidx.compose.ui.window.PopupProperties
 private val DefaultMenuShape = RoundedCornerShape(18.dp)
 private val MenuEdgeWidth = 0.5.dp
 private const val MenuEdgeAlpha = 0.2f
+private val MenuHorizontalPadding = 6.dp
 
 @Composable
 fun EmberrDesktopMenu(
@@ -77,10 +79,12 @@ fun EmberrDesktopMenu(
                 .then(placementModifier)
                 .emberrBlur(blurSource, EmberrBlur.Thick)
                 .border(width = MenuEdgeWidth, color = edgeColor, shape = DefaultMenuShape)
+                .padding(horizontal = MenuHorizontalPadding)
         } else {
             modifier
                 .then(placementModifier)
                 .background(color = surfaceColor, shape = DefaultMenuShape)
+                .padding(horizontal = MenuHorizontalPadding)
         },
         content = menuContent
     )
