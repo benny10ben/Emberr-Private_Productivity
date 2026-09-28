@@ -181,7 +181,6 @@ internal fun DatabaseMenuSectionLabel(text: String) {
 
 @Composable
 internal fun DatabaseMenuSectionDivider() {
-    if (isDesktopPlatform) return
     HorizontalDivider(
         modifier = Modifier.padding(horizontal = DatabaseMenuTextInset, vertical = 8.dp),
         color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)
