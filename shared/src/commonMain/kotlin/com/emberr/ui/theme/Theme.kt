@@ -20,6 +20,8 @@ val CloudVeil      = Color(0xFFEFEFEF)
 val HighlightLime      = Color(0xFFFFF176)
 val HighlightLimeDark  = Color(0xFF6B5F10)
 const val HighlightCellBackgroundHex = "#FDFFB6"
+val TableGridLineLight = Color(0xFFDADADA)
+val TableGridLineDark  = Color(0xFF3A3A3A)
 
 private val LightColorScheme = lightColorScheme(
     primary          = CharcoalNoir,
@@ -47,6 +49,9 @@ val LocalAppIsDark = staticCompositionLocalOf { false }
 
 val highlightBackgroundColor: Color
     @Composable get() = if (LocalAppIsDark.current) HighlightLimeDark else HighlightLime
+
+val tableGridLineColor: Color
+    @Composable get() = if (LocalAppIsDark.current) TableGridLineDark else TableGridLineLight
 
 enum class FontSizePreference { EXTRA_SMALL, SMALL, DEFAULT, LARGE, EXTRA_LARGE }
 enum class ThemePreference(val displayName: String) {
