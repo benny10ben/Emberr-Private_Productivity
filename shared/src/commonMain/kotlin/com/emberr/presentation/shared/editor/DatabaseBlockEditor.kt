@@ -5,13 +5,17 @@ import com.emberr.domain.database.DatabaseBoardGroupValue
 import com.emberr.domain.database.DatabaseCellPreset
 import com.emberr.domain.database.DatabaseRow
 import com.emberr.domain.database.DatabaseRowChange
+import com.emberr.domain.database.DatabaseStyleTarget
 import com.emberr.domain.database.HistoryDirection
 import com.emberr.domain.database.newDatabaseFilter
+import com.emberr.domain.database.manualRowOrderWithRowPlaced
 import com.emberr.domain.database.withColumnAdded
+import com.emberr.domain.database.withColumnMovedBefore
 import com.emberr.domain.database.withColumnRemoved
 import com.emberr.domain.database.movedBetweenGroups
 import com.emberr.domain.database.newViewName
 import com.emberr.domain.database.withColumnShown
+import com.emberr.domain.database.withStyle
 import com.emberr.domain.database.withViewAdded
 import com.emberr.domain.database.withViewChanged
 import com.emberr.domain.database.withViewDeleted
@@ -25,6 +29,7 @@ import com.emberr.data.local.room.entity.PropertyTagEntity
 import com.emberr.domain.model.DatabaseBlock
 import com.emberr.domain.model.DatabaseCalculation
 import com.emberr.domain.model.DatabaseCardSize
+import com.emberr.domain.model.DatabaseCellStyle
 import com.emberr.domain.model.DatabaseColumnTarget
 import com.emberr.domain.model.DatabaseCustomProperty
 import com.emberr.domain.model.DatabaseFilter
@@ -209,6 +214,28 @@ class DatabaseBlockEditor(
         }
     }
 
+    fun insertRow(blockId: String, viewId: String, shownRowIds: List<String>, nextToRowId: String, isAfter: Boolean) {
+        if (host.findDatabaseBlock(blockId) == null) return
+        writeTextEditsNow()
+        writeInOrder { historyGeneration ->
+            val databaseBlock = host.findDatabaseBlock(blockId) ?: return@writeInOrder
+            val change = repository.createDatabaseRow(databaseBlock, databaseBlock.defaultTemplateId, cellPreset = null)
+            rememberRowWasWritten(change.rowNoteId)
+            host.changeDatabaseBlockTogetherWithRows(blockId, listOf(change), historyGeneration) { databaseBlockNow ->
+                databaseBlockNow.withViewChanged(viewId) { view ->
+                    view.copy(manualRowOrder = manualRowOrderWithRowPlaced(shownRowIds, view.manualRowOrder, change.rowNoteId, nextToRowId, isAfter))
+                }
+            }
+            _rowToFocus.value = change.rowNoteId
+        }
+    }
+
+    fun moveRow(blockId: String, viewId: String, shownRowIds: List<String>, rowNoteId: String, nextToRowId: String, isAfter: Boolean) {
+        changeView(blockId, viewId) { view ->
+            view.copy(manualRowOrder = manualRowOrderWithRowPlaced(shownRowIds, view.manualRowOrder, rowNoteId, nextToRowId, isAfter))
+        }
+    }
+
     fun addRowInGroup(blockId: String, column: DatabaseColumnTarget, groupValue: DatabaseBoardGroupValue) {
         val databaseBlock = host.findDatabaseBlock(blockId) ?: return
         val preset = DatabaseCellPreset(column) { it.movedBetweenGroups(from = DatabaseBoardGroupValue.NoValue, to = groupValue) }
@@ -324,7 +351,12 @@ class DatabaseBlockEditor(
         }
     }
 
-    fun addColumn(blockId: String, column: DatabaseColumnTarget, viewIdToGroupByIt: String? = null) {
+    fun addColumn(
+        blockId: String,
+        column: DatabaseColumnTarget,
+        viewIdToGroupByIt: String? = null,
+        beforeColumn: DatabaseColumnTarget? = null
+    ) {
         val databaseBlock = host.findDatabaseBlock(blockId) ?: return
         if (databaseBlock.withColumnAdded(column) === databaseBlock) return
         writeTextEditsNow()
@@ -333,9 +365,23 @@ class DatabaseBlockEditor(
             val rowChanges = repository.addDatabaseColumnToRows(latestBlock, column)
             rowChanges.forEach { rememberRowWasWritten(it.rowNoteId) }
             host.changeDatabaseBlockTogetherWithRows(blockId, rowChanges, historyGeneration) {
-                it.withColumnAdded(column).groupedByIfAsked(viewIdToGroupByIt, column)
+                it.withColumnAdded(column, beforeColumn).groupedByIfAsked(viewIdToGroupByIt, column)
             }
         }
+    }
+
+    fun setStyle(
+        blockId: String,
+        target: DatabaseStyleTarget,
+        rowNoteId: String,
+        column: DatabaseColumnTarget,
+        style: DatabaseCellStyle
+    ) {
+        host.changeDatabaseBlock(blockId) { it.withStyle(target, rowNoteId, column, style) }
+    }
+
+    fun moveColumnBefore(blockId: String, column: DatabaseColumnTarget, beforeColumn: DatabaseColumnTarget) {
+        host.changeDatabaseBlock(blockId) { it.withColumnMovedBefore(column, beforeColumn) }
     }
 
     private fun DatabaseBlock.groupedByIfAsked(viewId: String?, column: DatabaseColumnTarget): DatabaseBlock =
@@ -354,7 +400,13 @@ class DatabaseBlockEditor(
     }
 
     @OptIn(ExperimentalUuidApi::class)
-    fun createProperty(blockId: String, name: String, valueType: PropertyValueType, viewIdToGroupByIt: String? = null) {
+    fun createProperty(
+        blockId: String,
+        name: String,
+        valueType: PropertyValueType,
+        viewIdToGroupByIt: String? = null,
+        beforeColumn: DatabaseColumnTarget? = null
+    ) {
         val databaseBlock = host.findDatabaseBlock(blockId) ?: return
         val cleanedName = name.trim()
         if (cleanedName.isEmpty() || databaseBlock.isPropertyNameTaken(cleanedName, ignoringPropertyId = null)) return
@@ -362,11 +414,12 @@ class DatabaseBlockEditor(
         writeTextEditsNow()
         writeInOrder { historyGeneration ->
             val latestBlock = host.findDatabaseBlock(blockId) ?: return@writeInOrder
-            val blockWithProperty = latestBlock.withDatabasePropertyCreated(property)
+            val blockWithProperty = latestBlock.withDatabasePropertyCreated(property, beforeColumn)
             val rowChanges = repository.addDatabaseColumnToRows(blockWithProperty, DatabaseColumnTarget.CustomProperty(property.id))
             rowChanges.forEach { rememberRowWasWritten(it.rowNoteId) }
             host.changeDatabaseBlockTogetherWithRows(blockId, rowChanges, historyGeneration) {
-                it.withDatabasePropertyCreated(property).groupedByIfAsked(viewIdToGroupByIt, DatabaseColumnTarget.CustomProperty(property.id))
+                it.withDatabasePropertyCreated(property, beforeColumn)
+                    .groupedByIfAsked(viewIdToGroupByIt, DatabaseColumnTarget.CustomProperty(property.id))
             }
         }
     }

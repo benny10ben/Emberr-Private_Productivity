@@ -57,6 +57,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.emberr.domain.database.activeView
 import com.emberr.domain.database.applyFiltersAndSort
+import com.emberr.domain.database.inManualOrder
 import com.emberr.domain.database.visibleColumns
 import com.emberr.domain.model.DatabaseBlock
 import com.emberr.domain.model.DatabaseColumnTarget
@@ -68,6 +69,7 @@ import com.emberr.presentation.shared.components.smoothWheelScroll
 import com.emberr.presentation.shared.editor.DatabaseBlockEditor
 import com.emberr.ui.theme.LocalEmberrFontStyle
 import com.emberr.ui.theme.fontFamilyFor
+import com.emberr.ui.theme.tableGridLineColor
 import emberr.shared.generated.resources.Res
 import emberr.shared.generated.resources.chevron_right
 import emberr.shared.generated.resources.list_sort_descending
@@ -121,7 +123,7 @@ fun DatabaseBlockView(
     val historyStepsApplied by editor.historyStepsApplied.collectAsState()
     val rowToFocus by editor.rowToFocus.collectAsState()
     val scrollState = rememberScrollState()
-    val tableBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
+    val tableBorderColor = tableGridLineColor
     val liveColumnWidths = remember(block.columnWidths) { mutableStateMapOf<String, Int>() }
     var showSettingsMenu by remember { mutableStateOf(false) }
     var showSortMenu by remember { mutableStateOf(false) }
@@ -263,6 +265,10 @@ fun DatabaseBlockView(
                     }
                 }
                 DatabaseViewType.TABLE -> {
+                    val tableRows = remember(visibleRows, block.sort, activeView.manualRowOrder) {
+                        if (block.sort == null) visibleRows.inManualOrder(activeView.manualRowOrder) else visibleRows
+                    }
+                    val shownRowIds = remember(tableRows) { tableRows.map { it.noteId } }
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -286,12 +292,15 @@ fun DatabaseBlockView(
                                         editor = editor,
                                         runAfterKeyboardCloses = runAfterKeyboardCloses
                                     )
-                                    visibleRows.forEach { row ->
+                                    tableRows.forEach { row ->
                                         key(row.noteId) {
                                             DatabaseRowItem(
                                                 row = row,
                                                 database = block,
+                                                shownRowIds = shownRowIds,
+                                                rowCount = rows.size,
                                                 columnWidth = ::columnWidth,
+                                                onColumnWidthChosen = ::chooseColumnWidth,
                                                 showsIcon = activeView.showsIcon,
                                                 inSelectionMode = inSelectionMode,
                                                 shouldTakeFocus = rowToFocus == row.noteId,

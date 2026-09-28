@@ -3,17 +3,21 @@
 package com.emberr.presentation.shared.editor.blockViews.database
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.LocalBringIntoViewSpec
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -24,7 +28,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -49,16 +55,19 @@ import emberr.shared.generated.resources.notes2
 import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
 
-internal val DesktopDatabaseMenuWidth = 260.dp
+internal val DesktopDatabaseMenuMinWidth = 240.dp
+internal val DesktopDatabaseMenuMaxWidth = 300.dp
 private val DesktopMenuVerticalPadding = 4.dp
 private val SheetBottomPadding = 16.dp
 private val SheetOptionVerticalPadding = 10.dp
+private val SheetActionRowShape = RoundedCornerShape(12.dp)
+private val SheetActionRowSpacing = 2.dp
+private val SheetActionRowIconGap = 12.dp
 
 internal val DatabaseMenuRowInset: Dp
-    get() = if (isDesktopPlatform) 8.dp else 12.dp
+    get() = if (isDesktopPlatform) 8.dp else 20.dp
 
-internal val DatabaseMenuTextInset: Dp
-    get() = if (isDesktopPlatform) 20.dp else 26.dp
+internal val DatabaseMenuTextInset: Dp = 20.dp
 
 internal fun DatabaseBlock.iconOf(column: DatabaseColumnTarget): DrawableResource = when (column) {
     DatabaseColumnTarget.NotesTitle -> Res.drawable.notes2
@@ -71,14 +80,19 @@ internal fun DatabaseMenu(
     expanded: Boolean,
     title: String,
     onDismiss: () -> Unit,
-    desktopWidth: Dp = DesktopDatabaseMenuWidth,
+    desktopWidth: Dp? = null,
+    showsCloseButton: Boolean = true,
     content: @Composable ColumnScope.(closeAnd: (() -> Unit) -> Unit) -> Unit
 ) {
     if (isDesktopPlatform) {
         EmberrDesktopMenu(
             expanded = expanded,
             onDismissRequest = onDismiss,
-            modifier = Modifier.width(desktopWidth)
+            modifier = if (desktopWidth == null) {
+                Modifier.widthIn(min = DesktopDatabaseMenuMinWidth, max = DesktopDatabaseMenuMaxWidth)
+            } else {
+                Modifier.width(desktopWidth)
+            }
         ) {
             CompositionLocalProvider(LocalBringIntoViewSpec provides SheetBringIntoViewSpec) {
                 Column(modifier = Modifier.fillMaxWidth().padding(vertical = DesktopMenuVerticalPadding)) {
@@ -98,6 +112,15 @@ internal fun DatabaseMenu(
         ) { closeAnd ->
             Column(modifier = Modifier.fillMaxWidth().navigationBarsPadding().padding(bottom = SheetBottomPadding)) {
                 content(closeAnd)
+                if (showsCloseButton) {
+                    DatabaseMenuContent {
+                        EmberrButtonPrimary(
+                            text = "Close",
+                            onClick = { closeAnd { } },
+                            modifier = Modifier.fillMaxWidth().padding(top = 12.dp)
+                        )
+                    }
+                }
             }
         }
     }
@@ -107,7 +130,8 @@ internal fun DatabaseMenu(
 internal fun DatabaseMenuLayer(
     title: String,
     anchor: @Composable (openLayer: () -> Unit) -> Unit,
-    desktopWidth: Dp = DesktopDatabaseMenuWidth,
+    desktopWidth: Dp? = null,
+    showsCloseButton: Boolean = true,
     content: @Composable ColumnScope.(closeLayerAnd: (() -> Unit) -> Unit) -> Unit
 ) {
     var isOpen by remember { mutableStateOf(false) }
@@ -115,12 +139,13 @@ internal fun DatabaseMenuLayer(
 
     Box(modifier = Modifier.menuTapAnchor(tapAnchor)) {
         anchor { isOpen = true }
-        MenuAtTap(tapAnchor, menuWidth = desktopWidth) {
+        MenuAtTap(tapAnchor, menuWidth = desktopWidth ?: DesktopDatabaseMenuMaxWidth) {
             DatabaseMenu(
                 expanded = isOpen,
                 title = title,
                 onDismiss = { isOpen = false },
                 desktopWidth = desktopWidth,
+                showsCloseButton = showsCloseButton,
                 content = content
             )
         }
@@ -131,20 +156,23 @@ internal fun DatabaseMenuLayer(
 internal fun DatabaseMenuOption(
     label: String,
     onClick: () -> Unit,
-    isSelected: Boolean = false,
+    isSelected: Boolean? = null,
     icon: (@Composable () -> Unit)? = null,
     trailing: (@Composable () -> Unit)? = null,
     labelColor: Color? = null
 ) {
+    val isPartOfAnOptionList = isSelected != null
     if (isDesktopPlatform) {
         EmberrDesktopMenuOption(
             label = label,
             onClick = onClick,
-            isSelected = isSelected,
+            isSelected = isSelected == true,
             icon = icon,
             trailing = trailing,
             labelColor = labelColor
         )
+    } else if (!isPartOfAnOptionList) {
+        DatabaseSheetActionRow(label = label, onClick = onClick, icon = icon, trailing = trailing, labelColor = labelColor)
     } else {
         EmberrBottomSheetOption(
             label = label,
@@ -156,6 +184,40 @@ internal fun DatabaseMenuOption(
             innerVerticalPadding = SheetOptionVerticalPadding,
             labelColor = labelColor
         )
+    }
+}
+
+@Composable
+private fun DatabaseSheetActionRow(
+    label: String,
+    onClick: () -> Unit,
+    icon: (@Composable () -> Unit)?,
+    trailing: (@Composable () -> Unit)?,
+    labelColor: Color?
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = DatabaseMenuRowInset, vertical = SheetActionRowSpacing)
+            .clip(SheetActionRowShape)
+            .clickable(onClick = onClick)
+            .padding(vertical = SheetOptionVerticalPadding),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        if (icon != null) {
+            icon()
+            Spacer(modifier = Modifier.width(SheetActionRowIconGap))
+        }
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyLarge,
+            color = labelColor ?: MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.weight(1f)
+        )
+        if (trailing != null) {
+            Spacer(modifier = Modifier.width(SheetActionRowIconGap))
+            trailing()
+        }
     }
 }
 

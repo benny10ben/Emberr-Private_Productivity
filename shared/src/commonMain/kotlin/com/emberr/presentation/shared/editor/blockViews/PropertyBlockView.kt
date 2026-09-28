@@ -2,6 +2,7 @@ package com.emberr.presentation.shared.editor.blockViews
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -35,24 +36,32 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.emberr.domain.model.PropertyBlock
 import com.emberr.domain.model.PropertyType
 import com.emberr.domain.model.PropertyValueType
+import com.emberr.domain.model.TextAlignment
 import com.emberr.domain.model.isNumberBeingTyped
 import com.emberr.domain.util.system.isDesktopPlatform
 import com.emberr.presentation.shared.components.MinimalDatePickerDialog
@@ -84,6 +93,20 @@ import kotlin.time.Instant
 
 private val PropertyValueHorizontalPadding = 12.dp
 private val PropertyValueVerticalPadding = 9.dp
+private val OpenValueIconWidth = 32.dp
+
+internal fun TextAlignment?.toTextAlign(): TextAlign = when (this) {
+    TextAlignment.LEFT -> TextAlign.Left
+    TextAlignment.CENTER -> TextAlign.Center
+    TextAlignment.RIGHT -> TextAlign.Right
+    else -> TextAlign.Unspecified
+}
+
+private fun TextAlignment?.toBoxAlignment(): Alignment = when (this) {
+    TextAlignment.CENTER -> Alignment.TopCenter
+    TextAlignment.RIGHT -> Alignment.TopEnd
+    else -> Alignment.TopStart
+}
 
 fun PropertyType.iconResource(): DrawableResource = when (this) {
     PropertyType.NAME -> Res.drawable.text_type
@@ -168,9 +191,15 @@ internal fun PropertyTextValue(
     block: PropertyBlock,
     inSelectionMode: Boolean,
     onUpdateText: (String) -> Unit,
-    widthModifier: Modifier
+    widthModifier: Modifier,
+    ignoresLongPressUntilFocused: Boolean = false,
+    textColor: Color? = null,
+    alignment: TextAlignment? = null
 ) {
     val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val focusRequester = remember { FocusRequester() }
+    var isFocused by remember { mutableStateOf(false) }
     val webLinkActions = rememberWebLinkActions()
     var fieldValue by remember { mutableStateOf(TextFieldValue(block.text, TextRange(block.text.length))) }
     val textsSentButNotYetEchoed = remember { mutableListOf<String>() }
@@ -208,69 +237,94 @@ internal fun PropertyTextValue(
         PropertyValueType.EMAIL -> Res.drawable.mail
         else -> Res.drawable.square_arrow_out_up_right
     }
+    val showsOpenIcon = openValue != null && block.text.isNotBlank() && !inSelectionMode
 
-    BasicTextField(
-        value = fieldValue,
-        onValueChange = { newValue ->
-            val cleanedValue = newValue.copy(text = newValue.text.replace('\n', ' ').replace('\r', ' '))
-            if (block.valueType.holdsNumber && !isNumberBeingTyped(cleanedValue.text)) return@BasicTextField
-            val textChanged = cleanedValue.text != fieldValue.text
-            fieldValue = cleanedValue
-            if (textChanged) {
-                textsSentButNotYetEchoed += cleanedValue.text
-                onUpdateText(cleanedValue.text)
-            }
-        },
-        enabled = !inSelectionMode,
-        textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onBackground),
-        cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-        keyboardOptions = KeyboardOptions(
-            capitalization = capitalization,
-            keyboardType = keyboardType,
-            imeAction = ImeAction.Done
-        ),
-        keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
-        modifier = widthModifier.onPreviewKeyEvent { event ->
-            val isEnterPress = event.key == Key.Enter && event.type == KeyEventType.KeyDown
-            if (isEnterPress) focusManager.clearFocus()
-            isEnterPress
-        },
-        decorationBox = { innerTextField ->
-            Row(
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Box(
-                    modifier = Modifier
-                        .weight(1f, fill = false)
-                        .padding(horizontal = PropertyValueHorizontalPadding, vertical = PropertyValueVerticalPadding)
+    Box(modifier = widthModifier, propagateMinConstraints = true) {
+        BasicTextField(
+            value = fieldValue,
+            onValueChange = { newValue ->
+                val cleanedValue = newValue.copy(text = newValue.text.replace('\n', ' ').replace('\r', ' '))
+                if (block.valueType.holdsNumber && !isNumberBeingTyped(cleanedValue.text)) return@BasicTextField
+                val textChanged = cleanedValue.text != fieldValue.text
+                fieldValue = cleanedValue
+                if (textChanged) {
+                    textsSentButNotYetEchoed += cleanedValue.text
+                    onUpdateText(cleanedValue.text)
+                }
+            },
+            enabled = !inSelectionMode,
+            textStyle = MaterialTheme.typography.bodyLarge.copy(
+                color = textColor ?: MaterialTheme.colorScheme.onBackground,
+                textAlign = alignment.toTextAlign()
+            ),
+            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+            keyboardOptions = KeyboardOptions(
+                capitalization = capitalization,
+                keyboardType = keyboardType,
+                imeAction = ImeAction.Done
+            ),
+            keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
+            modifier = Modifier
+                .focusRequester(focusRequester)
+                .onFocusChanged { isFocused = it.isFocused }
+                .onPreviewKeyEvent { event ->
+                    val isEnterPress = event.key == Key.Enter && event.type == KeyEventType.KeyDown
+                    if (isEnterPress) focusManager.clearFocus()
+                    isEnterPress
+                },
+            decorationBox = { innerTextField ->
+                Row(
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    if (fieldValue.text.isEmpty()) {
-                        Text(
-                            text = "Empty",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.outline
+                    Box(
+                        modifier = Modifier
+                            .weight(1f, fill = alignment != null)
+                            .padding(horizontal = PropertyValueHorizontalPadding, vertical = PropertyValueVerticalPadding),
+                        propagateMinConstraints = true
+                    ) {
+                        if (fieldValue.text.isEmpty()) {
+                            Text(
+                                text = "Empty",
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.outline,
+                                textAlign = alignment.toTextAlign()
+                            )
+                        }
+                        innerTextField()
+                    }
+
+                    if (openValue != null && showsOpenIcon) {
+                        Icon(
+                            painter = painterResource(openIcon),
+                            contentDescription = "Open ${block.label.lowercase()}",
+                            tint = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier
+                                .padding(end = 8.dp)
+                                .clip(CircleShape)
+                                .clickable { openValue(block.text.trim()) }
+                                .padding(4.dp)
+                                .size(16.dp)
                         )
                     }
-                    innerTextField()
-                }
-
-                if (openValue != null && block.text.isNotBlank() && !inSelectionMode) {
-                    Icon(
-                        painter = painterResource(openIcon),
-                        contentDescription = "Open ${block.label.lowercase()}",
-                        tint = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier
-                            .padding(end = 8.dp)
-                            .clip(CircleShape)
-                            .clickable { openValue(block.text.trim()) }
-                            .padding(4.dp)
-                            .size(16.dp)
-                    )
                 }
             }
+        )
+
+        if (ignoresLongPressUntilFocused && !isDesktopPlatform && !isFocused && !inSelectionMode) {
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .padding(end = if (showsOpenIcon) OpenValueIconWidth else 0.dp)
+                    .pointerInput(Unit) {
+                        detectTapGestures(onTap = {
+                            focusRequester.requestFocus()
+                            keyboardController?.show()
+                        })
+                    }
+            )
         }
-    )
+    }
 }
 
 @Composable
@@ -279,7 +333,9 @@ internal fun PropertyDateValue(
     inSelectionMode: Boolean,
     onUpdateDate: (LocalDate?) -> Unit,
     runAfterKeyboardCloses: (() -> Unit) -> Unit,
-    widthModifier: Modifier
+    widthModifier: Modifier,
+    textColor: Color? = null,
+    alignment: TextAlignment? = null
 ) {
     var showDatePicker by remember { mutableStateOf(false) }
     val date = block.date
@@ -302,9 +358,10 @@ internal fun PropertyDateValue(
                 color = when {
                     date == null -> MaterialTheme.colorScheme.outline
                     isPastDueDate -> MaterialTheme.colorScheme.error
-                    else -> MaterialTheme.colorScheme.onBackground
+                    else -> textColor ?: MaterialTheme.colorScheme.onBackground
                 },
-                modifier = Modifier.weight(1f, fill = false)
+                textAlign = alignment.toTextAlign(),
+                modifier = Modifier.weight(1f, fill = alignment != null)
             )
             if (date != null && !inSelectionMode) {
                 Icon(
@@ -342,7 +399,8 @@ internal fun PropertyTagsValue(
     onUpdateTags: (List<String>) -> Unit,
     runAfterKeyboardCloses: (() -> Unit) -> Unit,
     widthModifier: Modifier,
-    tagTextStyle: TextStyle = MaterialTheme.typography.bodyMedium
+    tagTextStyle: TextStyle = MaterialTheme.typography.bodyMedium,
+    alignment: TextAlignment? = null
 ) {
     var showTagPicker by remember { mutableStateOf(false) }
 
@@ -350,7 +408,8 @@ internal fun PropertyTagsValue(
         Box(
             modifier = widthModifier
                 .clickable(enabled = !inSelectionMode) { runAfterKeyboardCloses { showTagPicker = true } }
-                .padding(horizontal = PropertyValueHorizontalPadding, vertical = PropertyValueVerticalPadding)
+                .padding(horizontal = PropertyValueHorizontalPadding, vertical = PropertyValueVerticalPadding),
+            contentAlignment = alignment.toBoxAlignment()
         ) {
             if (block.tags.isEmpty()) {
                 Text(
@@ -386,12 +445,14 @@ internal fun PropertyCheckboxValue(
     block: PropertyBlock,
     inSelectionMode: Boolean,
     onUpdateChecked: (Boolean) -> Unit,
-    widthModifier: Modifier
+    widthModifier: Modifier,
+    alignment: TextAlignment? = null
 ) {
     Box(
         modifier = widthModifier
             .clickable(enabled = !inSelectionMode) { onUpdateChecked(!block.isChecked) }
-            .padding(horizontal = PropertyValueHorizontalPadding, vertical = PropertyValueVerticalPadding)
+            .padding(horizontal = PropertyValueHorizontalPadding, vertical = PropertyValueVerticalPadding),
+        contentAlignment = alignment.toBoxAlignment()
     ) {
         Box(modifier = Modifier.size(24.dp), contentAlignment = Alignment.Center) {
             CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {

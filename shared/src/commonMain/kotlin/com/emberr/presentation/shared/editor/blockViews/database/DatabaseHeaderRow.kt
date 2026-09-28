@@ -57,6 +57,7 @@ import com.emberr.presentation.shared.editor.DatabaseBlockEditor
 import com.emberr.presentation.shared.editor.blockViews.iconResource
 import com.emberr.presentation.shared.editor.components.DesktopCursor
 import com.emberr.presentation.shared.editor.components.desktopPointerCursor
+import com.emberr.ui.theme.tableGridLineColor
 import emberr.shared.generated.resources.Res
 import emberr.shared.generated.resources.funnel
 import emberr.shared.generated.resources.minus
@@ -116,7 +117,7 @@ private fun DatabaseColumnHeader(
     runAfterKeyboardCloses: (() -> Unit) -> Unit
 ) {
     var showMenu by remember { mutableStateOf(false) }
-    val lineColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.65f)
+    val lineColor = tableGridLineColor
     val canOpenMenu = !inSelectionMode
     val tapAnchor = rememberMenuTapAnchor()
 
@@ -170,7 +171,7 @@ private fun DatabaseColumnHeader(
             )
         }
 
-        MenuAtTap(tapAnchor, menuWidth = DesktopDatabaseMenuWidth) {
+        MenuAtTap(tapAnchor, menuWidth = DesktopDatabaseMenuMaxWidth) {
             DatabaseColumnMenu(
                 expanded = showMenu,
                 block = block,
@@ -241,6 +242,7 @@ private fun DatabaseColumnMenu(
         if (customProperty != null) {
             DatabaseMenuLayer(
                 title = "Edit property",
+                showsCloseButton = false,
                 anchor = { openLayer ->
                     DatabaseMenuOption(
                         label = "Edit property",
@@ -264,6 +266,7 @@ private fun DatabaseColumnMenu(
         if (column != DatabaseColumnTarget.NotesTitle) {
             DatabaseMenuLayer(
                 title = "Remove column",
+                showsCloseButton = false,
                 anchor = { openLayer ->
                     DatabaseMenuOption(
                         label = "Remove column",
@@ -285,7 +288,7 @@ private fun DatabaseColumnMenu(
 }
 
 @Composable
-private fun DatabaseRemoveColumnConfirmation(
+internal fun DatabaseRemoveColumnConfirmation(
     label: String,
     rowCount: Int,
     onCancel: () -> Unit,
@@ -321,7 +324,7 @@ private fun DatabaseDeletePropertyConfirmation(
 internal fun rowCountText(rowCount: Int): String = if (rowCount == 1) "1 row" else "$rowCount rows"
 
 @Composable
-private fun DatabaseColumnWidthStepper(width: Int, onWidthChosen: (Int) -> Unit) {
+internal fun DatabaseColumnWidthStepper(width: Int, onWidthChosen: (Int) -> Unit) {
     DatabaseMenuSectionLabel(text = "Column width")
     Row(
         modifier = Modifier.padding(horizontal = DatabaseMenuTextInset, vertical = 4.dp),
@@ -374,7 +377,7 @@ private fun DatabaseAddColumnButton(
     runAfterKeyboardCloses: (() -> Unit) -> Unit
 ) {
     var showPicker by remember { mutableStateOf(false) }
-    val lineColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.65f)
+    val lineColor = tableGridLineColor
 
     Box(
         modifier = Modifier
@@ -406,18 +409,19 @@ private fun DatabaseAddColumnButton(
 }
 
 @Composable
-private fun DatabaseAddColumnChoices(
+internal fun DatabaseAddColumnChoices(
     block: DatabaseBlock,
     rowCount: Int,
     editor: DatabaseBlockEditor,
-    closePickerAnd: (() -> Unit) -> Unit
+    closePickerAnd: (() -> Unit) -> Unit,
+    beforeColumn: DatabaseColumnTarget? = null
 ) {
     val builtInPropertiesToAdd = block.builtInPropertiesNotYetAdded()
     builtInPropertiesToAdd.forEach { propertyType ->
         DatabaseMenuOption(
             label = propertyType.label,
             icon = { DatabaseOptionIcon(propertyType.iconResource()) },
-            onClick = { closePickerAnd { editor.addColumn(block.id, DatabaseColumnTarget.Property(propertyType)) } }
+            onClick = { closePickerAnd { editor.addColumn(block.id, DatabaseColumnTarget.Property(propertyType), beforeColumn = beforeColumn) } }
         )
     }
 
@@ -431,6 +435,7 @@ private fun DatabaseAddColumnChoices(
             key(property.id) {
                 DatabaseMenuLayer(
                     title = "Edit property",
+                    showsCloseButton = false,
                     anchor = { openLayer ->
                         DatabaseMenuOption(
                             label = property.name,
@@ -447,7 +452,9 @@ private fun DatabaseAddColumnChoices(
                                         .size(16.dp)
                                 )
                             },
-                            onClick = { closePickerAnd { editor.addColumn(block.id, DatabaseColumnTarget.CustomProperty(property.id)) } }
+                            onClick = {
+                                closePickerAnd { editor.addColumn(block.id, DatabaseColumnTarget.CustomProperty(property.id), beforeColumn = beforeColumn) }
+                            }
                         )
                     }
                 ) { closeLayerAnd ->
@@ -466,6 +473,7 @@ private fun DatabaseAddColumnChoices(
 
     DatabaseMenuLayer(
         title = "New property",
+        showsCloseButton = false,
         anchor = { openLayer ->
             DatabaseMenuOption(
                 label = "New property",
@@ -478,7 +486,8 @@ private fun DatabaseAddColumnChoices(
             block = block,
             editor = editor,
             onCancel = { closeLayerAnd { } },
-            closeAnd = { action -> closeLayerAnd { closePickerAnd(action) } }
+            closeAnd = { action -> closeLayerAnd { closePickerAnd(action) } },
+            beforeColumn = beforeColumn
         )
     }
 }
@@ -490,7 +499,8 @@ internal fun DatabaseNewPropertyPage(
     onCancel: () -> Unit,
     closeAnd: (() -> Unit) -> Unit,
     allowedValueTypes: List<PropertyValueType> = PropertyValueType.entries,
-    viewIdToGroupByIt: String? = null
+    viewIdToGroupByIt: String? = null,
+    beforeColumn: DatabaseColumnTarget? = null
 ) {
     var state by remember {
         mutableStateOf(PropertyEditorState(propertyId = null, originalName = "", name = "", valueType = allowedValueTypes.first()))
@@ -511,7 +521,7 @@ internal fun DatabaseNewPropertyPage(
                 if (state.name.isNotBlank() && !isNameTaken) {
                     val name = state.name
                     val valueType = state.valueType
-                    closeAnd { editor.createProperty(block.id, name, valueType, viewIdToGroupByIt) }
+                    closeAnd { editor.createProperty(block.id, name, valueType, viewIdToGroupByIt, beforeColumn) }
                 }
             },
             allowedValueTypes = allowedValueTypes
@@ -542,6 +552,7 @@ private fun DatabaseEditPropertyPage(
 
     DatabaseMenuLayer(
         title = "Delete property",
+        showsCloseButton = false,
         anchor = { openLayer ->
             DatabaseMenuContent {
                 PropertyEditor(

@@ -1,6 +1,7 @@
 package com.emberr.presentation.shared.editor.blockViews.database
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
@@ -32,12 +33,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.TextRange
@@ -46,15 +49,21 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import com.emberr.domain.database.DatabaseRow
+import com.emberr.domain.database.effectiveStyleOf
 import com.emberr.domain.database.emptyCell
 import com.emberr.domain.database.visibleColumns
 import com.emberr.domain.model.DatabaseBlock
+import com.emberr.domain.model.DatabaseCellStyle
 import com.emberr.domain.model.DatabaseColumnTarget
+import com.emberr.domain.model.TextAlignment
+import com.emberr.domain.util.system.isDesktopPlatform
 import com.emberr.presentation.shared.editor.DatabaseBlockEditor
 import com.emberr.presentation.shared.editor.blockViews.PropertyCheckboxValue
 import com.emberr.presentation.shared.editor.blockViews.PropertyDateValue
 import com.emberr.presentation.shared.editor.blockViews.PropertyTagsValue
 import com.emberr.presentation.shared.editor.blockViews.PropertyTextValue
+import com.emberr.presentation.shared.editor.blockViews.toTextAlign
+import com.emberr.ui.theme.tableGridLineColor
 import emberr.shared.generated.resources.Res
 import emberr.shared.generated.resources.ellipsis
 import emberr.shared.generated.resources.square_arrow_out_up_right
@@ -65,7 +74,10 @@ import org.jetbrains.compose.resources.painterResource
 internal fun DatabaseRowItem(
     row: DatabaseRow,
     database: DatabaseBlock,
+    shownRowIds: List<String>,
+    rowCount: Int,
     columnWidth: (DatabaseColumnTarget) -> Int,
+    onColumnWidthChosen: (DatabaseColumnTarget, Int) -> Unit,
     showsIcon: Boolean,
     inSelectionMode: Boolean,
     shouldTakeFocus: Boolean,
@@ -75,30 +87,63 @@ internal fun DatabaseRowItem(
     runAfterKeyboardCloses: (() -> Unit) -> Unit
 ) {
     Row(modifier = Modifier.height(IntrinsicSize.Max).defaultMinSize(minHeight = DatabaseCellMinHeight)) {
-        key(historyStepsApplied) {
-            DatabaseTitleCell(
-                title = row.title,
-                icon = row.icon.takeIf { showsIcon },
-                width = columnWidth(DatabaseColumnTarget.NotesTitle),
-                inSelectionMode = inSelectionMode,
-                shouldTakeFocus = shouldTakeFocus,
-                onTitleChange = { editor.renameRow(database.id, row.noteId, it) },
-                onFocusLost = { editor.finishTyping() },
-                onFocusTaken = { editor.clearRowToFocus() },
-                onOpen = { editor.openRow(row.noteId, onOpenRow) }
-            )
+        val titleStyle = database.effectiveStyleOf(row.noteId, DatabaseColumnTarget.NotesTitle)
+        DatabaseCellWithActions(
+            block = database,
+            rowNoteId = row.noteId,
+            column = DatabaseColumnTarget.NotesTitle,
+            style = titleStyle,
+            shownRowIds = shownRowIds,
+            rowCount = rowCount,
+            width = columnWidth(DatabaseColumnTarget.NotesTitle),
+            onWidthChosen = { onColumnWidthChosen(DatabaseColumnTarget.NotesTitle, it) },
+            inSelectionMode = inSelectionMode,
+            editor = editor,
+            runAfterKeyboardCloses = runAfterKeyboardCloses
+        ) {
+            key(historyStepsApplied) {
+                DatabaseTitleCell(
+                    title = row.title,
+                    icon = row.icon.takeIf { showsIcon },
+                    width = columnWidth(DatabaseColumnTarget.NotesTitle),
+                    textColor = databaseTextColorNamed(titleStyle.textColorName),
+                    alignment = titleStyle.alignment,
+                    inSelectionMode = inSelectionMode,
+                    shouldTakeFocus = shouldTakeFocus,
+                    onTitleChange = { editor.renameRow(database.id, row.noteId, it) },
+                    onFocusLost = { editor.finishTyping() },
+                    onFocusTaken = { editor.clearRowToFocus() },
+                    onOpen = { editor.openRow(row.noteId, onOpenRow) }
+                )
+            }
         }
         database.visibleColumns().forEach { column ->
-            DatabasePropertyCell(
-                row = row,
-                database = database,
+            val cellStyle = database.effectiveStyleOf(row.noteId, column)
+            DatabaseCellWithActions(
+                block = database,
+                rowNoteId = row.noteId,
                 column = column,
+                style = cellStyle,
+                shownRowIds = shownRowIds,
+                rowCount = rowCount,
                 width = columnWidth(column),
+                onWidthChosen = { onColumnWidthChosen(column, it) },
                 inSelectionMode = inSelectionMode,
-                historyStepsApplied = historyStepsApplied,
                 editor = editor,
                 runAfterKeyboardCloses = runAfterKeyboardCloses
-            )
+            ) {
+                DatabasePropertyCell(
+                    row = row,
+                    database = database,
+                    column = column,
+                    style = cellStyle,
+                    width = columnWidth(column),
+                    inSelectionMode = inSelectionMode,
+                    historyStepsApplied = historyStepsApplied,
+                    editor = editor,
+                    runAfterKeyboardCloses = runAfterKeyboardCloses
+                )
+            }
         }
         DatabaseRowMenuButton(
             inSelectionMode = inSelectionMode,
@@ -114,6 +159,8 @@ private fun DatabaseTitleCell(
     title: String,
     icon: String?,
     width: Int,
+    textColor: Color?,
+    alignment: TextAlignment?,
     inSelectionMode: Boolean,
     shouldTakeFocus: Boolean,
     onTitleChange: (String) -> Unit,
@@ -127,8 +174,11 @@ private fun DatabaseTitleCell(
     var fieldValue by remember { mutableStateOf(TextFieldValue(title, TextRange(title.length))) }
     val textsSentButNotYetEchoed = remember { mutableListOf<String>() }
     var isFocused by remember { mutableStateOf(false) }
-    val lineColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.65f)
-    val textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onBackground)
+    val lineColor = tableGridLineColor
+    val textStyle = MaterialTheme.typography.bodyLarge.copy(
+        color = textColor ?: MaterialTheme.colorScheme.onBackground,
+        textAlign = alignment.toTextAlign()
+    )
 
     LaunchedEffect(title) {
         if (fieldValue.text == title) {
@@ -162,44 +212,59 @@ private fun DatabaseTitleCell(
             if (icon != null) {
                 Text(text = icon, style = textStyle, modifier = Modifier.padding(end = 6.dp))
             }
-            BasicTextField(
-                value = fieldValue,
-                onValueChange = { newValue ->
-                    val cleanedValue = newValue.copy(text = newValue.text.replace('\n', ' ').replace('\r', ' '))
-                    val textChanged = cleanedValue.text != fieldValue.text
-                    fieldValue = cleanedValue
-                    if (textChanged) {
-                        textsSentButNotYetEchoed += cleanedValue.text
-                        onTitleChange(cleanedValue.text)
-                    }
-                },
-                enabled = !inSelectionMode,
-                textStyle = textStyle,
-                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences, imeAction = ImeAction.Done),
-                keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(vertical = DatabaseCellVerticalPadding)
-                    .focusRequester(focusRequester)
-                    .onFocusChanged { focusState ->
-                        if (isFocused && !focusState.isFocused) onFocusLost()
-                        isFocused = focusState.isFocused
-                    }
-                    .onPreviewKeyEvent { event ->
-                        val isEnterPress = event.key == Key.Enter && event.type == KeyEventType.KeyDown
-                        if (isEnterPress) focusManager.clearFocus()
-                        isEnterPress
-                    },
-                decorationBox = { innerTextField ->
-                    Box {
-                        if (fieldValue.text.isEmpty()) {
-                            Text(text = "Untitled", style = textStyle.copy(color = MaterialTheme.colorScheme.outline))
+            Box(modifier = Modifier.weight(1f)) {
+                BasicTextField(
+                    value = fieldValue,
+                    onValueChange = { newValue ->
+                        val cleanedValue = newValue.copy(text = newValue.text.replace('\n', ' ').replace('\r', ' '))
+                        val textChanged = cleanedValue.text != fieldValue.text
+                        fieldValue = cleanedValue
+                        if (textChanged) {
+                            textsSentButNotYetEchoed += cleanedValue.text
+                            onTitleChange(cleanedValue.text)
                         }
-                        innerTextField()
+                    },
+                    enabled = !inSelectionMode,
+                    textStyle = textStyle,
+                    cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences, imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = DatabaseCellVerticalPadding)
+                        .focusRequester(focusRequester)
+                        .onFocusChanged { focusState ->
+                            if (isFocused && !focusState.isFocused) onFocusLost()
+                            isFocused = focusState.isFocused
+                        }
+                        .onPreviewKeyEvent { event ->
+                            val isEnterPress = event.key == Key.Enter && event.type == KeyEventType.KeyDown
+                            if (isEnterPress) focusManager.clearFocus()
+                            isEnterPress
+                        },
+                    decorationBox = { innerTextField ->
+                        Box(propagateMinConstraints = true) {
+                            if (fieldValue.text.isEmpty()) {
+                                Text(text = "Untitled", style = textStyle.copy(color = MaterialTheme.colorScheme.outline))
+                            }
+                            innerTextField()
+                        }
                     }
+                )
+
+                if (!isDesktopPlatform && !isFocused && !inSelectionMode) {
+                    Box(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .pointerInput(Unit) {
+                                detectTapGestures(onTap = {
+                                    focusRequester.requestFocus()
+                                    keyboardController?.show()
+                                })
+                            }
+                    )
                 }
-            )
+            }
 
             if (!inSelectionMode) {
                 Icon(
@@ -223,6 +288,7 @@ private fun DatabasePropertyCell(
     row: DatabaseRow,
     database: DatabaseBlock,
     column: DatabaseColumnTarget,
+    style: DatabaseCellStyle,
     width: Int,
     inSelectionMode: Boolean,
     historyStepsApplied: Int,
@@ -230,8 +296,9 @@ private fun DatabasePropertyCell(
     runAfterKeyboardCloses: (() -> Unit) -> Unit
 ) {
     val cell = row.cell(column) ?: database.emptyCell(column, row.noteId, now = 0L)
-    val lineColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.65f)
+    val lineColor = tableGridLineColor
     val valueModifier = Modifier.fillMaxWidth()
+    val textColor = databaseTextColorNamed(style.textColorName)
     var hadFocus by remember { mutableStateOf(false) }
 
     Box(
@@ -253,7 +320,9 @@ private fun DatabasePropertyCell(
                 inSelectionMode = inSelectionMode,
                 onUpdateDate = { editor.updateCellDate(database.id, row.noteId, column, it) },
                 runAfterKeyboardCloses = runAfterKeyboardCloses,
-                widthModifier = valueModifier
+                widthModifier = valueModifier,
+                textColor = textColor,
+                alignment = style.alignment
             )
             cell.valueType.holdsTags -> PropertyTagsValue(
                 block = cell,
@@ -261,20 +330,25 @@ private fun DatabasePropertyCell(
                 onUpdateTags = { editor.updateCellTags(database.id, row.noteId, column, it) },
                 runAfterKeyboardCloses = runAfterKeyboardCloses,
                 widthModifier = valueModifier,
-                tagTextStyle = MaterialTheme.typography.labelSmall
+                tagTextStyle = MaterialTheme.typography.labelSmall,
+                alignment = style.alignment
             )
             cell.valueType.holdsCheck -> PropertyCheckboxValue(
                 block = cell,
                 inSelectionMode = inSelectionMode,
                 onUpdateChecked = { editor.updateCellChecked(database.id, row.noteId, column, it) },
-                widthModifier = valueModifier
+                widthModifier = valueModifier,
+                alignment = style.alignment
             )
             else -> key(historyStepsApplied) {
                 PropertyTextValue(
                     block = cell,
                     inSelectionMode = inSelectionMode,
                     onUpdateText = { editor.updateCellText(database.id, row.noteId, column, it) },
-                    widthModifier = valueModifier
+                    widthModifier = valueModifier,
+                    ignoresLongPressUntilFocused = true,
+                    textColor = textColor,
+                    alignment = style.alignment
                 )
             }
         }
@@ -289,7 +363,7 @@ private fun DatabaseRowMenuButton(
     runAfterKeyboardCloses: (() -> Unit) -> Unit
 ) {
     var showMenu by remember { mutableStateOf(false) }
-    val lineColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.65f)
+    val lineColor = tableGridLineColor
 
     Box(
         modifier = Modifier

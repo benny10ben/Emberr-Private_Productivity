@@ -211,6 +211,7 @@ private fun DatabaseBoardGroupingOptions(block: DatabaseBlock, view: DatabaseVie
 
         DatabaseMenuLayer(
             title = "New property",
+            showsCloseButton = false,
             anchor = { openNewProperty ->
                 DatabaseMenuOption(
                     label = "New property",

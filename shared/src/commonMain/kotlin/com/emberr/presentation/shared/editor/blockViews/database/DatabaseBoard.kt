@@ -706,7 +706,7 @@ private fun DatabaseBoardColumnHeader(
             }
         }
 
-        MenuAtTap(tapAnchor, menuWidth = DesktopDatabaseMenuWidth) {
+        MenuAtTap(tapAnchor, menuWidth = DesktopDatabaseMenuMaxWidth) {
             DatabaseMenu(
                 expanded = showMenu,
                 title = labelText,
@@ -907,7 +907,7 @@ private fun DatabaseAddGroupButton(
             Text(text = "Add a group", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.outline, maxLines = 1)
         }
 
-        DatabaseMenu(expanded = showMenu, title = "New group", onDismiss = { showMenu = false }) { closeAnd ->
+        DatabaseMenu(expanded = showMenu, title = "New group", onDismiss = { showMenu = false }, showsCloseButton = false) { closeAnd ->
             DatabaseNewGroupPage(
                 existingNames = existingNames,
                 onCancel = { closeAnd { } },

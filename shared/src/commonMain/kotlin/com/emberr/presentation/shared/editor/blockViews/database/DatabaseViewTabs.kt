@@ -120,6 +120,7 @@ private fun DatabaseViewTab(
         DatabaseMenu(expanded = showMenu, title = view.name.ifBlank { view.type.label }, onDismiss = { showMenu = false }) { closeAnd ->
             DatabaseMenuLayer(
                 title = "Rename view",
+                showsCloseButton = false,
                 anchor = { openLayer ->
                     DatabaseMenuOption(label = "Rename", icon = { DatabaseOptionIcon(Res.drawable.pen) }, onClick = openLayer)
                 }
