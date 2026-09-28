@@ -4,6 +4,7 @@ import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -306,8 +307,6 @@ fun NoteBlockItem(
         else -> 4.dp
     }
 
-    val selectionBg = if (isSelected) MaterialTheme.colorScheme.surface else Color.Transparent
-
     val customTextSelectionColors = TextSelectionColors(
         handleColor = MaterialTheme.colorScheme.primary,
         backgroundColor = MaterialTheme.colorScheme.surface
@@ -400,12 +399,11 @@ fun NoteBlockItem(
         modifier = modifier
             .fillMaxWidth()
             .then(blockMouseModifier)
-            .background(selectionBg)
             .combinedClickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
                 onClick = { if (inSelectionMode) actions.onToggleSelection(block.id) },
-                onLongClick = { actions.onToggleSelection(block.id) }
+                onLongClick = if (isDesktopPlatform) null else { { actions.onToggleSelection(block.id) } }
             )
     ) {
         // Desktop slash menu
