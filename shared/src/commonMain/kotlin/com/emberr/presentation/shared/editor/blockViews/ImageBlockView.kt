@@ -111,7 +111,7 @@ fun ImageBlockView(
                                 if (inSelectionMode) onToggleSelection()
                                 else onRequestPicker()
                             },
-                            onLongClick = onToggleSelection
+                            onLongClick = if (isDesktopPlatform) null else onToggleSelection
                         )
                         .padding(horizontal = 14.dp, vertical = 14.dp)
                 ) {
@@ -168,7 +168,7 @@ fun ImageBlockView(
                             if (inSelectionMode) onToggleSelection()
                             else if (availability == MediaAvailability.Failed) mediaRetryCoordinator.retryMediaDownload(fileName)
                         },
-                        onLongClick = onToggleSelection
+                        onLongClick = if (isDesktopPlatform) null else onToggleSelection
                     ),
                 contentAlignment = Alignment.Center
             ) {
@@ -248,7 +248,7 @@ fun ImageBlockView(
                                 if (inSelectionMode) onToggleSelection()
                                 else showFullScreen = true
                             },
-                            onLongClick = onToggleSelection
+                            onLongClick = if (isDesktopPlatform) null else onToggleSelection
                         )
                 ) {
                     AsyncImage(

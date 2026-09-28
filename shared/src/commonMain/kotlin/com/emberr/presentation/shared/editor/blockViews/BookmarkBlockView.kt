@@ -87,7 +87,7 @@ fun BookmarkBlockView(
                         webLinkActions.openLink(block.url)
                     }
                 },
-                onLongClick = onToggleSelection
+                onLongClick = if (isDesktopPlatform) null else onToggleSelection
             )
     ) {
         if (isEditing) {

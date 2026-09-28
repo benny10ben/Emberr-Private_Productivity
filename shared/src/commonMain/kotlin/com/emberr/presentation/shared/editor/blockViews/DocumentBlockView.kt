@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import com.emberr.domain.model.DocumentBlock
 import com.emberr.domain.sync.MediaRetryCoordinator
 import com.emberr.domain.util.media.MediaStorageHelper
+import com.emberr.domain.util.system.isDesktopPlatform
 import com.emberr.presentation.shared.editor.DefaultBlockShape
 import emberr.shared.generated.resources.Res
 import emberr.shared.generated.resources.circle_x
@@ -85,7 +86,7 @@ fun DocumentBlockView(
                         if (inSelectionMode) onToggleSelection()
                         else onRequestPicker()
                     },
-                    onLongClick = onToggleSelection
+                    onLongClick = if (isDesktopPlatform) null else onToggleSelection
                 ),
             contentAlignment = Alignment.CenterStart
         ) {
@@ -122,7 +123,7 @@ fun DocumentBlockView(
                             MediaAvailability.Downloading -> Unit
                         }
                     },
-                    onLongClick = onToggleSelection
+                    onLongClick = if (isDesktopPlatform) null else onToggleSelection
                 )
         ) {
             Column(

@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import com.emberr.domain.model.VoiceBlock
 import com.emberr.domain.sync.MediaRetryCoordinator
 import com.emberr.domain.util.media.MediaStorageHelper
+import com.emberr.domain.util.system.isDesktopPlatform
 import com.emberr.presentation.shared.editor.DefaultBlockShape
 import emberr.shared.generated.resources.Res
 import emberr.shared.generated.resources.circle_x
@@ -110,7 +111,7 @@ fun AudioBlockView(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
                 onClick = { if (inSelectionMode) onToggleSelection() },
-                onLongClick = onToggleSelection
+                onLongClick = if (isDesktopPlatform) null else onToggleSelection
             )
     ) {
         Row(

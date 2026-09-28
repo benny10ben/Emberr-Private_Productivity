@@ -645,7 +645,7 @@ fun NoteBlockItem(
                                                     is HoveredLink.Web -> webLinkActions.copyLink(pressedLink.url)
                                                     is HoveredLink.Email -> webLinkActions.copyLink(pressedLink.email)
                                                     is HoveredLink.Phone -> webLinkActions.copyLink(pressedLink.phone)
-                                                    else -> actions.onToggleSelection(block.id)
+                                                    else -> if (!isDesktopPlatform) actions.onToggleSelection(block.id)
                                                 }
                                             }
                                         )
@@ -957,6 +957,15 @@ fun NoteBlockItem(
                     }
                 )
             }
+        }
+
+        if (isSelected) {
+            Box(
+                Modifier
+                    .matchParentSize()
+                    .padding(horizontal = 8.dp + desktopExtraPadding, vertical = 1.dp)
+                    .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f), DefaultBlockShape)
+            )
         }
 
         if (inSelectionMode) {

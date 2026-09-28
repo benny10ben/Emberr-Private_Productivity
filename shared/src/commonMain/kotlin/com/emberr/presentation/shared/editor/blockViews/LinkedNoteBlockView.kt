@@ -44,6 +44,7 @@ import coil3.request.ImageRequest
 import com.emberr.data.local.room.entity.NoteMetadataEntity
 import com.emberr.domain.model.LinkedNoteBlock
 import com.emberr.domain.util.media.MediaStorageHelper
+import com.emberr.domain.util.system.isDesktopPlatform
 import com.emberr.presentation.shared.editor.DefaultBlockShape
 import org.koin.compose.koinInject
 import java.io.File
@@ -80,7 +81,7 @@ fun LinkedNoteBlockView(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
                 onClick = { if (inSelectionMode) onToggleSelection() else onOpenNote() },
-                onLongClick = onToggleSelection
+                onLongClick = if (isDesktopPlatform) null else onToggleSelection
             )
     ) {
         AnimatedVisibility(

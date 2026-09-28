@@ -51,6 +51,7 @@ import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.toSize
 import com.emberr.domain.model.CanvasBlock
+import com.emberr.domain.util.system.isDesktopPlatform
 import com.emberr.presentation.LocalCanvasFullScreenOverlay
 import com.emberr.presentation.LocalImageOverlay
 import com.emberr.presentation.shared.canvas.CanvasScreen
@@ -177,7 +178,7 @@ fun CanvasBlockView(
                             interactionSource = remember { MutableInteractionSource() },
                             indication = null,
                             onClick = { if (inSelectionMode) onToggleSelection() else isActive = true },
-                            onLongClick = onToggleSelection
+                            onLongClick = if (isDesktopPlatform) null else onToggleSelection
                         )
                 )
             }
