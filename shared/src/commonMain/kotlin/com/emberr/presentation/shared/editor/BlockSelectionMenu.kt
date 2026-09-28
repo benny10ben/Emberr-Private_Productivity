@@ -21,6 +21,7 @@ import emberr.shared.generated.resources.highlight
 import emberr.shared.generated.resources.indent_left
 import emberr.shared.generated.resources.indent_right
 import emberr.shared.generated.resources.italic
+import emberr.shared.generated.resources.mouse_square2
 import emberr.shared.generated.resources.ordered_list
 import emberr.shared.generated.resources.quote_down2
 import emberr.shared.generated.resources.scissor2
@@ -84,6 +85,7 @@ fun BlockSelectionMenuContent(
                     if (onAddBlockBelow != null) {
                         add(SlashMenuItemData("Add Block Below", Res.drawable.arrow_down, action = closeThen(onAddBlockBelow)))
                     }
+                    add(SlashMenuItemData("Select More Blocks", Res.drawable.mouse_square2, action = onCloseMenu))
                     add(SlashMenuItemData("Select All Blocks", Icons.Default.SelectAll, action = closeThen(onSelectAll)))
                     add(SlashMenuItemData("Clear Selection", Res.drawable.x, 14.dp, action = closeThen(onClearSelection)))
                     add(SlashMenuItemData("Delete", Res.drawable.trash, action = closeThen(onDelete)))
