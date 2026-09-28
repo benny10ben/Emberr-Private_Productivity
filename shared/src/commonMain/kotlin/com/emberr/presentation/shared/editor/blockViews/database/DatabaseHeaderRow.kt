@@ -236,6 +236,7 @@ private fun DatabaseColumnMenu(
     DatabaseMenu(expanded = expanded, title = label, onDismiss = onDismiss) { closeMenuAnd ->
         if (!isDesktopPlatform) {
             DatabaseColumnWidthStepper(width = width, onWidthChosen = onWidthChosen)
+            DatabaseMenuSectionDivider()
         }
         if (customProperty != null) {
             DatabaseMenuLayer(
@@ -411,7 +412,8 @@ private fun DatabaseAddColumnChoices(
     editor: DatabaseBlockEditor,
     closePickerAnd: (() -> Unit) -> Unit
 ) {
-    block.builtInPropertiesNotYetAdded().forEach { propertyType ->
+    val builtInPropertiesToAdd = block.builtInPropertiesNotYetAdded()
+    builtInPropertiesToAdd.forEach { propertyType ->
         DatabaseMenuOption(
             label = propertyType.label,
             icon = { DatabaseOptionIcon(propertyType.iconResource()) },
@@ -421,6 +423,9 @@ private fun DatabaseAddColumnChoices(
 
     val hiddenProperties = block.customPropertiesNotShown()
     if (hiddenProperties.isNotEmpty()) {
+        if (builtInPropertiesToAdd.isNotEmpty()) {
+            DatabaseMenuSectionDivider()
+        }
         DatabaseMenuSectionLabel(text = "In this database")
         hiddenProperties.forEach { property ->
             key(property.id) {

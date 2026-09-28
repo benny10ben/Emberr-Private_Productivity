@@ -142,6 +142,7 @@ internal fun DatabaseSettingsMenu(
             }
         }
 
+        DatabaseMenuSectionDivider()
         DatabaseMenuSectionLabel(text = "All views")
         DatabaseMenuOption(
             label = "Row count",
@@ -182,6 +183,9 @@ private fun DatabaseBoardGroupingOptions(block: DatabaseBlock, view: DatabaseVie
         val builtInPropertiesToAdd = block.builtInPropertiesNotYetAdded().filter { canGroupBy(it.valueType) }
         val customPropertiesToShow = block.customPropertiesNotShown().filter { canGroupBy(it.valueType) }
         if (builtInPropertiesToAdd.isNotEmpty() || customPropertiesToShow.isNotEmpty()) {
+            if (block.groupableColumns().isNotEmpty()) {
+                DatabaseMenuSectionDivider()
+            }
             DatabaseMenuSectionLabel(text = "Add a property")
         }
         builtInPropertiesToAdd.forEach { propertyType ->

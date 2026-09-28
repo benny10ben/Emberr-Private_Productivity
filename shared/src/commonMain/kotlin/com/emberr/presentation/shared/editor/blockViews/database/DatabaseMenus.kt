@@ -10,9 +10,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -50,12 +52,13 @@ import org.jetbrains.compose.resources.painterResource
 internal val DesktopDatabaseMenuWidth = 260.dp
 private val DesktopMenuVerticalPadding = 4.dp
 private val SheetBottomPadding = 16.dp
+private val SheetOptionVerticalPadding = 10.dp
 
 internal val DatabaseMenuRowInset: Dp
-    get() = if (isDesktopPlatform) 8.dp else 20.dp
+    get() = if (isDesktopPlatform) 8.dp else 12.dp
 
 internal val DatabaseMenuTextInset: Dp
-    get() = if (isDesktopPlatform) 20.dp else 34.dp
+    get() = if (isDesktopPlatform) 20.dp else 26.dp
 
 internal fun DatabaseBlock.iconOf(column: DatabaseColumnTarget): DrawableResource = when (column) {
     DatabaseColumnTarget.NotesTitle -> Res.drawable.notes2
@@ -93,7 +96,7 @@ internal fun DatabaseMenu(
             title = title,
             contentHorizontalPadding = 0.dp
         ) { closeAnd ->
-            Column(modifier = Modifier.fillMaxWidth().padding(bottom = SheetBottomPadding)) {
+            Column(modifier = Modifier.fillMaxWidth().navigationBarsPadding().padding(bottom = SheetBottomPadding)) {
                 content(closeAnd)
             }
         }
@@ -149,6 +152,8 @@ internal fun DatabaseMenuOption(
             isSelected = isSelected,
             icon = icon,
             trailing = trailing,
+            outerHorizontalPadding = DatabaseMenuRowInset,
+            innerVerticalPadding = SheetOptionVerticalPadding,
             labelColor = labelColor
         )
     }
@@ -168,9 +173,18 @@ internal fun DatabaseOptionIcon(icon: DrawableResource, tint: Color = MaterialTh
 internal fun DatabaseMenuSectionLabel(text: String) {
     Text(
         text = text,
-        style = MaterialTheme.typography.bodyLarge,
-        color = MaterialTheme.colorScheme.outline,
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
         modifier = Modifier.padding(start = DatabaseMenuTextInset, end = DatabaseMenuTextInset, top = 8.dp, bottom = 4.dp)
+    )
+}
+
+@Composable
+internal fun DatabaseMenuSectionDivider() {
+    if (isDesktopPlatform) return
+    HorizontalDivider(
+        modifier = Modifier.padding(horizontal = DatabaseMenuTextInset, vertical = 8.dp),
+        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)
     )
 }
 

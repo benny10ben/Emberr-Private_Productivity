@@ -34,6 +34,7 @@ internal fun DatabaseSortMenu(
         }
 
         if (sort != null) {
+            DatabaseMenuSectionDivider()
             DatabaseMenuSectionLabel(text = "Order")
             DatabaseMenuOption(
                 label = "Ascending",

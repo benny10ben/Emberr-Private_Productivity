@@ -49,6 +49,7 @@ fun EmberrBottomSheetOption(
     labelMaxLines: Int = Int.MAX_VALUE,
     subtitleMaxLines: Int = Int.MAX_VALUE,
     outerHorizontalPadding: Dp = OPTION_OUTER_HORIZONTAL_PADDING,
+    innerVerticalPadding: Dp = OPTION_INNER_VERTICAL_PADDING,
     labelColor: Color? = null
 ) {
     Row(
@@ -67,7 +68,7 @@ fun EmberrBottomSheetOption(
             )
             .padding(
                 horizontal = OPTION_INNER_HORIZONTAL_PADDING,
-                vertical = OPTION_INNER_VERTICAL_PADDING
+                vertical = innerVerticalPadding
             ),
         verticalAlignment = Alignment.CenterVertically
     ) {
