@@ -8,8 +8,11 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.PopupProperties
@@ -30,22 +33,40 @@ fun EmberrDesktopMenu(
     val blurSource = LocalEmberrBlurSource.current
     val surfaceColor = MaterialTheme.colorScheme.surface
     val edgeColor = MaterialTheme.colorScheme.outline.copy(alpha = MenuEdgeAlpha)
+    val atTapPlacement = LocalMenuAtTapPlacement.current
+    val placementModifier = if (atTapPlacement == null) {
+        Modifier
+    } else {
+        Modifier.onGloballyPositioned { atTapPlacement.onMenuPositioned(it.positionInWindow().x) }
+    }
+    val menuOffset = if (atTapPlacement?.opensLeftward == true) DpOffset(x = -atTapPlacement.menuWidth, y = 0.dp) else offset
+    val menuContent: @Composable ColumnScope.() -> Unit = {
+        CompositionLocalProvider(
+            LocalMenuCascadeDirection provides (atTapPlacement?.direction ?: MenuCascadeDirection.RIGHT),
+            LocalMenuAtTapPlacement provides null
+        ) {
+            content()
+        }
+    }
 
     DropdownMenu(
         expanded = expanded,
         onDismissRequest = onDismissRequest,
-        offset = offset,
+        offset = menuOffset,
         properties = properties,
         shape = DefaultMenuShape,
         containerColor = if (blurSource != null) Color.Transparent else surfaceColor,
         shadowElevation = if (blurSource != null) EmberrShadowElevation.None else MenuDefaults.ShadowElevation,
         modifier = if (blurSource != null) {
             modifier
+                .then(placementModifier)
                 .emberrBlur(blurSource, EmberrBlur.Thick)
                 .border(width = MenuEdgeWidth, color = edgeColor, shape = DefaultMenuShape)
         } else {
-            modifier.background(color = surfaceColor, shape = DefaultMenuShape)
+            modifier
+                .then(placementModifier)
+                .background(color = surfaceColor, shape = DefaultMenuShape)
         },
-        content = content
+        content = menuContent
     )
 }
