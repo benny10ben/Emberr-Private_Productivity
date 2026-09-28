@@ -109,7 +109,12 @@ private fun DatabaseViewTab(
         ) {
             Icon(painter = painterResource(view.type.iconResource()), contentDescription = null, tint = color, modifier = Modifier.size(16.dp))
             Spacer(modifier = Modifier.width(6.dp))
-            Text(text = view.name.ifBlank { view.type.label }, style = MaterialTheme.typography.bodyLarge, color = color, maxLines = 1)
+            Text(
+                text = view.name.ifBlank { view.type.label },
+                style = MaterialTheme.typography.labelSmall,
+                color = if (isActive) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                maxLines = 1
+            )
         }
 
         DatabaseMenu(expanded = showMenu, title = view.name.ifBlank { view.type.label }, onDismiss = { showMenu = false }) { closeAnd ->
