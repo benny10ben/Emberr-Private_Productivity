@@ -52,6 +52,7 @@ import com.emberr.domain.database.withDatabaseCellPlaced
 import com.emberr.domain.database.withDatabaseColumnRemoved
 import com.emberr.domain.database.withCellPreset
 import com.emberr.domain.database.withDatabaseColumnShown
+import com.emberr.domain.database.withRowIdsReplaced
 import com.emberr.domain.model.BookmarkBlock
 import com.emberr.domain.model.BulletedListBlock
 import com.emberr.domain.model.CanvasBlock
@@ -2031,20 +2032,26 @@ class NoteRepositoryImpl(
     }
 
     override suspend fun copyDatabasesIn(content: NoteContent): NoteContent = withContext(Dispatchers.IO) {
-        copyDatabasesIn(content, copyIdsBySourceDatabaseId = mutableMapOf())
+        copyDatabasesIn(content, copyIdsBySourceDatabaseId = mutableMapOf(), copyRowIdsBySourceDatabaseId = mutableMapOf())
     }
 
-    private suspend fun copyDatabasesIn(content: NoteContent, copyIdsBySourceDatabaseId: MutableMap<String, String>): NoteContent {
+    private suspend fun copyDatabasesIn(
+        content: NoteContent,
+        copyIdsBySourceDatabaseId: MutableMap<String, String>,
+        copyRowIdsBySourceDatabaseId: MutableMap<String, Map<String, String>>
+    ): NoteContent {
         val liveSourceDatabaseIds = content.blocks.filterIsInstance<DatabaseBlock>().filterNot { it.isDeleted }.mapTo(HashSet()) { it.databaseId }
         val blocks = content.blocks.map { block ->
             if (block !is DatabaseBlock) return@map block
             val copiedDatabaseId = copyIdsBySourceDatabaseId[block.databaseId] ?: UUID.randomUUID().toString().also { copiedDatabaseId ->
                 copyIdsBySourceDatabaseId[block.databaseId] = copiedDatabaseId
-                if (block.databaseId in liveSourceDatabaseIds) {
-                    copyDatabaseRows(block.databaseId, copiedDatabaseId, copyIdsBySourceDatabaseId)
+                copyRowIdsBySourceDatabaseId[block.databaseId] = if (block.databaseId in liveSourceDatabaseIds) {
+                    copyDatabaseRows(block.databaseId, copiedDatabaseId, copyIdsBySourceDatabaseId, copyRowIdsBySourceDatabaseId)
+                } else {
+                    emptyMap()
                 }
             }
-            block.copy(databaseId = copiedDatabaseId)
+            block.copy(databaseId = copiedDatabaseId).withRowIdsReplaced(copyRowIdsBySourceDatabaseId[block.databaseId].orEmpty())
         }
         return content.copy(blocks = blocks)
     }
@@ -2052,18 +2059,22 @@ class NoteRepositoryImpl(
     private suspend fun copyDatabaseRows(
         sourceDatabaseId: String,
         copyDatabaseId: String,
-        copyIdsBySourceDatabaseId: MutableMap<String, String>
-    ) {
+        copyIdsBySourceDatabaseId: MutableMap<String, String>,
+        copyRowIdsBySourceDatabaseId: MutableMap<String, Map<String, String>>
+    ): Map<String, String> {
+        val copyIdsBySourceRowId = mutableMapOf<String, String>()
         val sourceRows = noteDao.getAllRowNotesIncludingTrashed(sourceDatabaseId)
             .filter { it.trashedAt == null }
             .sortedWith(compareBy({ it.createdAt }, { it.noteId }))
         val now = System.currentTimeMillis()
         sourceRows.forEachIndexed { index, sourceRow ->
             val copyRowNoteId = UUID.randomUUID().toString()
+            copyIdsBySourceRowId[sourceRow.noteId] = copyRowNoteId
             val sourceBlocks = getNoteContent(sourceRow.noteId)?.blocks.orEmpty()
             val copiedContent = copyDatabasesIn(
                 copyEmbeddedCanvasesIn(NoteContent(blocks = sourceBlocks.copiedForRow(sourceRow.noteId, copyRowNoteId))),
-                copyIdsBySourceDatabaseId
+                copyIdsBySourceDatabaseId,
+                copyRowIdsBySourceDatabaseId
             )
             val copyMetadata = NoteMetadataEntity(
                 noteId = copyRowNoteId,
@@ -2084,6 +2095,7 @@ class NoteRepositoryImpl(
                 saveNote(copyMetadata, copiedContent)
             }
         }
+        return copyIdsBySourceRowId
     }
 
     override suspend fun updateNoteSortOrder(noteId: String, order: Int) =

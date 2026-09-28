@@ -1,7 +1,10 @@
 package com.emberr.domain.database
 
 import com.emberr.domain.model.DatabaseBlock
+import com.emberr.domain.model.DatabaseCellStyle
 import com.emberr.domain.model.DatabaseColumnTarget
+import com.emberr.domain.model.DatabaseView
+import com.emberr.domain.model.DatabaseViewType
 import com.emberr.domain.model.PropertyBlock
 import com.emberr.domain.model.PropertyType
 import com.emberr.domain.model.PropertyValueType
@@ -91,5 +94,27 @@ class DatabaseCopiesTest {
         assertEquals(PropertyBlock(id = databaseCellBlockId(nameColumn, "new-row"), propertyType = PropertyType.NAME, updatedAt = 500L), row.cell(nameColumn))
         assertEquals("Checklist", (rowBlocks.last() as TextBlock).text)
         assertNotEquals(body.id, rowBlocks.last().id)
+    }
+
+    @Test
+    fun aCopiedDatabaseKeepsItsRowAndCellStylesAndRowOrderUnderTheCopiedRowIds() {
+        val red = DatabaseCellStyle(textColorName = "red")
+        val blue = DatabaseCellStyle(backgroundColorName = "blue")
+        val source = DatabaseBlock(
+            id = "block",
+            databaseId = "source-database",
+            columns = listOf(statusColumn),
+            rowStyles = mapOf("row-a" to blue, "trashed-row" to blue),
+            cellStyles = mapOf("row-b:STATUS" to red),
+            columnStyles = mapOf("STATUS" to red),
+            views = listOf(DatabaseView(id = "table", name = "Table", type = DatabaseViewType.TABLE, manualRowOrder = listOf("row-b", "row-a")))
+        )
+
+        val copy = source.withRowIdsReplaced(mapOf("row-a" to "copy-a", "row-b" to "copy-b"))
+
+        assertEquals(mapOf("copy-a" to blue), copy.rowStyles)
+        assertEquals(mapOf("copy-b:STATUS" to red), copy.cellStyles)
+        assertEquals(mapOf("STATUS" to red), copy.columnStyles)
+        assertEquals(listOf("copy-b", "copy-a"), copy.views.single().manualRowOrder)
     }
 }
