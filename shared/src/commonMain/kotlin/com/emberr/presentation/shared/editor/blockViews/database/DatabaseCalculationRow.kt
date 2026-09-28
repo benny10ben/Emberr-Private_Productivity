@@ -111,7 +111,6 @@ internal fun DatabaseCalculateOption(
 
     DatabaseMenuLayer(
         title = "Calculate",
-        opensAtTapOnDesktop = true,
         anchor = { openLayer ->
             DatabaseMenuOption(
                 label = "Calculate",
@@ -134,7 +133,6 @@ internal fun DatabaseCalculateOption(
             key(group) {
                 DatabaseMenuLayer(
                     title = group.label,
-                    opensAtTapOnDesktop = true,
                     anchor = { openGroup ->
                         DatabaseMenuOption(
                             label = group.label,
@@ -175,7 +173,7 @@ internal fun DatabaseCalculateOption(
     }
 }
 
-private fun DatabaseCalculationResult.displayText(): String = when (this) {
+internal fun DatabaseCalculationResult.displayText(): String = when (this) {
     is DatabaseCalculationResult.Count -> value.toString()
     is DatabaseCalculationResult.Percent -> {
         val wholePercent = tenthsOfAPercent / 10

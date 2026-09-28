@@ -11,6 +11,7 @@ import com.emberr.data.local.room.entity.NoteMetadataEntity
 import com.emberr.data.local.room.entity.PropertyTagEntity
 import com.emberr.data.local.room.entity.CustomPropertyEntity
 import com.emberr.domain.canvas.CanvasContent
+import com.emberr.domain.database.DatabaseCellPreset
 import com.emberr.domain.database.DatabaseRow
 import com.emberr.domain.database.DatabaseRowChange
 import com.emberr.domain.database.HistoryDirection
@@ -142,7 +143,10 @@ interface NoteRepository {
     suspend fun applyRemoteCategory(category: CategoryEntity)
 
     fun getPropertyTags(propertyKey: String): Flow<List<PropertyTagEntity>>
+    fun getAllPropertyTags(): Flow<List<PropertyTagEntity>>
     suspend fun createPropertyTag(propertyKey: String, name: String)
+    suspend fun reorderPropertyTags(propertyKey: String, orderedNames: List<String>)
+    suspend fun setPropertyTagColor(propertyKey: String, name: String, colorName: String?)
     suspend fun renamePropertyTag(propertyKey: String, oldName: String, newName: String)
     suspend fun deletePropertyTag(propertyKey: String, name: String)
     suspend fun getPropertyTagsModifiedSince(timestamp: Long): List<PropertyTagEntity>
@@ -156,7 +160,11 @@ interface NoteRepository {
     suspend fun applyRemoteCustomProperty(property: CustomPropertyEntity)
 
     fun observeDatabaseRows(databaseId: String): Flow<List<DatabaseRow>>
-    suspend fun createDatabaseRow(database: DatabaseBlock, templateNoteId: String? = null): DatabaseRowChange.RowPresence
+    suspend fun createDatabaseRow(
+        database: DatabaseBlock,
+        templateNoteId: String? = null,
+        cellPreset: DatabaseCellPreset? = null
+    ): DatabaseRowChange.RowPresence
     suspend fun updateDatabaseCell(
         database: DatabaseBlock,
         rowNoteId: String,

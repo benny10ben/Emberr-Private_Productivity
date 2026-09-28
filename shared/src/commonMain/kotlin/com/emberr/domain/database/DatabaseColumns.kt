@@ -3,6 +3,7 @@ package com.emberr.domain.database
 import com.emberr.domain.model.DatabaseBlock
 import com.emberr.domain.model.DatabaseColumnTarget
 import com.emberr.domain.model.DatabaseCustomProperty
+import com.emberr.domain.model.NOTES_COLUMN_KEY
 import com.emberr.domain.model.PropertyType
 import com.emberr.domain.model.columnKey
 import com.emberr.domain.model.customPropertyWithId
@@ -12,6 +13,12 @@ fun DatabaseBlock.builtInPropertiesNotYetAdded(): List<PropertyType> =
 
 fun DatabaseBlock.customPropertiesNotShown(): List<DatabaseCustomProperty> =
     customProperties.filterNot { DatabaseColumnTarget.CustomProperty(it.id) in columns }
+
+fun DatabaseBlock.columnWithKey(columnKey: String?): DatabaseColumnTarget? = when (columnKey) {
+    null -> null
+    NOTES_COLUMN_KEY -> DatabaseColumnTarget.NotesTitle
+    else -> columns.firstOrNull { it.columnKey == columnKey }
+}
 
 fun DatabaseBlock.visibleColumns(): List<DatabaseColumnTarget> {
     val hiddenColumnKeys = activeView().hiddenColumnKeys

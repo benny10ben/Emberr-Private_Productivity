@@ -151,7 +151,7 @@ internal fun DatabaseRow.displayValueAt(target: DatabaseColumnTarget): String =
 
 internal fun DatabaseRow.dateAt(target: DatabaseColumnTarget): LocalDate? = cell(target)?.date
 
-private fun DatabaseRow.tagsAt(target: DatabaseColumnTarget): List<String> = cell(target)?.tags.orEmpty()
+internal fun DatabaseRow.tagsAt(target: DatabaseColumnTarget): List<String> = cell(target)?.tags.orEmpty()
 
 internal fun DatabaseRow.numberAt(target: DatabaseColumnTarget): Double? = cell(target)?.numberOrNull()
 

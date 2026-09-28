@@ -11,6 +11,7 @@ import com.emberr.database.EmberrDatabase
 import com.emberr.domain.ai.LocalAiEngine
 import com.emberr.domain.ai.NoteIndexer
 import com.emberr.domain.ai.external.AiSettingsRepository
+import com.emberr.domain.database.DatabaseCellPreset
 import com.emberr.domain.database.DatabaseRow
 import com.emberr.domain.database.HistoryDirection
 import com.emberr.domain.database.databaseCellBlockId
@@ -382,5 +383,51 @@ class NoteRepositoryDatabaseRowsTest {
 
         assertEquals("📚", row.icon)
         assertEquals("dune-cover.jpg", row.coverImagePath)
+    }
+
+    @Test
+    fun aRowAddedToABoardColumnStartsWithThatColumnsValueInOneUndoStep() = runTest {
+        val preset = DatabaseCellPreset(statusColumn) { it.copy(tags = listOf("Done")) }
+
+        val change = repository.createDatabaseRow(daysWithStatus, cellPreset = preset)
+
+        assertEquals(listOf("Done"), rowsOf("days").single().cell(statusColumn)?.tags)
+        repository.applyDatabaseRowChanges(listOf(change), HistoryDirection.UNDO)
+        assertEquals(emptyList(), rowsOf("days"))
+    }
+
+    private suspend fun statusOptionNames(): List<String> = repository.getPropertyTags("STATUS").first().map { it.name }
+
+    @Test
+    fun newOptionsGoToTheEndAndReorderingChangesTheOrderEverywhere() = runTest {
+        repository.createPropertyTag("STATUS", "To do")
+        repository.createPropertyTag("STATUS", "Doing")
+        repository.createPropertyTag("STATUS", "Done")
+
+        repository.reorderPropertyTags("STATUS", listOf("Done", "To do", "Doing"))
+        repository.createPropertyTag("STATUS", "Blocked")
+
+        assertEquals(listOf("Done", "To do", "Doing", "Blocked"), statusOptionNames())
+    }
+
+    @Test
+    fun reorderingSavesAnOptionThatOnlyRowsWereUsing() = runTest {
+        repository.createPropertyTag("STATUS", "Done")
+
+        repository.reorderPropertyTags("STATUS", listOf("Waiting", "Done"))
+
+        assertEquals(listOf("Waiting", "Done"), statusOptionNames())
+    }
+
+    @Test
+    fun anOptionKeepsTheColorChosenForItUntilItIsSetBackToAutomatic() = runTest {
+        repository.createPropertyTag("STATUS", "Done")
+
+        repository.setPropertyTagColor("STATUS", "done", "green")
+        val chosenColor = repository.getPropertyTags("STATUS").first().single().colorName
+        repository.setPropertyTagColor("STATUS", "Done", null)
+
+        assertEquals("green", chosenColor)
+        assertNull(repository.getPropertyTags("STATUS").first().single().colorName)
     }
 }

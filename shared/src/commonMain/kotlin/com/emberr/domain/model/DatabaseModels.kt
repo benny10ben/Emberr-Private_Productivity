@@ -85,7 +85,16 @@ enum class DatabaseFilterCondition(val label: String) {
 @Serializable
 enum class DatabaseViewType(val label: String) {
     TABLE("Table"),
-    GALLERY("Gallery")
+    GALLERY("Gallery"),
+    BOARD("Board")
+}
+
+@Serializable
+enum class DatabaseDateGrouping(val label: String) {
+    DAY("Day"),
+    WEEK("Week"),
+    MONTH("Month"),
+    YEAR("Year")
 }
 
 @Serializable
@@ -104,7 +113,15 @@ data class DatabaseView(
     val showsIcon: Boolean = true,
     val showsCoverImage: Boolean = true,
     val cardSize: DatabaseCardSize = DatabaseCardSize.MEDIUM,
-    val hiddenColumnKeys: List<String> = emptyList()
+    val hiddenColumnKeys: List<String> = emptyList(),
+    val groupByColumnKey: String? = null,
+    val dateGrouping: DatabaseDateGrouping = DatabaseDateGrouping.MONTH,
+    val hidesEmptyGroups: Boolean = false,
+    val hiddenGroupKeys: List<String> = emptyList(),
+    val collapsedGroupKeys: List<String> = emptyList(),
+    val groupCalculationColumnKey: String? = null,
+    val groupCalculation: DatabaseCalculation? = null,
+    val manualRowOrder: List<String> = emptyList()
 )
 
 const val DEFAULT_VIEW_ID = "default-table"

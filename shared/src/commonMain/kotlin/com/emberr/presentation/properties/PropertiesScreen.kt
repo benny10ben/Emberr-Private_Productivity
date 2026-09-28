@@ -310,7 +310,8 @@ internal fun PropertyEditor(
     onDeleteCancel: () -> Unit,
     onDeleteConfirm: () -> Unit,
     onCancel: () -> Unit,
-    onSave: () -> Unit
+    onSave: () -> Unit,
+    allowedValueTypes: List<PropertyValueType> = PropertyValueType.entries
 ) {
     val isNew = state.propertyId == null
 
@@ -360,7 +361,7 @@ internal fun PropertyEditor(
                 modifier = Modifier.padding(start = 4.dp, top = 14.dp, bottom = 6.dp)
             )
             if (isNew) {
-                PropertyValueType.entries.forEach { valueType ->
+                allowedValueTypes.forEach { valueType ->
                     val isSelected = valueType == state.valueType
                     val valueTypeIcon = @Composable {
                         Icon(

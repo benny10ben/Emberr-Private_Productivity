@@ -53,11 +53,13 @@ import com.emberr.presentation.shared.components.EmberrButtonSecondary
 import com.emberr.presentation.shared.components.EmberrDesktopMenu
 import com.emberr.presentation.shared.components.EmberrDesktopMenuOption
 import com.emberr.presentation.shared.components.EmberrTextField
+import com.emberr.presentation.shared.components.MenuAtTap
 import com.emberr.presentation.shared.components.NoRippleIndicationNodeFactory
 import com.emberr.presentation.shared.components.SheetBringIntoViewSpec
+import com.emberr.presentation.shared.components.menuTapAnchor
+import com.emberr.presentation.shared.components.rememberMenuTapAnchor
 import com.emberr.presentation.shared.editor.ActiveEditorRegistry
 import com.emberr.ui.theme.HighlightColor
-import com.emberr.ui.theme.LocalAppIsDark
 import emberr.shared.generated.resources.Res
 import emberr.shared.generated.resources.check
 import emberr.shared.generated.resources.pen
@@ -72,15 +74,17 @@ import org.koin.core.qualifier.named
 
 private val DesktopTagMenuWidth = 260.dp
 
-fun propertyTagColor(tagName: String, isDarkTheme: Boolean): Color {
+fun propertyTagColor(tagName: String, isDarkTheme: Boolean, colorName: String? = null): Color {
     val colors = HighlightColor.entries
-    return colors[tagName.lowercase().hashCode().mod(colors.size)].backgroundFor(isDarkTheme)
+    val chosenColor = colorName?.let { name -> colors.firstOrNull { it.storageName == name } }
+    return (chosenColor ?: colors[tagName.lowercase().hashCode().mod(colors.size)]).backgroundFor(isDarkTheme)
 }
 
 @Composable
 fun PropertyTagChip(
     tagName: String,
     modifier: Modifier = Modifier,
+    tagPoolKey: String? = null,
     textStyle: TextStyle = MaterialTheme.typography.bodyMedium
 ) {
     Text(
@@ -91,7 +95,7 @@ fun PropertyTagChip(
         overflow = TextOverflow.Ellipsis,
         modifier = modifier
             .clip(RoundedCornerShape(6.dp))
-            .background(propertyTagColor(tagName, LocalAppIsDark.current))
+            .background(rememberPropertyTagColor(tagPoolKey, tagName))
             .padding(horizontal = 8.dp, vertical = 2.dp)
     )
 }
@@ -180,6 +184,16 @@ fun PropertyTagPicker(
         }
     }
 
+    fun chooseTagColor(tagName: String, colorName: String?) {
+        appScope.launch {
+            try {
+                noteRepository.setPropertyTagColor(tagPoolKey, tagName, colorName)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
     fun saveRename(closeEditorAnd: (() -> Unit) -> Unit) {
         val oldName = tagBeingEdited ?: return
         if (!canSaveRename) return
@@ -216,25 +230,34 @@ fun PropertyTagPicker(
             Spacer(modifier = Modifier.height(8.dp))
 
             matchingTagNames.forEach { tagName ->
-                Box {
+                val tapAnchor = rememberMenuTapAnchor()
+                Box(modifier = Modifier.menuTapAnchor(tapAnchor)) {
                     PropertyTagOptionRow(
                         tagName = tagName,
+                        tagPoolKey = tagPoolKey,
                         isSelected = isSelected(tagName),
                         onClick = { toggleTag(tagName) },
                         onEdit = { openTagEditor(tagName) }
                     )
                     if (tagName == tagBeingEdited) {
-                        PropertyTagLayer(title = "Edit tag", onDismiss = { closeTagEditor() }) { closeEditorAnd ->
-                            EditTagContent(
-                                originalTagName = tagName,
-                                tagName = editedTagName,
-                                onTagNameChange = { editedTagName = it },
-                                isNameTaken = editedNameIsTaken,
-                                canSave = canSaveRename,
-                                onSave = { saveRename(closeEditorAnd) },
-                                onCancel = { closeEditorAnd { } },
-                                onDeleteConfirmed = { deleteEditedTag(closeEditorAnd) }
-                            )
+                        MenuAtTap(tapAnchor, menuWidth = DesktopTagMenuWidth) {
+                            PropertyTagLayer(
+                                title = "Edit tag",
+                                onDismiss = { closeTagEditor() }
+                            ) { closeEditorAnd ->
+                                EditTagContent(
+                                    originalTagName = tagName,
+                                    colorName = savedTags.firstOrNull { it.name.equals(tagName, ignoreCase = true) }?.colorName,
+                                    onColorChosen = { colorName -> chooseTagColor(tagName, colorName) },
+                                    tagName = editedTagName,
+                                    onTagNameChange = { editedTagName = it },
+                                    isNameTaken = editedNameIsTaken,
+                                    canSave = canSaveRename,
+                                    onSave = { saveRename(closeEditorAnd) },
+                                    onCancel = { closeEditorAnd { } },
+                                    onDeleteConfirmed = { deleteEditedTag(closeEditorAnd) }
+                                )
+                            }
                         }
                     }
                 }
@@ -309,7 +332,7 @@ private fun PropertyTagLayer(
 }
 
 @Composable
-private fun PropertyTagOptionRow(tagName: String, isSelected: Boolean, onClick: () -> Unit, onEdit: () -> Unit) {
+private fun PropertyTagOptionRow(tagName: String, tagPoolKey: String, isSelected: Boolean, onClick: () -> Unit, onEdit: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -319,7 +342,7 @@ private fun PropertyTagOptionRow(tagName: String, isSelected: Boolean, onClick: 
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(modifier = Modifier.weight(1f)) {
-            PropertyTagChip(tagName = tagName)
+            PropertyTagChip(tagName = tagName, tagPoolKey = tagPoolKey)
         }
         if (isSelected) {
             Icon(
@@ -346,6 +369,8 @@ private fun PropertyTagOptionRow(tagName: String, isSelected: Boolean, onClick: 
 @Composable
 private fun EditTagContent(
     originalTagName: String,
+    colorName: String?,
+    onColorChosen: (String?) -> Unit,
     tagName: String,
     onTagNameChange: (String) -> Unit,
     isNameTaken: Boolean,
@@ -373,15 +398,33 @@ private fun EditTagContent(
                 modifier = Modifier.padding(start = 4.dp, top = 6.dp)
             )
         }
-        Box(modifier = Modifier.padding(top = 8.dp)) {
+        Text(
+            text = "Color",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.outline,
+            modifier = Modifier.padding(start = 4.dp, top = 12.dp, bottom = 8.dp)
+        )
+        PropertyTagColorChoices(
+            tagName = originalTagName,
+            selectedColorName = colorName,
+            onColorChosen = onColorChosen,
+            modifier = Modifier.padding(horizontal = 4.dp)
+        )
+        val deleteTapAnchor = rememberMenuTapAnchor()
+        Box(modifier = Modifier.padding(top = 8.dp).menuTapAnchor(deleteTapAnchor)) {
             DeleteTagOption(onClick = { isConfirmingDelete = true })
             if (isConfirmingDelete) {
-                PropertyTagLayer(title = "Delete tag", onDismiss = { isConfirmingDelete = false }) { closeConfirmationAnd ->
-                    DeleteTagConfirmation(
-                        tagName = originalTagName,
-                        onCancel = { closeConfirmationAnd { } },
-                        onDelete = { closeConfirmationAnd(onDeleteConfirmed) }
-                    )
+                MenuAtTap(deleteTapAnchor, menuWidth = DesktopTagMenuWidth) {
+                    PropertyTagLayer(
+                        title = "Delete tag",
+                        onDismiss = { isConfirmingDelete = false }
+                    ) { closeConfirmationAnd ->
+                        DeleteTagConfirmation(
+                            tagName = originalTagName,
+                            onCancel = { closeConfirmationAnd { } },
+                            onDelete = { closeConfirmationAnd(onDeleteConfirmed) }
+                        )
+                    }
                 }
             }
         }

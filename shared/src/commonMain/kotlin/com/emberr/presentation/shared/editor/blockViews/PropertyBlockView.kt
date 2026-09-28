@@ -363,7 +363,7 @@ internal fun PropertyTagsValue(
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    block.tags.forEach { tagName -> PropertyTagChip(tagName = tagName, textStyle = tagTextStyle) }
+                    block.tags.forEach { tagName -> PropertyTagChip(tagName = tagName, tagPoolKey = block.tagPoolKey, textStyle = tagTextStyle) }
                 }
             }
         }

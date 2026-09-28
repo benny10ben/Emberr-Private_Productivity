@@ -50,6 +50,9 @@ import com.emberr.domain.model.labelOf
 import com.emberr.domain.util.system.isDesktopPlatform
 import com.emberr.presentation.properties.PropertyEditor
 import com.emberr.presentation.properties.PropertyEditorState
+import com.emberr.presentation.shared.components.MenuAtTap
+import com.emberr.presentation.shared.components.menuTapAnchor
+import com.emberr.presentation.shared.components.rememberMenuTapAnchor
 import com.emberr.presentation.shared.editor.DatabaseBlockEditor
 import com.emberr.presentation.shared.editor.blockViews.iconResource
 import com.emberr.presentation.shared.editor.components.DesktopCursor
@@ -115,9 +118,11 @@ private fun DatabaseColumnHeader(
     var showMenu by remember { mutableStateOf(false) }
     val lineColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.65f)
     val canOpenMenu = !inSelectionMode
+    val tapAnchor = rememberMenuTapAnchor()
 
     Box(
         modifier = Modifier
+            .menuTapAnchor(tapAnchor)
             .width(width.dp)
             .fillMaxHeight()
             .defaultMinSize(minHeight = DatabaseCellMinHeight)
@@ -165,16 +170,18 @@ private fun DatabaseColumnHeader(
             )
         }
 
-        DatabaseColumnMenu(
-            expanded = showMenu,
-            block = block,
-            column = column,
-            width = width,
-            rowCount = rowCount,
-            onWidthChosen = onWidthChosen,
-            editor = editor,
-            onDismiss = { showMenu = false }
-        )
+        MenuAtTap(tapAnchor, menuWidth = DesktopDatabaseMenuWidth) {
+            DatabaseColumnMenu(
+                expanded = showMenu,
+                block = block,
+                column = column,
+                width = width,
+                rowCount = rowCount,
+                onWidthChosen = onWidthChosen,
+                editor = editor,
+                onDismiss = { showMenu = false }
+            )
+        }
     }
 }
 
@@ -472,14 +479,16 @@ private fun DatabaseAddColumnChoices(
 }
 
 @Composable
-private fun DatabaseNewPropertyPage(
+internal fun DatabaseNewPropertyPage(
     block: DatabaseBlock,
     editor: DatabaseBlockEditor,
     onCancel: () -> Unit,
-    closeAnd: (() -> Unit) -> Unit
+    closeAnd: (() -> Unit) -> Unit,
+    allowedValueTypes: List<PropertyValueType> = PropertyValueType.entries,
+    viewIdToGroupByIt: String? = null
 ) {
     var state by remember {
-        mutableStateOf(PropertyEditorState(propertyId = null, originalName = "", name = "", valueType = PropertyValueType.TEXT))
+        mutableStateOf(PropertyEditorState(propertyId = null, originalName = "", name = "", valueType = allowedValueTypes.first()))
     }
     val isNameTaken = block.isPropertyNameTaken(state.name, ignoringPropertyId = null)
 
@@ -497,9 +506,10 @@ private fun DatabaseNewPropertyPage(
                 if (state.name.isNotBlank() && !isNameTaken) {
                     val name = state.name
                     val valueType = state.valueType
-                    closeAnd { editor.createProperty(block.id, name, valueType) }
+                    closeAnd { editor.createProperty(block.id, name, valueType, viewIdToGroupByIt) }
                 }
-            }
+            },
+            allowedValueTypes = allowedValueTypes
         )
     }
 }

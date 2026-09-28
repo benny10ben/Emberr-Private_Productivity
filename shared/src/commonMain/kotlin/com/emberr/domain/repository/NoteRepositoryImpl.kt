@@ -36,6 +36,7 @@ import com.emberr.domain.canvas.CanvasContent
 import com.emberr.domain.canvas.EmbeddedCanvasCleanup
 import com.emberr.domain.canvas.isEmbeddedCanvas
 import com.emberr.domain.ai.DatabaseRowLocation
+import com.emberr.domain.database.DatabaseCellPreset
 import com.emberr.domain.database.DatabaseRow
 import com.emberr.domain.database.DatabaseRowChange
 import com.emberr.domain.database.DatabaseRowCleanup
@@ -49,6 +50,7 @@ import com.emberr.domain.database.rowBlocksFromTemplate
 import com.emberr.domain.database.withDatabaseCellRenamed
 import com.emberr.domain.database.withDatabaseCellPlaced
 import com.emberr.domain.database.withDatabaseColumnRemoved
+import com.emberr.domain.database.withCellPreset
 import com.emberr.domain.database.withDatabaseColumnShown
 import com.emberr.domain.model.BookmarkBlock
 import com.emberr.domain.model.BulletedListBlock
@@ -952,21 +954,57 @@ class NoteRepositoryImpl(
         inActiveSpace { propertyTagDao.getAllTags(it) }
             .map { tags -> tags.filter { it.propertyKey == propertyKey } }
 
+    override fun getAllPropertyTags(): Flow<List<PropertyTagEntity>> = inActiveSpace { propertyTagDao.getAllTags(it) }
+
     override suspend fun createPropertyTag(propertyKey: String, name: String) =
         withContext(Dispatchers.IO) {
-            val now = System.currentTimeMillis()
-            propertyTagDao.insertOrUpdateTag(
-                PropertyTagEntity(
-                    tagId = UUID.randomUUID().toString(),
-                    propertyKey = propertyKey,
-                    name = name,
-                    createdAt = now,
-                    updatedAt = now,
-                    spaceId = activeSpaceId()
-                )
-            )
+            propertyTagDao.insertOrUpdateTag(newPropertyTagAtTheEnd(propertyKey, name, System.currentTimeMillis()))
             AutoSyncTrigger.requestSync()
         }
+
+    override suspend fun reorderPropertyTags(propertyKey: String, orderedNames: List<String>) =
+        withContext(Dispatchers.IO) {
+            val now = System.currentTimeMillis()
+            val savedTags = propertyTagDao.getAllTagsOnce(activeSpaceId()).filter { it.propertyKey == propertyKey }
+            orderedNames.forEachIndexed { position, name ->
+                val matchingTags = savedTags.filter { it.name.equals(name, ignoreCase = true) }
+                if (matchingTags.isEmpty()) {
+                    propertyTagDao.insertOrUpdateTag(newPropertyTagAtTheEnd(propertyKey, name, now).copy(sortOrder = position))
+                }
+                matchingTags.filter { it.sortOrder != position }.forEach { tag ->
+                    propertyTagDao.insertOrUpdateTag(tag.copy(sortOrder = position, updatedAt = now))
+                }
+            }
+            AutoSyncTrigger.requestSync()
+        }
+
+    override suspend fun setPropertyTagColor(propertyKey: String, name: String, colorName: String?) =
+        withContext(Dispatchers.IO) {
+            val now = System.currentTimeMillis()
+            val matchingTags = liveTagsNamed(propertyKey, name)
+            if (matchingTags.isEmpty()) {
+                propertyTagDao.insertOrUpdateTag(newPropertyTagAtTheEnd(propertyKey, name, now).copy(colorName = colorName))
+            }
+            matchingTags.filter { it.colorName != colorName }.forEach { tag ->
+                propertyTagDao.insertOrUpdateTag(tag.copy(colorName = colorName, updatedAt = now))
+            }
+            AutoSyncTrigger.requestSync()
+        }
+
+    private suspend fun newPropertyTagAtTheEnd(propertyKey: String, name: String, now: Long): PropertyTagEntity {
+        val lastSortOrder = propertyTagDao.getAllTagsOnce(activeSpaceId())
+            .filter { it.propertyKey == propertyKey }
+            .maxOfOrNull { it.sortOrder }
+        return PropertyTagEntity(
+            tagId = UUID.randomUUID().toString(),
+            propertyKey = propertyKey,
+            name = name,
+            createdAt = now,
+            updatedAt = now,
+            spaceId = activeSpaceId(),
+            sortOrder = (lastSortOrder ?: -1) + 1
+        )
+    }
 
     override suspend fun renamePropertyTag(propertyKey: String, oldName: String, newName: String) =
         withContext(Dispatchers.IO) {
@@ -974,16 +1012,7 @@ class NoteRepositoryImpl(
                 val now = System.currentTimeMillis()
                 val matchingTags = liveTagsNamed(propertyKey, oldName)
                 if (matchingTags.isEmpty()) {
-                    propertyTagDao.insertOrUpdateTag(
-                        PropertyTagEntity(
-                            tagId = UUID.randomUUID().toString(),
-                            propertyKey = propertyKey,
-                            name = newName,
-                            createdAt = now,
-                            updatedAt = now,
-                            spaceId = activeSpaceId()
-                        )
-                    )
+                    propertyTagDao.insertOrUpdateTag(newPropertyTagAtTheEnd(propertyKey, newName, now))
                 } else {
                     matchingTags.forEach { propertyTagDao.insertOrUpdateTag(it.copy(name = newName, updatedAt = now)) }
                 }
@@ -1143,18 +1172,23 @@ class NoteRepositoryImpl(
             .distinctUntilChanged()
             .flowOn(Dispatchers.Default)
 
-    override suspend fun createDatabaseRow(database: DatabaseBlock, templateNoteId: String?): DatabaseRowChange.RowPresence =
+    override suspend fun createDatabaseRow(
+        database: DatabaseBlock,
+        templateNoteId: String?,
+        cellPreset: DatabaseCellPreset?
+    ): DatabaseRowChange.RowPresence =
         withContext(Dispatchers.IO) {
             val rowNoteId = UUID.randomUUID().toString()
             val now = System.currentTimeMillis()
             val template = templateNoteId?.let { noteDao.getNoteById(it) }?.takeIf { it.isTemplate && it.trashedAt == null }
-            val rowBlocks = if (template == null) {
+            val blocksBeforePreset = if (template == null) {
                 database.newRowBlocks(rowNoteId, now)
             } else {
                 val templateBlocks = getNoteContent(template.noteId)?.blocks.orEmpty()
                 val blocksFromTemplate = database.rowBlocksFromTemplate(templateBlocks, template.noteId, rowNoteId, now)
                 copyDatabasesIn(copyEmbeddedCanvasesIn(NoteContent(blocks = blocksFromTemplate))).blocks
             }
+            val rowBlocks = cellPreset?.let { blocksBeforePreset.withCellPreset(database, it, rowNoteId, now) } ?: blocksBeforePreset
             val rowNote = NoteMetadataEntity(
                 noteId = rowNoteId,
                 title = template?.title.orEmpty(),

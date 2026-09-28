@@ -53,9 +53,9 @@ import java.io.File
 private val CardGap = 12.dp
 private val CardShape = RoundedCornerShape(10.dp)
 
-private data class CardDimensions(val width: Dp, val coverHeight: Dp, val titleMaxLines: Int)
+internal data class CardDimensions(val width: Dp, val coverHeight: Dp, val titleMaxLines: Int)
 
-private fun DatabaseCardSize.dimensions(): CardDimensions = when (this) {
+internal fun DatabaseCardSize.dimensions(): CardDimensions = when (this) {
     DatabaseCardSize.SMALL -> CardDimensions(width = 130.dp, coverHeight = 72.dp, titleMaxLines = 1)
     DatabaseCardSize.MEDIUM -> CardDimensions(width = 210.dp, coverHeight = 120.dp, titleMaxLines = 2)
     DatabaseCardSize.LARGE -> CardDimensions(width = 320.dp, coverHeight = 190.dp, titleMaxLines = 2)
@@ -75,7 +75,7 @@ internal fun DatabaseGallery(
     EqualHeightCardGrid(cardWidth = dimensions.width, gap = CardGap, modifier = modifier.fillMaxWidth()) {
         rows.forEach { row ->
             key(row.noteId) {
-                DatabaseGalleryCard(
+                DatabaseRowCard(
                     block = block,
                     view = view,
                     row = row,
@@ -116,19 +116,22 @@ private fun EqualHeightCardGrid(
 }
 
 @Composable
-private fun DatabaseGalleryCard(
+internal fun DatabaseRowCard(
     block: DatabaseBlock,
     view: DatabaseView,
     row: DatabaseRow,
     dimensions: CardDimensions,
     inSelectionMode: Boolean,
-    onOpen: () -> Unit
+    onOpen: () -> Unit,
+    modifier: Modifier = Modifier,
+    gestureModifier: Modifier = Modifier
 ) {
     Column(
-        modifier = Modifier
+        modifier = modifier
             .clip(CardShape)
             .background(MaterialTheme.colorScheme.surface)
             .clickable(enabled = !inSelectionMode, onClick = onOpen)
+            .then(gestureModifier)
     ) {
         if (view.showsCoverImage) {
             DatabaseCardCover(coverImagePath = row.coverImagePath, height = dimensions.coverHeight)
@@ -208,7 +211,9 @@ private fun DatabaseCardValue(cell: PropertyBlock) {
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                cell.tags.forEach { tagName -> PropertyTagChip(tagName = tagName, textStyle = MaterialTheme.typography.labelSmall) }
+                cell.tags.forEach { tagName ->
+                    PropertyTagChip(tagName = tagName, tagPoolKey = cell.tagPoolKey, textStyle = MaterialTheme.typography.labelSmall)
+                }
             }
         }
         cell.valueType.holdsCheck -> {

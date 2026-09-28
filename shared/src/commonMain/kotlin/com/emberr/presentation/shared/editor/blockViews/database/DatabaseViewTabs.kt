@@ -35,6 +35,7 @@ import com.emberr.domain.model.DatabaseViewType
 import com.emberr.presentation.shared.components.EmberrTextField
 import com.emberr.presentation.shared.editor.DatabaseBlockEditor
 import emberr.shared.generated.resources.Res
+import emberr.shared.generated.resources.kanban
 import emberr.shared.generated.resources.pen
 import emberr.shared.generated.resources.plus
 import emberr.shared.generated.resources.table
@@ -46,6 +47,7 @@ import org.jetbrains.compose.resources.painterResource
 internal fun DatabaseViewType.iconResource(): DrawableResource = when (this) {
     DatabaseViewType.TABLE -> Res.drawable.table
     DatabaseViewType.GALLERY -> Res.drawable.widget
+    DatabaseViewType.BOARD -> Res.drawable.kanban
 }
 
 @Composable
@@ -113,7 +115,6 @@ private fun DatabaseViewTab(
         DatabaseMenu(expanded = showMenu, title = view.name.ifBlank { view.type.label }, onDismiss = { showMenu = false }) { closeAnd ->
             DatabaseMenuLayer(
                 title = "Rename view",
-                opensAtTapOnDesktop = true,
                 anchor = { openLayer ->
                     DatabaseMenuOption(label = "Rename", icon = { DatabaseOptionIcon(Res.drawable.pen) }, onClick = openLayer)
                 }

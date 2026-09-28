@@ -30,6 +30,16 @@ fun DatabaseBlock.emptyCell(column: DatabaseColumnTarget, rowNoteId: String, now
     }
 }
 
+data class DatabaseCellPreset(
+    val column: DatabaseColumnTarget,
+    val change: (PropertyBlock) -> PropertyBlock
+)
+
+fun List<NoteBlock>.withCellPreset(database: DatabaseBlock, preset: DatabaseCellPreset, rowNoteId: String, now: Long): List<NoteBlock> {
+    val cell = databaseCellForEditing(database, preset.column, rowNoteId, now) ?: return this
+    return withDatabaseCellPlaced(preset.change(cell).copy(updatedAt = now))
+}
+
 fun DatabaseBlock.newRowBlocks(rowNoteId: String, now: Long): List<NoteBlock> =
     columns.mapNotNull { column -> emptyCell(column, rowNoteId, now) }
 

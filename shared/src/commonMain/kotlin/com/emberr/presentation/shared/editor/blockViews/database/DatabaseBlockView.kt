@@ -86,6 +86,7 @@ internal val DatabaseCellVerticalPadding = 9.dp
 private val DatabaseSidePadding = 18.dp
 private val DatabaseVerticalPadding = 12.dp
 private val HeaderEndPadding = 10.dp
+private val BoardSidePaddingInset = 6.dp
 private val NewRowButtonColor = Color(0xFF4F5B8A)
 private val HeaderButtonGap = 6.dp
 internal val HeaderButtonInnerPadding = 8.dp
@@ -146,7 +147,7 @@ fun DatabaseBlockView(
 
     LaunchedEffect(rowToFocus, activeView.type) {
         val newRowNoteId = rowToFocus ?: return@LaunchedEffect
-        if (activeView.type != DatabaseViewType.GALLERY) return@LaunchedEffect
+        if (activeView.type == DatabaseViewType.TABLE) return@LaunchedEffect
         editor.clearRowToFocus()
         editor.openRow(newRowNoteId, onOpenRow)
     }
@@ -224,79 +225,103 @@ fun DatabaseBlockView(
                 }
             }
 
-            if (activeView.type == DatabaseViewType.GALLERY) {
-                DatabaseGallery(
-                    block = block,
-                    view = activeView,
-                    rows = visibleRows,
-                    inSelectionMode = inSelectionMode,
-                    onOpenRow = { rowNoteId -> editor.openRow(rowNoteId, onOpenRow) },
-                    modifier = Modifier.padding(horizontal = DatabaseSidePadding)
-                )
-                DatabaseNewRowLine(
-                    showsNewButton = !inSelectionMode,
-                    rowCountCaption = rowCountCaption,
-                    onNewRow = { editor.addRow(block.id) },
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = DatabaseSidePadding)
-                )
-            } else {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(scrollState)
-                        .smoothWheelScroll(scrollState, horizontal = true)
-                ) {
-                    Column(modifier = Modifier.padding(horizontal = DatabaseSidePadding)) {
-                        Surface(
-                            shape = RectangleShape,
-                            color = Color.Transparent,
-                            border = BorderStroke(0.6.dp, tableBorderColor)
-                        ) {
-                            Column {
-                                DatabaseHeaderRow(
-                                    block = block,
-                                    rowCount = rows.size,
-                                    inSelectionMode = inSelectionMode,
-                                    columnWidth = ::columnWidth,
-                                    onColumnWidthDragged = { target, width -> liveColumnWidths[target.columnKey] = width },
-                                    onColumnWidthChosen = ::chooseColumnWidth,
-                                    editor = editor,
-                                    runAfterKeyboardCloses = runAfterKeyboardCloses
-                                )
-                                visibleRows.forEach { row ->
-                                    key(row.noteId) {
-                                        DatabaseRowItem(
-                                            row = row,
-                                            database = block,
-                                            columnWidth = ::columnWidth,
-                                            showsIcon = activeView.showsIcon,
-                                            inSelectionMode = inSelectionMode,
-                                            shouldTakeFocus = rowToFocus == row.noteId,
-                                            historyStepsApplied = historyStepsApplied,
-                                            editor = editor,
-                                            onOpenRow = onOpenRow,
-                                            runAfterKeyboardCloses = runAfterKeyboardCloses
-                                        )
-                                    }
-                                }
-                            }
-                        }
-
-                        DatabaseCalculationRow(block = block, rows = visibleRows, columnWidth = ::columnWidth)
-
+            when (activeView.type) {
+                DatabaseViewType.GALLERY -> {
+                    DatabaseGallery(
+                        block = block,
+                        view = activeView,
+                        rows = visibleRows,
+                        inSelectionMode = inSelectionMode,
+                        onOpenRow = { rowNoteId -> editor.openRow(rowNoteId, onOpenRow) },
+                        modifier = Modifier.padding(horizontal = DatabaseSidePadding)
+                    )
+                    DatabaseNewRowLine(
+                        showsNewButton = !inSelectionMode,
+                        rowCountCaption = rowCountCaption,
+                        onNewRow = { editor.addRow(block.id) },
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = DatabaseSidePadding)
+                    )
+                }
+                DatabaseViewType.BOARD -> {
+                    DatabaseBoard(
+                        block = block,
+                        view = activeView,
+                        rows = visibleRows,
+                        inSelectionMode = inSelectionMode,
+                        editor = editor,
+                        onOpenRow = onOpenRow,
+                        runAfterKeyboardCloses = runAfterKeyboardCloses,
+                        modifier = Modifier.padding(horizontal = DatabaseSidePadding - BoardSidePaddingInset)
+                    )
+                    if (rowCountCaption != null) {
                         DatabaseNewRowLine(
-                            showsNewButton = !inSelectionMode,
+                            showsNewButton = false,
                             rowCountCaption = rowCountCaption,
-                            onNewRow = { editor.addRow(block.id) },
-                            modifier = Modifier.width(tableWidth)
+                            onNewRow = {},
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = DatabaseSidePadding)
                         )
                     }
                 }
+                DatabaseViewType.TABLE -> {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(scrollState)
+                            .smoothWheelScroll(scrollState, horizontal = true)
+                    ) {
+                        Column(modifier = Modifier.padding(horizontal = DatabaseSidePadding)) {
+                            Surface(
+                                shape = RectangleShape,
+                                color = Color.Transparent,
+                                border = BorderStroke(0.6.dp, tableBorderColor)
+                            ) {
+                                Column {
+                                    DatabaseHeaderRow(
+                                        block = block,
+                                        rowCount = rows.size,
+                                        inSelectionMode = inSelectionMode,
+                                        columnWidth = ::columnWidth,
+                                        onColumnWidthDragged = { target, width -> liveColumnWidths[target.columnKey] = width },
+                                        onColumnWidthChosen = ::chooseColumnWidth,
+                                        editor = editor,
+                                        runAfterKeyboardCloses = runAfterKeyboardCloses
+                                    )
+                                    visibleRows.forEach { row ->
+                                        key(row.noteId) {
+                                            DatabaseRowItem(
+                                                row = row,
+                                                database = block,
+                                                columnWidth = ::columnWidth,
+                                                showsIcon = activeView.showsIcon,
+                                                inSelectionMode = inSelectionMode,
+                                                shouldTakeFocus = rowToFocus == row.noteId,
+                                                historyStepsApplied = historyStepsApplied,
+                                                editor = editor,
+                                                onOpenRow = onOpenRow,
+                                                runAfterKeyboardCloses = runAfterKeyboardCloses
+                                            )
+                                        }
+                                    }
+                                }
+                            }
 
-                EmberrHorizontalScrollbar(
-                    scrollState = scrollState,
-                    modifier = Modifier.fillMaxWidth().padding(start = DatabaseSidePadding, end = DatabaseSidePadding, top = 4.dp)
-                )
+                            DatabaseCalculationRow(block = block, rows = visibleRows, columnWidth = ::columnWidth)
+
+                            DatabaseNewRowLine(
+                                showsNewButton = !inSelectionMode,
+                                rowCountCaption = rowCountCaption,
+                                onNewRow = { editor.addRow(block.id) },
+                                modifier = Modifier.width(tableWidth)
+                            )
+                        }
+                    }
+
+                    EmberrHorizontalScrollbar(
+                        scrollState = scrollState,
+                        modifier = Modifier.fillMaxWidth().padding(start = DatabaseSidePadding, end = DatabaseSidePadding, top = 4.dp),
+                        showsWhenScrollbarsAreOff = true
+                    )
+                }
             }
         }
 
@@ -383,9 +408,13 @@ private fun DatabaseHeaderButton(
                 .padding(horizontal = HeaderButtonInnerPadding, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(painter = painterResource(icon), contentDescription = null, tint = color, modifier = Modifier.size(16.dp))
-            Spacer(modifier = Modifier.width(6.dp))
-            Text(text = label, style = MaterialTheme.typography.bodyLarge, color = color, maxLines = 1)
+            if (isDesktopPlatform) {
+                Icon(painter = painterResource(icon), contentDescription = null, tint = color, modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(text = label, style = MaterialTheme.typography.bodyLarge, color = color, maxLines = 1)
+            } else {
+                Icon(painter = painterResource(icon), contentDescription = label, tint = color, modifier = Modifier.size(18.dp))
+            }
         }
         menu()
     }
@@ -456,7 +485,7 @@ private fun rowCountLabel(shownRowCount: Int, totalRowCount: Int): String =
     if (shownRowCount == totalRowCount) rowCountText(totalRowCount) else "$shownRowCount of ${rowCountText(totalRowCount)}"
 
 @Composable
-private fun DatabaseAddRowButton(onClick: () -> Unit) {
+internal fun DatabaseAddRowButton(onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .padding(top = 6.dp)

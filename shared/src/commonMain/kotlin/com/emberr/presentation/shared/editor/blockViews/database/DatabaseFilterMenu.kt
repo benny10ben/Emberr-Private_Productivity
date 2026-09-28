@@ -42,8 +42,7 @@ import com.emberr.presentation.shared.components.MinimalDatePickerDialog
 import com.emberr.presentation.shared.editor.DatabaseBlockEditor
 import com.emberr.presentation.shared.editor.blockViews.PropertyTagChip
 import com.emberr.presentation.shared.editor.blockViews.formatPropertyDate
-import com.emberr.presentation.shared.editor.blockViews.propertyTagColor
-import com.emberr.ui.theme.LocalAppIsDark
+import com.emberr.presentation.shared.editor.blockViews.rememberPropertyTagColor
 import emberr.shared.generated.resources.Res
 import emberr.shared.generated.resources.funnel
 import emberr.shared.generated.resources.plus
@@ -76,7 +75,6 @@ internal fun DatabaseColumnFilterOption(
 
     DatabaseMenuLayer(
         title = "Filter",
-        opensAtTapOnDesktop = true,
         desktopWidth = DesktopFilterMenuWidth,
         anchor = { openLayer ->
             DatabaseMenuOption(
@@ -163,7 +161,7 @@ private fun DatabaseFilterEditor(
                 )
                 valueType.holdsTags -> DatabaseMenuLayer(
                     title = columnLabel,
-                    anchor = { openLayer -> DatabaseFilterOptionValue(tagName = filter.tagName, onClick = openLayer) }
+                    anchor = { openLayer -> DatabaseFilterOptionValue(tagName = filter.tagName, tagPoolKey = filter.target.tagPoolKey, onClick = openLayer) }
                 ) { closeLayerAnd ->
                     DatabaseOptionChoices(
                         filter = filter,
@@ -223,12 +221,12 @@ private fun DatabaseFilterDateValue(date: LocalDate?, onDateChosen: (LocalDate) 
 }
 
 @Composable
-private fun DatabaseFilterOptionValue(tagName: String?, onClick: () -> Unit) {
+private fun DatabaseFilterOptionValue(tagName: String?, tagPoolKey: String?, onClick: () -> Unit) {
     DatabaseFilterValueBox(onClick = onClick) {
         if (tagName == null) {
             Text(text = "Pick an option", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.outline)
         } else {
-            PropertyTagChip(tagName = tagName, textStyle = MaterialTheme.typography.labelSmall)
+            PropertyTagChip(tagName = tagName, tagPoolKey = tagPoolKey, textStyle = MaterialTheme.typography.labelSmall)
         }
     }
 }
@@ -272,7 +270,6 @@ private fun DatabaseOptionChoices(
     val savedTags by remember(tagPoolKey) {
         if (tagPoolKey == null) flowOf(emptyList()) else editor.savedTagsOf(tagPoolKey)
     }.collectAsState(initial = emptyList())
-    val isDarkTheme = LocalAppIsDark.current
     val tagNames = (savedTags.map { it.name } + listOfNotNull(filter.tagName)).distinctBy { it.lowercase() }
 
     if (tagNames.isEmpty()) {
@@ -287,7 +284,7 @@ private fun DatabaseOptionChoices(
                     modifier = Modifier
                         .size(12.dp)
                         .clip(CircleShape)
-                        .background(propertyTagColor(tagName, isDarkTheme))
+                        .background(rememberPropertyTagColor(tagPoolKey, tagName))
                 )
             },
             onClick = { onPick(tagName) }

@@ -1,17 +1,21 @@
 package com.emberr.presentation.shared.editor
 
 import androidx.compose.runtime.Stable
+import com.emberr.domain.database.DatabaseBoardGroupValue
+import com.emberr.domain.database.DatabaseCellPreset
 import com.emberr.domain.database.DatabaseRow
 import com.emberr.domain.database.DatabaseRowChange
 import com.emberr.domain.database.HistoryDirection
 import com.emberr.domain.database.newDatabaseFilter
 import com.emberr.domain.database.withColumnAdded
 import com.emberr.domain.database.withColumnRemoved
+import com.emberr.domain.database.movedBetweenGroups
 import com.emberr.domain.database.newViewName
 import com.emberr.domain.database.withColumnShown
 import com.emberr.domain.database.withViewAdded
 import com.emberr.domain.database.withViewChanged
 import com.emberr.domain.database.withViewDeleted
+import com.emberr.domain.database.withViewGroupedBy
 import com.emberr.domain.database.withDatabasePropertyCreated
 import com.emberr.domain.database.withDatabasePropertyDeleted
 import com.emberr.domain.database.withDatabasePropertyRenamed
@@ -149,6 +153,10 @@ class DatabaseBlockEditor(
         host.changeDatabaseBlock(blockId) { it.withViewDeleted(viewId) }
     }
 
+    fun changeView(blockId: String, viewId: String, change: (DatabaseView) -> DatabaseView) {
+        host.changeDatabaseBlock(blockId) { it.withViewChanged(viewId, change) }
+    }
+
     fun setViewShowsIcon(blockId: String, viewId: String, showsIcon: Boolean) {
         host.changeDatabaseBlock(blockId) { databaseBlock -> databaseBlock.withViewChanged(viewId) { it.copy(showsIcon = showsIcon) } }
     }
@@ -189,15 +197,67 @@ class DatabaseBlockEditor(
         addRowFromTemplate(blockId, databaseBlock.defaultTemplateId)
     }
 
-    fun addRowFromTemplate(blockId: String, templateNoteId: String?) {
+    fun addRowFromTemplate(blockId: String, templateNoteId: String?, cellPreset: DatabaseCellPreset? = null) {
         if (host.findDatabaseBlock(blockId) == null) return
         writeTextEditsNow()
         writeInOrder { historyGeneration ->
             val databaseBlock = host.findDatabaseBlock(blockId) ?: return@writeInOrder
-            val change = repository.createDatabaseRow(databaseBlock, templateNoteId)
+            val change = repository.createDatabaseRow(databaseBlock, templateNoteId, cellPreset)
             rememberRowWasWritten(change.rowNoteId)
             host.recordDatabaseRowStep(listOf(change), typingKey = null, historyGeneration = historyGeneration)
             _rowToFocus.value = change.rowNoteId
+        }
+    }
+
+    fun addRowInGroup(blockId: String, column: DatabaseColumnTarget, groupValue: DatabaseBoardGroupValue) {
+        val databaseBlock = host.findDatabaseBlock(blockId) ?: return
+        val preset = DatabaseCellPreset(column) { it.movedBetweenGroups(from = DatabaseBoardGroupValue.NoValue, to = groupValue) }
+        addRowFromTemplate(blockId, databaseBlock.defaultTemplateId, preset)
+    }
+
+    fun moveCard(
+        blockId: String,
+        viewId: String,
+        rowNoteId: String,
+        column: DatabaseColumnTarget,
+        from: DatabaseBoardGroupValue,
+        to: DatabaseBoardGroupValue,
+        newManualRowOrder: List<String>?
+    ) {
+        if (from == to) {
+            if (newManualRowOrder != null) changeView(blockId, viewId) { it.copy(manualRowOrder = newManualRowOrder) }
+            return
+        }
+        if (newManualRowOrder == null) {
+            writeCellNow(blockId, rowNoteId, column) { it.movedBetweenGroups(from, to) }
+            return
+        }
+        writeTextEditsNow()
+        writeInOrder { historyGeneration ->
+            val databaseBlock = host.findDatabaseBlock(blockId) ?: return@writeInOrder
+            val cellChange = repository.updateDatabaseCell(databaseBlock, rowNoteId, column) { it.movedBetweenGroups(from, to) }
+            if (cellChange != null) rememberRowWasWritten(rowNoteId)
+            host.changeDatabaseBlockTogetherWithRows(blockId, listOfNotNull(cellChange), historyGeneration) { databaseBlockNow ->
+                databaseBlockNow.withViewChanged(viewId) { it.copy(manualRowOrder = newManualRowOrder) }
+            }
+        }
+    }
+
+    fun addGroupOption(tagPoolKey: String, name: String) {
+        writeInOrder {
+            repository.createPropertyTag(tagPoolKey, name)
+        }
+    }
+
+    fun reorderGroupOptions(tagPoolKey: String, orderedNames: List<String>) {
+        writeInOrder {
+            repository.reorderPropertyTags(tagPoolKey, orderedNames)
+        }
+    }
+
+    fun setGroupOptionColor(tagPoolKey: String, name: String, colorName: String?) {
+        writeInOrder {
+            repository.setPropertyTagColor(tagPoolKey, name, colorName)
         }
     }
 
@@ -264,7 +324,7 @@ class DatabaseBlockEditor(
         }
     }
 
-    fun addColumn(blockId: String, column: DatabaseColumnTarget) {
+    fun addColumn(blockId: String, column: DatabaseColumnTarget, viewIdToGroupByIt: String? = null) {
         val databaseBlock = host.findDatabaseBlock(blockId) ?: return
         if (databaseBlock.withColumnAdded(column) === databaseBlock) return
         writeTextEditsNow()
@@ -273,10 +333,13 @@ class DatabaseBlockEditor(
             val rowChanges = repository.addDatabaseColumnToRows(latestBlock, column)
             rowChanges.forEach { rememberRowWasWritten(it.rowNoteId) }
             host.changeDatabaseBlockTogetherWithRows(blockId, rowChanges, historyGeneration) {
-                it.withColumnAdded(column)
+                it.withColumnAdded(column).groupedByIfAsked(viewIdToGroupByIt, column)
             }
         }
     }
+
+    private fun DatabaseBlock.groupedByIfAsked(viewId: String?, column: DatabaseColumnTarget): DatabaseBlock =
+        if (viewId == null) this else withViewGroupedBy(viewId, column.columnKey)
 
     fun removeColumn(blockId: String, column: DatabaseColumnTarget) {
         val databaseBlock = host.findDatabaseBlock(blockId) ?: return
@@ -291,7 +354,7 @@ class DatabaseBlockEditor(
     }
 
     @OptIn(ExperimentalUuidApi::class)
-    fun createProperty(blockId: String, name: String, valueType: PropertyValueType) {
+    fun createProperty(blockId: String, name: String, valueType: PropertyValueType, viewIdToGroupByIt: String? = null) {
         val databaseBlock = host.findDatabaseBlock(blockId) ?: return
         val cleanedName = name.trim()
         if (cleanedName.isEmpty() || databaseBlock.isPropertyNameTaken(cleanedName, ignoringPropertyId = null)) return
@@ -303,7 +366,7 @@ class DatabaseBlockEditor(
             val rowChanges = repository.addDatabaseColumnToRows(blockWithProperty, DatabaseColumnTarget.CustomProperty(property.id))
             rowChanges.forEach { rememberRowWasWritten(it.rowNoteId) }
             host.changeDatabaseBlockTogetherWithRows(blockId, rowChanges, historyGeneration) {
-                it.withDatabasePropertyCreated(property)
+                it.withDatabasePropertyCreated(property).groupedByIfAsked(viewIdToGroupByIt, DatabaseColumnTarget.CustomProperty(property.id))
             }
         }
     }
