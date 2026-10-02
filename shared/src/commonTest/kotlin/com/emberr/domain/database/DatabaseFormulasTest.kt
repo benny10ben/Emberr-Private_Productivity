@@ -24,7 +24,7 @@ class DatabaseFormulasTest {
     private val quantityColumn = DatabaseColumnTarget.CustomProperty("quantity")
     private val totalColumn = DatabaseColumnTarget.CustomProperty("total")
     private val formulaColumn = DatabaseColumnTarget.Property(PropertyType.FORMULA)
-    private val doneColumn = DatabaseColumnTarget.Property(PropertyType.CHECKBOX)
+    private val doneColumn = DatabaseColumnTarget.CustomProperty("done")
 
     private val database = DatabaseBlock(
         id = "block",
@@ -33,7 +33,8 @@ class DatabaseFormulasTest {
         customProperties = listOf(
             DatabaseCustomProperty(id = "price", name = "Price", valueType = PropertyValueType.NUMBER),
             DatabaseCustomProperty(id = "quantity", name = "Quantity", valueType = PropertyValueType.NUMBER),
-            DatabaseCustomProperty(id = "total", name = "Total", valueType = PropertyValueType.FORMULA)
+            DatabaseCustomProperty(id = "total", name = "Total", valueType = PropertyValueType.FORMULA),
+            DatabaseCustomProperty(id = "done", name = "Done", valueType = PropertyValueType.CHECKBOX)
         ),
         formulas = mapOf(
             "total" to """prop("Price") * prop("Quantity")""",
@@ -57,7 +58,7 @@ class DatabaseFormulasTest {
             cellsByColumn = listOfNotNull(
                 price?.let { priceColumn to numberCell("price", noteId, it) },
                 quantity?.let { quantityColumn to numberCell("quantity", noteId, it) },
-                doneColumn to PropertyBlock(id = "checkbox-$noteId", propertyType = PropertyType.CHECKBOX, isChecked = done)
+                doneColumn to PropertyBlock(id = "done-$noteId", customPropertyId = "done", customValueType = PropertyValueType.CHECKBOX, isChecked = done)
             ).toMap()
         )
 
@@ -76,7 +77,7 @@ class DatabaseFormulasTest {
         assertNull(database.emptyCell(formulaColumn, rowNoteId = "a", now = 1L))
         assertNull(database.emptyCell(totalColumn, rowNoteId = "a", now = 1L))
         assertEquals(
-            listOf("price-a", "quantity-a", "checkbox-a"),
+            listOf("price-a", "quantity-a", "done-a"),
             database.newRowBlocks(rowNoteId = "a", now = 1L).map { it.id }
         )
     }
