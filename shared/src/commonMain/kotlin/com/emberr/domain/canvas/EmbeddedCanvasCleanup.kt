@@ -17,7 +17,7 @@ val NoteMetadataEntity.isEmbeddedCanvas: Boolean
 
 object EmbeddedCanvasCleanup {
     const val CANVAS_NOTE_ID_FIELD = "canvasNoteId"
-    const val DELETED_BLOCK_GRACE_PERIOD_MILLIS = 7L * 24 * 60 * 60 * 1000
+    const val DELETED_BLOCK_GRACE_PERIOD_MILLIS = 30L * 24 * 60 * 60 * 1000
 
     fun canvasesToDeleteAtLaunch(
         embeddedCanvasIds: Set<String>,
