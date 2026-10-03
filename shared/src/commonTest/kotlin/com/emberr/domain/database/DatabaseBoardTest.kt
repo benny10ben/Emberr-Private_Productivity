@@ -11,8 +11,10 @@ import com.emberr.domain.model.PropertyValueType
 import kotlinx.datetime.LocalDate
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertSame
+import kotlin.test.assertTrue
 
 class DatabaseBoardTest {
 
@@ -279,6 +281,25 @@ class DatabaseBoardTest {
             listOf("a", "c", "b"),
             manualRowOrderWithRowPlaced(shownRowIds, emptyList(), rowId = "b", nextToRowId = "c", isAfter = true)
         )
+    }
+
+    @Test
+    fun droppingACardNextToItselfOrBackInItsOwnGapDoesNotMoveIt() {
+        val shownRowIds = listOf("a", "b", "c")
+
+        assertFalse(dropMovesRow(shownRowIds, draggedRowId = "b", nextToRowId = "b", isAfter = false))
+        assertFalse(dropMovesRow(shownRowIds, draggedRowId = "b", nextToRowId = "b", isAfter = true))
+        assertFalse(dropMovesRow(shownRowIds, draggedRowId = "b", nextToRowId = "a", isAfter = true))
+        assertFalse(dropMovesRow(shownRowIds, draggedRowId = "b", nextToRowId = "c", isAfter = false))
+    }
+
+    @Test
+    fun droppingACardInAnotherGapMovesIt() {
+        val shownRowIds = listOf("a", "b", "c")
+
+        assertTrue(dropMovesRow(shownRowIds, draggedRowId = "b", nextToRowId = "a", isAfter = false))
+        assertTrue(dropMovesRow(shownRowIds, draggedRowId = "b", nextToRowId = "c", isAfter = true))
+        assertFalse(dropMovesRow(shownRowIds, draggedRowId = "b", nextToRowId = "missing", isAfter = true))
     }
 
     @Test

@@ -68,6 +68,7 @@ import com.emberr.domain.database.columnWithKey
 import com.emberr.domain.database.groupByColumn
 import com.emberr.domain.database.hiddenIn
 import com.emberr.domain.database.inManualOrder
+import com.emberr.domain.database.loadedRows
 import com.emberr.domain.database.manualRowOrderAfterDrop
 import com.emberr.domain.database.shownIn
 import com.emberr.domain.database.withItemMovedBefore
@@ -113,9 +114,9 @@ private val BoardEdgeScrollZone = 56.dp
 private val VerticalLabelMaxLength = 240.dp
 private val BoardColumnShape = RoundedCornerShape(10.dp)
 private const val BoardEdgeScrollStepPixels = 14f
-private const val DraggedItemSourceAlpha = 0.35f
+internal const val DraggedItemSourceAlpha = 0.35f
 private val BoardCardGap = 8.dp
-private val DropIndicatorThickness = 2.dp
+internal val DropIndicatorThickness = 2.dp
 private const val OptionGroupBackgroundAlpha = 0.18f
 private const val NeutralGroupBackgroundAlpha = 0.04f
 private const val DropTargetShadeAlpha = 0.08f
@@ -168,7 +169,7 @@ private class BoardDragState {
 
 private fun cardBoundsKey(groupKey: String, rowNoteId: String): String = "$groupKey/$rowNoteId"
 
-private class GestureCoordinates {
+internal class GestureCoordinates {
     var coordinates: LayoutCoordinates? = null
 }
 
@@ -178,7 +179,7 @@ private data class CardDropSpot(
     val lastOtherRowId: String?
 )
 
-private fun Modifier.boardDragGesture(
+internal fun Modifier.boardDragGesture(
     key: Any,
     isEnabled: Boolean,
     gestureCoordinates: GestureCoordinates,
@@ -211,6 +212,7 @@ internal fun DatabaseBoard(
     block: DatabaseBlock,
     view: DatabaseView,
     rows: List<DatabaseRow>,
+    newRowIds: List<String>,
     inSelectionMode: Boolean,
     isLocked: Boolean,
     editor: DatabaseBlockEditor,
@@ -251,12 +253,14 @@ internal fun DatabaseBoard(
     val columnWidth = view.cardSize.boardColumnWidth()
     val cardDimensions = view.cardSize.dimensions().copy(width = columnWidth - BoardColumnPadding * 2)
     val calculationLabel = rememberGroupCalculationLabel(block, view)
+    val loadedCardCounts = remember(view.id, view.loadLimit) { mutableStateMapOf<String, Int>() }
 
     val dragState = remember { BoardDragState() }
     val scrollState = rememberScrollState()
     val density = LocalDensity.current
     var boardOriginInRoot by remember { mutableStateOf(Offset.Zero) }
     var boardSize by remember { mutableStateOf(IntSize.Zero) }
+    val autoScroll = rememberVerticalDragAutoScroll(isDragging = dragState.isDraggingCard, pointerInRoot = { dragState.pointerInRoot })
 
     val latestGroups by rememberUpdatedState(groups)
     val latestShownOptionGroups by rememberUpdatedState(shownOptionGroups)
@@ -265,13 +269,17 @@ internal fun DatabaseBoard(
     val latestGroupColumn by rememberUpdatedState(groupColumn)
     val latestTagPoolKey by rememberUpdatedState(tagPoolKey)
     val latestUsesManualOrder by rememberUpdatedState(usesManualOrder)
+    val latestNewRowIds by rememberUpdatedState(newRowIds)
+
+    fun loadedCardsOf(group: DatabaseBoardGroup): List<DatabaseRow> =
+        group.rows.loadedRows(loadedCardCounts[group.key] ?: latestView.loadLimit, latestNewRowIds)
 
     fun latestGroupWithKey(groupKey: String?): DatabaseBoardGroup? = latestGroups.firstOrNull { it.key == groupKey }
 
     fun cardDropSpot(): CardDropSpot? {
         val draggedRowId = dragState.draggedRowNoteId ?: return null
         val targetGroup = latestGroupWithKey(dragState.columnUnderPointer()) ?: return null
-        val otherRows = targetGroup.rows.filter { it.noteId != draggedRowId }
+        val otherRows = loadedCardsOf(targetGroup).filter { it.noteId != draggedRowId }
         val beforeRow = otherRows.firstOrNull { row ->
             val bounds = dragState.cardBoundsInRoot[cardBoundsKey(targetGroup.key, row.noteId)]
             bounds != null && bounds.center.y > dragState.pointerInRoot.y
@@ -340,6 +348,7 @@ internal fun DatabaseBoard(
     Box(
         modifier = modifier
             .fillMaxWidth()
+            .verticalDragAutoScroll(autoScroll)
             .onGloballyPositioned { coordinates ->
                 boardOriginInRoot = coordinates.positionInRoot()
                 boardSize = coordinates.size
@@ -376,6 +385,7 @@ internal fun DatabaseBoard(
                                 tagPoolKey = tagPoolKey,
                                 width = columnWidth,
                                 cardDimensions = cardDimensions,
+                                loadedCards = loadedCardsOf(group),
                                 calculationLabel = calculationLabel(group.rows),
                                 isDropTarget = isDropTarget,
                                 canBeDragged = canReorderColumns && group.value is DatabaseBoardGroupValue.Option,
@@ -386,6 +396,9 @@ internal fun DatabaseBoard(
                                 onOpenRow = onOpenRow,
                                 onDropCard = ::dropDraggedCard,
                                 onDropColumn = ::dropDraggedColumn,
+                                onLoadMore = {
+                                    loadedCardCounts[group.key] = (loadedCardCounts[group.key] ?: view.loadLimit) + view.loadLimit
+                                },
                                 runAfterKeyboardCloses = runAfterKeyboardCloses
                             )
                         }
@@ -499,7 +512,7 @@ private fun rememberBoardGroupBackground(value: DatabaseBoardGroupValue, tagPool
     }
 
 @Composable
-private fun DatabaseDropIndicator(offset: Offset, width: Dp, height: Dp) {
+internal fun DatabaseDropIndicator(offset: Offset, width: Dp, height: Dp) {
     Box(
         modifier = Modifier
             .zIndex(1f)
@@ -536,6 +549,7 @@ private fun DatabaseBoardColumn(
     tagPoolKey: String?,
     width: Dp,
     cardDimensions: CardDimensions,
+    loadedCards: List<DatabaseRow>,
     calculationLabel: String?,
     isDropTarget: Boolean,
     canBeDragged: Boolean,
@@ -546,6 +560,7 @@ private fun DatabaseBoardColumn(
     onOpenRow: (String) -> Unit,
     onDropCard: () -> Unit,
     onDropColumn: () -> Unit,
+    onLoadMore: () -> Unit,
     runAfterKeyboardCloses: (() -> Unit) -> Unit
 ) {
     DisposableEffect(group.key) {
@@ -577,7 +592,7 @@ private fun DatabaseBoardColumn(
             onDrop = onDropColumn,
             runAfterKeyboardCloses = runAfterKeyboardCloses
         )
-        group.rows.forEach { row ->
+        loadedCards.forEach { row ->
             key(row.noteId) {
                 DatabaseBoardCard(
                     block = block,
@@ -592,6 +607,9 @@ private fun DatabaseBoardColumn(
                     onDrop = onDropCard
                 )
             }
+        }
+        if (loadedCards.size < group.rows.size) {
+            DatabaseLoadMoreButton(onClick = onLoadMore)
         }
         if (!inSelectionMode) {
             DatabaseAddRowButton(onClick = { editor.addRowInGroup(block.id, groupColumn, group.value) })

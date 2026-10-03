@@ -32,6 +32,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -67,10 +68,12 @@ import com.emberr.domain.database.activeView
 import com.emberr.domain.database.applyFiltersAndSort
 import com.emberr.domain.database.frozenColumns
 import com.emberr.domain.database.inManualOrder
+import com.emberr.domain.database.loadedRows
 import com.emberr.domain.database.matchingSearch
 import com.emberr.domain.database.visibleColumns
 import com.emberr.domain.database.visibleColumnsInTableOrder
 import com.emberr.domain.database.withFormulaResults
+import com.emberr.domain.database.withSharedSettingsFrom
 import com.emberr.domain.model.DatabaseBlock
 import com.emberr.domain.model.DatabaseColumnTarget
 import com.emberr.domain.model.DatabaseViewType
@@ -79,10 +82,12 @@ import com.emberr.domain.util.system.isDesktopPlatform
 import com.emberr.presentation.shared.components.EmberrHorizontalScrollbar
 import com.emberr.presentation.shared.components.smoothWheelScroll
 import com.emberr.presentation.shared.editor.DatabaseBlockEditor
+import com.emberr.presentation.shared.editor.DatabaseSettingsState
 import com.emberr.ui.theme.LocalEmberrFontStyle
 import com.emberr.ui.theme.fontFamilyFor
 import com.emberr.ui.theme.tableGridLineColor
 import emberr.shared.generated.resources.Res
+import emberr.shared.generated.resources.arrow_down
 import emberr.shared.generated.resources.chevron_right
 import emberr.shared.generated.resources.list_sort_descending
 import emberr.shared.generated.resources.lock
@@ -133,6 +138,40 @@ fun DatabaseBlockView(
     onOpenRow: (String) -> Unit,
     runAfterKeyboardCloses: (() -> Unit) -> Unit
 ) {
+    val settingsState by remember(block.databaseId) { editor.settingsShownFor(block.databaseId) }
+        .collectAsState(initial = DatabaseSettingsState.Loading)
+
+    when (val shownSettings = settingsState) {
+        DatabaseSettingsState.Loading -> Unit
+        DatabaseSettingsState.Missing -> Text(
+            text = "This database was deleted or has not synced to this device yet.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = DatabaseSidePadding, vertical = DatabaseVerticalPadding)
+        )
+        is DatabaseSettingsState.Found -> {
+            val shownBlock = remember(block, shownSettings.settings) { block.withSharedSettingsFrom(shownSettings.settings) }
+            DatabaseBlockContent(
+                block = shownBlock,
+                editor = editor,
+                inSelectionMode = inSelectionMode,
+                onToggleSelection = onToggleSelection,
+                onOpenRow = onOpenRow,
+                runAfterKeyboardCloses = runAfterKeyboardCloses
+            )
+        }
+    }
+}
+
+@Composable
+private fun DatabaseBlockContent(
+    block: DatabaseBlock,
+    editor: DatabaseBlockEditor,
+    inSelectionMode: Boolean,
+    onToggleSelection: () -> Unit,
+    onOpenRow: (String) -> Unit,
+    runAfterKeyboardCloses: (() -> Unit) -> Unit
+) {
     val savedRows by remember(block.databaseId) { editor.rowsOf(block.databaseId) }.collectAsState(initial = emptyList())
     val rows = remember(savedRows, block) { savedRows.withFormulaResults(block) }
     var isSearchOpen by remember { mutableStateOf(false) }
@@ -150,6 +189,7 @@ fun DatabaseBlockView(
     var showSortMenu by remember { mutableStateOf(false) }
     var showTemplateMenu by remember { mutableStateOf(false) }
     val rowSelection = remember(block.databaseId) { DatabaseRowSelection() }
+    val newRowIds = remember(block.databaseId) { mutableStateListOf<String>() }
 
     fun savedColumnWidth(target: DatabaseColumnTarget): Int =
         block.columnWidths[target.columnKey] ?: defaultColumnWidth(target)
@@ -169,6 +209,7 @@ fun DatabaseBlockView(
     val tableWidth = (columnWidth(DatabaseColumnTarget.NotesTitle) + block.visibleColumns().sumOf { columnWidth(it) }).dp +
         DatabaseGutterWidth + selectionColumnWidth
     val activeView = block.activeView()
+    var loadedRowCount by remember(block.databaseId, activeView.id, activeView.loadLimit) { mutableIntStateOf(activeView.loadLimit) }
     val frozenColumns = block.frozenColumns()
     val blocksEdits = inSelectionMode || block.isLocked
     val rowCountCaption = if (block.showsRowCount) rowCountLabel(shownRowCount = visibleRows.size, totalRowCount = rows.size) else null
@@ -191,9 +232,10 @@ fun DatabaseBlockView(
     }
 
     LaunchedEffect(rowToFocus) {
-        if (rowToFocus == null) return@LaunchedEffect
+        val newRowNoteId = rowToFocus ?: return@LaunchedEffect
         isSearchOpen = false
         searchText = ""
+        if (newRowNoteId !in newRowIds) newRowIds += newRowNoteId
     }
 
     LaunchedEffect(rowToFocus, activeView.type) {
@@ -311,16 +353,31 @@ fun DatabaseBlockView(
                 )
             }
 
+            val orderedRows = remember(visibleRows, activeView.sorts, activeView.manualRowOrder) {
+                if (activeView.sorts.isEmpty()) visibleRows.inManualOrder(activeView.manualRowOrder) else visibleRows
+            }
+
             when (activeView.type) {
                 DatabaseViewType.GALLERY -> {
+                    val galleryRows = orderedRows.loadedRows(loadedRowCount, newRowIds)
                     DatabaseGallery(
                         block = block,
                         view = activeView,
-                        rows = visibleRows,
+                        rows = galleryRows,
                         inSelectionMode = inSelectionMode,
+                        canReorder = activeView.sorts.isEmpty() && !blocksEdits,
                         onOpenRow = { rowNoteId -> editor.openRow(rowNoteId, onOpenRow) },
+                        onMoveRow = { rowNoteId, nextToRowId, isAfter ->
+                            editor.moveRow(block.id, activeView.id, orderedRows.map { it.noteId }, rowNoteId, nextToRowId, isAfter)
+                        },
                         modifier = Modifier.padding(horizontal = DatabaseSidePadding)
                     )
+                    if (galleryRows.size < orderedRows.size) {
+                        DatabaseLoadMoreButton(
+                            onClick = { loadedRowCount += activeView.loadLimit },
+                            modifier = Modifier.padding(start = DatabaseSidePadding, top = 6.dp)
+                        )
+                    }
                     DatabaseNewRowLine(
                         showsNewButton = !blocksEdits,
                         rowCountCaption = rowCountCaption,
@@ -333,6 +390,7 @@ fun DatabaseBlockView(
                         block = block,
                         view = activeView,
                         rows = visibleRows,
+                        newRowIds = newRowIds,
                         inSelectionMode = inSelectionMode,
                         isLocked = block.isLocked,
                         editor = editor,
@@ -350,10 +408,8 @@ fun DatabaseBlockView(
                     }
                 }
                 DatabaseViewType.TABLE -> {
-                    val tableRows = remember(visibleRows, activeView.sorts, activeView.manualRowOrder) {
-                        if (activeView.sorts.isEmpty()) visibleRows.inManualOrder(activeView.manualRowOrder) else visibleRows
-                    }
-                    val shownRowIds = remember(tableRows) { tableRows.map { it.noteId } }
+                    val loadedTableRows = orderedRows.loadedRows(loadedRowCount, newRowIds)
+                    val shownRowIds = remember(orderedRows) { orderedRows.map { it.noteId } }
                     LaunchedEffect(shownRowIds) {
                         rowSelection.keepOnly(shownRowIds)
                     }
@@ -405,7 +461,7 @@ fun DatabaseBlockView(
                                         editor = editor,
                                         runAfterKeyboardCloses = runAfterKeyboardCloses
                                     )
-                                    tableRows.forEach { row ->
+                                    loadedTableRows.forEach { row ->
                                         key(row.noteId) {
                                             DatabaseRowItem(
                                                 row = row,
@@ -429,6 +485,12 @@ fun DatabaseBlockView(
                                                 runAfterKeyboardCloses = runAfterKeyboardCloses
                                             )
                                         }
+                                    }
+                                    if (loadedTableRows.size < orderedRows.size) {
+                                        DatabaseLoadMoreButton(
+                                            onClick = { loadedRowCount += activeView.loadLimit },
+                                            modifier = Modifier.padding(vertical = 2.dp)
+                                        )
                                     }
                                 }
                             }
@@ -687,6 +749,26 @@ private fun DatabaseNewRowLine(
 
 private fun rowCountLabel(shownRowCount: Int, totalRowCount: Int): String =
     if (shownRowCount == totalRowCount) rowCountText(totalRowCount) else "$shownRowCount of ${rowCountText(totalRowCount)}"
+
+@Composable
+internal fun DatabaseLoadMoreButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Row(
+        modifier = modifier
+            .clip(RoundedCornerShape(8.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 8.dp, vertical = 7.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            painter = painterResource(Res.drawable.arrow_down),
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.outline,
+            modifier = Modifier.size(16.dp)
+        )
+        Spacer(modifier = Modifier.width(7.dp))
+        Text(text = "Load more", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.outline)
+    }
+}
 
 @Composable
 internal fun DatabaseAddRowButton(onClick: () -> Unit) {

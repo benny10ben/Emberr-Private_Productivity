@@ -29,6 +29,7 @@ import com.emberr.domain.model.DatabaseBlock
 import com.emberr.domain.model.DatabaseCardSize
 import com.emberr.domain.model.DatabaseColumnTarget
 import com.emberr.domain.model.DatabaseDateGrouping
+import com.emberr.domain.model.DatabaseLoadLimitChoices
 import com.emberr.domain.model.DatabaseView
 import com.emberr.domain.model.DatabaseViewType
 import com.emberr.domain.model.PropertyValueType
@@ -38,6 +39,7 @@ import com.emberr.domain.model.valueTypeOf
 import com.emberr.presentation.shared.editor.DatabaseBlockEditor
 import com.emberr.presentation.shared.editor.blockViews.iconResource
 import emberr.shared.generated.resources.Res
+import emberr.shared.generated.resources.arrow_down
 import emberr.shared.generated.resources.calendar_day
 import emberr.shared.generated.resources.eye3
 import emberr.shared.generated.resources.ghost_smile
@@ -120,6 +122,26 @@ internal fun DatabaseSettingsMenu(
                         onClick = { closeLayerAnd { editor.setViewCardSize(block.id, activeView.id, cardSize) } }
                     )
                 }
+            }
+        }
+
+        DatabaseMenuLayer(
+            title = "Load limit",
+            anchor = { openLayer ->
+                DatabaseMenuOption(
+                    label = "Load limit",
+                    icon = { DatabaseOptionIcon(Res.drawable.arrow_down) },
+                    trailing = { DatabaseSettingValueText(text = "${activeView.loadLimit} rows") },
+                    onClick = openLayer
+                )
+            }
+        ) { closeLayerAnd ->
+            DatabaseLoadLimitChoices.forEach { loadLimit ->
+                DatabaseMenuOption(
+                    label = "$loadLimit rows",
+                    isSelected = loadLimit == activeView.loadLimit,
+                    onClick = { closeLayerAnd { editor.changeView(block.id, activeView.id) { it.copy(loadLimit = loadLimit) } } }
+                )
             }
         }
 

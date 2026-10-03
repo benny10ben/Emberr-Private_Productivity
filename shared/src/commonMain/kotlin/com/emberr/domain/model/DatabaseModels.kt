@@ -151,10 +151,15 @@ data class DatabaseView(
     val filters: List<DatabaseFilter> = emptyList(),
     val sorts: List<DatabaseSort> = emptyList(),
     val freezesTitleColumn: Boolean = false,
-    val wrapsCellText: Boolean = true
+    val wrapsCellText: Boolean = true,
+    val loadLimit: Int = DEFAULT_LOAD_LIMIT
 )
 
 const val DEFAULT_VIEW_ID = "default-table"
+
+const val DEFAULT_LOAD_LIMIT = 20
+
+val DatabaseLoadLimitChoices = listOf(DEFAULT_LOAD_LIMIT, 50, 100)
 
 enum class DatabaseCalculationGroup(val label: String) {
     COUNT("Count"),

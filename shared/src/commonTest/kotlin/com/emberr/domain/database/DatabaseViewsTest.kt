@@ -87,4 +87,30 @@ class DatabaseViewsTest {
 
         assertEquals(DatabaseCardSize.MEDIUM, view.cardSize)
     }
+
+    @Test
+    fun aViewSavedBeforeLoadLimitsExistedLoadsTwentyRows() {
+        val view = Json.decodeFromString<DatabaseView>("""{"id":"gallery-id","name":"Gallery","type":"GALLERY"}""")
+
+        assertEquals(20, view.loadLimit)
+    }
+
+    @Test
+    fun onlyTheFirstLoadedRowsAreShown() {
+        val rows = (1..5).map { row("row-$it") }
+
+        assertEquals(listOf("row-1", "row-2"), rows.loadedRows(loadedCount = 2).map { it.noteId })
+        assertEquals(5, rows.loadedRows(loadedCount = 20).size)
+    }
+
+    @Test
+    fun aRowThatMustStayShownIsKeptInItsPlaceEvenPastTheLoadedRows() {
+        val rows = (1..5).map { row("row-$it") }
+
+        val result = rows.loadedRows(loadedCount = 2, alwaysShownRowIds = setOf("row-4"))
+
+        assertEquals(listOf("row-1", "row-2", "row-4"), result.map { it.noteId })
+    }
+
+    private fun row(noteId: String) = DatabaseRow(noteId = noteId, title = noteId, createdAt = 0L, cellsByColumn = emptyMap())
 }

@@ -198,3 +198,11 @@ fun manualRowOrderWithRowPlaced(
     beforeRowId = nextToRowId.takeUnless { isAfter },
     lastOtherRowIdInTargetColumn = nextToRowId.takeIf { isAfter }
 )
+
+fun dropMovesRow(shownRowIds: List<String>, draggedRowId: String, nextToRowId: String, isAfter: Boolean): Boolean {
+    val draggedPosition = shownRowIds.indexOf(draggedRowId)
+    val nextToPosition = shownRowIds.indexOf(nextToRowId)
+    if (draggedPosition < 0 || nextToPosition < 0) return false
+    val dropPosition = if (isAfter) nextToPosition + 1 else nextToPosition
+    return dropPosition != draggedPosition && dropPosition != draggedPosition + 1
+}
