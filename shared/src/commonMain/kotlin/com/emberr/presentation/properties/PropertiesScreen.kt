@@ -62,7 +62,7 @@ import com.emberr.presentation.shared.components.EmberrTopHeaderBar
 import com.emberr.presentation.shared.components.EmberrVerticalScrollbar
 import com.emberr.presentation.shared.components.SheetBringIntoViewSpec
 import com.emberr.presentation.shared.components.topHeaderBarPadding
-import com.emberr.presentation.shared.editor.blockViews.iconResource
+import com.emberr.presentation.shared.editor.blockViews.property.iconResource
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
 import emberr.shared.generated.resources.Res

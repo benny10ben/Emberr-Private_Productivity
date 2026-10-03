@@ -90,11 +90,11 @@ import com.emberr.presentation.shared.components.customEmberrShadow
 import com.emberr.presentation.shared.components.menuTapAnchor
 import com.emberr.presentation.shared.components.rememberMenuTapAnchor
 import com.emberr.presentation.shared.editor.DatabaseBlockEditor
-import com.emberr.presentation.shared.editor.blockViews.PropertyTagChip
-import com.emberr.presentation.shared.editor.blockViews.PropertyTagColorChoices
-import com.emberr.presentation.shared.editor.blockViews.formatPropertyDate
-import com.emberr.presentation.shared.editor.blockViews.rememberPropertyTagColor
-import com.emberr.presentation.shared.editor.blockViews.rememberPropertyTagColorName
+import com.emberr.presentation.shared.editor.blockViews.property.PropertyTagChip
+import com.emberr.presentation.shared.editor.blockViews.property.PropertyTagColorChoices
+import com.emberr.presentation.shared.editor.blockViews.property.formatPropertyDate
+import com.emberr.presentation.shared.editor.blockViews.property.rememberPropertyTagColor
+import com.emberr.presentation.shared.editor.blockViews.property.rememberPropertyTagColorName
 import emberr.shared.generated.resources.Res
 import emberr.shared.generated.resources.check_square
 import emberr.shared.generated.resources.chevron_right

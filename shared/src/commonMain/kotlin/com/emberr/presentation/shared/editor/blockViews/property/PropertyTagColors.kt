@@ -1,4 +1,4 @@
-package com.emberr.presentation.shared.editor.blockViews
+package com.emberr.presentation.shared.editor.blockViews.property
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border

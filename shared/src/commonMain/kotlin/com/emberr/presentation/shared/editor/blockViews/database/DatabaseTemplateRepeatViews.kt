@@ -28,7 +28,7 @@ import com.emberr.domain.model.DatabaseRepeatFrequency
 import com.emberr.domain.model.DatabaseTemplateRepeat
 import com.emberr.domain.model.isoDayNumberToDayOfWeek
 import com.emberr.presentation.shared.components.MinimalTimePickerDialog
-import com.emberr.presentation.shared.editor.blockViews.formatPropertyTime
+import com.emberr.presentation.shared.editor.blockViews.property.formatPropertyTime
 import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.LocalTime

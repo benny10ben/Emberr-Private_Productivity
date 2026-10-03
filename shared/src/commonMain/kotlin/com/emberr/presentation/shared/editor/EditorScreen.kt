@@ -86,7 +86,7 @@ import com.emberr.presentation.shared.components.EmberrTextField
 import com.emberr.presentation.shared.components.KmpBackHandler
 import com.emberr.presentation.shared.components.customEmberrShadow
 import com.emberr.presentation.shared.editor.blockViews.LinkedNoteOptionsMenu
-import com.emberr.presentation.shared.editor.blockViews.iconResource
+import com.emberr.presentation.shared.editor.blockViews.property.iconResource
 import com.emberr.domain.repository.NoteRepository
 import org.koin.compose.koinInject
 import dev.chrisbanes.haze.HazeState

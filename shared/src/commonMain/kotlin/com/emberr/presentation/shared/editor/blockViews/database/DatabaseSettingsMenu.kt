@@ -37,7 +37,7 @@ import com.emberr.domain.model.columnKey
 import com.emberr.domain.model.labelOf
 import com.emberr.domain.model.valueTypeOf
 import com.emberr.presentation.shared.editor.DatabaseBlockEditor
-import com.emberr.presentation.shared.editor.blockViews.iconResource
+import com.emberr.presentation.shared.editor.blockViews.property.iconResource
 import emberr.shared.generated.resources.Res
 import emberr.shared.generated.resources.arrow_down
 import emberr.shared.generated.resources.calendar_day

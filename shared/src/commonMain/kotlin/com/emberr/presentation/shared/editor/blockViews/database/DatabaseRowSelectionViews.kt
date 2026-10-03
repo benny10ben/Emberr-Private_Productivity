@@ -51,7 +51,7 @@ import com.emberr.domain.util.system.isDesktopPlatform
 import com.emberr.presentation.shared.components.EmberrTextField
 import com.emberr.presentation.shared.components.MinimalDatePickerDialog
 import com.emberr.presentation.shared.editor.DatabaseBlockEditor
-import com.emberr.presentation.shared.editor.blockViews.rememberPropertyTagColor
+import com.emberr.presentation.shared.editor.blockViews.property.rememberPropertyTagColor
 import com.emberr.ui.theme.tableGridLineColor
 import emberr.shared.generated.resources.Res
 import emberr.shared.generated.resources.copy

@@ -1,4 +1,4 @@
-package com.emberr.presentation.shared.editor.blockViews
+package com.emberr.presentation.shared.editor.blockViews.property
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable

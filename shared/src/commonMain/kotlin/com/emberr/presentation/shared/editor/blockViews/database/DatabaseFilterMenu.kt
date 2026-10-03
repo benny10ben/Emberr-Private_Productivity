@@ -43,9 +43,9 @@ import com.emberr.domain.model.valueTypeOf
 import com.emberr.presentation.shared.components.EmberrTextField
 import com.emberr.presentation.shared.components.MinimalDatePickerDialog
 import com.emberr.presentation.shared.editor.DatabaseBlockEditor
-import com.emberr.presentation.shared.editor.blockViews.PropertyTagChip
-import com.emberr.presentation.shared.editor.blockViews.formatPropertyDate
-import com.emberr.presentation.shared.editor.blockViews.rememberPropertyTagColor
+import com.emberr.presentation.shared.editor.blockViews.property.PropertyTagChip
+import com.emberr.presentation.shared.editor.blockViews.property.formatPropertyDate
+import com.emberr.presentation.shared.editor.blockViews.property.rememberPropertyTagColor
 import emberr.shared.generated.resources.Res
 import emberr.shared.generated.resources.funnel
 import emberr.shared.generated.resources.plus

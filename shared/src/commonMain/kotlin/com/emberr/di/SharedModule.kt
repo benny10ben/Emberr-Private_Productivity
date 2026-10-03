@@ -25,7 +25,7 @@ import kotlinx.coroutines.SupervisorJob
 val sharedModule = module {
 
     single<CoroutineScope>(named("AppScope")) { CoroutineScope(SupervisorJob() + Dispatchers.Default) }
-    single { com.emberr.presentation.shared.editor.blockViews.PropertyTagColorStore(repository = get(), appScope = get(named("AppScope"))) }
+    single { com.emberr.presentation.shared.editor.blockViews.property.PropertyTagColorStore(repository = get(), appScope = get(named("AppScope"))) }
 
     single { com.emberr.domain.space.ActiveSpaceStore(settingsManager = get()) }
 

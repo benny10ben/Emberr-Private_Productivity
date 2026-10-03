@@ -50,7 +50,7 @@ import com.emberr.presentation.shared.components.MenuAtTap
 import com.emberr.presentation.shared.components.SheetBringIntoViewSpec
 import com.emberr.presentation.shared.components.menuTapAnchor
 import com.emberr.presentation.shared.components.rememberMenuTapAnchor
-import com.emberr.presentation.shared.editor.blockViews.iconResource
+import com.emberr.presentation.shared.editor.blockViews.property.iconResource
 import emberr.shared.generated.resources.Res
 import emberr.shared.generated.resources.notes2
 import org.jetbrains.compose.resources.DrawableResource

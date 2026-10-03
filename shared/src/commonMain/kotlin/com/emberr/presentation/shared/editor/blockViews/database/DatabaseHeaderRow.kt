@@ -63,7 +63,7 @@ import com.emberr.presentation.shared.components.MenuAtTap
 import com.emberr.presentation.shared.components.menuTapAnchor
 import com.emberr.presentation.shared.components.rememberMenuTapAnchor
 import com.emberr.presentation.shared.editor.DatabaseBlockEditor
-import com.emberr.presentation.shared.editor.blockViews.iconResource
+import com.emberr.presentation.shared.editor.blockViews.property.iconResource
 import com.emberr.presentation.shared.editor.components.DesktopCursor
 import com.emberr.presentation.shared.editor.components.desktopPointerCursor
 import com.emberr.ui.theme.tableGridLineColor

@@ -65,8 +65,8 @@ import com.emberr.domain.model.PropertyBlock
 import com.emberr.domain.model.columnKey
 import com.emberr.domain.model.numberOrNull
 import com.emberr.domain.util.media.MediaStorageHelper
-import com.emberr.presentation.shared.editor.blockViews.PropertyTagChip
-import com.emberr.presentation.shared.editor.blockViews.formatPropertyDateRange
+import com.emberr.presentation.shared.editor.blockViews.property.PropertyTagChip
+import com.emberr.presentation.shared.editor.blockViews.property.formatPropertyDateRange
 import emberr.shared.generated.resources.Res
 import emberr.shared.generated.resources.check
 import org.jetbrains.compose.resources.painterResource

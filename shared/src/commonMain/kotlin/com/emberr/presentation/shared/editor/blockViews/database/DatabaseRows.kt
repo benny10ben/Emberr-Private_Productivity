@@ -62,11 +62,11 @@ import com.emberr.domain.model.TextAlignment
 import com.emberr.domain.model.columnKey
 import com.emberr.domain.util.system.isDesktopPlatform
 import com.emberr.presentation.shared.editor.DatabaseBlockEditor
-import com.emberr.presentation.shared.editor.blockViews.PropertyCheckboxValue
-import com.emberr.presentation.shared.editor.blockViews.PropertyDateValue
-import com.emberr.presentation.shared.editor.blockViews.PropertyTagsValue
-import com.emberr.presentation.shared.editor.blockViews.PropertyTextValue
-import com.emberr.presentation.shared.editor.blockViews.toTextAlign
+import com.emberr.presentation.shared.editor.blockViews.property.PropertyCheckboxValue
+import com.emberr.presentation.shared.editor.blockViews.property.PropertyDateValue
+import com.emberr.presentation.shared.editor.blockViews.property.PropertyTagsValue
+import com.emberr.presentation.shared.editor.blockViews.property.PropertyTextValue
+import com.emberr.presentation.shared.editor.blockViews.property.toTextAlign
 import com.emberr.ui.theme.tableGridLineColor
 import emberr.shared.generated.resources.Res
 import emberr.shared.generated.resources.copy

@@ -49,8 +49,8 @@ import com.emberr.domain.model.labelOf
 import com.emberr.domain.util.system.isDesktopPlatform
 import com.emberr.presentation.shared.components.EmberrTextField
 import com.emberr.presentation.shared.editor.DatabaseBlockEditor
-import com.emberr.presentation.shared.editor.blockViews.formatPropertyDate
-import com.emberr.presentation.shared.editor.blockViews.toTextAlign
+import com.emberr.presentation.shared.editor.blockViews.property.formatPropertyDate
+import com.emberr.presentation.shared.editor.blockViews.property.toTextAlign
 import emberr.shared.generated.resources.Res
 import emberr.shared.generated.resources.sigma
 import org.jetbrains.compose.resources.DrawableResource

@@ -110,7 +110,7 @@ import com.emberr.presentation.shared.editor.blockViews.AudioBlockView
 import com.emberr.presentation.shared.editor.blockViews.BookmarkBlockView
 import com.emberr.presentation.shared.editor.blockViews.CanvasBlockView
 import com.emberr.presentation.shared.editor.blockViews.LinkedNoteBlockView
-import com.emberr.presentation.shared.editor.blockViews.PropertyBlockView
+import com.emberr.presentation.shared.editor.blockViews.property.PropertyBlockView
 import com.emberr.presentation.shared.editor.blockViews.TableBlockView
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.input.TransformedText

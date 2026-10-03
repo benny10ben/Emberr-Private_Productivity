@@ -101,7 +101,7 @@ import com.emberr.presentation.shared.editor.blockViews.BookmarkBlockView
 import com.emberr.presentation.shared.editor.blockViews.DocumentBlockView
 import com.emberr.presentation.shared.editor.blockViews.ImageBlockView
 import com.emberr.presentation.shared.editor.blockViews.LinkedNoteBlockView
-import com.emberr.presentation.shared.editor.blockViews.PropertyBlockView
+import com.emberr.presentation.shared.editor.blockViews.property.PropertyBlockView
 import com.emberr.presentation.shared.editor.blockViews.TableBlockView
 import com.emberr.ui.theme.LocalAppIsDark
 import com.emberr.ui.theme.highlightBackgroundFor
