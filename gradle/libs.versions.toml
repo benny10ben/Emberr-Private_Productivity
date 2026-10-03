@@ -55,7 +55,6 @@ llamatik = "1.10.1"
 
 # Camera, scanning and media
 camera = "1.6.2"
-mlkitBarcodeScanning = "17.3.0"
 guava = "33.7.1-android"
 zxing = "3.5.4"
 
@@ -147,7 +146,6 @@ llamatik-library-jvm = { group = "com.llamatik", name = "library-jvm", version.r
 androidx-camera-camera2 = { group = "androidx.camera", name = "camera-camera2", version.ref = "camera" }
 androidx-camera-lifecycle = { group = "androidx.camera", name = "camera-lifecycle", version.ref = "camera" }
 androidx-camera-view = { group = "androidx.camera", name = "camera-view", version.ref = "camera" }
-mlkit-barcode-scanning = { group = "com.google.mlkit", name = "barcode-scanning", version.ref = "mlkitBarcodeScanning" }
 guava = { group = "com.google.guava", name = "guava", version.ref = "guava" }
 zxing-core = { group = "com.google.zxing", name = "core", version.ref = "zxing" }
 

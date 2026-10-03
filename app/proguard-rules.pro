@@ -23,10 +23,6 @@
 
 -dontwarn com.google.errorprone.annotations.**
 
--keep class * implements com.google.firebase.components.ComponentRegistrar {
-    <init>();
-}
-
 -keepnames class * extends androidx.work.ListenableWorker
 -keep class * extends androidx.work.ListenableWorker { <init>(...); }
 

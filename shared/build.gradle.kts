@@ -182,7 +182,7 @@ kotlin {
                 implementation(libs.androidx.camera.lifecycle)
                 implementation(libs.androidx.camera.view)
 
-                implementation(libs.mlkit.barcode.scanning)
+                implementation(libs.zxing.core)
                 implementation(libs.guava)
 
                 implementation(libs.androidx.core.splashscreen)
