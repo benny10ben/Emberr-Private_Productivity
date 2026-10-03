@@ -8,6 +8,7 @@ import com.emberr.domain.database.DatabaseRowChange
 import com.emberr.domain.database.DatabaseStyleTarget
 import com.emberr.domain.database.HistoryDirection
 import com.emberr.domain.database.newDatabaseFilter
+import com.emberr.domain.database.manualRowOrderWithCopiesPlaced
 import com.emberr.domain.database.manualRowOrderWithRowPlaced
 import com.emberr.domain.database.withColumnAdded
 import com.emberr.domain.database.withColumnMovedBefore
@@ -20,10 +21,16 @@ import com.emberr.domain.database.withViewAdded
 import com.emberr.domain.database.withViewChanged
 import com.emberr.domain.database.withViewDeleted
 import com.emberr.domain.database.withViewGroupedBy
+import com.emberr.domain.database.withRowStylesCopied
 import com.emberr.domain.database.withDatabasePropertyCreated
 import com.emberr.domain.database.withDatabasePropertyDeleted
 import com.emberr.domain.database.withDatabasePropertyRenamed
 import com.emberr.domain.database.withFormulaSet
+import com.emberr.domain.database.withNumberFormat
+import com.emberr.domain.database.RepeatingTemplateSchedule
+import com.emberr.domain.database.localNow
+import com.emberr.domain.database.repeatedRowsDueAt
+import com.emberr.domain.database.withTemplateRepeat
 import com.emberr.domain.database.isPropertyNameTaken
 import com.emberr.data.local.room.entity.NoteMetadataEntity
 import com.emberr.data.local.room.entity.PropertyTagEntity
@@ -31,13 +38,18 @@ import com.emberr.domain.model.DatabaseBlock
 import com.emberr.domain.model.DatabaseCalculation
 import com.emberr.domain.model.DatabaseCardSize
 import com.emberr.domain.model.DatabaseCellStyle
+import com.emberr.domain.model.DatabaseColorRule
 import com.emberr.domain.model.DatabaseColumnTarget
 import com.emberr.domain.model.DatabaseCustomProperty
 import com.emberr.domain.model.DatabaseFilter
+import com.emberr.domain.model.DatabaseNumberFormat
 import com.emberr.domain.model.DatabaseSort
+import com.emberr.domain.model.DatabaseTemplateRepeat
 import com.emberr.domain.model.DatabaseView
 import com.emberr.domain.model.DatabaseViewType
 import com.emberr.domain.model.PropertyBlock
+import com.emberr.domain.model.PropertyDateRange
+import com.emberr.domain.model.withDateRange
 import com.emberr.domain.model.PropertyValueType
 import com.emberr.domain.model.columnKey
 import com.emberr.domain.model.valueTypeOf
@@ -57,7 +69,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import kotlinx.datetime.LocalDate
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
@@ -118,26 +129,24 @@ class DatabaseBlockEditor(
     }
 
     @OptIn(ExperimentalUuidApi::class)
-    fun addFilter(blockId: String, target: DatabaseColumnTarget) {
+    fun addFilter(blockId: String, viewId: String, target: DatabaseColumnTarget) {
         val valueType = host.findDatabaseBlock(blockId)?.valueTypeOf(target) ?: return
         val filter = newDatabaseFilter(id = Uuid.random().toString(), target = target, valueType = valueType)
-        host.changeDatabaseBlock(blockId) { it.copy(filters = it.filters + filter) }
+        changeView(blockId, viewId) { it.copy(filters = it.filters + filter) }
     }
 
-    fun changeFilter(blockId: String, filterId: String, change: (DatabaseFilter) -> DatabaseFilter) {
-        host.changeDatabaseBlock(blockId) { databaseBlock ->
-            databaseBlock.copy(filters = databaseBlock.filters.map { if (it.id == filterId) change(it) else it })
+    fun changeFilter(blockId: String, viewId: String, filterId: String, change: (DatabaseFilter) -> DatabaseFilter) {
+        changeView(blockId, viewId) { view ->
+            view.copy(filters = view.filters.map { if (it.id == filterId) change(it) else it })
         }
     }
 
-    fun removeFilter(blockId: String, filterId: String) {
-        host.changeDatabaseBlock(blockId) { databaseBlock ->
-            databaseBlock.copy(filters = databaseBlock.filters.filterNot { it.id == filterId })
-        }
+    fun removeFilter(blockId: String, viewId: String, filterId: String) {
+        changeView(blockId, viewId) { view -> view.copy(filters = view.filters.filterNot { it.id == filterId }) }
     }
 
-    fun setSort(blockId: String, sort: DatabaseSort?) {
-        host.changeDatabaseBlock(blockId) { it.copy(sort = sort) }
+    fun setSorts(blockId: String, viewId: String, sorts: List<DatabaseSort>) {
+        changeView(blockId, viewId) { it.copy(sorts = sorts) }
     }
 
     fun showView(blockId: String, viewId: String) {
@@ -198,6 +207,48 @@ class DatabaseBlockEditor(
 
     fun setFormula(blockId: String, column: DatabaseColumnTarget, formula: String) {
         host.changeDatabaseBlock(blockId) { it.withFormulaSet(column, formula) }
+    }
+
+    fun setLocked(blockId: String, isLocked: Boolean) {
+        host.changeDatabaseBlock(blockId) { it.copy(isLocked = isLocked) }
+    }
+
+    @OptIn(ExperimentalUuidApi::class)
+    fun addColorRule(blockId: String, column: DatabaseColumnTarget) {
+        val valueType = host.findDatabaseBlock(blockId)?.valueTypeOf(column) ?: return
+        val rule = DatabaseColorRule(
+            id = Uuid.random().toString(),
+            condition = newDatabaseFilter(id = Uuid.random().toString(), target = column, valueType = valueType),
+            backgroundColorName = NEW_COLOR_RULE_BACKGROUND
+        )
+        host.changeDatabaseBlock(blockId) { it.copy(colorRules = it.colorRules + rule) }
+    }
+
+    fun changeColorRule(blockId: String, ruleId: String, change: (DatabaseColorRule) -> DatabaseColorRule) {
+        host.changeDatabaseBlock(blockId) { databaseBlock ->
+            databaseBlock.copy(colorRules = databaseBlock.colorRules.map { if (it.id == ruleId) change(it) else it })
+        }
+    }
+
+    fun removeColorRule(blockId: String, ruleId: String) {
+        host.changeDatabaseBlock(blockId) { databaseBlock -> databaseBlock.copy(colorRules = databaseBlock.colorRules.filterNot { it.id == ruleId }) }
+    }
+
+    fun setTemplateRepeat(blockId: String, templateNoteId: String, repeat: DatabaseTemplateRepeat?) {
+        host.changeDatabaseBlock(blockId) { it.withTemplateRepeat(templateNoteId, repeat) }
+        writeInOrder {
+            val databaseBlock = host.findDatabaseBlock(blockId) ?: return@writeInOrder
+            databaseBlock.repeatedRowsDueAt(localNow())
+                .filter { it.templateNoteId == templateNoteId }
+                .forEach { rowToCreate ->
+                    if (repository.createRepeatedDatabaseRow(databaseBlock, rowToCreate)) rememberRowWasWritten(rowToCreate.rowNoteId)
+                }
+            RepeatingTemplateSchedule.notifyRepeatChanged()
+        }
+    }
+
+    fun setNumberFormat(blockId: String, column: DatabaseColumnTarget, format: DatabaseNumberFormat) {
+        host.changeDatabaseBlock(blockId) { it.withNumberFormat(column, format) }
     }
 
     fun savedTagsOf(tagPoolKey: String): Flow<List<PropertyTagEntity>> = repository.getPropertyTags(tagPoolKey)
@@ -322,8 +373,8 @@ class DatabaseBlockEditor(
         queueTextEdit(PendingTextEdit(blockId, rowNoteId, column, text))
     }
 
-    fun updateCellDate(blockId: String, rowNoteId: String, column: DatabaseColumnTarget, date: LocalDate?) {
-        writeCellNow(blockId, rowNoteId, column) { it.copy(date = date) }
+    fun updateCellDate(blockId: String, rowNoteId: String, column: DatabaseColumnTarget, range: PropertyDateRange) {
+        writeCellNow(blockId, rowNoteId, column) { it.withDateRange(range) }
     }
 
     fun updateCellTags(blockId: String, rowNoteId: String, column: DatabaseColumnTarget, tags: List<String>) {
@@ -345,6 +396,57 @@ class DatabaseBlockEditor(
             val change = repository.trashDatabaseRow(rowNoteId) ?: return@writeInOrder
             rememberRowWasWritten(rowNoteId)
             host.recordDatabaseRowStep(listOf(change), typingKey = null, historyGeneration = historyGeneration)
+        }
+    }
+
+    fun duplicateRow(blockId: String, viewId: String, shownRowIds: List<String>, rowNoteId: String) {
+        duplicateRows(blockId, viewId, shownRowIds, listOf(rowNoteId))
+    }
+
+    fun duplicateRows(blockId: String, viewId: String, shownRowIds: List<String>, rowNoteIds: List<String>) {
+        if (host.findDatabaseBlock(blockId) == null || rowNoteIds.isEmpty()) return
+        writeTextEditsNow()
+        writeInOrder { historyGeneration ->
+            val sourceAndCopyRowIds = rowNoteIds.mapNotNull { sourceRowId ->
+                repository.duplicateDatabaseRow(sourceRowId)?.let { change -> sourceRowId to change }
+            }
+            if (sourceAndCopyRowIds.isEmpty()) return@writeInOrder
+            val changes = sourceAndCopyRowIds.map { (_, change) -> change }
+            changes.forEach { rememberRowWasWritten(it.rowNoteId) }
+            host.changeDatabaseBlockTogetherWithRows(blockId, changes, historyGeneration) { databaseBlockNow ->
+                val withStyles = sourceAndCopyRowIds.fold(databaseBlockNow) { databaseBlock, (sourceRowId, change) ->
+                    databaseBlock.withRowStylesCopied(sourceRowId, change.rowNoteId)
+                }
+                withStyles.withViewChanged(viewId) { view ->
+                    if (view.sorts.isNotEmpty()) {
+                        view
+                    } else {
+                        val copyIds = sourceAndCopyRowIds.map { (sourceRowId, change) -> sourceRowId to change.rowNoteId }
+                        view.copy(manualRowOrder = manualRowOrderWithCopiesPlaced(shownRowIds, view.manualRowOrder, copyIds))
+                    }
+                }
+            }
+        }
+    }
+
+    fun deleteRows(rowNoteIds: List<String>) {
+        if (rowNoteIds.isEmpty()) return
+        writeTextEditsNow()
+        writeInOrder { historyGeneration ->
+            val changes = rowNoteIds.mapNotNull { repository.trashDatabaseRow(it) }
+            changes.forEach { rememberRowWasWritten(it.rowNoteId) }
+            host.recordDatabaseRowStep(changes, typingKey = null, historyGeneration = historyGeneration)
+        }
+    }
+
+    fun updateCells(blockId: String, rowNoteIds: List<String>, column: DatabaseColumnTarget, change: (PropertyBlock) -> PropertyBlock) {
+        if (rowNoteIds.isEmpty()) return
+        writeTextEditsNow()
+        writeInOrder { historyGeneration ->
+            val databaseBlock = host.findDatabaseBlock(blockId) ?: return@writeInOrder
+            val cellChanges = rowNoteIds.mapNotNull { rowNoteId -> repository.updateDatabaseCell(databaseBlock, rowNoteId, column, change) }
+            cellChanges.forEach { rememberRowWasWritten(it.rowNoteId) }
+            host.recordDatabaseRowStep(cellChanges, typingKey = null, historyGeneration = historyGeneration)
         }
     }
 
@@ -569,5 +671,6 @@ class DatabaseBlockEditor(
 
     private companion object {
         const val TEXT_SAVE_DELAY_MILLIS = 600L
+        const val NEW_COLOR_RULE_BACKGROUND = "red"
     }
 }

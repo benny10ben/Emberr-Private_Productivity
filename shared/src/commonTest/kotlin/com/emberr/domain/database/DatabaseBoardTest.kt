@@ -282,6 +282,17 @@ class DatabaseBoardTest {
     }
 
     @Test
+    fun eachCopyIsPlacedRightAfterItsOwnSourceRow() {
+        val order = manualRowOrderWithCopiesPlaced(
+            shownRowIds = listOf("a", "b", "c"),
+            previousManualOrder = emptyList(),
+            sourceAndCopyRowIds = listOf("a" to "a-copy", "c" to "c-copy", "hidden" to "hidden-copy")
+        )
+
+        assertEquals(listOf("a", "a-copy", "b", "c", "c-copy"), order)
+    }
+
+    @Test
     fun placingARowKeepsRowsHiddenByFiltersAfterTheShownOnes() {
         val order = manualRowOrderWithRowPlaced(
             shownRowIds = listOf("a", "c"),

@@ -173,6 +173,14 @@ val sharedModule = module {
         )
     }
 
+    single {
+        com.emberr.domain.database.RepeatingTemplateRowCreator(
+            noteDao = get(),
+            blockDao = get(),
+            noteRepository = get()
+        )
+    }
+
     single<com.emberr.domain.ai.external.AiSettingsRepository> {
         com.emberr.domain.ai.external.AiSettingsRepositoryImpl(
             settingsManager = get(),
@@ -251,6 +259,7 @@ val sharedModule = module {
             localMediaGarbageCollector = get(),
             embeddedCanvasCleaner = get(),
             databaseRowCleaner = get(),
+            repeatingTemplateRowCreator = get(),
             favoriteNoteOrderStore = get(),
             activeSpaceStore = get()
         )

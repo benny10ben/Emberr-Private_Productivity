@@ -40,6 +40,8 @@ import com.emberr.domain.database.DatabaseCellPreset
 import com.emberr.domain.database.DatabaseRow
 import com.emberr.domain.database.DatabaseRowChange
 import com.emberr.domain.database.DatabaseRowCleanup
+import com.emberr.domain.database.RepeatedRowToCreate
+import com.emberr.domain.database.repeatedRowTitle
 import com.emberr.domain.database.HistoryDirection
 import com.emberr.domain.database.buildDatabaseRow
 import com.emberr.domain.database.copiedForRow
@@ -1190,26 +1192,63 @@ class NoteRepositoryImpl(
                 copyDatabasesIn(copyEmbeddedCanvasesIn(NoteContent(blocks = blocksFromTemplate))).blocks
             }
             val rowBlocks = cellPreset?.let { blocksBeforePreset.withCellPreset(database, it, rowNoteId, now) } ?: blocksBeforePreset
-            val rowNote = NoteMetadataEntity(
-                noteId = rowNoteId,
-                title = template?.title.orEmpty(),
-                icon = template?.icon,
-                coverImagePath = template?.coverImagePath,
-                showWordCount = template?.showWordCount ?: false,
-                folderId = null,
-                isDaily = false,
-                dateString = null,
-                createdAt = now,
-                updatedAt = now,
-                filePath = "",
-                isSubNote = true,
-                databaseId = database.databaseId
-            )
+            val rowNote = newRowMetadata(rowNoteId, database, template, title = template?.title.orEmpty(), now = now)
             SyncCoordinator.mutex.withLock {
                 saveNote(rowNote, NoteContent(blocks = rowBlocks))
             }
             DatabaseRowChange.RowPresence(rowNoteId, wasInTable = false, isInTable = true)
         }
+
+    override suspend fun createRepeatedDatabaseRow(database: DatabaseBlock, rowToCreate: RepeatedRowToCreate): Boolean =
+        withContext(Dispatchers.IO) {
+            if (noteDao.getNoteById(rowToCreate.rowNoteId) != null) return@withContext false
+            val template = noteDao.getNoteById(rowToCreate.templateNoteId)?.takeIf { it.isTemplate && it.trashedAt == null }
+                ?: return@withContext false
+            val now = System.currentTimeMillis()
+            val templateBlocks = getNoteContent(template.noteId)?.blocks.orEmpty()
+            val rowBlocks = database.rowBlocksFromTemplate(
+                templateBlocks,
+                template.noteId,
+                rowToCreate.rowNoteId,
+                now,
+                keepsBlockIdsSameOnEveryDevice = true
+            )
+            val rowContent = copyDatabasesIn(copyEmbeddedCanvasesIn(NoteContent(blocks = rowBlocks)))
+            val rowNote = newRowMetadata(
+                rowToCreate.rowNoteId,
+                database,
+                template,
+                title = repeatedRowTitle(template.title, rowToCreate.date),
+                now = now
+            )
+            SyncCoordinator.mutex.withLock {
+                if (noteDao.getNoteById(rowToCreate.rowNoteId) != null) return@withLock false
+                saveNote(rowNote, rowContent)
+                true
+            }
+        }
+
+    private fun newRowMetadata(
+        rowNoteId: String,
+        database: DatabaseBlock,
+        template: NoteMetadataEntity?,
+        title: String,
+        now: Long
+    ) = NoteMetadataEntity(
+        noteId = rowNoteId,
+        title = title,
+        icon = template?.icon,
+        coverImagePath = template?.coverImagePath,
+        showWordCount = template?.showWordCount ?: false,
+        folderId = null,
+        isDaily = false,
+        dateString = null,
+        createdAt = now,
+        updatedAt = now,
+        filePath = "",
+        isSubNote = true,
+        databaseId = database.databaseId
+    )
 
     override suspend fun updateDatabaseCell(
         database: DatabaseBlock,
@@ -1252,6 +1291,20 @@ class NoteRepositoryImpl(
                 saveRowNoteKeepingItsBlocks(rowNote.copy(trashedAt = System.currentTimeMillis()))
                 DatabaseRowChange.RowPresence(rowNoteId, wasInTable = true, isInTable = false)
             }
+        }
+
+    override suspend fun duplicateDatabaseRow(rowNoteId: String): DatabaseRowChange.RowPresence? =
+        withContext(Dispatchers.IO) {
+            val sourceRow = noteDao.getNoteById(rowNoteId)?.takeIf { it.trashedAt == null } ?: return@withContext null
+            val databaseId = sourceRow.databaseId ?: return@withContext null
+            val copyRowNoteId = UUID.randomUUID().toString()
+            val now = System.currentTimeMillis()
+            val sourceBlocks = getNoteContent(rowNoteId)?.blocks.orEmpty()
+            val copiedContent = copyDatabasesIn(copyEmbeddedCanvasesIn(NoteContent(blocks = sourceBlocks.copiedForRow(rowNoteId, copyRowNoteId))))
+            SyncCoordinator.mutex.withLock {
+                saveNote(rowCopyMetadata(sourceRow, copyRowNoteId, databaseId, createdAt = now, now = now), copiedContent)
+            }
+            DatabaseRowChange.RowPresence(copyRowNoteId, wasInTable = false, isInTable = true)
         }
 
     override suspend fun addDatabaseColumnToRows(database: DatabaseBlock, column: DatabaseColumnTarget): List<DatabaseRowChange.Cell> =
@@ -2076,27 +2129,34 @@ class NoteRepositoryImpl(
                 copyIdsBySourceDatabaseId,
                 copyRowIdsBySourceDatabaseId
             )
-            val copyMetadata = NoteMetadataEntity(
-                noteId = copyRowNoteId,
-                title = sourceRow.title,
-                icon = sourceRow.icon,
-                coverImagePath = sourceRow.coverImagePath,
-                showWordCount = sourceRow.showWordCount,
-                folderId = null,
-                isDaily = false,
-                dateString = null,
-                createdAt = now + index,
-                updatedAt = now,
-                filePath = "",
-                isSubNote = true,
-                databaseId = copyDatabaseId
-            )
             SyncCoordinator.mutex.withLock {
-                saveNote(copyMetadata, copiedContent)
+                saveNote(rowCopyMetadata(sourceRow, copyRowNoteId, copyDatabaseId, createdAt = now + index, now = now), copiedContent)
             }
         }
         return copyIdsBySourceRowId
     }
+
+    private fun rowCopyMetadata(
+        sourceRow: NoteMetadataEntity,
+        copyRowNoteId: String,
+        copyDatabaseId: String,
+        createdAt: Long,
+        now: Long
+    ) = NoteMetadataEntity(
+        noteId = copyRowNoteId,
+        title = sourceRow.title,
+        icon = sourceRow.icon,
+        coverImagePath = sourceRow.coverImagePath,
+        showWordCount = sourceRow.showWordCount,
+        folderId = null,
+        isDaily = false,
+        dateString = null,
+        createdAt = createdAt,
+        updatedAt = now,
+        filePath = "",
+        isSubNote = true,
+        databaseId = copyDatabaseId
+    )
 
     override suspend fun updateNoteSortOrder(noteId: String, order: Int) =
         withContext(Dispatchers.IO) {

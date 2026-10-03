@@ -42,6 +42,7 @@ import com.emberr.domain.database.formulaOf
 import com.emberr.domain.database.formulaProblem
 import com.emberr.domain.database.formulaTextLiteral
 import com.emberr.domain.model.DatabaseBlock
+import com.emberr.domain.model.DatabaseNumberFormat
 import com.emberr.domain.model.DatabaseColumnTarget
 import com.emberr.domain.model.TextAlignment
 import com.emberr.domain.model.labelOf
@@ -87,6 +88,8 @@ internal fun FormulaFunction.piece(): FormulaPiece {
         FormulaFunction.IF -> "if(, , )"
         FormulaFunction.DATE_ADD -> "dateAdd(, 1, \"days\")"
         FormulaFunction.DATE_BETWEEN -> "dateBetween(, now(), \"days\")"
+        FormulaFunction.FORMAT_DATE -> "formatDate(, \"MMM D, YYYY\")"
+        FormulaFunction.IFS -> "ifs(, , )"
         else -> "$formulaName()"
     }
     val cursorOffset = if (argumentCounts.last == 0) text.length else formulaName.length + 1
@@ -245,9 +248,15 @@ internal fun DatabaseFormulaValue(
     result: FormulaValue,
     textColor: Color?,
     alignment: TextAlignment?,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    numberFormat: DatabaseNumberFormat? = null,
+    wrapsText: Boolean = true
 ) {
     val paddedModifier = modifier.padding(horizontal = DatabaseCellHorizontalPadding, vertical = DatabaseCellVerticalPadding)
+    if (result is FormulaValue.NumberValue && numberFormat != null) {
+        DatabaseNumberValue(number = result.number, format = numberFormat, textColor = textColor, alignment = alignment, modifier = paddedModifier)
+        return
+    }
     if (result is FormulaValue.BooleanValue) {
         Box(modifier = paddedModifier, contentAlignment = alignment.toCenteredBoxAlignment()) {
             Box(modifier = Modifier.size(24.dp), contentAlignment = Alignment.Center) {
@@ -274,6 +283,8 @@ internal fun DatabaseFormulaValue(
         style = if (isError) MaterialTheme.typography.labelSmall else MaterialTheme.typography.bodyLarge,
         color = if (isError) MaterialTheme.colorScheme.error else textColor ?: MaterialTheme.colorScheme.onBackground,
         textAlign = alignment.toTextAlign(),
+        maxLines = if (wrapsText) Int.MAX_VALUE else 1,
+        overflow = TextOverflow.Ellipsis,
         modifier = paddedModifier
     )
 }

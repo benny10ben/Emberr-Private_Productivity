@@ -77,6 +77,7 @@ import com.emberr.domain.model.DatabaseColumnTarget
 import com.emberr.domain.model.DatabaseDateGrouping
 import com.emberr.domain.model.DatabaseView
 import com.emberr.domain.model.cleanPropertyTagName
+import com.emberr.domain.model.columnKey
 import com.emberr.domain.model.labelOf
 import com.emberr.domain.model.tagPoolKey
 import com.emberr.domain.model.valueTypeOf
@@ -211,11 +212,13 @@ internal fun DatabaseBoard(
     view: DatabaseView,
     rows: List<DatabaseRow>,
     inSelectionMode: Boolean,
+    isLocked: Boolean,
     editor: DatabaseBlockEditor,
     onOpenRow: (String) -> Unit,
     runAfterKeyboardCloses: (() -> Unit) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val blocksEdits = inSelectionMode || isLocked
     val groupColumn = block.groupByColumn(view)
     val valueType = groupColumn?.let { block.valueTypeOf(it) }
     if (groupColumn == null || valueType == null) {
@@ -232,7 +235,7 @@ internal fun DatabaseBoard(
     val savedOptions by remember(tagPoolKey, valueType) {
         if (valueType.holdsTags && tagPoolKey != null) editor.savedTagsOf(tagPoolKey) else flowOf(emptyList())
     }.collectAsState(initial = emptyList())
-    val usesManualOrder = block.sort == null
+    val usesManualOrder = view.sorts.isEmpty()
     val orderedRows = remember(rows, usesManualOrder, view.manualRowOrder) {
         if (usesManualOrder) rows.inManualOrder(view.manualRowOrder) else rows
     }
@@ -243,7 +246,7 @@ internal fun DatabaseBoard(
     val shownGroups = groups.shownIn(view)
     val hiddenGroups = groups.hiddenIn(view)
     val shownOptionGroups = shownGroups.filter { it.value is DatabaseBoardGroupValue.Option }
-    val canReorderColumns = tagPoolKey != null && valueType.holdsTags && !inSelectionMode
+    val canReorderColumns = tagPoolKey != null && valueType.holdsTags && !blocksEdits
     val columnLabel = block.labelOf(groupColumn)
     val columnWidth = view.cardSize.boardColumnWidth()
     val cardDimensions = view.cardSize.dimensions().copy(width = columnWidth - BoardColumnPadding * 2)
@@ -359,7 +362,7 @@ internal fun DatabaseBoard(
                                 columnLabel = columnLabel,
                                 tagPoolKey = tagPoolKey,
                                 isDropTarget = isDropTarget,
-                                inSelectionMode = inSelectionMode,
+                                inSelectionMode = blocksEdits,
                                 dragState = dragState,
                                 onExpand = { editor.changeView(block.id, view.id) { it.copy(collapsedGroupKeys = it.collapsedGroupKeys - group.key) } }
                             )
@@ -376,7 +379,8 @@ internal fun DatabaseBoard(
                                 calculationLabel = calculationLabel(group.rows),
                                 isDropTarget = isDropTarget,
                                 canBeDragged = canReorderColumns && group.value is DatabaseBoardGroupValue.Option,
-                                inSelectionMode = inSelectionMode,
+                                inSelectionMode = blocksEdits,
+                                canOpenCards = !inSelectionMode,
                                 dragState = dragState,
                                 editor = editor,
                                 onOpenRow = onOpenRow,
@@ -388,7 +392,7 @@ internal fun DatabaseBoard(
                     }
                 }
 
-                if (valueType.holdsTags && tagPoolKey != null && !inSelectionMode) {
+                if (valueType.holdsTags && tagPoolKey != null && !blocksEdits) {
                     DatabaseAddGroupButton(
                         existingNames = groups.mapNotNull { (it.value as? DatabaseBoardGroupValue.Option)?.name },
                         onAdd = { name -> editor.addGroupOption(tagPoolKey, name) },
@@ -402,7 +406,7 @@ internal fun DatabaseBoard(
                         columnLabel = columnLabel,
                         tagPoolKey = tagPoolKey,
                         width = columnWidth,
-                        inSelectionMode = inSelectionMode,
+                        inSelectionMode = blocksEdits,
                         onShowGroup = { groupKey ->
                             editor.changeView(block.id, view.id) { it.copy(hiddenGroupKeys = it.hiddenGroupKeys - groupKey) }
                         }
@@ -510,12 +514,13 @@ private fun rememberGroupCalculationLabel(block: DatabaseBlock, view: DatabaseVi
     val calculationColumn = block.columnWithKey(view.groupCalculationColumnKey)
     val calculationValueType = calculationColumn?.let { block.valueTypeOf(it) }
     val calculation = view.groupCalculation?.takeIf { calculationValueType != null && it in calculationsFor(calculationValueType) }
-    return remember(calculationColumn, calculationValueType, calculation) {
+    val numberFormat = calculationColumn?.let { block.numberFormats[it.columnKey] }
+    return remember(calculationColumn, calculationValueType, calculation, numberFormat) {
         { groupRows ->
             if (calculationColumn == null || calculationValueType == null || calculation == null) {
                 null
             } else {
-                "${calculation.shortLabel} ${calculate(groupRows, calculationColumn, calculationValueType, calculation).displayText()}"
+                "${calculation.shortLabel} ${calculate(groupRows, calculationColumn, calculationValueType, calculation).displayTextIn(numberFormat)}"
             }
         }
     }
@@ -535,6 +540,7 @@ private fun DatabaseBoardColumn(
     isDropTarget: Boolean,
     canBeDragged: Boolean,
     inSelectionMode: Boolean,
+    canOpenCards: Boolean,
     dragState: BoardDragState,
     editor: DatabaseBlockEditor,
     onOpenRow: (String) -> Unit,
@@ -580,6 +586,7 @@ private fun DatabaseBoardColumn(
                     group = group,
                     cardDimensions = cardDimensions,
                     inSelectionMode = inSelectionMode,
+                    canOpen = canOpenCards,
                     dragState = dragState,
                     onOpen = { editor.openRow(row.noteId, onOpenRow) },
                     onDrop = onDropCard
@@ -600,6 +607,7 @@ private fun DatabaseBoardCard(
     group: DatabaseBoardGroup,
     cardDimensions: CardDimensions,
     inSelectionMode: Boolean,
+    canOpen: Boolean,
     dragState: BoardDragState,
     onOpen: () -> Unit,
     onDrop: () -> Unit
@@ -618,7 +626,7 @@ private fun DatabaseBoardCard(
         view = view,
         row = row,
         dimensions = cardDimensions,
-        inSelectionMode = inSelectionMode,
+        inSelectionMode = !canOpen,
         onOpen = onOpen,
         modifier = Modifier
             .fillMaxWidth()

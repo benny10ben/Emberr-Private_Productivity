@@ -5,10 +5,12 @@ import kotlinx.datetime.DateTimeArithmeticException
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.daysUntil
+import kotlinx.datetime.number
 import kotlinx.datetime.monthsUntil
 import kotlinx.datetime.plus
 import kotlinx.datetime.yearsUntil
 import kotlin.math.abs
+import kotlin.math.ceil
 import kotlin.math.floor
 import kotlin.math.pow
 import kotlin.math.roundToLong
@@ -47,7 +49,7 @@ sealed class FormulaValue {
     }
 }
 
-private fun formulaNumberText(number: Double): String {
+internal fun formulaNumberText(number: Double): String {
     if (!number.isFinite()) return number.toString()
     if (abs(number) >= LARGEST_NUMBER_WITH_SHOWN_DECIMALS) return number.roundToLong().toString()
     val scaledNumber = (number * SHOWN_DECIMAL_SCALE).roundToLong()
@@ -121,9 +123,31 @@ private class FormulaEvaluator(
         FormulaFunction.MIN -> FormulaValue.NumberValue(arguments.minOf { numberOf(it) })
         FormulaFunction.MAX -> FormulaValue.NumberValue(arguments.maxOf { numberOf(it) })
         FormulaFunction.EMPTY -> FormulaValue.BooleanValue(valueOf(arguments[0]).isEmptyValue())
-        FormulaFunction.NOW -> FormulaValue.DateValue(today)
+        FormulaFunction.NOW, FormulaFunction.TODAY -> FormulaValue.DateValue(today)
         FormulaFunction.DATE_ADD -> dateAdded(arguments)
         FormulaFunction.DATE_BETWEEN -> timeBetweenDates(arguments)
+        FormulaFunction.FORMAT_DATE -> dateOrNullOf(arguments[0], function)?.let { date ->
+            FormulaValue.TextValue(formatDateWithPattern(date, valueOf(arguments[1]).displayText))
+        } ?: FormulaValue.Empty
+        FormulaFunction.YEAR -> dateOrNullOf(arguments[0], function)?.let { FormulaValue.NumberValue(it.year.toDouble()) } ?: FormulaValue.Empty
+        FormulaFunction.MONTH -> dateOrNullOf(arguments[0], function)?.let { FormulaValue.NumberValue(it.month.number.toDouble()) } ?: FormulaValue.Empty
+        FormulaFunction.DAY -> dateOrNullOf(arguments[0], function)?.let { FormulaValue.NumberValue(it.day.toDouble()) } ?: FormulaValue.Empty
+        FormulaFunction.CONTAINS -> FormulaValue.BooleanValue(
+            valueOf(arguments[0]).displayText.contains(valueOf(arguments[1]).displayText, ignoreCase = true)
+        )
+        FormulaFunction.FLOOR -> finiteNumber(floor(numberOf(arguments[0])))
+        FormulaFunction.CEIL -> finiteNumber(ceil(numberOf(arguments[0])))
+        FormulaFunction.MOD -> {
+            val divisor = numberOf(arguments[1])
+            if (divisor == 0.0) throw FormulaException("Can't divide by zero")
+            finiteNumber(numberOf(arguments[0]) % divisor)
+        }
+        FormulaFunction.IFS -> firstMatchingValue(arguments)
+    }
+
+    private fun firstMatchingValue(arguments: List<FormulaExpression>): FormulaValue {
+        val matchingPair = arguments.dropLast(1).chunked(2).firstOrNull { (condition, _) -> booleanOf(condition) }
+        return valueOf(matchingPair?.get(1) ?: arguments.last())
     }
 
     private fun dateAdded(arguments: List<FormulaExpression>): FormulaValue {
@@ -220,4 +244,25 @@ private val FormulaValue.kindName: String
         is FormulaValue.DateValue -> "a date"
         FormulaValue.Empty -> "nothing"
         is FormulaValue.Error -> "an error"
+    }
+
+private val datePatternPieces = Regex("\\[[^\\]]*]|YYYY|YY|MMMM|MMM|MM|M|DD|D|dddd|ddd")
+
+internal fun formatDateWithPattern(date: LocalDate, pattern: String): String =
+    datePatternPieces.replace(pattern) { match ->
+        val monthName = date.month.name.lowercase().replaceFirstChar { it.uppercase() }
+        val dayName = date.dayOfWeek.name.lowercase().replaceFirstChar { it.uppercase() }
+        when (val piece = match.value) {
+            "YYYY" -> date.year.toString()
+            "YY" -> (date.year % 100).toString().padStart(2, '0')
+            "MMMM" -> monthName
+            "MMM" -> monthName.take(3)
+            "MM" -> date.month.number.toString().padStart(2, '0')
+            "M" -> date.month.number.toString()
+            "DD" -> date.day.toString().padStart(2, '0')
+            "D" -> date.day.toString()
+            "dddd" -> dayName
+            "ddd" -> dayName.take(3)
+            else -> piece.removePrefix("[").removeSuffix("]")
+        }
     }

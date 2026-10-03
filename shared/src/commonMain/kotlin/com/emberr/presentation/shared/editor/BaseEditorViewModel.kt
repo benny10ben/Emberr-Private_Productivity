@@ -33,7 +33,6 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlin.time.Instant
-import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import java.util.UUID
@@ -448,7 +447,7 @@ abstract class BaseEditorViewModel(
         is QuoteBlock -> block.text
         is CodeBlock -> block.code
         is PropertyBlock -> block.text
-        is DatabaseBlock -> block.title + block.filters.joinToString(separator = "") { it.text }
+        is DatabaseBlock -> block.title + block.views.flatMap { it.filters }.joinToString(separator = "") { it.text }
         else -> null
     }
 
@@ -2097,10 +2096,10 @@ abstract class BaseEditorViewModel(
         scheduleAutosave()
     }
 
-    fun updatePropertyDate(blockId: String, date: LocalDate?) {
+    fun updatePropertyDate(blockId: String, range: PropertyDateRange) {
         val now = System.currentTimeMillis()
         modifyBlocks { list ->
-            mapBlockById(list, blockId) { if (it is PropertyBlock) it.copy(date = date, updatedAt = now) else it }
+            mapBlockById(list, blockId) { if (it is PropertyBlock) it.withDateRange(range).copy(updatedAt = now) else it }
         }
         scheduleAutosave()
     }

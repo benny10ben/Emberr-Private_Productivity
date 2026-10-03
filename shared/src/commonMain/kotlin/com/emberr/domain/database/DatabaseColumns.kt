@@ -35,6 +35,12 @@ fun DatabaseBlock.visibleColumnsInTableOrder(): List<DatabaseColumnTarget> {
     return columnsInTableOrder().filter { it == DatabaseColumnTarget.NotesTitle || it.columnKey !in hiddenColumnKeys }
 }
 
+fun DatabaseBlock.frozenColumns(): Set<DatabaseColumnTarget> {
+    if (!activeView().freezesTitleColumn) return emptySet()
+    val tableColumns = visibleColumnsInTableOrder()
+    return tableColumns.take(tableColumns.indexOf(DatabaseColumnTarget.NotesTitle) + 1).toSet()
+}
+
 private fun DatabaseBlock.withTableOrder(tableOrder: List<DatabaseColumnTarget>): DatabaseBlock {
     val notesPosition = tableOrder.indexOf(DatabaseColumnTarget.NotesTitle)
     return copy(
@@ -72,11 +78,17 @@ fun DatabaseBlock.withColumnRemoved(column: DatabaseColumnTarget): DatabaseBlock
     columnWidths = columnWidths - column.columnKey,
     calculations = calculations - column.columnKey,
     formulas = formulas - column.columnKey,
+    numberFormats = numberFormats - column.columnKey,
+    colorRules = colorRules.filterNot { it.condition.target == column },
     columnStyles = columnStyles - column.columnKey,
     cellStyles = cellStyles.withoutCellsOfColumn(column.columnKey),
-    views = views.map { view -> view.copy(hiddenColumnKeys = view.hiddenColumnKeys - column.columnKey) },
-    filters = filters.filterNot { it.target == column },
-    sort = sort?.takeUnless { it.target == column }
+    views = views.map { view ->
+        view.copy(
+            hiddenColumnKeys = view.hiddenColumnKeys - column.columnKey,
+            filters = view.filters.filterNot { it.target == column },
+            sorts = view.sorts.filterNot { it.target == column }
+        )
+    }
 )
 
 fun DatabaseBlock.withDatabasePropertyCreated(property: DatabaseCustomProperty, beforeColumn: DatabaseColumnTarget? = null): DatabaseBlock =

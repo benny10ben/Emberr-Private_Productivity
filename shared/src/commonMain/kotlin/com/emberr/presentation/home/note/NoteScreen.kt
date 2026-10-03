@@ -76,6 +76,7 @@ import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.ui.platform.LocalDensity
 import com.emberr.domain.model.NoteBlock
+import com.emberr.domain.model.PropertyDateRange
 import com.emberr.domain.model.TextAlignment
 import com.emberr.domain.repository.EmojiRepository
 import com.emberr.domain.util.system.showFeedback
@@ -117,7 +118,6 @@ import emberr.shared.generated.resources.textalign_left2
 import emberr.shared.generated.resources.textalign_right2
 import org.jetbrains.compose.resources.painterResource
 import kotlin.time.Duration.Companion.milliseconds
-import kotlinx.datetime.LocalDate
 
 enum class MenuLevel { MAIN, EXPORT, ICON, COVER }
 
@@ -461,7 +461,7 @@ fun NoteScreen(
             override fun onUpdateLinkedNoteOptions(id: String, showIcon: Boolean, showCoverImage: Boolean) =
                 viewModel.updateLinkedNoteOptions(id, showIcon, showCoverImage)
             override fun onUpdatePropertyText(id: String, text: String) = viewModel.updatePropertyText(id, text)
-            override fun onUpdatePropertyDate(id: String, date: LocalDate?) = viewModel.updatePropertyDate(id, date)
+            override fun onUpdatePropertyDate(id: String, range: PropertyDateRange) = viewModel.updatePropertyDate(id, range)
             override fun onUpdatePropertyTags(id: String, tags: List<String>) = viewModel.updatePropertyTags(id, tags)
             override fun onUpdatePropertyChecked(id: String, isChecked: Boolean) = viewModel.updatePropertyChecked(id, isChecked)
             override val databaseBlockEditor: DatabaseBlockEditor get() = viewModel.databaseBlockEditor

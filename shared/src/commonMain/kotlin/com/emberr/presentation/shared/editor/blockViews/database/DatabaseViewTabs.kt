@@ -55,6 +55,7 @@ internal fun DatabaseViewTabs(
     block: DatabaseBlock,
     editor: DatabaseBlockEditor,
     inSelectionMode: Boolean,
+    isLocked: Boolean,
     runAfterKeyboardCloses: (() -> Unit) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -74,12 +75,15 @@ internal fun DatabaseViewTabs(
                     isActive = view.id == activeViewId,
                     canDelete = views.size > 1,
                     enabled = !inSelectionMode,
+                    canEdit = !isLocked,
                     editor = editor,
                     runAfterKeyboardCloses = runAfterKeyboardCloses
                 )
             }
         }
-        DatabaseAddViewButton(block = block, enabled = !inSelectionMode, editor = editor, runAfterKeyboardCloses = runAfterKeyboardCloses)
+        if (!isLocked) {
+            DatabaseAddViewButton(block = block, enabled = !inSelectionMode, editor = editor, runAfterKeyboardCloses = runAfterKeyboardCloses)
+        }
     }
 }
 
@@ -90,6 +94,7 @@ private fun DatabaseViewTab(
     isActive: Boolean,
     canDelete: Boolean,
     enabled: Boolean,
+    canEdit: Boolean,
     editor: DatabaseBlockEditor,
     runAfterKeyboardCloses: (() -> Unit) -> Unit
 ) {
@@ -102,7 +107,7 @@ private fun DatabaseViewTab(
                 .clip(RoundedCornerShape(8.dp))
                 .background(if (isActive) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f) else Color.Transparent)
                 .clickable(enabled = enabled) {
-                    if (isActive) runAfterKeyboardCloses { showMenu = true } else editor.showView(block.id, view.id)
+                    if (!isActive) editor.showView(block.id, view.id) else if (canEdit) runAfterKeyboardCloses { showMenu = true }
                 }
                 .padding(horizontal = HeaderButtonInnerPadding, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically

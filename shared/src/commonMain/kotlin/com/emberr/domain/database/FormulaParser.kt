@@ -28,8 +28,18 @@ enum class FormulaFunction(val formulaName: String, val argumentCounts: IntRange
     MAX("max", 1..Int.MAX_VALUE),
     EMPTY("empty", 1..1),
     NOW("now", 0..0),
+    TODAY("today", 0..0),
     DATE_ADD("dateAdd", 3..3),
-    DATE_BETWEEN("dateBetween", 3..3);
+    DATE_BETWEEN("dateBetween", 3..3),
+    FORMAT_DATE("formatDate", 2..2),
+    YEAR("year", 1..1),
+    MONTH("month", 1..1),
+    DAY("day", 1..1),
+    CONTAINS("contains", 2..2),
+    FLOOR("floor", 1..1),
+    CEIL("ceil", 1..1),
+    MOD("mod", 2..2),
+    IFS("ifs", 3..Int.MAX_VALUE);
 
     val argumentCountText: String
         get() = when {
@@ -199,6 +209,9 @@ private class FormulaParser(private val tokens: List<FormulaToken>) {
             ?: throw FormulaException("Unknown function \"$name\"")
         if (arguments.size !in function.argumentCounts) {
             throw FormulaException("${function.formulaName}() needs ${function.argumentCountText}")
+        }
+        if (function == FormulaFunction.IFS && arguments.size % 2 == 0) {
+            throw FormulaException("ifs() needs pairs of a condition and a value, then one value to use otherwise")
         }
         return FormulaExpression.FunctionCall(function, arguments)
     }

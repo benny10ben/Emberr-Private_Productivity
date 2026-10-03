@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
@@ -32,9 +33,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -59,13 +62,19 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.emberr.domain.model.PropertyBlock
+import com.emberr.domain.model.PropertyDateRange
+import com.emberr.domain.model.shortDateText
 import com.emberr.domain.model.PropertyType
 import com.emberr.domain.model.PropertyValueType
 import com.emberr.domain.model.TextAlignment
 import com.emberr.domain.model.isNumberBeingTyped
 import com.emberr.domain.util.system.isDesktopPlatform
-import com.emberr.presentation.shared.components.MinimalDatePickerDialog
+import com.emberr.presentation.calendar.formatTimeOfDay
+import com.emberr.presentation.shared.components.MenuAtTap
+import com.emberr.presentation.shared.components.menuTapAnchor
+import com.emberr.presentation.shared.components.rememberMenuTapAnchor
 import com.emberr.presentation.shared.editor.DefaultBlockShape
+import com.emberr.presentation.shared.editor.blockViews.database.DesktopDatabaseMenuMaxWidth
 import com.emberr.presentation.shared.editor.rememberWebLinkActions
 import emberr.shared.generated.resources.Res
 import emberr.shared.generated.resources.calendar_clock
@@ -83,14 +92,12 @@ import emberr.shared.generated.resources.tags
 import emberr.shared.generated.resources.text_type
 import emberr.shared.generated.resources.x
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalTime
 import kotlinx.datetime.TimeZone
-import kotlinx.datetime.atStartOfDayIn
-import kotlinx.datetime.toLocalDateTime
 import kotlinx.datetime.todayIn
 import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
 import kotlin.time.Clock
-import kotlin.time.Instant
 
 private val PropertyValueHorizontalPadding = 12.dp
 private val PropertyValueVerticalPadding = 9.dp
@@ -142,7 +149,7 @@ fun PropertyBlockView(
     block: PropertyBlock,
     inSelectionMode: Boolean,
     onUpdateText: (String) -> Unit,
-    onUpdateDate: (LocalDate?) -> Unit,
+    onUpdateDate: (PropertyDateRange) -> Unit,
     onUpdateTags: (List<String>) -> Unit,
     onUpdateChecked: (Boolean) -> Unit,
     runAfterKeyboardCloses: (() -> Unit) -> Unit = { action -> action() }
@@ -197,7 +204,10 @@ internal fun PropertyTextValue(
     widthModifier: Modifier,
     ignoresLongPressUntilFocused: Boolean = false,
     textColor: Color? = null,
-    alignment: TextAlignment? = null
+    alignment: TextAlignment? = null,
+    wrapsText: Boolean = true,
+    takesFocusAtStart: Boolean = false,
+    onFocusLost: () -> Unit = {}
 ) {
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
@@ -215,6 +225,13 @@ internal fun PropertyTextValue(
         if (block.text in textsSentButNotYetEchoed) return@LaunchedEffect
         textsSentButNotYetEchoed.clear()
         fieldValue = TextFieldValue(block.text, TextRange(block.text.length))
+    }
+
+    LaunchedEffect(takesFocusAtStart) {
+        if (!takesFocusAtStart) return@LaunchedEffect
+        withFrameNanos { }
+        runCatching { focusRequester.requestFocus() }
+        keyboardController?.show()
     }
 
     val keyboardType = when (block.valueType) {
@@ -256,6 +273,7 @@ internal fun PropertyTextValue(
                 }
             },
             enabled = !inSelectionMode,
+            singleLine = !wrapsText,
             textStyle = MaterialTheme.typography.bodyLarge.copy(
                 color = textColor ?: MaterialTheme.colorScheme.onBackground,
                 textAlign = alignment.toTextAlign()
@@ -269,7 +287,10 @@ internal fun PropertyTextValue(
             keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
             modifier = Modifier
                 .focusRequester(focusRequester)
-                .onFocusChanged { isFocused = it.isFocused }
+                .onFocusChanged { focusState ->
+                    if (isFocused && !focusState.isFocused) onFocusLost()
+                    isFocused = focusState.isFocused
+                }
                 .onPreviewKeyEvent { event ->
                     val isEnterPress = event.key == Key.Enter && event.type == KeyEventType.KeyDown
                     if (isEnterPress) focusManager.clearFocus()
@@ -334,39 +355,48 @@ internal fun PropertyTextValue(
 internal fun PropertyDateValue(
     block: PropertyBlock,
     inSelectionMode: Boolean,
-    onUpdateDate: (LocalDate?) -> Unit,
+    onUpdateDate: (PropertyDateRange) -> Unit,
     runAfterKeyboardCloses: (() -> Unit) -> Unit,
     widthModifier: Modifier,
     textColor: Color? = null,
-    alignment: TextAlignment? = null
+    alignment: TextAlignment? = null,
+    wrapsText: Boolean = true
 ) {
-    var showDatePicker by remember { mutableStateOf(false) }
-    val date = block.date
-    val timeZone = TimeZone.currentSystemDefault()
+    var showsDateEditor by remember { mutableStateOf(false) }
+    var partBeingPicked by remember { mutableStateOf<PropertyDatePart?>(null) }
+    val range = block.dateRange
+    val lastDate = range.end ?: range.start
     val isPastDueDate = block.propertyType == PropertyType.DUE_DATE &&
-        date != null &&
-        date < Clock.System.todayIn(timeZone)
+        lastDate != null &&
+        lastDate < Clock.System.todayIn(TimeZone.currentSystemDefault())
+    val tapAnchor = rememberMenuTapAnchor()
 
-    Box {
+    Box(modifier = Modifier.menuTapAnchor(tapAnchor)) {
         Row(
             modifier = widthModifier
-                .clickable(enabled = !inSelectionMode) { runAfterKeyboardCloses { showDatePicker = true } }
+                .clickable(enabled = !inSelectionMode) {
+                    runAfterKeyboardCloses {
+                        if (range.start == null) partBeingPicked = PropertyDatePart.START_DATE else showsDateEditor = true
+                    }
+                }
                 .padding(horizontal = PropertyValueHorizontalPadding, vertical = PropertyValueVerticalPadding),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = date?.let { formatPropertyDate(it) } ?: "Empty",
+                text = formatPropertyDateRange(range).ifEmpty { "Empty" },
                 style = MaterialTheme.typography.bodyLarge,
                 color = when {
-                    date == null -> MaterialTheme.colorScheme.outline
+                    range.start == null -> MaterialTheme.colorScheme.outline
                     isPastDueDate -> MaterialTheme.colorScheme.error
                     else -> textColor ?: MaterialTheme.colorScheme.onBackground
                 },
                 textAlign = alignment.toTextAlign(),
+                maxLines = if (wrapsText) Int.MAX_VALUE else 1,
+                overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f, fill = alignment != null)
             )
-            if (date != null && !inSelectionMode) {
+            if (range.start != null && !inSelectionMode) {
                 Icon(
                     painter = painterResource(Res.drawable.x),
                     contentDescription = "Clear date",
@@ -374,21 +404,33 @@ internal fun PropertyDateValue(
                     modifier = Modifier
                         .padding(start = 8.dp)
                         .clip(CircleShape)
-                        .clickable { onUpdateDate(null) }
+                        .clickable { onUpdateDate(PropertyDateRange()) }
                         .padding(4.dp)
                         .size(14.dp)
                 )
             }
         }
 
-        if (showDatePicker) {
-            MinimalDatePickerDialog(
-                initialTimestamp = date?.atStartOfDayIn(timeZone)?.toEpochMilliseconds(),
-                onDismiss = { showDatePicker = false },
-                onConfirm = { selectedMillis ->
-                    onUpdateDate(Instant.fromEpochMilliseconds(selectedMillis).toLocalDateTime(timeZone).date)
-                    showDatePicker = false
-                }
+        MenuAtTap(tapAnchor, menuWidth = DesktopDatabaseMenuMaxWidth) {
+            PropertyDateEditor(
+                expanded = showsDateEditor,
+                title = block.label,
+                range = range,
+                onRangeChange = onUpdateDate,
+                onPickPart = { partBeingPicked = it },
+                onDismiss = { showsDateEditor = false }
+            )
+        }
+
+        partBeingPicked?.let { part ->
+            PropertyDatePartPicker(
+                part = part,
+                range = range,
+                onPicked = { pickedRange ->
+                    onUpdateDate(pickedRange)
+                    partBeingPicked = null
+                },
+                onDismiss = { partBeingPicked = null }
             )
         }
     }
@@ -403,7 +445,8 @@ internal fun PropertyTagsValue(
     runAfterKeyboardCloses: (() -> Unit) -> Unit,
     widthModifier: Modifier,
     tagTextStyle: TextStyle = MaterialTheme.typography.bodyMedium,
-    alignment: TextAlignment? = null
+    alignment: TextAlignment? = null,
+    wrapsText: Boolean = true
 ) {
     var showTagPicker by remember { mutableStateOf(false) }
 
@@ -420,12 +463,21 @@ internal fun PropertyTagsValue(
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.outline
                 )
-            } else {
+            } else if (wrapsText) {
                 FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     block.tags.forEach { tagName -> PropertyTagChip(tagName = tagName, tagPoolKey = block.tagPoolKey, textStyle = tagTextStyle) }
+                }
+            } else {
+                Box(modifier = Modifier.clipToBounds()) {
+                    Row(
+                        modifier = Modifier.wrapContentWidth(align = Alignment.Start, unbounded = true),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        block.tags.forEach { tagName -> PropertyTagChip(tagName = tagName, tagPoolKey = block.tagPoolKey, textStyle = tagTextStyle) }
+                    }
                 }
             }
         }
@@ -474,7 +526,18 @@ internal fun PropertyCheckboxValue(
     }
 }
 
-internal fun formatPropertyDate(date: LocalDate): String {
-    val monthName = date.month.name.take(3).lowercase().replaceFirstChar { it.uppercase() }
-    return "$monthName ${date.day}, ${date.year}"
+internal fun formatPropertyDate(date: LocalDate): String = shortDateText(date)
+
+internal fun formatPropertyTime(time: LocalTime): String = formatTimeOfDay(time.hour, time.minute)
+
+internal fun formatPropertyDateRange(range: PropertyDateRange): String {
+    val start = range.start ?: return ""
+    fun dateAndTimeText(date: LocalDate, time: LocalTime?) =
+        if (time == null) formatPropertyDate(date) else "${formatPropertyDate(date)} ${formatPropertyTime(time)}"
+
+    val startText = dateAndTimeText(start, range.startTime)
+    val end = range.end ?: return startText
+    val endTime = range.endTime
+    val endText = if (end == start && endTime != null) formatPropertyTime(endTime) else dateAndTimeText(end, endTime)
+    return "$startText → $endText"
 }

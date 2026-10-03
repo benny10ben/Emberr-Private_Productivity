@@ -3,7 +3,11 @@ package com.emberr.domain.model
 import androidx.compose.runtime.Immutable
 import com.emberr.data.local.room.entity.NoteMetadataEntity
 import com.emberr.domain.database.withSettingTimesStamped
+import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalTime
+import kotlinx.datetime.daysUntil
+import kotlinx.datetime.plus
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import java.util.UUID
@@ -452,6 +456,9 @@ data class PropertyBlock(
     val customValueType: PropertyValueType = PropertyValueType.TEXT,
     val text: String = "",
     val date: LocalDate? = null,
+    val endDate: LocalDate? = null,
+    val time: LocalTime? = null,
+    val endTime: LocalTime? = null,
     val tags: List<String> = emptyList(),
     val isChecked: Boolean = false,
     override val indentationLevel: Int = 0,
@@ -467,12 +474,24 @@ data class PropertyBlock(
     val label: String get() = propertyType?.label ?: customLabel
     val valueType: PropertyValueType get() = propertyType?.valueType ?: customValueType
     val tagPoolKey: String get() = propertyType?.name ?: customPropertyId.orEmpty()
+    val dateRange: PropertyDateRange get() = PropertyDateRange(start = date, end = endDate, startTime = time, endTime = endTime)
 }
 
 const val CHECKED_PROPERTY_TEXT = "Yes"
 
+fun PropertyBlock.withDateRange(range: PropertyDateRange): PropertyBlock {
+    val orderedRange = range.inOrder()
+    return copy(date = orderedRange.start, endDate = orderedRange.end, time = orderedRange.startTime, endTime = orderedRange.endTime)
+}
+
+fun PropertyBlock.withStartDateMovedTo(newStart: LocalDate?): PropertyBlock {
+    val oldStart = date
+    if (newStart == null || oldStart == null) return withDateRange(PropertyDateRange(start = newStart))
+    return copy(date = newStart, endDate = endDate?.plus(oldStart.daysUntil(newStart), DateTimeUnit.DAY))
+}
+
 fun PropertyBlock.valueAsText(): String = when {
-    valueType.holdsDate -> date?.toString().orEmpty()
+    valueType.holdsDate -> dateRange.asText()
     valueType.holdsTags -> tags.joinToString(", ")
     valueType.holdsCheck -> if (isChecked) CHECKED_PROPERTY_TEXT else ""
     else -> text
@@ -502,13 +521,21 @@ private fun DatabaseBlock.withFilterTagReplaced(tagPoolKey: String, oldName: Str
     if (isDeleted) return this
     fun usesTheTag(filter: DatabaseFilter): Boolean =
         filter.target.tagPoolKey == tagPoolKey && filter.tagName.equals(oldName, ignoreCase = true)
-    if (filters.none(::usesTheTag)) return this
-    val updatedFilters = if (newName == null) {
-        filters.filterNot(::usesTheTag)
-    } else {
-        filters.map { if (usesTheTag(it)) it.copy(tagName = newName) else it }
+    if (views.none { view -> view.filters.any(::usesTheTag) } && colorRules.none { usesTheTag(it.condition) }) return this
+    val updatedViews = views.map { view ->
+        val updatedFilters = if (newName == null) {
+            view.filters.filterNot(::usesTheTag)
+        } else {
+            view.filters.map { if (usesTheTag(it)) it.copy(tagName = newName) else it }
+        }
+        view.copy(filters = updatedFilters)
     }
-    return copy(filters = updatedFilters, updatedAt = now).withSettingTimesStamped(before = this, now)
+    val updatedColorRules = if (newName == null) {
+        colorRules.filterNot { usesTheTag(it.condition) }
+    } else {
+        colorRules.map { rule -> if (usesTheTag(rule.condition)) rule.copy(condition = rule.condition.copy(tagName = newName)) else rule }
+    }
+    return copy(views = updatedViews, colorRules = updatedColorRules, updatedAt = now).withSettingTimesStamped(before = this, now)
 }
 
 fun NoteBlock.withCustomPropertyRenamed(customPropertyId: String, newLabel: String, now: Long): NoteBlock {
@@ -532,11 +559,13 @@ data class DatabaseBlock(
     val notesColumnAfterKey: String? = null,
     val customProperties: List<DatabaseCustomProperty> = emptyList(),
     val columnWidths: Map<String, Int> = emptyMap(),
-    val filters: List<DatabaseFilter> = emptyList(),
-    val sort: DatabaseSort? = null,
     val defaultTemplateId: String? = null,
     val calculations: Map<String, DatabaseCalculation> = emptyMap(),
     val formulas: Map<String, String> = emptyMap(),
+    val numberFormats: Map<String, DatabaseNumberFormat> = emptyMap(),
+    val colorRules: List<DatabaseColorRule> = emptyList(),
+    val repeatingTemplates: Map<String, DatabaseTemplateRepeat> = emptyMap(),
+    val isLocked: Boolean = false,
     val showsRowCount: Boolean = false,
     val views: List<DatabaseView> = emptyList(),
     val activeViewId: String? = null,
@@ -749,8 +778,9 @@ fun NoteBlock.withDeleted(deleted: Boolean, now: Long): NoteBlock = when (this) 
 fun NoteContent.deepCopyWithNewIds(): NoteContent = copy(blocks = blocks.map { it.deepCopyWithNewIds() })
 
 // Gives a single block a new id.
-fun NoteBlock.deepCopyWithNewIds(): NoteBlock {
-    val newId = UUID.randomUUID().toString()
+fun NoteBlock.deepCopyWithNewIds(): NoteBlock = withId(UUID.randomUUID().toString())
+
+fun NoteBlock.withId(newId: String): NoteBlock {
     return when (this) {
         is TextBlock -> copy(id = newId)
         is HeadingBlock -> copy(id = newId)

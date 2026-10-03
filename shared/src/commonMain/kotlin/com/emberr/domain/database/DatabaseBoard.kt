@@ -9,6 +9,7 @@ import com.emberr.domain.model.PropertyType
 import com.emberr.domain.model.PropertyValueType
 import com.emberr.domain.model.columnKey
 import com.emberr.domain.model.valueTypeOf
+import com.emberr.domain.model.withStartDateMovedTo
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.isoDayNumber
@@ -127,9 +128,9 @@ fun PropertyBlock.movedBetweenGroups(from: DatabaseBoardGroupValue, to: Database
     valueType.holdsDate -> when (to) {
         is DatabaseBoardGroupValue.DatePeriod -> {
             val alreadyInPeriod = date?.let { periodStartOf(it, to.grouping) } == to.start
-            if (alreadyInPeriod) this else copy(date = to.start)
+            if (alreadyInPeriod) this else withStartDateMovedTo(to.start)
         }
-        else -> copy(date = null)
+        else -> withStartDateMovedTo(null)
     }
     else -> this
 }
@@ -167,6 +168,21 @@ fun manualRowOrderAfterDrop(
     }
     val shownRowIdSet = shownRowIds.toSet()
     return reorderedShownRows + previousManualOrder.filterNot { it in shownRowIdSet }
+}
+
+fun manualRowOrderWithCopiesPlaced(
+    shownRowIds: List<String>,
+    previousManualOrder: List<String>,
+    sourceAndCopyRowIds: List<Pair<String, String>>
+): List<String> {
+    var shownRowIdsSoFar = shownRowIds
+    var manualOrderSoFar = previousManualOrder
+    sourceAndCopyRowIds.forEach { (sourceRowId, copyRowId) ->
+        if (sourceRowId !in shownRowIdsSoFar) return@forEach
+        manualOrderSoFar = manualRowOrderWithRowPlaced(shownRowIdsSoFar, manualOrderSoFar, copyRowId, sourceRowId, isAfter = true)
+        shownRowIdsSoFar = shownRowIdsSoFar.toMutableList().apply { add(indexOf(sourceRowId) + 1, copyRowId) }
+    }
+    return manualOrderSoFar
 }
 
 fun manualRowOrderWithRowPlaced(

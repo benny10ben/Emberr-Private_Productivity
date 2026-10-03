@@ -24,6 +24,7 @@ import com.emberr.data.local.prefs.SettingsManager
 import com.emberr.data.local.prefs.SyncConstants
 import com.emberr.presentation.shared.rememberStableStatusBarsPadding
 import com.emberr.domain.model.NoteBlock
+import com.emberr.domain.model.PropertyDateRange
 import com.emberr.domain.model.TableCellStyle
 import com.emberr.domain.model.TextAlignment
 import com.emberr.domain.util.system.isDesktopPlatform
@@ -44,7 +45,6 @@ import com.emberr.presentation.shared.editor.BlockStyleBar
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
 import org.koin.compose.koinInject
-import kotlinx.datetime.LocalDate
 
 /**
  * Single-day daily editor pane. The caller selects the day via viewModel.selectDate(date);
@@ -238,7 +238,7 @@ fun DailyEditorPane(
             override fun onUpdateLinkedNoteOptions(id: String, showIcon: Boolean, showCoverImage: Boolean) =
                 viewModel.updateLinkedNoteOptions(id, showIcon, showCoverImage)
             override fun onUpdatePropertyText(id: String, text: String) = viewModel.updatePropertyText(id, text)
-            override fun onUpdatePropertyDate(id: String, date: LocalDate?) = viewModel.updatePropertyDate(id, date)
+            override fun onUpdatePropertyDate(id: String, range: PropertyDateRange) = viewModel.updatePropertyDate(id, range)
             override fun onUpdatePropertyTags(id: String, tags: List<String>) = viewModel.updatePropertyTags(id, tags)
             override fun onUpdatePropertyChecked(id: String, isChecked: Boolean) = viewModel.updatePropertyChecked(id, isChecked)
             override val databaseBlockEditor: DatabaseBlockEditor get() = viewModel.databaseBlockEditor

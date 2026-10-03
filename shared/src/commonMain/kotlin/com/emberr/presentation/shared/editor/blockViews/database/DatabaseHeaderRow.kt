@@ -1,6 +1,7 @@
 package com.emberr.presentation.shared.editor.blockViews.database
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
@@ -34,13 +35,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.onPlaced
 import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.emberr.domain.database.activeView
 import com.emberr.domain.database.builtInPropertiesNotYetAdded
+import com.emberr.domain.database.canFormatNumbersIn
 import com.emberr.domain.database.customPropertiesNotShown
 import com.emberr.domain.database.isFormulaColumn
 import com.emberr.domain.database.isPropertyNameTaken
@@ -81,10 +85,16 @@ internal fun DatabaseHeaderRow(
     onColumnWidthDragged: (DatabaseColumnTarget, Int) -> Unit,
     onColumnWidthChosen: (DatabaseColumnTarget, Int) -> Unit,
     dragState: DatabaseColumnDragState,
+    frozenColumns: Set<DatabaseColumnTarget>,
+    tableScrollState: ScrollState,
+    rowSelection: DatabaseRowSelection,
+    shownRowIds: List<String>,
     editor: DatabaseBlockEditor,
     runAfterKeyboardCloses: (() -> Unit) -> Unit
 ) {
     val headerColumns = block.visibleColumnsInTableOrder()
+    val frozenBackground = MaterialTheme.colorScheme.background
+    val allShownRowsAreSelected = shownRowIds.isNotEmpty() && shownRowIds.all { rowSelection.isSelected(it) }
 
     fun dropDraggedColumn() {
         val draggedColumn = dragState.draggedColumn ?: return
@@ -96,11 +106,22 @@ internal fun DatabaseHeaderRow(
     }
 
     Row(modifier = Modifier.height(IntrinsicSize.Max)) {
+        if (rowSelection.isSelecting) {
+            DatabaseRowCheckboxCell(
+                isChecked = allShownRowsAreSelected,
+                enabled = !inSelectionMode,
+                onToggle = { if (allShownRowsAreSelected) rowSelection.clear() else rowSelection.selectAll(shownRowIds) },
+                modifier = Modifier.staysInPlaceWhileScrolling(frozenColumns.isNotEmpty(), tableScrollState, frozenBackground)
+            )
+        }
         headerColumns.forEach { column ->
             key(column.columnKey) {
                 DatabaseColumnHeader(
                     block = block,
                     column = column,
+                    isFrozen = column in frozenColumns,
+                    tableScrollState = tableScrollState,
+                    frozenBackground = frozenBackground,
                     width = columnWidth(column),
                     rowCount = rowCount,
                     inSelectionMode = inSelectionMode,
@@ -127,6 +148,9 @@ internal fun DatabaseHeaderRow(
 private fun DatabaseColumnHeader(
     block: DatabaseBlock,
     column: DatabaseColumnTarget,
+    isFrozen: Boolean,
+    tableScrollState: ScrollState,
+    frozenBackground: Color,
     width: Int,
     rowCount: Int,
     inSelectionMode: Boolean,
@@ -150,6 +174,7 @@ private fun DatabaseColumnHeader(
                 val span = HeaderSpan(left = headerLeft, right = headerLeft + coordinates.size.width)
                 if (dragState.headerSpans[column] != span) dragState.headerSpans[column] = span
             }
+            .staysInPlaceWhileScrolling(isFrozen, tableScrollState, frozenBackground)
             .raisedWhileColumnDragged(dragState, column)
             .menuTapAnchor(tapAnchor)
             .width(width.dp)
@@ -184,7 +209,7 @@ private fun DatabaseColumnHeader(
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f, fill = false)
                 )
-                if (block.filters.any { it.target == column }) {
+                if (block.activeView().filters.any { it.target == column }) {
                     Spacer(modifier = Modifier.width(6.dp))
                     Icon(
                         painter = painterResource(Res.drawable.funnel),
@@ -297,6 +322,9 @@ private fun DatabaseColumnMenu(
         }
         if (block.isFormulaColumn(column)) {
             DatabaseEditFormulaOption(block = block, column = column, editor = editor, closeMenuAnd = closeMenuAnd)
+        }
+        if (block.canFormatNumbersIn(column)) {
+            DatabaseNumberFormatOption(block = block, column = column, editor = editor)
         }
         DatabaseColumnFilterOption(block = block, column = column, editor = editor)
         DatabaseCalculateOption(block = block, column = column, editor = editor, closeMenuAnd = closeMenuAnd)

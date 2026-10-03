@@ -22,6 +22,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import com.emberr.data.local.room.entity.NoteMetadataEntity
 import com.emberr.domain.model.DatabaseBlock
+import com.emberr.domain.model.DatabaseTemplateRepeat
 import com.emberr.presentation.shared.components.EmberrTextField
 import com.emberr.presentation.shared.editor.DatabaseBlockEditor
 import emberr.shared.generated.resources.Res
@@ -29,6 +30,7 @@ import emberr.shared.generated.resources.doc_text
 import emberr.shared.generated.resources.ellipsis
 import emberr.shared.generated.resources.pen
 import emberr.shared.generated.resources.plus
+import emberr.shared.generated.resources.refresh_cw
 import emberr.shared.generated.resources.star
 import emberr.shared.generated.resources.template
 import emberr.shared.generated.resources.trash
@@ -65,6 +67,8 @@ internal fun DatabaseTemplateMenu(
                 isDefault = defaultTemplateId == null,
                 onUse = { closeAnd { editor.addRowFromTemplate(block.id, null) } },
                 onSetDefault = { editor.setDefaultTemplate(block.id, null) },
+                repeat = null,
+                onRepeatChange = null,
                 onEdit = null,
                 onDelete = null
             )
@@ -80,6 +84,8 @@ internal fun DatabaseTemplateMenu(
                     isDefault = template.noteId == defaultTemplateId,
                     onUse = { closeAnd { editor.addRowFromTemplate(block.id, template.noteId) } },
                     onSetDefault = { editor.setDefaultTemplate(block.id, template.noteId) },
+                    repeat = block.repeatingTemplates[template.noteId],
+                    onRepeatChange = { repeat -> editor.setTemplateRepeat(block.id, template.noteId, repeat) },
                     onEdit = { closeAnd { onOpenTemplate(template.noteId) } },
                     onDelete = { editor.deleteTemplate(template.noteId) }
                 )
@@ -103,6 +109,8 @@ private fun DatabaseTemplateOption(
     isDefault: Boolean,
     onUse: () -> Unit,
     onSetDefault: () -> Unit,
+    repeat: DatabaseTemplateRepeat?,
+    onRepeatChange: ((DatabaseTemplateRepeat?) -> Unit)?,
     onEdit: (() -> Unit)?,
     onDelete: (() -> Unit)?
 ) {
@@ -114,6 +122,14 @@ private fun DatabaseTemplateOption(
                 icon = { DatabaseOptionIcon(icon) },
                 trailing = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (repeat != null) {
+                            Icon(
+                                painter = painterResource(Res.drawable.refresh_cw),
+                                contentDescription = repeat.summary(),
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(end = 10.dp).size(14.dp)
+                            )
+                        }
                         if (isDefault) {
                             Text(
                                 text = "Default",
@@ -144,6 +160,28 @@ private fun DatabaseTemplateOption(
             icon = { DatabaseOptionIcon(Res.drawable.star) },
             onClick = { closeLayerAnd(onSetDefault) }
         )
+        if (onRepeatChange != null) {
+            DatabaseMenuLayer(
+                title = "Repeat",
+                anchor = { openRepeatLayer ->
+                    DatabaseMenuOption(
+                        label = "Repeat",
+                        icon = { DatabaseOptionIcon(Res.drawable.refresh_cw) },
+                        trailing = {
+                            Text(
+                                text = repeat?.summary() ?: "Off",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.outline,
+                                maxLines = 1
+                            )
+                        },
+                        onClick = openRepeatLayer
+                    )
+                }
+            ) { _ ->
+                DatabaseTemplateRepeatChoices(repeat = repeat, onRepeatChange = onRepeatChange)
+            }
+        }
         if (onEdit != null) {
             DatabaseMenuOption(
                 label = "Edit",

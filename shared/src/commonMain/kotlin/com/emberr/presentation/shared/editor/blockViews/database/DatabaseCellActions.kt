@@ -44,8 +44,10 @@ import emberr.shared.generated.resources.arrow_down
 import emberr.shared.generated.resources.arrow_left
 import emberr.shared.generated.resources.arrow_right
 import emberr.shared.generated.resources.arrow_up
+import emberr.shared.generated.resources.copy
 import emberr.shared.generated.resources.move_left
 import emberr.shared.generated.resources.move_right
+import emberr.shared.generated.resources.square_check
 import emberr.shared.generated.resources.trash
 import org.jetbrains.compose.resources.DrawableResource
 
@@ -60,6 +62,7 @@ internal fun DatabaseCellWithActions(
     width: Int,
     onWidthChosen: (Int) -> Unit,
     inSelectionMode: Boolean,
+    onSelectRow: () -> Unit,
     editor: DatabaseBlockEditor,
     runAfterKeyboardCloses: (() -> Unit) -> Unit,
     modifier: Modifier = Modifier,
@@ -98,6 +101,7 @@ internal fun DatabaseCellWithActions(
                 rowCount = rowCount,
                 width = width,
                 onWidthChosen = onWidthChosen,
+                onSelectRow = onSelectRow,
                 editor = editor,
                 onDismiss = { showsActions = false }
             )
@@ -135,11 +139,12 @@ private fun DatabaseCellActionsMenu(
     rowCount: Int,
     width: Int,
     onWidthChosen: (Int) -> Unit,
+    onSelectRow: () -> Unit,
     editor: DatabaseBlockEditor,
     onDismiss: () -> Unit
 ) {
     val view = block.activeView()
-    val canPlaceRows = block.sort == null
+    val canPlaceRows = view.sorts.isEmpty()
     val rowPosition = shownRowIds.indexOf(rowNoteId)
     val rowAbove = shownRowIds.getOrNull(rowPosition - 1).takeIf { canPlaceRows }
     val rowBelow = shownRowIds.getOrNull(rowPosition + 1).takeIf { canPlaceRows }
@@ -226,6 +231,16 @@ private fun DatabaseCellActionsMenu(
         DatabaseStyleOptions(block = block, rowNoteId = rowNoteId, column = column, editor = editor)
 
         DatabaseMenuSectionDivider()
+        DatabaseMenuOption(
+            label = "Duplicate row",
+            icon = { DatabaseOptionIcon(Res.drawable.copy) },
+            onClick = { closeAnd { editor.duplicateRow(block.id, view.id, shownRowIds, rowNoteId) } }
+        )
+        DatabaseMenuOption(
+            label = "Select row",
+            icon = { DatabaseOptionIcon(Res.drawable.square_check) },
+            onClick = { closeAnd(onSelectRow) }
+        )
         DatabaseMenuOption(
             label = "Delete row",
             icon = { DatabaseOptionIcon(Res.drawable.trash, tint = MaterialTheme.colorScheme.error) },

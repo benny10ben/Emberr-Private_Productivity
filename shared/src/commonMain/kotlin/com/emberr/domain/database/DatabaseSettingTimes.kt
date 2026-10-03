@@ -6,19 +6,21 @@ import com.emberr.domain.model.DatabaseSettingTime
 import com.emberr.domain.model.columnKey
 
 private const val TITLE_SETTING_KEY = "title"
-private const val SORT_SETTING_KEY = "sort"
 private const val DEFAULT_TEMPLATE_SETTING_KEY = "default_template"
 private const val ROW_COUNT_SETTING_KEY = "row_count"
 private const val ACTIVE_VIEW_SETTING_KEY = "active_view"
 private const val NOTES_POSITION_SETTING_KEY = "notes_position"
+private const val LOCKED_SETTING_KEY = "locked"
 
 private fun columnSettingKey(column: DatabaseColumnTarget) = "column:${column.columnKey}"
 private fun widthSettingKey(columnKey: String) = "width:$columnKey"
 private fun calculationSettingKey(columnKey: String) = "calculation:$columnKey"
 private fun formulaSettingKey(columnKey: String) = "formula:$columnKey"
+private fun numberFormatSettingKey(columnKey: String) = "number_format:$columnKey"
+private fun colorRuleSettingKey(ruleId: String) = "color_rule:$ruleId"
+private fun templateRepeatSettingKey(templateNoteId: String) = "template_repeat:$templateNoteId"
 private fun viewSettingKey(viewId: String) = "view:$viewId"
 private fun propertySettingKey(propertyId: String) = "property:$propertyId"
-private fun filterSettingKey(filterId: String) = "filter:$filterId"
 private fun cellStyleSettingKey(styleKey: String) = "cell_style:$styleKey"
 private fun rowStyleSettingKey(rowNoteId: String) = "row_style:$rowNoteId"
 private fun columnStyleSettingKey(columnKey: String) = "column_style:$columnKey"
@@ -46,14 +48,20 @@ fun mergeDatabaseBlocks(first: DatabaseBlock, second: DatabaseBlock): DatabaseBl
             .associate { it.key to it.value },
         formulas = merge.mergedList(newer.formulas.entries.toList(), older.formulas.entries.toList()) { formulaSettingKey(it.key) }
             .associate { it.key to it.value },
-        filters = merge.mergedList(newer.filters, older.filters) { filterSettingKey(it.id) },
+        numberFormats = merge.mergedList(newer.numberFormats.entries.toList(), older.numberFormats.entries.toList()) {
+            numberFormatSettingKey(it.key)
+        }.associate { it.key to it.value },
+        colorRules = merge.mergedList(newer.colorRules, older.colorRules) { colorRuleSettingKey(it.id) },
+        repeatingTemplates = merge.mergedList(newer.repeatingTemplates.entries.toList(), older.repeatingTemplates.entries.toList()) {
+            templateRepeatSettingKey(it.key)
+        }.associate { it.key to it.value },
+        isLocked = merge.mergedValue(LOCKED_SETTING_KEY, newer.isLocked.takeIf { it }, older.isLocked.takeIf { it }) ?: false,
         cellStyles = merge.mergedList(newer.cellStyles.entries.toList(), older.cellStyles.entries.toList()) { cellStyleSettingKey(it.key) }
             .associate { it.key to it.value },
         rowStyles = merge.mergedList(newer.rowStyles.entries.toList(), older.rowStyles.entries.toList()) { rowStyleSettingKey(it.key) }
             .associate { it.key to it.value },
         columnStyles = merge.mergedList(newer.columnStyles.entries.toList(), older.columnStyles.entries.toList()) { columnStyleSettingKey(it.key) }
             .associate { it.key to it.value },
-        sort = merge.mergedValue(SORT_SETTING_KEY, newer.sort, older.sort),
         defaultTemplateId = merge.mergedValue(DEFAULT_TEMPLATE_SETTING_KEY, newer.defaultTemplateId, older.defaultTemplateId),
         showsRowCount = merge.mergedValue(ROW_COUNT_SETTING_KEY, newer.showsRowCount.takeIf { it }, older.showsRowCount.takeIf { it }) ?: false,
         views = merge.mergedList(newer.views, older.views) { viewSettingKey(it.id) },
@@ -96,7 +104,6 @@ private class DatabaseSettingsMerge(private val newer: DatabaseBlock, private va
 
 private fun DatabaseBlock.settingsByKey(): Map<String, Any> = buildMap {
     put(TITLE_SETTING_KEY, title)
-    sort?.let { put(SORT_SETTING_KEY, it) }
     defaultTemplateId?.let { put(DEFAULT_TEMPLATE_SETTING_KEY, it) }
     if (showsRowCount) put(ROW_COUNT_SETTING_KEY, true)
     views.forEach { put(viewSettingKey(it.id), it) }
@@ -106,8 +113,11 @@ private fun DatabaseBlock.settingsByKey(): Map<String, Any> = buildMap {
     columnWidths.forEach { (columnKey, width) -> put(widthSettingKey(columnKey), width) }
     calculations.forEach { (columnKey, calculation) -> put(calculationSettingKey(columnKey), calculation) }
     formulas.forEach { (columnKey, formula) -> put(formulaSettingKey(columnKey), formula) }
+    numberFormats.forEach { (columnKey, format) -> put(numberFormatSettingKey(columnKey), format) }
+    colorRules.forEach { put(colorRuleSettingKey(it.id), it) }
+    repeatingTemplates.forEach { (templateNoteId, repeat) -> put(templateRepeatSettingKey(templateNoteId), repeat) }
+    if (isLocked) put(LOCKED_SETTING_KEY, true)
     customProperties.forEach { put(propertySettingKey(it.id), it) }
-    filters.forEach { put(filterSettingKey(it.id), it) }
     cellStyles.forEach { (styleKey, style) -> put(cellStyleSettingKey(styleKey), style) }
     rowStyles.forEach { (rowNoteId, style) -> put(rowStyleSettingKey(rowNoteId), style) }
     columnStyles.forEach { (columnKey, style) -> put(columnStyleSettingKey(columnKey), style) }

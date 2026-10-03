@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
@@ -41,6 +42,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
@@ -62,7 +65,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.emberr.domain.database.activeView
 import com.emberr.domain.database.applyFiltersAndSort
+import com.emberr.domain.database.frozenColumns
 import com.emberr.domain.database.inManualOrder
+import com.emberr.domain.database.matchingSearch
 import com.emberr.domain.database.visibleColumns
 import com.emberr.domain.database.visibleColumnsInTableOrder
 import com.emberr.domain.database.withFormulaResults
@@ -80,8 +85,11 @@ import com.emberr.ui.theme.tableGridLineColor
 import emberr.shared.generated.resources.Res
 import emberr.shared.generated.resources.chevron_right
 import emberr.shared.generated.resources.list_sort_descending
+import emberr.shared.generated.resources.lock
 import emberr.shared.generated.resources.plus
+import emberr.shared.generated.resources.search
 import emberr.shared.generated.resources.sliders_horizontal
+import emberr.shared.generated.resources.x
 import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
 
@@ -92,7 +100,7 @@ internal val DatabaseCellMinHeight = 44.dp
 internal val DatabaseGutterWidth = 44.dp
 internal val DatabaseCellHorizontalPadding = 12.dp
 internal val DatabaseCellVerticalPadding = 9.dp
-private val DatabaseSidePadding = 18.dp
+internal val DatabaseSidePadding = 18.dp
 private val DatabaseVerticalPadding = 12.dp
 private val HeaderEndPadding = 10.dp
 private val BoardSidePaddingInset = 6.dp
@@ -127,7 +135,9 @@ fun DatabaseBlockView(
 ) {
     val savedRows by remember(block.databaseId) { editor.rowsOf(block.databaseId) }.collectAsState(initial = emptyList())
     val rows = remember(savedRows, block) { savedRows.withFormulaResults(block) }
-    val visibleRows = remember(rows, block) { applyFiltersAndSort(rows, block) }
+    var isSearchOpen by remember { mutableStateOf(false) }
+    var searchText by remember { mutableStateOf("") }
+    val visibleRows = remember(rows, block, searchText) { applyFiltersAndSort(rows, block).matchingSearch(searchText, block) }
     val historyStepsApplied by editor.historyStepsApplied.collectAsState()
     val rowToFocus by editor.rowToFocus.collectAsState()
     val scrollState = rememberScrollState()
@@ -139,6 +149,7 @@ fun DatabaseBlockView(
     var showSettingsMenu by remember { mutableStateOf(false) }
     var showSortMenu by remember { mutableStateOf(false) }
     var showTemplateMenu by remember { mutableStateOf(false) }
+    val rowSelection = remember(block.databaseId) { DatabaseRowSelection() }
 
     fun savedColumnWidth(target: DatabaseColumnTarget): Int =
         block.columnWidths[target.columnKey] ?: defaultColumnWidth(target)
@@ -154,8 +165,12 @@ fun DatabaseBlockView(
         editor.setColumnWidth(block.id, target.columnKey, width)
     }
 
-    val tableWidth = (columnWidth(DatabaseColumnTarget.NotesTitle) + block.visibleColumns().sumOf { columnWidth(it) }).dp + DatabaseGutterWidth
+    val selectionColumnWidth = if (rowSelection.isSelecting) DatabaseSelectionColumnWidth else 0.dp
+    val tableWidth = (columnWidth(DatabaseColumnTarget.NotesTitle) + block.visibleColumns().sumOf { columnWidth(it) }).dp +
+        DatabaseGutterWidth + selectionColumnWidth
     val activeView = block.activeView()
+    val frozenColumns = block.frozenColumns()
+    val blocksEdits = inSelectionMode || block.isLocked
     val rowCountCaption = if (block.showsRowCount) rowCountLabel(shownRowCount = visibleRows.size, totalRowCount = rows.size) else null
 
     LaunchedEffect(columnDragState.isDragging) {
@@ -169,6 +184,16 @@ fun DatabaseBlockView(
             val step = columnAutoScrollStep(pointerInViewport, tableViewportWidth.toFloat(), edgeWidthPx, maxStepPx)
             if (step != 0f) columnDragState.pointerX += scrollState.scrollBy(step)
         }
+    }
+
+    LaunchedEffect(activeView.id, block.isLocked) {
+        rowSelection.clear()
+    }
+
+    LaunchedEffect(rowToFocus) {
+        if (rowToFocus == null) return@LaunchedEffect
+        isSearchOpen = false
+        searchText = ""
     }
 
     LaunchedEffect(rowToFocus, activeView.type) {
@@ -188,7 +213,7 @@ fun DatabaseBlockView(
             ) {
                 DatabaseTitleField(
                     title = block.title,
-                    inSelectionMode = inSelectionMode,
+                    inSelectionMode = blocksEdits,
                     onTitleChange = { editor.setTitle(block.id, it) },
                     modifier = Modifier.weight(1f)
                 )
@@ -205,50 +230,85 @@ fun DatabaseBlockView(
                     block = block,
                     editor = editor,
                     inSelectionMode = inSelectionMode,
+                    isLocked = block.isLocked,
                     runAfterKeyboardCloses = runAfterKeyboardCloses,
                     modifier = Modifier.weight(1f)
                 )
                 DatabaseHeaderButton(
-                    label = "Sort",
-                    icon = Res.drawable.list_sort_descending,
-                    isActive = block.sort != null,
+                    label = "Search",
+                    icon = Res.drawable.search,
+                    isActive = searchText.isNotBlank(),
                     enabled = !inSelectionMode,
-                    onClick = { runAfterKeyboardCloses { showSortMenu = true } }
-                ) {
-                    DatabaseSortMenu(
-                        expanded = showSortMenu,
-                        block = block,
-                        editor = editor,
-                        onDismiss = { showSortMenu = false }
-                    )
+                    onClick = {
+                        searchText = ""
+                        isSearchOpen = !isSearchOpen
+                    }
+                ) {}
+                if (block.isLocked) {
+                    DatabaseHeaderButton(
+                        label = "Locked",
+                        icon = Res.drawable.lock,
+                        isActive = true,
+                        enabled = !inSelectionMode,
+                        onClick = { editor.setLocked(block.id, false) }
+                    ) {}
+                } else {
+                    DatabaseHeaderButton(
+                        label = "Sort",
+                        icon = Res.drawable.list_sort_descending,
+                        isActive = activeView.sorts.isNotEmpty(),
+                        enabled = !inSelectionMode,
+                        onClick = { runAfterKeyboardCloses { showSortMenu = true } }
+                    ) {
+                        DatabaseSortMenu(
+                            expanded = showSortMenu,
+                            block = block,
+                            editor = editor,
+                            onDismiss = { showSortMenu = false }
+                        )
+                    }
+                    DatabaseHeaderButton(
+                        label = "Settings",
+                        icon = Res.drawable.sliders_horizontal,
+                        isActive = false,
+                        enabled = !inSelectionMode,
+                        onClick = { runAfterKeyboardCloses { showSettingsMenu = true } }
+                    ) {
+                        DatabaseSettingsMenu(
+                            expanded = showSettingsMenu,
+                            block = block,
+                            editor = editor,
+                            onDismiss = { showSettingsMenu = false }
+                        )
+                    }
+                    DatabaseNewRowButton(
+                        enabled = !inSelectionMode,
+                        onNewRow = { editor.addRow(block.id) },
+                        onOpenTemplates = { runAfterKeyboardCloses { showTemplateMenu = true } }
+                    ) {
+                        DatabaseTemplateMenu(
+                            expanded = showTemplateMenu,
+                            block = block,
+                            editor = editor,
+                            onOpenTemplate = onOpenRow,
+                            onDismiss = { showTemplateMenu = false }
+                        )
+                    }
                 }
-                DatabaseHeaderButton(
-                    label = "Settings",
-                    icon = Res.drawable.sliders_horizontal,
-                    isActive = false,
-                    enabled = !inSelectionMode,
-                    onClick = { runAfterKeyboardCloses { showSettingsMenu = true } }
-                ) {
-                    DatabaseSettingsMenu(
-                        expanded = showSettingsMenu,
-                        block = block,
-                        editor = editor,
-                        onDismiss = { showSettingsMenu = false }
-                    )
-                }
-                DatabaseNewRowButton(
-                    enabled = !inSelectionMode,
-                    onNewRow = { editor.addRow(block.id) },
-                    onOpenTemplates = { runAfterKeyboardCloses { showTemplateMenu = true } }
-                ) {
-                    DatabaseTemplateMenu(
-                        expanded = showTemplateMenu,
-                        block = block,
-                        editor = editor,
-                        onOpenTemplate = onOpenRow,
-                        onDismiss = { showTemplateMenu = false }
-                    )
-                }
+            }
+
+            if (isSearchOpen) {
+                DatabaseSearchField(
+                    searchText = searchText,
+                    onSearchTextChange = { searchText = it },
+                    onClose = {
+                        isSearchOpen = false
+                        searchText = ""
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = DatabaseSidePadding, end = HeaderEndPadding, bottom = 8.dp)
+                )
             }
 
             when (activeView.type) {
@@ -262,7 +322,7 @@ fun DatabaseBlockView(
                         modifier = Modifier.padding(horizontal = DatabaseSidePadding)
                     )
                     DatabaseNewRowLine(
-                        showsNewButton = !inSelectionMode,
+                        showsNewButton = !blocksEdits,
                         rowCountCaption = rowCountCaption,
                         onNewRow = { editor.addRow(block.id) },
                         modifier = Modifier.fillMaxWidth().padding(horizontal = DatabaseSidePadding)
@@ -274,6 +334,7 @@ fun DatabaseBlockView(
                         view = activeView,
                         rows = visibleRows,
                         inSelectionMode = inSelectionMode,
+                        isLocked = block.isLocked,
                         editor = editor,
                         onOpenRow = onOpenRow,
                         runAfterKeyboardCloses = runAfterKeyboardCloses,
@@ -289,10 +350,26 @@ fun DatabaseBlockView(
                     }
                 }
                 DatabaseViewType.TABLE -> {
-                    val tableRows = remember(visibleRows, block.sort, activeView.manualRowOrder) {
-                        if (block.sort == null) visibleRows.inManualOrder(activeView.manualRowOrder) else visibleRows
+                    val tableRows = remember(visibleRows, activeView.sorts, activeView.manualRowOrder) {
+                        if (activeView.sorts.isEmpty()) visibleRows.inManualOrder(activeView.manualRowOrder) else visibleRows
                     }
                     val shownRowIds = remember(tableRows) { tableRows.map { it.noteId } }
+                    LaunchedEffect(shownRowIds) {
+                        rowSelection.keepOnly(shownRowIds)
+                    }
+                    if (rowSelection.isSelecting) {
+                        DatabaseSelectionBar(
+                            block = block,
+                            selectedRowIds = shownRowIds.filter { rowSelection.isSelected(it) },
+                            shownRowIds = shownRowIds,
+                            editor = editor,
+                            onClearSelection = rowSelection::clear,
+                            runAfterKeyboardCloses = runAfterKeyboardCloses,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(start = DatabaseSidePadding, end = HeaderEndPadding, bottom = 8.dp)
+                        )
+                    }
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -316,11 +393,15 @@ fun DatabaseBlockView(
                                     DatabaseHeaderRow(
                                         block = block,
                                         rowCount = rows.size,
-                                        inSelectionMode = inSelectionMode,
+                                        inSelectionMode = blocksEdits,
                                         columnWidth = ::columnWidth,
                                         onColumnWidthDragged = { target, width -> liveColumnWidths[target.columnKey] = width },
                                         onColumnWidthChosen = ::chooseColumnWidth,
                                         dragState = columnDragState,
+                                        frozenColumns = frozenColumns,
+                                        tableScrollState = scrollState,
+                                        rowSelection = rowSelection,
+                                        shownRowIds = shownRowIds,
                                         editor = editor,
                                         runAfterKeyboardCloses = runAfterKeyboardCloses
                                     )
@@ -334,7 +415,12 @@ fun DatabaseBlockView(
                                                 columnWidth = ::columnWidth,
                                                 onColumnWidthChosen = ::chooseColumnWidth,
                                                 showsIcon = activeView.showsIcon,
+                                                wrapsText = activeView.wrapsCellText,
+                                                frozenColumns = frozenColumns,
+                                                tableScrollState = scrollState,
+                                                rowSelection = rowSelection,
                                                 inSelectionMode = inSelectionMode,
+                                                isLocked = block.isLocked,
                                                 shouldTakeFocus = rowToFocus == row.noteId,
                                                 historyStepsApplied = historyStepsApplied,
                                                 columnDragState = columnDragState,
@@ -351,11 +437,14 @@ fun DatabaseBlockView(
                                 block = block,
                                 rows = visibleRows,
                                 columnWidth = ::columnWidth,
-                                columnDragState = columnDragState
+                                columnDragState = columnDragState,
+                                frozenColumns = frozenColumns,
+                                tableScrollState = scrollState,
+                                showsSelectionColumn = rowSelection.isSelecting
                             )
 
                             DatabaseNewRowLine(
-                                showsNewButton = !inSelectionMode,
+                                showsNewButton = !blocksEdits,
                                 rowCountCaption = rowCountCaption,
                                 onNewRow = { editor.addRow(block.id) },
                                 modifier = Modifier.width(tableWidth)
@@ -435,6 +524,74 @@ private fun DatabaseTitleField(
             }
         }
     )
+}
+
+@Composable
+private fun DatabaseSearchField(
+    searchText: String,
+    onSearchTextChange: (String) -> Unit,
+    onClose: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val focusManager = LocalFocusManager.current
+    val focusRequester = remember { FocusRequester() }
+    val textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface)
+
+    LaunchedEffect(Unit) {
+        withFrameNanos { }
+        runCatching { focusRequester.requestFocus() }
+    }
+
+    Row(
+        modifier = modifier
+            .clip(RoundedCornerShape(8.dp))
+            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f))
+            .padding(horizontal = 10.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            painter = painterResource(Res.drawable.search),
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.outline,
+            modifier = Modifier.size(16.dp)
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        BasicTextField(
+            value = searchText,
+            onValueChange = onSearchTextChange,
+            singleLine = true,
+            textStyle = textStyle,
+            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+            keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() }),
+            modifier = Modifier
+                .weight(1f)
+                .focusRequester(focusRequester)
+                .onPreviewKeyEvent { event ->
+                    val isEscapePress = event.key == Key.Escape && event.type == KeyEventType.KeyDown
+                    if (isEscapePress) onClose()
+                    isEscapePress
+                },
+            decorationBox = { innerTextField ->
+                Box {
+                    if (searchText.isEmpty()) {
+                        Text(text = "Search this database", style = textStyle.copy(color = MaterialTheme.colorScheme.outline))
+                    }
+                    innerTextField()
+                }
+            }
+        )
+        Icon(
+            painter = painterResource(Res.drawable.x),
+            contentDescription = "Close search",
+            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+            modifier = Modifier
+                .clip(CircleShape)
+                .clickable(onClick = onClose)
+                .padding(4.dp)
+                .size(14.dp)
+        )
+    }
 }
 
 @Composable

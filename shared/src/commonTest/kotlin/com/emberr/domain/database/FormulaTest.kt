@@ -155,4 +155,57 @@ class FormulaTest {
         )
         assertEquals(FormulaValue.Error("dateAdd() needs a whole number"), resultOf("""dateAdd(now(), 1.5, "days")"""))
     }
+
+    @Test
+    fun todayGivesTheSameDateAsNow() {
+        assertEquals(date(2026, 9, 28), resultOf("today()"))
+    }
+
+    @Test
+    fun formatDateFollowsThePattern() {
+        assertEquals(text("Oct 5, 2026"), resultOf("""formatDate(prop("Due Date"), "MMM D, YYYY")"""))
+        assertEquals(text("Monday, October 05"), resultOf("""formatDate(prop("Due Date"), "dddd, MMMM DD")"""))
+        assertEquals(text("05/10/26"), resultOf("""formatDate(prop("Due Date"), "DD/MM/YY")"""))
+        assertEquals(text("Due 10-5"), resultOf("""formatDate(prop("Due Date"), "[Due] M-D")"""))
+        assertEquals(FormulaValue.Empty, resultOf("""formatDate(prop("Blank"), "YYYY")"""))
+    }
+
+    @Test
+    fun yearMonthAndDayReadPartsOfADate() {
+        assertEquals(number(2026.0), resultOf("""year(prop("Due Date"))"""))
+        assertEquals(number(10.0), resultOf("""month(prop("Due Date"))"""))
+        assertEquals(number(5.0), resultOf("""day(prop("Due Date"))"""))
+        assertEquals(FormulaValue.Empty, resultOf("""day(prop("Blank"))"""))
+        assertEquals(FormulaValue.Error("year() needs a date but got text"), resultOf("""year(prop("Name"))"""))
+    }
+
+    @Test
+    fun containsLooksForTextIgnoringCase() {
+        assertEquals(yesOrNo(true), resultOf("""contains(prop("Name"), "te")"""))
+        assertEquals(yesOrNo(false), resultOf("""contains(prop("Name"), "coffee")"""))
+        assertEquals(yesOrNo(true), resultOf("""contains(prop("Price"), "12.5")"""))
+    }
+
+    @Test
+    fun floorCeilAndModWorkOnNumbers() {
+        assertEquals(number(12.0), resultOf("""floor(prop("Price"))"""))
+        assertEquals(number(13.0), resultOf("""ceil(prop("Price"))"""))
+        assertEquals(number(-3.0), resultOf("floor(-2.5)"))
+        assertEquals(number(1.0), resultOf("mod(7, 3)"))
+        assertEquals(number(0.5), resultOf("mod(prop(\"Price\"), 4)"))
+        assertEquals(FormulaValue.Error("Can't divide by zero"), resultOf("mod(7, 0)"))
+    }
+
+    @Test
+    fun ifsGivesTheValueOfTheFirstTrueConditionOrTheLastValue() {
+        assertEquals(text("big"), resultOf("""ifs(prop("Price") > 10, "big", prop("Price") > 5, "medium", "small")"""))
+        assertEquals(text("medium"), resultOf("""ifs(prop("Quantity") > 10, "big", prop("Quantity") > 3, "medium", "small")"""))
+        assertEquals(text("small"), resultOf("""ifs(false, "big", false, "medium", "small")"""))
+    }
+
+    @Test
+    fun ifsNeedsAnOddNumberOfValues() {
+        assertEquals("ifs() needs pairs of a condition and a value, then one value to use otherwise", problemIn("ifs(true, 1, false, 2)"))
+        assertEquals("ifs() needs at least 3 values", problemIn("ifs(true, 1)"))
+    }
 }

@@ -9,6 +9,10 @@ import com.emberr.data.local.room.entity.NoteKind
 import com.emberr.data.local.room.entity.NoteMetadataEntity
 import com.emberr.domain.canvas.EmbeddedCanvasCleaner
 import com.emberr.domain.database.DatabaseRowCleaner
+import com.emberr.domain.database.RepeatingTemplateRowCreator
+import com.emberr.domain.database.RepeatingTemplateSchedule
+import com.emberr.domain.database.localNow
+import com.emberr.domain.database.millisecondsUntil
 import com.emberr.domain.media.LocalMediaGarbageCollector
 import com.emberr.domain.model.*
 import com.emberr.domain.repository.FavoriteNoteOrderStore
@@ -24,6 +28,7 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.Json
 import java.util.UUID
 import kotlin.time.Duration.Companion.milliseconds
@@ -44,6 +49,7 @@ class HomeViewModel(
     private val localMediaGarbageCollector: LocalMediaGarbageCollector,
     private val embeddedCanvasCleaner: EmbeddedCanvasCleaner,
     private val databaseRowCleaner: DatabaseRowCleaner,
+    private val repeatingTemplateRowCreator: RepeatingTemplateRowCreator,
     private val favoriteNoteOrderStore: FavoriteNoteOrderStore,
     private val activeSpaceStore: ActiveSpaceStore
 ) : ViewModel() {
@@ -412,6 +418,14 @@ class HomeViewModel(
             embeddedCanvasCleaner.forgetViewPositionsOfDeletedCanvases()
             databaseRowCleaner.deleteRowsOfRemovedDatabases()
             com.emberr.domain.ai.models.cleanupPendingModelDeletions()
+        }
+        viewModelScope.launch {
+            while (true) {
+                val nextCheck = repeatingTemplateRowCreator.createRowsDueAt(localNow())
+                withTimeoutOrNull(millisecondsUntil(nextCheck).milliseconds) {
+                    RepeatingTemplateSchedule.changes.first()
+                }
+            }
         }
         viewModelScope.launch {
             activeSpaceStore.activeSpaceId.drop(1).collect {

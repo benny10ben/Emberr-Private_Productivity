@@ -1,10 +1,13 @@
 package com.emberr.domain.database
 
+import com.emberr.domain.model.DEFAULT_VIEW_ID
 import com.emberr.domain.model.DatabaseBlock
 import com.emberr.domain.model.DatabaseColumnTarget
 import com.emberr.domain.model.DatabaseFilter
 import com.emberr.domain.model.DatabaseFilterCondition
 import com.emberr.domain.model.DatabaseSort
+import com.emberr.domain.model.DatabaseView
+import com.emberr.domain.model.DatabaseViewType
 import com.emberr.domain.model.NoteBlock
 import com.emberr.domain.model.PropertyBlock
 import com.emberr.domain.model.PropertyType
@@ -42,10 +45,17 @@ class DatabaseExportTest {
             databaseId = "books",
             title = "Reading list",
             columns = listOf(statusColumn, dueDateColumn),
-            filters = listOf(
-                DatabaseFilter(id = "f1", target = statusColumn, condition = DatabaseFilterCondition.IS_NOT, tagName = "Dropped")
+            views = listOf(
+                DatabaseView(
+                    id = DEFAULT_VIEW_ID,
+                    name = "Table",
+                    type = DatabaseViewType.TABLE,
+                    filters = listOf(
+                        DatabaseFilter(id = "f1", target = statusColumn, condition = DatabaseFilterCondition.IS_NOT, tagName = "Dropped")
+                    ),
+                    sorts = listOf(DatabaseSort(target = dueDateColumn))
+                )
             ),
-            sort = DatabaseSort(target = dueDateColumn),
             indentationLevel = 1,
             updatedAt = 100L
         )

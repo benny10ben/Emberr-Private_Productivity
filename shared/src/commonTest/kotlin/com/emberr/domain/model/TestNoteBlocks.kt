@@ -199,33 +199,40 @@ object TestNoteBlocks {
                 DatabaseCustomProperty(id = "kickoff-id", name = "Kickoff", valueType = PropertyValueType.DATE)
             ),
             columnWidths = mapOf(NOTES_COLUMN_KEY to 240, PropertyType.STATUS.name to 160, "client-id" to 200),
-            filters = listOf(
-                DatabaseFilter(
-                    id = "filter-1",
-                    target = DatabaseColumnTarget.Property(PropertyType.STATUS),
-                    condition = DatabaseFilterCondition.IS,
-                    tagName = "Reading"
-                ),
-                DatabaseFilter(
-                    id = "filter-2",
-                    target = DatabaseColumnTarget.Property(PropertyType.DUE_DATE),
-                    condition = DatabaseFilterCondition.IS_BEFORE,
-                    date = LocalDate(2026, 12, 31)
-                ),
-                DatabaseFilter(
-                    id = "filter-3",
-                    target = DatabaseColumnTarget.NotesTitle,
-                    condition = DatabaseFilterCondition.CONTAINS,
-                    text = "dune"
-                ),
-                DatabaseFilter(
-                    id = "filter-4",
-                    target = DatabaseColumnTarget.CustomProperty("client-id"),
-                    condition = DatabaseFilterCondition.IS,
-                    tagName = "Acme"
+            views = listOf(
+                DatabaseView(
+                    id = DEFAULT_VIEW_ID,
+                    name = "Table",
+                    type = DatabaseViewType.TABLE,
+                    filters = listOf(
+                        DatabaseFilter(
+                            id = "filter-1",
+                            target = DatabaseColumnTarget.Property(PropertyType.STATUS),
+                            condition = DatabaseFilterCondition.IS,
+                            tagName = "Reading"
+                        ),
+                        DatabaseFilter(
+                            id = "filter-2",
+                            target = DatabaseColumnTarget.Property(PropertyType.DUE_DATE),
+                            condition = DatabaseFilterCondition.IS_BEFORE,
+                            date = LocalDate(2026, 12, 31)
+                        ),
+                        DatabaseFilter(
+                            id = "filter-3",
+                            target = DatabaseColumnTarget.NotesTitle,
+                            condition = DatabaseFilterCondition.CONTAINS,
+                            text = "dune"
+                        ),
+                        DatabaseFilter(
+                            id = "filter-4",
+                            target = DatabaseColumnTarget.CustomProperty("client-id"),
+                            condition = DatabaseFilterCondition.IS,
+                            tagName = "Acme"
+                        )
+                    ),
+                    sorts = listOf(DatabaseSort(target = DatabaseColumnTarget.NotesTitle, isDescending = true))
                 )
             ),
-            sort = DatabaseSort(target = DatabaseColumnTarget.NotesTitle, isDescending = true),
             indentationLevel = 1,
             isPinned = true,
             updatedAt = 119L

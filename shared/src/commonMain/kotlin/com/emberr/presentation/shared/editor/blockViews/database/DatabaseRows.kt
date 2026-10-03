@@ -1,5 +1,6 @@
 package com.emberr.presentation.shared.editor.blockViews.database
 
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
@@ -49,7 +50,9 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import com.emberr.domain.database.DatabaseRow
+import com.emberr.domain.database.activeView
 import com.emberr.domain.database.effectiveStyleOf
+import com.emberr.domain.database.todayInThisTimeZone
 import com.emberr.domain.database.emptyCell
 import com.emberr.domain.database.visibleColumnsInTableOrder
 import com.emberr.domain.model.DatabaseBlock
@@ -66,8 +69,10 @@ import com.emberr.presentation.shared.editor.blockViews.PropertyTextValue
 import com.emberr.presentation.shared.editor.blockViews.toTextAlign
 import com.emberr.ui.theme.tableGridLineColor
 import emberr.shared.generated.resources.Res
+import emberr.shared.generated.resources.copy
 import emberr.shared.generated.resources.ellipsis
 import emberr.shared.generated.resources.square_arrow_out_up_right
+import emberr.shared.generated.resources.square_check
 import emberr.shared.generated.resources.trash
 import org.jetbrains.compose.resources.painterResource
 
@@ -80,7 +85,12 @@ internal fun DatabaseRowItem(
     columnWidth: (DatabaseColumnTarget) -> Int,
     onColumnWidthChosen: (DatabaseColumnTarget, Int) -> Unit,
     showsIcon: Boolean,
+    wrapsText: Boolean,
+    frozenColumns: Set<DatabaseColumnTarget>,
+    tableScrollState: ScrollState,
+    rowSelection: DatabaseRowSelection,
     inSelectionMode: Boolean,
+    isLocked: Boolean,
     shouldTakeFocus: Boolean,
     historyStepsApplied: Int,
     columnDragState: DatabaseColumnDragState,
@@ -89,10 +99,21 @@ internal fun DatabaseRowItem(
     runAfterKeyboardCloses: (() -> Unit) -> Unit
 ) {
     val draggedBackground = draggedColumnBackground()
+    val frozenBackground = MaterialTheme.colorScheme.background
+    val blocksEdits = inSelectionMode || isLocked
+    val today = todayInThisTimeZone()
     Row(modifier = Modifier.height(IntrinsicSize.Max).defaultMinSize(minHeight = DatabaseCellMinHeight)) {
+        if (rowSelection.isSelecting) {
+            DatabaseRowCheckboxCell(
+                isChecked = rowSelection.isSelected(row.noteId),
+                enabled = !inSelectionMode,
+                onToggle = { rowSelection.toggle(row.noteId) },
+                modifier = Modifier.staysInPlaceWhileScrolling(frozenColumns.isNotEmpty(), tableScrollState, frozenBackground)
+            )
+        }
         database.visibleColumnsInTableOrder().forEach { column ->
             key(column.columnKey) {
-                val cellStyle = database.effectiveStyleOf(row.noteId, column)
+                val cellStyle = database.effectiveStyleOf(row, column, today)
                 DatabaseCellWithActions(
                     block = database,
                     rowNoteId = row.noteId,
@@ -102,10 +123,12 @@ internal fun DatabaseRowItem(
                     rowCount = rowCount,
                     width = columnWidth(column),
                     onWidthChosen = { onColumnWidthChosen(column, it) },
-                    inSelectionMode = inSelectionMode,
+                    inSelectionMode = blocksEdits,
+                    onSelectRow = { rowSelection.select(row.noteId) },
                     editor = editor,
                     runAfterKeyboardCloses = runAfterKeyboardCloses,
                     modifier = Modifier
+                        .staysInPlaceWhileScrolling(column in frozenColumns, tableScrollState, frozenBackground)
                         .raisedWhileColumnDragged(columnDragState, column)
                         .followsColumnDrag(columnDragState, column, draggedBackground)
                 ) {
@@ -117,7 +140,9 @@ internal fun DatabaseRowItem(
                                 width = columnWidth(column),
                                 textColor = databaseTextColorNamed(cellStyle.textColorName),
                                 alignment = cellStyle.alignment,
-                                inSelectionMode = inSelectionMode,
+                                wrapsText = wrapsText,
+                                inSelectionMode = blocksEdits,
+                                canOpen = !inSelectionMode,
                                 shouldTakeFocus = shouldTakeFocus,
                                 onTitleChange = { editor.renameRow(database.id, row.noteId, it) },
                                 onFocusLost = { editor.finishTyping() },
@@ -132,7 +157,8 @@ internal fun DatabaseRowItem(
                             column = column,
                             style = cellStyle,
                             width = columnWidth(column),
-                            inSelectionMode = inSelectionMode,
+                            wrapsText = wrapsText,
+                            inSelectionMode = blocksEdits,
                             historyStepsApplied = historyStepsApplied,
                             editor = editor,
                             runAfterKeyboardCloses = runAfterKeyboardCloses
@@ -143,7 +169,10 @@ internal fun DatabaseRowItem(
         }
         DatabaseRowMenuButton(
             inSelectionMode = inSelectionMode,
+            isLocked = isLocked,
             onOpen = { editor.openRow(row.noteId, onOpenRow) },
+            onDuplicate = { editor.duplicateRow(database.id, database.activeView().id, shownRowIds, row.noteId) },
+            onSelect = { rowSelection.select(row.noteId) },
             onDelete = { editor.deleteRow(row.noteId) },
             runAfterKeyboardCloses = runAfterKeyboardCloses
         )
@@ -157,7 +186,9 @@ private fun DatabaseTitleCell(
     width: Int,
     textColor: Color?,
     alignment: TextAlignment?,
+    wrapsText: Boolean,
     inSelectionMode: Boolean,
+    canOpen: Boolean,
     shouldTakeFocus: Boolean,
     onTitleChange: (String) -> Unit,
     onFocusLost: () -> Unit,
@@ -221,6 +252,7 @@ private fun DatabaseTitleCell(
                         }
                     },
                     enabled = !inSelectionMode,
+                    singleLine = !wrapsText,
                     textStyle = textStyle,
                     cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                     keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences, imeAction = ImeAction.Done),
@@ -262,7 +294,7 @@ private fun DatabaseTitleCell(
                 }
             }
 
-            if (!inSelectionMode) {
+            if (canOpen) {
                 Icon(
                     painter = painterResource(Res.drawable.square_arrow_out_up_right),
                     contentDescription = "Open row",
@@ -286,12 +318,14 @@ private fun DatabasePropertyCell(
     column: DatabaseColumnTarget,
     style: DatabaseCellStyle,
     width: Int,
+    wrapsText: Boolean,
     inSelectionMode: Boolean,
     historyStepsApplied: Int,
     editor: DatabaseBlockEditor,
     runAfterKeyboardCloses: (() -> Unit) -> Unit
 ) {
     val cell = row.cell(column) ?: database.emptyCell(column, row.noteId, now = 0L)
+    val numberFormat = database.numberFormats[column.columnKey]
     val formulaResult = row.formulaResult(column)
     val lineColor = tableGridLineColor
     val valueModifier = Modifier.fillMaxWidth()
@@ -315,7 +349,9 @@ private fun DatabasePropertyCell(
                 result = formulaResult,
                 textColor = textColor,
                 alignment = style.alignment,
-                modifier = valueModifier
+                modifier = valueModifier,
+                numberFormat = numberFormat,
+                wrapsText = wrapsText
             )
             cell == null -> Unit
             cell.valueType.holdsDate -> PropertyDateValue(
@@ -325,7 +361,8 @@ private fun DatabasePropertyCell(
                 runAfterKeyboardCloses = runAfterKeyboardCloses,
                 widthModifier = valueModifier,
                 textColor = textColor,
-                alignment = style.alignment
+                alignment = style.alignment,
+                wrapsText = wrapsText
             )
             cell.valueType.holdsTags -> PropertyTagsValue(
                 block = cell,
@@ -334,7 +371,8 @@ private fun DatabasePropertyCell(
                 runAfterKeyboardCloses = runAfterKeyboardCloses,
                 widthModifier = valueModifier,
                 tagTextStyle = MaterialTheme.typography.labelSmall,
-                alignment = style.alignment
+                alignment = style.alignment,
+                wrapsText = wrapsText
             )
             cell.valueType.holdsCheck -> PropertyCheckboxValue(
                 block = cell,
@@ -342,6 +380,15 @@ private fun DatabasePropertyCell(
                 onUpdateChecked = { editor.updateCellChecked(database.id, row.noteId, column, it) },
                 widthModifier = valueModifier,
                 alignment = style.alignment
+            )
+            cell.valueType.holdsNumber && numberFormat != null -> DatabaseFormattedNumberCell(
+                cell = cell,
+                format = numberFormat,
+                inSelectionMode = inSelectionMode,
+                textColor = textColor,
+                alignment = style.alignment,
+                historyStepsApplied = historyStepsApplied,
+                onUpdateText = { editor.updateCellText(database.id, row.noteId, column, it) }
             )
             else -> key(historyStepsApplied) {
                 PropertyTextValue(
@@ -351,7 +398,8 @@ private fun DatabasePropertyCell(
                     widthModifier = valueModifier,
                     ignoresLongPressUntilFocused = true,
                     textColor = textColor,
-                    alignment = style.alignment
+                    alignment = style.alignment,
+                    wrapsText = wrapsText
                 )
             }
         }
@@ -361,7 +409,10 @@ private fun DatabasePropertyCell(
 @Composable
 private fun DatabaseRowMenuButton(
     inSelectionMode: Boolean,
+    isLocked: Boolean,
     onOpen: () -> Unit,
+    onDuplicate: () -> Unit,
+    onSelect: () -> Unit,
     onDelete: () -> Unit,
     runAfterKeyboardCloses: (() -> Unit) -> Unit
 ) {
@@ -395,11 +446,23 @@ private fun DatabaseRowMenuButton(
                 icon = { DatabaseOptionIcon(Res.drawable.square_arrow_out_up_right) },
                 onClick = { closeAnd(onOpen) }
             )
-            DatabaseMenuOption(
-                label = "Delete row",
-                icon = { DatabaseOptionIcon(Res.drawable.trash, tint = MaterialTheme.colorScheme.error) },
-                onClick = { closeAnd(onDelete) }
-            )
+            if (!isLocked) {
+                DatabaseMenuOption(
+                    label = "Duplicate row",
+                    icon = { DatabaseOptionIcon(Res.drawable.copy) },
+                    onClick = { closeAnd(onDuplicate) }
+                )
+                DatabaseMenuOption(
+                    label = "Select row",
+                    icon = { DatabaseOptionIcon(Res.drawable.square_check) },
+                    onClick = { closeAnd(onSelect) }
+                )
+                DatabaseMenuOption(
+                    label = "Delete row",
+                    icon = { DatabaseOptionIcon(Res.drawable.trash, tint = MaterialTheme.colorScheme.error) },
+                    onClick = { closeAnd(onDelete) }
+                )
+            }
         }
     }
 }

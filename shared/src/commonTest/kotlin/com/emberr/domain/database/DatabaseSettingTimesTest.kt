@@ -41,6 +41,9 @@ class DatabaseSettingTimesTest {
     private fun DatabaseBlock.withPropertyColumn(property: DatabaseCustomProperty): DatabaseBlock =
         withDatabasePropertyCreated(property)
 
+    private fun DatabaseBlock.withDefaultViewChanged(change: (DatabaseView) -> DatabaseView): DatabaseBlock =
+        withViewChanged(DEFAULT_VIEW_ID, change)
+
     @Test
     fun addingAColumnStampsOnlyThatColumn() {
         val edited = syncedTable.editedAt(200L) { it.withColumnAdded(tagsColumn) }
@@ -72,47 +75,47 @@ class DatabaseSettingTimesTest {
 
     @Test
     fun restoringAnOlderCopyKeepsTheCurrentTimesOfSettingsItDidNotChange() {
-        val oldCopy = syncedTable.copy(sort = DatabaseSort(statusColumn))
+        val oldCopy = syncedTable.withDefaultViewChanged { it.copy(sorts = listOf(DatabaseSort(statusColumn))) }
         val current = syncedTable.copy(title = "Week", settingTimes = mapOf("title" to DatabaseSettingTime(300L)))
 
         val restored = oldCopy.copy(title = "Week").withSettingTimesStamped(before = current, now = 400L)
 
         assertEquals(
-            mapOf("title" to DatabaseSettingTime(300L), "sort" to DatabaseSettingTime(400L)),
+            mapOf("title" to DatabaseSettingTime(300L), "view:$DEFAULT_VIEW_ID" to DatabaseSettingTime(400L)),
             restored.settingTimes
         )
     }
 
     @Test
-    fun renamingAFilterTagStampsThatFilter() {
-        val withFilter = syncedTable.copy(filters = listOf(doneFilter))
+    fun renamingAFilterTagStampsTheViewThatHoldsTheFilter() {
+        val withFilter = syncedTable.withDefaultViewChanged { it.copy(filters = listOf(doneFilter)) }
 
         val renamed = withFilter.withPropertyTagReplaced(PropertyType.STATUS.name, "Done", "Finished", now = 200L) as DatabaseBlock
 
-        assertEquals("Finished", renamed.filters.single().tagName)
-        assertEquals(mapOf("filter:done" to DatabaseSettingTime(200L)), renamed.settingTimes)
+        assertEquals("Finished", renamed.activeView().filters.single().tagName)
+        assertEquals(mapOf("view:$DEFAULT_VIEW_ID" to DatabaseSettingTime(200L)), renamed.settingTimes)
     }
 
     @Test
     fun aColumnAddedOnOneDeviceAndAFilterAddedOnTheOtherAreBothKept() {
         val phone = syncedTable.editedAt(200L) { it.withColumnAdded(tagsColumn) }
-        val laptop = syncedTable.editedAt(300L) { it.copy(filters = it.filters + doneFilter) }
+        val laptop = syncedTable.editedAt(300L) { table -> table.withDefaultViewChanged { it.copy(filters = it.filters + doneFilter) } }
 
         val merged = mergeDatabaseBlocks(phone, laptop)
 
         assertEquals(listOf(statusColumn, tagsColumn), merged.columns)
-        assertEquals(listOf(doneFilter), merged.filters)
+        assertEquals(listOf(doneFilter), merged.activeView().filters)
     }
 
     @Test
     fun movingTheNotesColumnOnOneDeviceIsKeptWhenTheOtherChangesSomethingElse() {
         val phone = syncedTable.editedAt(200L) { it.withColumnMovedBefore(DatabaseColumnTarget.NotesTitle, beforeColumn = null) }
-        val laptop = syncedTable.editedAt(300L) { it.copy(filters = it.filters + doneFilter) }
+        val laptop = syncedTable.editedAt(300L) { table -> table.withDefaultViewChanged { it.copy(filters = it.filters + doneFilter) } }
 
         val merged = mergeDatabaseBlocks(phone, laptop)
 
         assertEquals(listOf(statusColumn, DatabaseColumnTarget.NotesTitle), merged.columnsInTableOrder())
-        assertEquals(listOf(doneFilter), merged.filters)
+        assertEquals(listOf(doneFilter), merged.activeView().filters)
     }
 
     @Test
@@ -154,14 +157,27 @@ class DatabaseSettingTimesTest {
 
     @Test
     fun aClearedSortStaysClearedWhenTheOtherDeviceStillHasTheOldOne() {
-        val sortedTable = syncedTable.copy(sort = DatabaseSort(statusColumn))
-        val phone = sortedTable.editedAt(300L) { it.copy(sort = null) }
+        val sortedTable = syncedTable.withDefaultViewChanged { it.copy(sorts = listOf(DatabaseSort(statusColumn))) }
+        val phone = sortedTable.editedAt(300L) { table -> table.withDefaultViewChanged { it.copy(sorts = emptyList()) } }
         val laptop = sortedTable.editedAt(200L) { it.withColumnAdded(tagsColumn) }
 
         val merged = mergeDatabaseBlocks(laptop, phone)
 
-        assertNull(merged.sort)
+        assertEquals(emptyList(), merged.activeView().sorts)
         assertEquals(listOf(statusColumn, tagsColumn), merged.columns)
+    }
+
+    @Test
+    fun filtersAddedToDifferentViewsOnTwoDevicesAreBothKept() {
+        val board = DatabaseView(id = "board", name = "Board", type = DatabaseViewType.BOARD)
+        val withBoard = syncedTable.withViewAdded(board)
+        val phone = withBoard.editedAt(200L) { table -> table.withViewChanged("board") { it.copy(filters = listOf(doneFilter)) } }
+        val laptop = withBoard.editedAt(300L) { table -> table.withDefaultViewChanged { it.copy(sorts = listOf(DatabaseSort(statusColumn))) } }
+
+        val merged = mergeDatabaseBlocks(phone, laptop)
+
+        assertEquals(listOf(doneFilter), merged.allViews().single { it.id == "board" }.filters)
+        assertEquals(listOf(DatabaseSort(statusColumn)), merged.allViews().single { it.id == DEFAULT_VIEW_ID }.sorts)
     }
 
     @Test
@@ -247,7 +263,8 @@ class DatabaseSettingTimesTest {
     @Test
     fun theResultIsTheSameWhicheverDeviceMergesFirst() {
         val phone = syncedTable.editedAt(200L) { it.withPropertyColumn(priorityProperty) }.editedAt(210L) { it.copy(title = "Week") }
-        val laptop = syncedTable.editedAt(300L) { it.withColumnRemoved(statusColumn) }.editedAt(310L) { it.copy(filters = listOf(doneFilter)) }
+        val laptop = syncedTable.editedAt(300L) { it.withColumnRemoved(statusColumn) }
+            .editedAt(310L) { table -> table.withDefaultViewChanged { it.copy(filters = listOf(doneFilter)) } }
 
         assertEquals(mergeDatabaseBlocks(phone, laptop), mergeDatabaseBlocks(laptop, phone))
     }

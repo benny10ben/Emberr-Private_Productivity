@@ -14,7 +14,9 @@ import com.emberr.domain.ai.external.AiSettingsRepository
 import com.emberr.domain.database.DatabaseCellPreset
 import com.emberr.domain.database.DatabaseRow
 import com.emberr.domain.database.HistoryDirection
+import com.emberr.domain.database.RepeatedRowToCreate
 import com.emberr.domain.database.databaseCellBlockId
+import com.emberr.domain.database.repeatedRowNoteId
 import com.emberr.domain.model.DatabaseBlock
 import com.emberr.domain.model.DatabaseColumnTarget
 import com.emberr.domain.model.NoteBlock
@@ -26,6 +28,7 @@ import com.emberr.domain.space.ActiveSpaceStore
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
+import kotlinx.datetime.LocalDate
 import java.lang.reflect.Proxy
 import kotlin.test.AfterTest
 import kotlin.test.Test
@@ -272,6 +275,90 @@ class NoteRepositoryDatabaseRowsTest {
         assertEquals("Swim", rowsOf(firstCopyId).single().cell(nameColumn)?.text)
         assertEquals("Gym", rowsOf(secondCopyId).single().cell(nameColumn)?.text)
         assertEquals("Gym", rowsOf("days").single().cell(nameColumn)?.text)
+    }
+
+    @Test
+    fun duplicatingARowAddsANewRowAfterItWithTheSameTitleAndCells() = runTest {
+        saveRow("monday", "days", title = "Monday", name = "Gym")
+
+        val change = repository.duplicateDatabaseRow("monday")
+
+        val rows = rowsOf("days")
+        assertEquals(listOf("monday", change?.rowNoteId), rows.map { it.noteId })
+        assertEquals("Monday", rows.last().title)
+        assertEquals("Gym", rows.last().cell(nameColumn)?.text)
+        assertEquals(true, change?.isInTable)
+    }
+
+    @Test
+    fun editingADuplicatedRowLeavesTheOriginalAlone() = runTest {
+        saveRow("monday", "days", title = "Monday", name = "Gym")
+        val copyRowNoteId = repository.duplicateDatabaseRow("monday")!!.rowNoteId
+
+        repository.updateDatabaseCell(days, copyRowNoteId, nameColumn) { it.copy(text = "Swim") }
+
+        assertEquals(listOf("Gym", "Swim"), rowsOf("days").map { it.cell(nameColumn)?.text })
+    }
+
+    @Test
+    fun undoingADuplicateTakesTheCopyOutOfTheTable() = runTest {
+        saveRow("monday", "days", title = "Monday", name = "Gym")
+        val change = repository.duplicateDatabaseRow("monday")!!
+
+        repository.applyDatabaseRowChanges(listOf(change), HistoryDirection.UNDO)
+
+        assertEquals(listOf("monday"), rowsOf("days").map { it.noteId })
+    }
+
+    @Test
+    fun aTrashedRowOrANoteOutsideADatabaseIsNotDuplicated() = runTest {
+        saveRow("monday", "days", title = "Monday", name = "Gym", trashedAt = 5L)
+        saveNote(note("plain-note", "Plain"))
+
+        assertNull(repository.duplicateDatabaseRow("monday"))
+        assertNull(repository.duplicateDatabaseRow("plain-note"))
+    }
+
+    @Test
+    fun aRepeatedRowIsMadeOnceFromItsTemplateWithTheSameIdsOnEveryDevice() = runTest {
+        val templateBody = TextBlock(id = "template-body", text = "How did today go?", updatedAt = 1L)
+        saveNote(note("daily-log", "Daily Log", isTemplate = true), templateBody)
+        val rowToCreate = RepeatedRowToCreate(
+            rowNoteId = repeatedRowNoteId("days", "daily-log", LocalDate(2026, 10, 4)),
+            templateNoteId = "daily-log",
+            date = LocalDate(2026, 10, 4)
+        )
+
+        val createdFirstTime = repository.createRepeatedDatabaseRow(days, rowToCreate)
+        val createdSecondTime = repository.createRepeatedDatabaseRow(days, rowToCreate)
+
+        val row = rowsOf("days").single()
+        val rowBody = repository.getNoteContent(row.noteId)?.blocks.orEmpty().filterIsInstance<TextBlock>().single()
+        assertEquals(true, createdFirstTime)
+        assertEquals(false, createdSecondTime)
+        assertEquals("repeat-days-daily-log-2026-10-04", row.noteId)
+        assertEquals("Daily Log Oct 4, 2026", row.title)
+        assertEquals("repeat-days-daily-log-2026-10-04-template-body", rowBody.id)
+        assertEquals("How did today go?", rowBody.text)
+    }
+
+    @Test
+    fun aRepeatedRowIsNotMadeAgainAfterItWasDeletedOrWhenTheTemplateIsGone() = runTest {
+        saveNote(note("daily-log", "Daily Log", isTemplate = true))
+        val today = LocalDate(2026, 10, 4)
+        val rowToCreate = RepeatedRowToCreate(repeatedRowNoteId("days", "daily-log", today), "daily-log", today)
+        repository.createRepeatedDatabaseRow(days, rowToCreate)
+        repository.trashDatabaseRow(rowToCreate.rowNoteId)
+
+        val madeAgain = repository.createRepeatedDatabaseRow(days, rowToCreate)
+        val madeFromMissingTemplate = repository.createRepeatedDatabaseRow(
+            days,
+            RepeatedRowToCreate(repeatedRowNoteId("days", "gone", today), "gone", today)
+        )
+
+        assertEquals(false, madeAgain)
+        assertEquals(false, madeFromMissingTemplate)
+        assertEquals(emptyList(), rowsOf("days"))
     }
 
     @Test

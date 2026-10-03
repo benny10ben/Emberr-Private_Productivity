@@ -86,6 +86,7 @@ import com.emberr.presentation.home.overview.documents.DocumentsScreen
 import com.emberr.presentation.home.overview.images.ImagesScreen
 import com.emberr.presentation.home.overview.tasks.TasksScreen
 import com.emberr.domain.model.NoteSearchResult
+import com.emberr.domain.model.PropertyDateRange
 import com.emberr.presentation.search.SearchViewModel
 import com.emberr.presentation.search.defaultHighlightStyle
 import com.emberr.presentation.search.highlightMatches
@@ -1773,7 +1774,7 @@ fun DesktopMainScreen(
                             override fun onUpdateLinkedNoteOptions(id: String, showIcon: Boolean, showCoverImage: Boolean) =
                                 dailyViewModel.updateLinkedNoteOptions(id, showIcon, showCoverImage)
                             override fun onUpdatePropertyText(id: String, text: String) = dailyViewModel.updatePropertyText(id, text)
-                            override fun onUpdatePropertyDate(id: String, date: LocalDate?) = dailyViewModel.updatePropertyDate(id, date)
+                            override fun onUpdatePropertyDate(id: String, range: PropertyDateRange) = dailyViewModel.updatePropertyDate(id, range)
                             override fun onUpdatePropertyTags(id: String, tags: List<String>) = dailyViewModel.updatePropertyTags(id, tags)
                             override fun onUpdatePropertyChecked(id: String, isChecked: Boolean) = dailyViewModel.updatePropertyChecked(id, isChecked)
                             override val databaseBlockEditor: DatabaseBlockEditor get() = dailyViewModel.databaseBlockEditor

@@ -35,12 +35,24 @@ class DatabaseColumnsTest {
         columns = listOf(statusColumn, dueDateColumn, clientColumn),
         customProperties = listOf(client, budget),
         columnWidths = mapOf(PropertyType.STATUS.name to 200, NOTES_COLUMN_KEY to 300, "client-id" to 180),
-        filters = listOf(
-            DatabaseFilter(id = "status-filter", target = statusColumn, condition = DatabaseFilterCondition.IS, tagName = "Done"),
-            DatabaseFilter(id = "client-filter", target = clientColumn, condition = DatabaseFilterCondition.IS, tagName = "Acme"),
-            DatabaseFilter(id = "title-filter", target = DatabaseColumnTarget.NotesTitle, condition = DatabaseFilterCondition.CONTAINS, text = "dune")
-        ),
-        sort = DatabaseSort(target = statusColumn)
+        views = listOf(
+            DatabaseView(
+                id = DEFAULT_VIEW_ID,
+                name = "Table",
+                type = DatabaseViewType.TABLE,
+                filters = listOf(
+                    DatabaseFilter(id = "status-filter", target = statusColumn, condition = DatabaseFilterCondition.IS, tagName = "Done"),
+                    DatabaseFilter(id = "client-filter", target = clientColumn, condition = DatabaseFilterCondition.IS, tagName = "Acme"),
+                    DatabaseFilter(
+                        id = "title-filter",
+                        target = DatabaseColumnTarget.NotesTitle,
+                        condition = DatabaseFilterCondition.CONTAINS,
+                        text = "dune"
+                    )
+                ),
+                sorts = listOf(DatabaseSort(target = statusColumn))
+            )
+        )
     )
 
     @Test
@@ -147,8 +159,25 @@ class DatabaseColumnsTest {
 
         assertEquals(listOf(dueDateColumn, clientColumn), result.columns)
         assertEquals(mapOf(NOTES_COLUMN_KEY to 300, "client-id" to 180), result.columnWidths)
-        assertEquals(listOf("client-filter", "title-filter"), result.filters.map { it.id })
-        assertEquals(null, result.sort)
+        assertEquals(listOf("client-filter", "title-filter"), result.activeView().filters.map { it.id })
+        assertEquals(emptyList(), result.activeView().sorts)
+    }
+
+    @Test
+    fun removingAColumnDropsItsFiltersAndSortsFromEveryView() {
+        val board = DatabaseView(
+            id = "board",
+            name = "Board",
+            type = DatabaseViewType.BOARD,
+            filters = listOf(DatabaseFilter(id = "board-filter", target = statusColumn, condition = DatabaseFilterCondition.IS_EMPTY)),
+            sorts = listOf(DatabaseSort(target = statusColumn), DatabaseSort(target = dueDateColumn))
+        )
+
+        val result = database.withViewAdded(board).withColumnRemoved(statusColumn)
+
+        val boardAfter = result.allViews().single { it.id == "board" }
+        assertEquals(emptyList(), boardAfter.filters)
+        assertEquals(listOf(DatabaseSort(target = dueDateColumn)), boardAfter.sorts)
     }
 
     @Test
@@ -239,7 +268,7 @@ class DatabaseColumnsTest {
         assertEquals(listOf(budget), result.customProperties)
         assertEquals(listOf(statusColumn, dueDateColumn), result.columns)
         assertFalse("client-id" in result.columnWidths)
-        assertEquals(listOf("status-filter", "title-filter"), result.filters.map { it.id })
+        assertEquals(listOf("status-filter", "title-filter"), result.activeView().filters.map { it.id })
     }
 
     @Test
@@ -248,5 +277,18 @@ class DatabaseColumnsTest {
         assertTrue(database.isPropertyNameTaken("CLIENT", ignoringPropertyId = null))
         assertFalse(database.isPropertyNameTaken("Client", ignoringPropertyId = "client-id"))
         assertFalse(database.isPropertyNameTaken("Kickoff", ignoringPropertyId = null))
+    }
+
+    @Test
+    fun freezingTheTitleColumnFreezesEveryColumnUpToIt() {
+        val notesAfterDueDate = database.withColumnMovedBefore(DatabaseColumnTarget.NotesTitle, beforeColumn = clientColumn)
+        val frozen = notesAfterDueDate.withViewChanged(DEFAULT_VIEW_ID) { it.copy(freezesTitleColumn = true) }
+
+        assertEquals(setOf(statusColumn, dueDateColumn, DatabaseColumnTarget.NotesTitle), frozen.frozenColumns())
+        assertEquals(
+            setOf(statusColumn, DatabaseColumnTarget.NotesTitle),
+            frozen.withColumnShown(DEFAULT_VIEW_ID, dueDateColumn, isShown = false).frozenColumns()
+        )
+        assertEquals(emptySet(), notesAfterDueDate.frozenColumns())
     }
 }

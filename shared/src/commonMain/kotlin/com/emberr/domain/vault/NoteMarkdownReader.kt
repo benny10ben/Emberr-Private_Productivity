@@ -17,6 +17,9 @@ import com.emberr.domain.model.LinkedNoteBlock
 import com.emberr.domain.model.NoteBlock
 import com.emberr.domain.model.NumberedListBlock
 import com.emberr.domain.model.PropertyBlock
+import com.emberr.domain.model.PropertyDateRange
+import com.emberr.domain.model.parsePropertyDateRange
+import com.emberr.domain.model.withDateRange
 import com.emberr.domain.model.PropertyType
 import com.emberr.domain.model.PropertyValueType
 import com.emberr.domain.model.QuoteBlock
@@ -29,7 +32,6 @@ import com.emberr.domain.model.VoiceBlock
 import com.emberr.domain.model.withUpdatedAt
 import com.emberr.domain.model.cleanPropertyTagName
 import com.emberr.domain.model.RecurrenceRule
-import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 
 private const val CHECKBOX_MARKER_WIDTH = 6
@@ -503,10 +505,9 @@ object NoteMarkdownReader {
         return settle(
             base.copy(
                 text = if (holdsText) value else "",
-                date = if (valueType.holdsDate) parsePropertyDate(value, base) else null,
                 tags = if (valueType.holdsTags) parsePropertyTags(value, valueType) else emptyList(),
                 isChecked = valueType.holdsCheck && value.trim().equals(CHECKED_PROPERTY_TEXT, ignoreCase = true)
-            ),
+            ).withDateRange(if (valueType.holdsDate) parsePropertyDate(value, base) else PropertyDateRange()),
             existing,
             request.timestamp
         )
@@ -527,10 +528,10 @@ object NoteMarkdownReader {
         return settle(retitled, existing, request.timestamp)
     }
 
-    private fun parsePropertyDate(value: String, base: PropertyBlock): LocalDate? {
+    private fun parsePropertyDate(value: String, base: PropertyBlock): PropertyDateRange {
         val trimmed = value.trim()
-        if (trimmed.isEmpty()) return null
-        return runCatching { LocalDate.parse(trimmed) }.getOrNull() ?: base.date
+        if (trimmed.isEmpty()) return PropertyDateRange()
+        return parsePropertyDateRange(trimmed) ?: base.dateRange
     }
 
     private fun parsePropertyTags(value: String, valueType: PropertyValueType): List<String> {

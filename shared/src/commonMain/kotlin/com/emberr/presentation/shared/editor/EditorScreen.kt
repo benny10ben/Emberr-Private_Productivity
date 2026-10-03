@@ -70,6 +70,7 @@ import com.emberr.domain.model.LinkedNoteBlock
 import com.emberr.domain.model.NoteBlock
 import com.emberr.domain.model.NumberedListBlock
 import com.emberr.domain.model.PropertyBlock
+import com.emberr.domain.model.PropertyDateRange
 import com.emberr.domain.model.PropertyType
 import com.emberr.domain.model.QuoteBlock
 import com.emberr.domain.model.TextAlignment
@@ -150,7 +151,6 @@ import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
 import kotlin.math.abs
 import kotlin.math.roundToInt
-import kotlinx.datetime.LocalDate
 
 private val DefaultCornerShape = RoundedCornerShape(12.dp)
 
@@ -302,7 +302,7 @@ interface EditorActions {
     suspend fun getNoteMetadata(noteId: String): NoteMetadataEntity?
     fun onUpdateLinkedNoteOptions(id: String, showIcon: Boolean, showCoverImage: Boolean)
     fun onUpdatePropertyText(id: String, text: String)
-    fun onUpdatePropertyDate(id: String, date: LocalDate?)
+    fun onUpdatePropertyDate(id: String, range: PropertyDateRange)
     fun onUpdatePropertyTags(id: String, tags: List<String>)
     fun onUpdatePropertyChecked(id: String, isChecked: Boolean)
     val databaseBlockEditor: DatabaseBlockEditor?

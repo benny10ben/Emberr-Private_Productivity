@@ -7,6 +7,7 @@ import com.emberr.domain.model.BookmarkBlock
 import com.emberr.domain.model.BulletedListBlock
 import com.emberr.domain.model.CheckboxBlock
 import com.emberr.domain.model.CodeBlock
+import com.emberr.domain.model.DEFAULT_VIEW_ID
 import com.emberr.domain.model.DatabaseBlock
 import com.emberr.domain.model.DatabaseColumnTarget
 import com.emberr.domain.model.DatabaseCustomProperty
@@ -14,6 +15,8 @@ import com.emberr.domain.model.DatabaseFilter
 import com.emberr.domain.model.DatabaseFilterCondition
 import com.emberr.domain.model.DatabaseSettingTime
 import com.emberr.domain.model.DatabaseSort
+import com.emberr.domain.model.DatabaseView
+import com.emberr.domain.model.DatabaseViewType
 import com.emberr.domain.model.DocumentBlock
 import com.emberr.domain.model.HeadingBlock
 import com.emberr.domain.model.ImageBlock
@@ -38,6 +41,7 @@ import com.emberr.domain.model.ThreeDotDividerBlock
 import com.emberr.domain.model.ToggleBlock
 import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalTime
 import kotlinx.datetime.TimeZone
 import com.emberr.domain.model.VoiceBlock
 import kotlin.test.Test
@@ -218,6 +222,20 @@ class NoteMarkdownRoundTripTest {
         ).replace("2026-09-27", "next tuesday")
 
         assertEquals(listOf<NoteBlock>(existing), readBack(markdown, listOf(existing)).blocks)
+    }
+
+    @Test
+    fun aDateRangeTypedInTheVaultIsRead() {
+        val markdown = NoteMarkdownWriter.writeNote(
+            VaultNoteWriteRequest(metadata = noteMetadata(), blocks = emptyList())
+        ) + "```emberr-property\nproperty: date\nvalue: 2026-10-02 09:30 → 2026-10-05\n```\n"
+
+        val block = readBack(markdown, emptyList()).blocks.single() as PropertyBlock
+
+        assertEquals(LocalDate(2026, 10, 2), block.date)
+        assertEquals(LocalDate(2026, 10, 5), block.endDate)
+        assertEquals(LocalTime(9, 30), block.time)
+        assertEquals(LocalTime(9, 30), block.endTime)
     }
 
     @Test
@@ -507,6 +525,15 @@ class NoteMarkdownRoundTripTest {
                 updatedAt = 126L
             ),
             PropertyBlock(
+                id = "block-property-trip",
+                propertyType = PropertyType.DATE,
+                date = LocalDate(2026, 10, 2),
+                endDate = LocalDate(2026, 10, 5),
+                time = LocalTime(9, 30),
+                endTime = LocalTime(17, 0),
+                updatedAt = 126L
+            ),
+            PropertyBlock(
                 id = "block-property-tags",
                 propertyType = PropertyType.TAGS,
                 tags = listOf("design", "urgent"),
@@ -551,15 +578,22 @@ class NoteMarkdownRoundTripTest {
                     DatabaseCustomProperty(id = "client-id", name = "Client: \"Big\"", valueType = PropertyValueType.TEXT)
                 ),
                 columnWidths = mapOf(PropertyType.STATUS.name to 180),
-                filters = listOf(
-                    DatabaseFilter(
-                        id = "filter-status",
-                        target = DatabaseColumnTarget.Property(PropertyType.STATUS),
-                        condition = DatabaseFilterCondition.IS,
-                        tagName = "Reading"
+                views = listOf(
+                    DatabaseView(
+                        id = DEFAULT_VIEW_ID,
+                        name = "Table",
+                        type = DatabaseViewType.TABLE,
+                        filters = listOf(
+                            DatabaseFilter(
+                                id = "filter-status",
+                                target = DatabaseColumnTarget.Property(PropertyType.STATUS),
+                                condition = DatabaseFilterCondition.IS,
+                                tagName = "Reading"
+                            )
+                        ),
+                        sorts = listOf(DatabaseSort(target = DatabaseColumnTarget.Property(PropertyType.DUE_DATE)))
                     )
                 ),
-                sort = DatabaseSort(target = DatabaseColumnTarget.Property(PropertyType.DUE_DATE)),
                 isPinned = true,
                 updatedAt = 131L
             ),

@@ -40,11 +40,14 @@ import com.emberr.domain.database.FormulaValue
 import com.emberr.domain.database.visibleColumns
 import com.emberr.domain.model.DatabaseBlock
 import com.emberr.domain.model.DatabaseCardSize
+import com.emberr.domain.model.DatabaseNumberFormat
 import com.emberr.domain.model.DatabaseView
 import com.emberr.domain.model.PropertyBlock
+import com.emberr.domain.model.columnKey
+import com.emberr.domain.model.numberOrNull
 import com.emberr.domain.util.media.MediaStorageHelper
 import com.emberr.presentation.shared.editor.blockViews.PropertyTagChip
-import com.emberr.presentation.shared.editor.blockViews.formatPropertyDate
+import com.emberr.presentation.shared.editor.blockViews.formatPropertyDateRange
 import emberr.shared.generated.resources.Res
 import emberr.shared.generated.resources.check
 import org.jetbrains.compose.resources.painterResource
@@ -161,10 +164,11 @@ internal fun DatabaseRowCard(
             block.visibleColumns().forEach { column ->
                 val formulaResult = row.formulaResult(column)
                 val cell = row.cell(column)
+                val numberFormat = block.numberFormats[column.columnKey]
                 if (formulaResult != null) {
-                    DatabaseCardFormulaValue(result = formulaResult)
+                    DatabaseCardFormulaValue(result = formulaResult, numberFormat = numberFormat)
                 } else if (cell != null && cell.hasValueToShowOnCard()) {
-                    DatabaseCardValue(cell = cell)
+                    DatabaseCardValue(cell = cell, numberFormat = numberFormat)
                 }
             }
         }
@@ -208,8 +212,12 @@ private fun PropertyBlock.hasValueToShowOnCard(): Boolean = when {
 }
 
 @Composable
-private fun DatabaseCardFormulaValue(result: FormulaValue) {
+private fun DatabaseCardFormulaValue(result: FormulaValue, numberFormat: DatabaseNumberFormat?) {
     if (result is FormulaValue.Error || result.displayText.isBlank()) return
+    if (result is FormulaValue.NumberValue && numberFormat != null) {
+        DatabaseCardNumberValue(number = result.number, numberFormat = numberFormat)
+        return
+    }
     Text(
         text = result.textToShow(),
         style = MaterialTheme.typography.bodyMedium,
@@ -221,9 +229,11 @@ private fun DatabaseCardFormulaValue(result: FormulaValue) {
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun DatabaseCardValue(cell: PropertyBlock) {
+private fun DatabaseCardValue(cell: PropertyBlock, numberFormat: DatabaseNumberFormat?) {
     val valueColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f)
+    val number = cell.numberOrNull()
     when {
+        number != null && numberFormat != null -> DatabaseCardNumberValue(number = number, numberFormat = numberFormat)
         cell.valueType.holdsTags -> {
             FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -246,8 +256,8 @@ private fun DatabaseCardValue(cell: PropertyBlock) {
                 Text(text = cell.label, style = MaterialTheme.typography.bodyMedium, color = valueColor, maxLines = 1)
             }
         }
-        cell.valueType.holdsDate -> cell.date?.let { date ->
-            Text(text = formatPropertyDate(date), style = MaterialTheme.typography.bodyMedium, color = valueColor, maxLines = 1)
+        cell.valueType.holdsDate -> if (cell.date != null) {
+            Text(text = formatPropertyDateRange(cell.dateRange), style = MaterialTheme.typography.bodyMedium, color = valueColor, maxLines = 1)
         }
         else -> {
             Text(
@@ -259,4 +269,16 @@ private fun DatabaseCardValue(cell: PropertyBlock) {
             )
         }
     }
+}
+
+@Composable
+private fun DatabaseCardNumberValue(number: Double, numberFormat: DatabaseNumberFormat) {
+    DatabaseNumberValue(
+        number = number,
+        format = numberFormat,
+        textColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f),
+        alignment = null,
+        modifier = Modifier.fillMaxWidth(),
+        textStyle = MaterialTheme.typography.bodyMedium
+    )
 }

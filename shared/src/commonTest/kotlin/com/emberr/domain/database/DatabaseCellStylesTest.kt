@@ -2,9 +2,16 @@ package com.emberr.domain.database
 
 import com.emberr.domain.model.DatabaseBlock
 import com.emberr.domain.model.DatabaseCellStyle
+import com.emberr.domain.model.DatabaseColorRule
+import com.emberr.domain.model.DatabaseColorRuleTarget
 import com.emberr.domain.model.DatabaseColumnTarget
+import com.emberr.domain.model.DatabaseFilter
+import com.emberr.domain.model.DatabaseFilterCondition
+import com.emberr.domain.model.DatabaseRelativeDate
+import com.emberr.domain.model.PropertyBlock
 import com.emberr.domain.model.PropertyType
 import com.emberr.domain.model.TextAlignment
+import kotlinx.datetime.LocalDate
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -19,6 +26,24 @@ class DatabaseCellStylesTest {
         databaseId = "database-1",
         columns = listOf(statusColumn, tagsColumn),
         updatedAt = 100L
+    )
+
+    private val dueDateColumn = DatabaseColumnTarget.Property(PropertyType.DUE_DATE)
+    private val today = LocalDate(2026, 10, 3)
+    private val overdue = DatabaseFilter(
+        id = "overdue",
+        target = dueDateColumn,
+        condition = DatabaseFilterCondition.IS_BEFORE,
+        relativeDate = DatabaseRelativeDate.TODAY
+    )
+
+    private fun row(noteId: String, dueDate: LocalDate? = null) = DatabaseRow(
+        noteId = noteId,
+        title = "",
+        createdAt = 0L,
+        cellsByColumn = listOfNotNull(
+            dueDate?.let { dueDateColumn to PropertyBlock(id = "due-$noteId", propertyType = PropertyType.DUE_DATE, date = it) }
+        ).toMap()
     )
 
     private fun DatabaseBlock.editedAt(time: Long, change: (DatabaseBlock) -> DatabaseBlock): DatabaseBlock =
@@ -53,11 +78,11 @@ class DatabaseCellStylesTest {
 
         assertEquals(
             DatabaseCellStyle(textColorName = "red", backgroundColorName = "pink", alignment = TextAlignment.RIGHT),
-            styled.effectiveStyleOf("row-a", statusColumn)
+            styled.effectiveStyleOf(row("row-a"), statusColumn, today)
         )
         assertEquals(
             DatabaseCellStyle(textColorName = "blue", backgroundColorName = "grey", alignment = TextAlignment.RIGHT),
-            styled.effectiveStyleOf("row-b", statusColumn)
+            styled.effectiveStyleOf(row("row-b"), statusColumn, today)
         )
     }
 
@@ -88,5 +113,67 @@ class DatabaseCellStylesTest {
 
         assertEquals(DatabaseCellStyle(textColorName = "red"), merged.styleOf(DatabaseStyleTarget.CELL, "row-a", statusColumn))
         assertEquals(DatabaseCellStyle(backgroundColorName = "blue"), merged.styleOf(DatabaseStyleTarget.ROW, "row-b", statusColumn))
+    }
+
+    @Test
+    fun aRowRuleColorsEveryCellOfTheRowsThatMatch() {
+        val withRule = database.copy(
+            columns = listOf(statusColumn, dueDateColumn),
+            colorRules = listOf(DatabaseColorRule(id = "rule", condition = overdue, backgroundColorName = "red"))
+        )
+
+        assertEquals("red", withRule.effectiveStyleOf(row("late", dueDate = LocalDate(2026, 10, 1)), statusColumn, today).backgroundColorName)
+        assertEquals(null, withRule.effectiveStyleOf(row("on-time", dueDate = LocalDate(2026, 10, 9)), statusColumn, today).backgroundColorName)
+        assertEquals(null, withRule.effectiveStyleOf(row("no-date"), statusColumn, today).backgroundColorName)
+    }
+
+    @Test
+    fun aCellRuleOnlyColorsTheCellOfItsOwnColumn() {
+        val withRule = database.copy(
+            columns = listOf(statusColumn, dueDateColumn),
+            colorRules = listOf(DatabaseColorRule(id = "rule", condition = overdue, target = DatabaseColorRuleTarget.CELL, textColorName = "red"))
+        )
+        val lateRow = row("late", dueDate = LocalDate(2026, 10, 1))
+
+        assertEquals("red", withRule.effectiveStyleOf(lateRow, dueDateColumn, today).textColorName)
+        assertEquals(null, withRule.effectiveStyleOf(lateRow, statusColumn, today).textColorName)
+    }
+
+    @Test
+    fun manualRowStylesWinOverRulesAndRulesWinOverColumnStylesAndEarlierRulesWin() {
+        val styled = database.copy(
+            columns = listOf(statusColumn, dueDateColumn),
+            colorRules = listOf(
+                DatabaseColorRule(id = "first", condition = overdue, backgroundColorName = "red", textColorName = "orange"),
+                DatabaseColorRule(id = "second", condition = overdue, backgroundColorName = "blue")
+            )
+        )
+            .withStyle(DatabaseStyleTarget.COLUMN, "late", statusColumn, DatabaseCellStyle(textColorName = "grey", backgroundColorName = "grey"))
+            .withStyle(DatabaseStyleTarget.ROW, "late", statusColumn, DatabaseCellStyle(textColorName = "green"))
+
+        assertEquals(
+            DatabaseCellStyle(textColorName = "green", backgroundColorName = "red"),
+            styled.effectiveStyleOf(row("late", dueDate = LocalDate(2026, 10, 1)), statusColumn, today)
+        )
+    }
+
+    @Test
+    fun aRuleWithoutAValueYetColorsNothing() {
+        val unfinished = database.copy(
+            columns = listOf(statusColumn, dueDateColumn),
+            colorRules = listOf(DatabaseColorRule(id = "rule", condition = overdue.copy(relativeDate = null), backgroundColorName = "red"))
+        )
+
+        assertEquals(null, unfinished.effectiveStyleOf(row("late", dueDate = LocalDate(2026, 10, 1)), statusColumn, today).backgroundColorName)
+    }
+
+    @Test
+    fun removingAColumnDropsTheRulesThatCheckIt() {
+        val withRule = database.copy(
+            columns = listOf(statusColumn, dueDateColumn),
+            colorRules = listOf(DatabaseColorRule(id = "rule", condition = overdue, backgroundColorName = "red"))
+        )
+
+        assertEquals(emptyList(), withRule.withColumnRemoved(dueDateColumn).colorRules)
     }
 }

@@ -117,4 +117,38 @@ class DatabaseCopiesTest {
         assertEquals(mapOf("STATUS" to red), copy.columnStyles)
         assertEquals(listOf("copy-b", "copy-a"), copy.views.single().manualRowOrder)
     }
+
+    @Test
+    fun aDuplicatedRowGetsTheSameRowAndCellStylesAndTheOriginalKeepsItsOwn() {
+        val red = DatabaseCellStyle(textColorName = "red")
+        val blue = DatabaseCellStyle(backgroundColorName = "blue")
+        val source = DatabaseBlock(
+            id = "block",
+            databaseId = "database",
+            columns = listOf(statusColumn, clientColumn),
+            rowStyles = mapOf("row-a" to blue, "row-b" to red),
+            cellStyles = mapOf("row-a:STATUS" to red, "row-a:client-id" to blue, "row-b:STATUS" to blue)
+        )
+
+        val withCopy = source.withRowStylesCopied(sourceRowNoteId = "row-a", copyRowNoteId = "copy-a")
+
+        assertEquals(mapOf("row-a" to blue, "row-b" to red, "copy-a" to blue), withCopy.rowStyles)
+        assertEquals(
+            mapOf(
+                "row-a:STATUS" to red,
+                "row-a:client-id" to blue,
+                "row-b:STATUS" to blue,
+                "copy-a:STATUS" to red,
+                "copy-a:client-id" to blue
+            ),
+            withCopy.cellStyles
+        )
+    }
+
+    @Test
+    fun duplicatingARowWithoutStylesChangesNoStyles() {
+        val source = DatabaseBlock(id = "block", databaseId = "database", rowStyles = mapOf("row-b" to DatabaseCellStyle(textColorName = "red")))
+
+        assertEquals(source, source.withRowStylesCopied(sourceRowNoteId = "row-a", copyRowNoteId = "copy-a"))
+    }
 }

@@ -1,5 +1,6 @@
 package com.emberr.domain.database
 
+import com.emberr.domain.model.DEFAULT_VIEW_ID
 import com.emberr.domain.model.DatabaseBlock
 import com.emberr.domain.model.DatabaseCalculation
 import com.emberr.domain.model.DatabaseColumnTarget
@@ -135,7 +136,8 @@ class DatabaseFormulasTest {
 
     @Test
     fun sortingByAFormulaComparesNumbersAsNumbers() {
-        val sorted = database.withFormulaSet(totalColumn, """prop("Price")""").copy(sort = DatabaseSort(totalColumn))
+        val sorted = database.withFormulaSet(totalColumn, """prop("Price")""")
+            .withViewChanged(DEFAULT_VIEW_ID) { it.copy(sorts = listOf(DatabaseSort(totalColumn))) }
         val rows = sorted.resultsFor(row("a", price = "100"), row("b", price = "9"), row("c", price = "10"))
 
         assertEquals(listOf("b", "c", "a"), applyFiltersAndSort(rows, sorted).map { it.noteId })
@@ -143,9 +145,9 @@ class DatabaseFormulasTest {
 
     @Test
     fun filteringByAFormulaMatchesTheTextItShows() {
-        val filtered = database.copy(
-            filters = listOf(DatabaseFilter(id = "f", target = totalColumn, condition = DatabaseFilterCondition.CONTAINS, text = "50"))
-        )
+        val filtered = database.withViewChanged(DEFAULT_VIEW_ID) {
+            it.copy(filters = listOf(DatabaseFilter(id = "f", target = totalColumn, condition = DatabaseFilterCondition.CONTAINS, text = "50")))
+        }
         val rows = filtered.resultsFor(row("a", price = "12.5", quantity = "4"), row("b", price = "3", quantity = "2"))
 
         assertEquals(listOf("a"), applyFiltersAndSort(rows, filtered).map { it.noteId })

@@ -44,9 +44,12 @@ import emberr.shared.generated.resources.ghost_smile
 import emberr.shared.generated.resources.hash
 import emberr.shared.generated.resources.image
 import emberr.shared.generated.resources.kanban
+import emberr.shared.generated.resources.lock
 import emberr.shared.generated.resources.maximize_2
+import emberr.shared.generated.resources.pin_tack
 import emberr.shared.generated.resources.plus
 import emberr.shared.generated.resources.sigma
+import emberr.shared.generated.resources.textalign_justifycenter2
 
 @Composable
 internal fun DatabaseSettingsMenu(
@@ -58,7 +61,7 @@ internal fun DatabaseSettingsMenu(
     val activeView = block.activeView()
     val hiddenColumnCount = block.columns.count { it.columnKey in activeView.hiddenColumnKeys }
 
-    DatabaseMenu(expanded = expanded, title = "Database settings", onDismiss = onDismiss) { _ ->
+    DatabaseMenu(expanded = expanded, title = "Database settings", onDismiss = onDismiss) { closeAnd ->
         DatabaseMenuSectionLabel(text = "${activeView.name.ifBlank { activeView.type.label }} view")
         DatabaseMenuOption(
             label = "Show icon",
@@ -66,6 +69,20 @@ internal fun DatabaseSettingsMenu(
             trailing = { DatabaseSettingSwitch(isOn = activeView.showsIcon) },
             onClick = { editor.setViewShowsIcon(block.id, activeView.id, !activeView.showsIcon) }
         )
+        if (activeView.type == DatabaseViewType.TABLE) {
+            DatabaseMenuOption(
+                label = "Freeze title column",
+                icon = { DatabaseOptionIcon(Res.drawable.pin_tack) },
+                trailing = { DatabaseSettingSwitch(isOn = activeView.freezesTitleColumn) },
+                onClick = { editor.changeView(block.id, activeView.id) { it.copy(freezesTitleColumn = !it.freezesTitleColumn) } }
+            )
+            DatabaseMenuOption(
+                label = "Wrap cell text",
+                icon = { DatabaseOptionIcon(Res.drawable.textalign_justifycenter2) },
+                trailing = { DatabaseSettingSwitch(isOn = activeView.wrapsCellText) },
+                onClick = { editor.changeView(block.id, activeView.id) { it.copy(wrapsCellText = !it.wrapsCellText) } }
+            )
+        }
         if (activeView.type != DatabaseViewType.TABLE) {
             DatabaseMenuOption(
                 label = "Show cover image",
@@ -149,6 +166,13 @@ internal fun DatabaseSettingsMenu(
             icon = { DatabaseOptionIcon(Res.drawable.hash) },
             trailing = { DatabaseSettingSwitch(isOn = block.showsRowCount) },
             onClick = { editor.setShowsRowCount(block.id, !block.showsRowCount) }
+        )
+        DatabaseColorRulesOption(block = block, editor = editor)
+        DatabaseMenuOption(
+            label = "Lock database",
+            icon = { DatabaseOptionIcon(Res.drawable.lock) },
+            trailing = { DatabaseSettingSwitch(isOn = block.isLocked) },
+            onClick = { closeAnd { editor.setLocked(block.id, true) } }
         )
     }
 }
@@ -343,7 +367,7 @@ private fun DatabaseSettingValueText(text: String) {
 }
 
 @Composable
-private fun DatabaseSettingSwitch(isOn: Boolean) {
+internal fun DatabaseSettingSwitch(isOn: Boolean) {
     Box(modifier = Modifier.size(width = 40.dp, height = 24.dp), contentAlignment = Alignment.Center) {
         CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
             Switch(

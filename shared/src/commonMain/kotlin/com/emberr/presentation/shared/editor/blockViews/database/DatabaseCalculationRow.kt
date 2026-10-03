@@ -1,5 +1,6 @@
 package com.emberr.presentation.shared.editor.blockViews.database
 
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -23,9 +24,11 @@ import com.emberr.domain.database.calculate
 import com.emberr.domain.database.calculationOf
 import com.emberr.domain.database.calculationsFor
 import com.emberr.domain.database.formatCalculatedNumber
+import com.emberr.domain.database.textFor
 import com.emberr.domain.database.visibleColumnsInTableOrder
 import com.emberr.domain.model.DatabaseBlock
 import com.emberr.domain.model.DatabaseColumnTarget
+import com.emberr.domain.model.DatabaseNumberFormat
 import com.emberr.domain.model.PropertyValueType
 import com.emberr.domain.model.columnKey
 import com.emberr.domain.model.valueTypeOf
@@ -44,13 +47,25 @@ internal fun DatabaseCalculationRow(
     block: DatabaseBlock,
     rows: List<DatabaseRow>,
     columnWidth: (DatabaseColumnTarget) -> Int,
-    columnDragState: DatabaseColumnDragState
+    columnDragState: DatabaseColumnDragState,
+    frozenColumns: Set<DatabaseColumnTarget>,
+    tableScrollState: ScrollState,
+    showsSelectionColumn: Boolean
 ) {
     val columns = block.visibleColumnsInTableOrder()
     if (columns.none { block.calculationOf(it) != null }) return
     val draggedBackground = draggedColumnBackground()
+    val frozenBackground = MaterialTheme.colorScheme.background
 
     Row {
+        if (showsSelectionColumn) {
+            Spacer(
+                modifier = Modifier
+                    .staysInPlaceWhileScrolling(frozenColumns.isNotEmpty(), tableScrollState, frozenBackground)
+                    .width(DatabaseSelectionColumnWidth)
+                    .defaultMinSize(minHeight = CalculationCellMinHeight)
+            )
+        }
         columns.forEach { column ->
             key(column.columnKey) {
                 DatabaseCalculationCell(
@@ -59,6 +74,7 @@ internal fun DatabaseCalculationRow(
                     column = column,
                     width = columnWidth(column),
                     modifier = Modifier
+                        .staysInPlaceWhileScrolling(column in frozenColumns, tableScrollState, frozenBackground)
                         .raisedWhileColumnDragged(columnDragState, column)
                         .followsColumnDrag(columnDragState, column, draggedBackground)
                 )
@@ -98,7 +114,7 @@ private fun DatabaseCalculationCell(
                 )
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
-                    text = result.displayText(),
+                    text = result.displayTextIn(block.numberFormats[column.columnKey]),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
@@ -182,6 +198,11 @@ internal fun DatabaseCalculateOption(
             )
         }
     }
+}
+
+internal fun DatabaseCalculationResult.displayTextIn(numberFormat: DatabaseNumberFormat?): String {
+    val number = (this as? DatabaseCalculationResult.NumberValue)?.number
+    return if (number != null && numberFormat != null) numberFormat.textFor(number) else displayText()
 }
 
 internal fun DatabaseCalculationResult.displayText(): String = when (this) {

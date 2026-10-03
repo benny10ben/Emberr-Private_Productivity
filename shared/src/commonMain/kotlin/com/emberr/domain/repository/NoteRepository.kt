@@ -14,6 +14,7 @@ import com.emberr.domain.canvas.CanvasContent
 import com.emberr.domain.database.DatabaseCellPreset
 import com.emberr.domain.database.DatabaseRow
 import com.emberr.domain.database.DatabaseRowChange
+import com.emberr.domain.database.RepeatedRowToCreate
 import com.emberr.domain.database.HistoryDirection
 import com.emberr.domain.model.DatabaseBlock
 import com.emberr.domain.model.DatabaseColumnTarget
@@ -173,6 +174,8 @@ interface NoteRepository {
     ): DatabaseRowChange.Cell?
     suspend fun renameDatabaseRow(rowNoteId: String, title: String): DatabaseRowChange.Title?
     suspend fun trashDatabaseRow(rowNoteId: String): DatabaseRowChange.RowPresence?
+    suspend fun duplicateDatabaseRow(rowNoteId: String): DatabaseRowChange.RowPresence?
+    suspend fun createRepeatedDatabaseRow(database: DatabaseBlock, rowToCreate: RepeatedRowToCreate): Boolean
     suspend fun addDatabaseColumnToRows(database: DatabaseBlock, column: DatabaseColumnTarget): List<DatabaseRowChange.Cell>
     suspend fun removeDatabaseColumnFromRows(databaseId: String, column: DatabaseColumnTarget): List<DatabaseRowChange.Cell>
     suspend fun renameDatabasePropertyInRows(databaseId: String, propertyId: String, newName: String): List<DatabaseRowChange.Cell>

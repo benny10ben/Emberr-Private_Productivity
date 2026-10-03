@@ -114,11 +114,14 @@ class PropertyBlockTest {
         condition = DatabaseFilterCondition.CONTAINS,
         tagName = "doing"
     )
+    private fun tableShowing(filters: List<DatabaseFilter>) =
+        DatabaseView(id = DEFAULT_VIEW_ID, name = "Table", type = DatabaseViewType.TABLE, filters = filters)
+
     private val database = DatabaseBlock(
         id = "d1",
         databaseId = "database-1",
         columns = listOf(DatabaseColumnTarget.Property(PropertyType.STATUS), DatabaseColumnTarget.Property(PropertyType.TAGS)),
-        filters = listOf(statusFilter, tagsFilter),
+        views = listOf(tableShowing(listOf(statusFilter, tagsFilter))),
         updatedAt = 100L
     )
 
@@ -128,8 +131,8 @@ class PropertyBlockTest {
 
         assertEquals(
             database.copy(
-                filters = listOf(statusFilter.copy(tagName = "In progress"), tagsFilter),
-                settingTimes = mapOf("filter:f1" to DatabaseSettingTime(500L)),
+                views = listOf(tableShowing(listOf(statusFilter.copy(tagName = "In progress"), tagsFilter))),
+                settingTimes = mapOf("view:$DEFAULT_VIEW_ID" to DatabaseSettingTime(500L)),
                 updatedAt = 500L
             ),
             renamed
@@ -142,8 +145,8 @@ class PropertyBlockTest {
 
         assertEquals(
             database.copy(
-                filters = listOf(tagsFilter),
-                settingTimes = mapOf("filter:f1" to DatabaseSettingTime(500L, isDeleted = true)),
+                views = listOf(tableShowing(listOf(tagsFilter))),
+                settingTimes = mapOf("view:$DEFAULT_VIEW_ID" to DatabaseSettingTime(500L)),
                 updatedAt = 500L
             ),
             withoutTag
@@ -158,12 +161,12 @@ class PropertyBlockTest {
             condition = DatabaseFilterCondition.IS,
             tagName = "Acme"
         )
-        val withClientFilter = database.copy(filters = listOf(clientFilter))
+        val withClientFilter = database.copy(views = listOf(tableShowing(listOf(clientFilter))))
 
         assertEquals(
             withClientFilter.copy(
-                filters = listOf(clientFilter.copy(tagName = "Acme Corp")),
-                settingTimes = mapOf("filter:f3" to DatabaseSettingTime(500L)),
+                views = listOf(tableShowing(listOf(clientFilter.copy(tagName = "Acme Corp")))),
+                settingTimes = mapOf("view:$DEFAULT_VIEW_ID" to DatabaseSettingTime(500L)),
                 updatedAt = 500L
             ),
             withClientFilter.withPropertyTagReplaced("client-id", "acme", "Acme Corp", now = 500L)
