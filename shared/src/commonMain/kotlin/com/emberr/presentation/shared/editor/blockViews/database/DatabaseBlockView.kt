@@ -222,7 +222,7 @@ fun DatabaseBlockView(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = DatabaseSidePadding - HeaderButtonInnerPadding, end = HeaderEndPadding, bottom = 8.dp),
+                    .padding(start = DatabaseSidePadding, end = HeaderEndPadding, bottom = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(HeaderButtonGap),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -381,7 +381,7 @@ fun DatabaseBlockView(
                             Surface(
                                 shape = RectangleShape,
                                 color = Color.Transparent,
-                                border = BorderStroke(0.6.dp, tableBorderColor)
+                                border = BorderStroke(DatabaseTableBorderWidth, tableBorderColor)
                             ) {
                                 Column(
                                     modifier = Modifier.columnDropLine(

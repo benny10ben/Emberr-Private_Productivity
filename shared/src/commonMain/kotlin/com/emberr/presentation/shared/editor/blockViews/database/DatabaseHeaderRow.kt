@@ -94,6 +94,8 @@ internal fun DatabaseHeaderRow(
 ) {
     val headerColumns = block.visibleColumnsInTableOrder()
     val frozenBackground = MaterialTheme.colorScheme.background
+    val tableBorderColor = tableGridLineColor
+    val firstFrozenColumn = frozenColumns.firstOrNull().takeUnless { rowSelection.isSelecting }
     val allShownRowsAreSelected = shownRowIds.isNotEmpty() && shownRowIds.all { rowSelection.isSelected(it) }
 
     fun dropDraggedColumn() {
@@ -111,7 +113,7 @@ internal fun DatabaseHeaderRow(
                 isChecked = allShownRowsAreSelected,
                 enabled = !inSelectionMode,
                 onToggle = { if (allShownRowsAreSelected) rowSelection.clear() else rowSelection.selectAll(shownRowIds) },
-                modifier = Modifier.staysInPlaceWhileScrolling(frozenColumns.isNotEmpty(), tableScrollState, frozenBackground)
+                modifier = Modifier.staysInPlaceWhileScrolling(frozenColumns.isNotEmpty(), tableScrollState, frozenBackground, tableBorderColor)
             )
         }
         headerColumns.forEach { column ->
@@ -120,6 +122,7 @@ internal fun DatabaseHeaderRow(
                     block = block,
                     column = column,
                     isFrozen = column in frozenColumns,
+                    drawsTableLeftBorder = column == firstFrozenColumn,
                     tableScrollState = tableScrollState,
                     frozenBackground = frozenBackground,
                     width = columnWidth(column),
@@ -149,6 +152,7 @@ private fun DatabaseColumnHeader(
     block: DatabaseBlock,
     column: DatabaseColumnTarget,
     isFrozen: Boolean,
+    drawsTableLeftBorder: Boolean,
     tableScrollState: ScrollState,
     frozenBackground: Color,
     width: Int,
@@ -174,7 +178,7 @@ private fun DatabaseColumnHeader(
                 val span = HeaderSpan(left = headerLeft, right = headerLeft + coordinates.size.width)
                 if (dragState.headerSpans[column] != span) dragState.headerSpans[column] = span
             }
-            .staysInPlaceWhileScrolling(isFrozen, tableScrollState, frozenBackground)
+            .staysInPlaceWhileScrolling(isFrozen, tableScrollState, frozenBackground, lineColor.takeIf { drawsTableLeftBorder })
             .raisedWhileColumnDragged(dragState, column)
             .menuTapAnchor(tapAnchor)
             .width(width.dp)

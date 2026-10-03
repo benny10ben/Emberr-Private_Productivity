@@ -100,6 +100,8 @@ internal fun DatabaseRowItem(
 ) {
     val draggedBackground = draggedColumnBackground()
     val frozenBackground = MaterialTheme.colorScheme.background
+    val tableBorderColor = tableGridLineColor
+    val firstFrozenColumn = frozenColumns.firstOrNull().takeUnless { rowSelection.isSelecting }
     val blocksEdits = inSelectionMode || isLocked
     val today = todayInThisTimeZone()
     Row(modifier = Modifier.height(IntrinsicSize.Max).defaultMinSize(minHeight = DatabaseCellMinHeight)) {
@@ -108,7 +110,7 @@ internal fun DatabaseRowItem(
                 isChecked = rowSelection.isSelected(row.noteId),
                 enabled = !inSelectionMode,
                 onToggle = { rowSelection.toggle(row.noteId) },
-                modifier = Modifier.staysInPlaceWhileScrolling(frozenColumns.isNotEmpty(), tableScrollState, frozenBackground)
+                modifier = Modifier.staysInPlaceWhileScrolling(frozenColumns.isNotEmpty(), tableScrollState, frozenBackground, tableBorderColor)
             )
         }
         database.visibleColumnsInTableOrder().forEach { column ->
@@ -128,7 +130,12 @@ internal fun DatabaseRowItem(
                     editor = editor,
                     runAfterKeyboardCloses = runAfterKeyboardCloses,
                     modifier = Modifier
-                        .staysInPlaceWhileScrolling(column in frozenColumns, tableScrollState, frozenBackground)
+                        .staysInPlaceWhileScrolling(
+                            isFrozen = column in frozenColumns,
+                            scrollState = tableScrollState,
+                            background = frozenBackground,
+                            leftBorderColor = tableBorderColor.takeIf { column == firstFrozenColumn }
+                        )
                         .raisedWhileColumnDragged(columnDragState, column)
                         .followsColumnDrag(columnDragState, column, draggedBackground)
                 ) {
