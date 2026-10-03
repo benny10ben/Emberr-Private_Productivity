@@ -86,6 +86,8 @@ import com.emberr.presentation.space.SpaceOptionsSheets
 import emberr.shared.generated.resources.Res
 import emberr.shared.generated.resources.arrow_up_down
 import emberr.shared.generated.resources.calendar
+import emberr.shared.generated.resources.chevron_down
+import emberr.shared.generated.resources.chevron_right
 import emberr.shared.generated.resources.circle_plus
 import emberr.shared.generated.resources.ellipsis
 import emberr.shared.generated.resources.file_text
@@ -967,10 +969,12 @@ fun HomeScreen(
                 titleTrailingIcon = if (isSelectionMode) null else {
                     {
                         Icon(
-                            imageVector = Icons.Default.KeyboardArrowDown,
+                            painter = painterResource(Res.drawable.chevron_down),
                             contentDescription = "Switch space",
                             tint = MaterialTheme.colorScheme.onBackground,
-                            modifier = Modifier.size(22.dp)
+                            modifier = Modifier
+                                .padding(start = 8.dp, top = 6.dp)
+                                .size(22.dp)
                         )
                     }
                 },
@@ -1263,7 +1267,7 @@ fun BreadcrumbTrail(selectedFolderId: String?, breadcrumbs: List<FolderEntity>, 
         }
         items(breadcrumbs) { folder ->
             Icon(
-                Icons.Default.ChevronRight,
+                painterResource(Res.drawable.chevron_right),
                 null,
                 modifier = Modifier.padding(horizontal = 6.dp).size(16.dp),
                 tint = MaterialTheme.colorScheme.onSurface

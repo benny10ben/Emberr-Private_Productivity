@@ -88,6 +88,7 @@ import com.emberr.ui.theme.fontFamilyFor
 import com.emberr.ui.theme.tableGridLineColor
 import emberr.shared.generated.resources.Res
 import emberr.shared.generated.resources.arrow_down
+import emberr.shared.generated.resources.chevron_down
 import emberr.shared.generated.resources.chevron_right
 import emberr.shared.generated.resources.list_sort_descending
 import emberr.shared.generated.resources.lock
@@ -710,14 +711,13 @@ private fun DatabaseNewRowButton(
                     .size(18.dp)
             )
             Icon(
-                painter = painterResource(Res.drawable.chevron_right),
+                painter = painterResource(Res.drawable.chevron_down),
                 contentDescription = "Templates",
                 tint = Color.White,
                 modifier = Modifier
                     .clickable(enabled = enabled, onClick = onOpenTemplates)
-                    .padding(start = 3.dp, end = 6.dp, top = 6.dp, bottom = 6.dp)
-                    .rotate(90f)
-                    .size(16.dp)
+                    .padding(start = 5.dp, end = 4.dp, top = 6.dp)
+                    .size(22.dp)
             )
         }
         menu()
