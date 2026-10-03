@@ -117,6 +117,18 @@ class DatabaseQueryTest {
     private fun noteIdsOf(rows: List<DatabaseRow>) = rows.map { it.noteId }
 
     @Test
+    fun aFilterOnAColumnTheDatabaseNoLongerHasIsIgnored() {
+        val rows = listOf(row("a", createdAt = 10L), row("b", createdAt = 20L, status = "Done"))
+        val database = databaseShowing(listOf(filter(statusColumn, DatabaseFilterCondition.IS_NOT_EMPTY)), emptyList())
+
+        val shownWithStatus = applyFiltersAndSort(rows, database, today = wednesday)
+        val shownWithoutStatus = applyFiltersAndSort(rows, database.copy(columns = database.columns - statusColumn), today = wednesday)
+
+        assertEquals(listOf("b"), noteIdsOf(shownWithStatus))
+        assertEquals(listOf("a", "b"), noteIdsOf(shownWithoutStatus))
+    }
+
+    @Test
     fun withoutFiltersOrSortRowsKeepTheOrderTheyWereCreatedIn() {
         val rows = listOf(row("c", createdAt = 30L), row("a", createdAt = 10L), row("b", createdAt = 20L))
 

@@ -168,6 +168,18 @@ class DatabaseCellStylesTest {
     }
 
     @Test
+    fun aRuleOnAColumnTheDatabaseNoLongerHasColorsNothing() {
+        val withRuleButNoDueDateColumn = database.copy(
+            columns = listOf(statusColumn),
+            colorRules = listOf(DatabaseColorRule(id = "rule", condition = overdue, backgroundColorName = "red"))
+        )
+
+        val style = withRuleButNoDueDateColumn.effectiveStyleOf(row("late", dueDate = LocalDate(2026, 10, 1)), statusColumn, today)
+
+        assertEquals(null, style.backgroundColorName)
+    }
+
+    @Test
     fun removingAColumnDropsTheRulesThatCheckIt() {
         val withRule = database.copy(
             columns = listOf(statusColumn, dueDateColumn),

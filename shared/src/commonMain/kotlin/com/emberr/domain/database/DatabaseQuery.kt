@@ -62,6 +62,7 @@ fun filterConditionsFor(valueType: PropertyValueType): List<DatabaseFilterCondit
 fun applyFiltersAndSort(rows: List<DatabaseRow>, database: DatabaseBlock, today: LocalDate = todayInThisTimeZone()): List<DatabaseRow> {
     val view = database.activeView()
     val usableFilters = view.filters.mapNotNull { filter ->
+        if (!database.hasColumn(filter.target)) return@mapNotNull null
         val valueType = database.valueTypeOf(filter.target) ?: return@mapNotNull null
         if (filter.isUsable(valueType)) filter to valueType else null
     }
@@ -102,9 +103,13 @@ fun DatabaseDateRange.daysFrom(today: LocalDate): ClosedRange<LocalDate> = when 
 }
 
 fun DatabaseFilter.isMetBy(row: DatabaseRow, database: DatabaseBlock, today: LocalDate): Boolean {
+    if (!database.hasColumn(target)) return false
     val valueType = database.valueTypeOf(target) ?: return false
     return isUsable(valueType) && row.matches(this, valueType, today)
 }
+
+private fun DatabaseBlock.hasColumn(target: DatabaseColumnTarget): Boolean =
+    target == DatabaseColumnTarget.NotesTitle || target in columns
 
 private fun DatabaseFilter.isUsable(valueType: PropertyValueType): Boolean {
     if (condition !in filterConditionsFor(valueType)) return false
