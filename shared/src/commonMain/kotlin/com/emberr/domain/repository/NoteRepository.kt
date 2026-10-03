@@ -16,6 +16,7 @@ import com.emberr.domain.database.DatabaseRow
 import com.emberr.domain.database.DatabaseRowChange
 import com.emberr.domain.database.RepeatedRowToCreate
 import com.emberr.domain.database.HistoryDirection
+import com.emberr.domain.database.LinkableDatabase
 import com.emberr.domain.model.DatabaseBlock
 import com.emberr.domain.model.DatabaseColumnTarget
 import com.emberr.domain.model.NoteBlock
@@ -181,6 +182,11 @@ interface NoteRepository {
     suspend fun renameDatabasePropertyInRows(databaseId: String, propertyId: String, newName: String): List<DatabaseRowChange.Cell>
     suspend fun deleteSavedTagsOf(propertyKey: String)
     suspend fun applyDatabaseRowChanges(changes: List<DatabaseRowChange>, direction: HistoryDirection)
+    fun observeDatabaseSettings(databaseId: String): Flow<DatabaseBlock?>
+    suspend fun changeDatabaseSettings(databaseId: String, change: (DatabaseBlock) -> DatabaseBlock?): Boolean
+    suspend fun createDatabase(databaseId: String)
+    suspend fun createMissingDatabaseNotes()
+    suspend fun getLinkableDatabases(): List<LinkableDatabase>
 
     suspend fun applyRemoteEventException(exception: CalendarEventExceptionEntity)
 
@@ -200,6 +206,7 @@ interface NoteRepository {
     suspend fun searchNotes(query: String): List<NoteSearchResult>
 
     suspend fun indexNote(metadata: NoteMetadataEntity, content: NoteContent)
+    suspend fun indexNotesShowingDatabase(databaseId: String)
     suspend fun indexCanvas(noteId: String, canvas: CanvasContent)
     suspend fun indexStoredCanvas(noteId: String)
     suspend fun getAllCanvasNotesAcrossSpaces(): List<NoteMetadataEntity>

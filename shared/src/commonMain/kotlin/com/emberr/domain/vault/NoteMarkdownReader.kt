@@ -523,7 +523,11 @@ object NoteMarkdownReader {
         val databaseId = existingDatabase?.databaseId
             ?: fields["database"]?.takeIf { it.isNotBlank() }
             ?: return buildCodeBlock(chunk, existing, request)
-        val base = existingDatabase ?: DatabaseBlock(id = idFor(existing, request), databaseId = databaseId)
+        val base = existingDatabase ?: DatabaseBlock(
+            id = idFor(existing, request),
+            databaseId = databaseId,
+            isLinkedDatabase = fields["linked"]?.trim().equals("true", ignoreCase = true)
+        )
         val retitled = base.copy(title = fields["title"] ?: base.title).withSettingTimesStamped(before = base, now = request.timestamp)
         return settle(retitled, existing, request.timestamp)
     }

@@ -122,15 +122,23 @@ class RepeatingTemplateRowCreator(
     suspend fun createRowsDueAt(now: LocalDateTime): LocalDateTime = withContext(Dispatchers.IO) {
         val laterRepeatTimes = mutableListOf<LocalDateTime>()
         try {
-            blockDao.findBlocksContainingIncludingDeleted(DatabaseRowCleanup.DATABASE_BLOCK_JSON_MARKER).forEach { entity ->
-                val databaseBlock = runCatching { blockJson.decodeFromString<NoteBlock>(entity.blockDataJson) }.getOrNull() as? DatabaseBlock
-                    ?: return@forEach
-                if (databaseBlock.repeatingTemplates.isEmpty()) return@forEach
-                val parentNote = noteDao.getNoteById(entity.noteId) ?: return@forEach
-                if (parentNote.trashedAt != null || parentNote.isTemplate) return@forEach
-                databaseBlock.repeatedRowsDueAt(now).forEach { rowToCreate -> noteRepository.createRepeatedDatabaseRow(databaseBlock, rowToCreate) }
-                laterRepeatTimes += databaseBlock.laterRepeatTimesToday(now)
-            }
+            val databaseBlocksWithNoteIds = blockDao.findBlocksContainingIncludingDeleted(DatabaseRowCleanup.DATABASE_BLOCK_JSON_MARKER)
+                .mapNotNull { entity ->
+                    val databaseBlock = runCatching { blockJson.decodeFromString<NoteBlock>(entity.blockDataJson) }.getOrNull() as? DatabaseBlock
+                    databaseBlock?.let { entity.noteId to it }
+                }
+            val liveViews = databaseBlocksWithNoteIds.filter { (_, databaseBlock) -> !databaseBlock.isDeleted && !databaseBlock.holdsSharedSettings }
+            val liveNoteIds = noteDao.getNotesByIds(liveViews.map { (noteId, _) -> noteId }.distinct())
+                .filter { it.trashedAt == null }
+                .mapTo(HashSet()) { it.noteId }
+            val shownDatabaseIds = liveViews.filter { (noteId, _) -> noteId in liveNoteIds }.mapTo(HashSet()) { (_, view) -> view.databaseId }
+            databaseBlocksWithNoteIds
+                .map { (_, databaseBlock) -> databaseBlock }
+                .filter { it.holdsSharedSettings && it.repeatingTemplates.isNotEmpty() && it.databaseId in shownDatabaseIds }
+                .forEach { settings ->
+                    settings.repeatedRowsDueAt(now).forEach { rowToCreate -> noteRepository.createRepeatedDatabaseRow(settings, rowToCreate) }
+                    laterRepeatTimes += settings.laterRepeatTimesToday(now)
+                }
         } catch (cause: CancellationException) {
             throw cause
         } catch (cause: Exception) {

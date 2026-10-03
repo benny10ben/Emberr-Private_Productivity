@@ -479,7 +479,7 @@ private fun runEmberrDesktopApp() = application {
                     CompositionLocalProvider(LocalImagePicker provides pickStickyImage) {
                     when (stickyNoteKind) {
                         NoteKind.CANVAS -> CanvasScreen(noteId = stickyNoteId, isStickyNote = true)
-                        NoteKind.NOTE -> NoteScreen(
+                        NoteKind.NOTE, NoteKind.DATABASE -> NoteScreen(
                             noteId = stickyNoteId,
                             isStickyNote = true,
                             showBackButton = false,

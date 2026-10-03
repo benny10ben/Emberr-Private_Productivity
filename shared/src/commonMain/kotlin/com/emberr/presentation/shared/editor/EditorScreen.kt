@@ -62,6 +62,7 @@ import com.emberr.domain.model.BookmarkBlock
 import com.emberr.domain.model.BulletedListBlock
 import com.emberr.domain.model.CanvasBlock
 import com.emberr.domain.model.CheckboxBlock
+import com.emberr.domain.database.LinkableDatabase
 import com.emberr.domain.model.DatabaseBlock
 import com.emberr.domain.model.DocumentBlock
 import com.emberr.domain.model.HeadingBlock
@@ -206,7 +207,7 @@ data class SlashMenuSectionData(
 // MAIN  = the quick-action strip
 // SLASH = the menu shown while typing "/" (driven by the typed query)
 // MENU  = the full "everything" menu opened from the + button
-enum class MobileMenuState { MAIN, SLASH, MENU, MENTION, LINK_TO_NOTE, LINK_TO_CANVAS }
+enum class MobileMenuState { MAIN, SLASH, MENU, MENTION, LINK_TO_NOTE, LINK_TO_CANVAS, LINK_TO_DATABASE }
 
 object GlobalEditorState {
     var currentlyFocusedBlockId: String? = null
@@ -298,6 +299,8 @@ interface EditorActions {
     fun onInsertLinkedNoteBlock(noteId: String) {}
     fun onInsertCanvasBlock(canvasNoteId: String) {}
     suspend fun getLinkableCanvases(): List<NoteMetadataEntity> = emptyList()
+    fun onInsertLinkedDatabaseBlock(databaseId: String) {}
+    suspend fun getLinkableDatabases(): List<LinkableDatabase> = emptyList()
     fun onRequestCamera(blockId: String)
     suspend fun getNoteMetadata(noteId: String): NoteMetadataEntity?
     fun onUpdateLinkedNoteOptions(id: String, showIcon: Boolean, showCoverImage: Boolean)
@@ -333,6 +336,8 @@ fun EditorScreen(
     onDismissNoteLinkMenu: () -> Unit = {},
     showCanvasLinkMenu: Boolean = false,
     onDismissCanvasLinkMenu: () -> Unit = {},
+    showDatabaseLinkMenu: Boolean = false,
+    onDismissDatabaseLinkMenu: () -> Unit = {},
     onMentionQueryChange: (String?) -> Unit = {},
     allLinkableNotes: List<NoteMetadataEntity> = emptyList(),
     isCurrentActivePage: Boolean = true,
@@ -889,6 +894,8 @@ fun EditorScreen(
                             onDismissNoteLinkMenu = onDismissNoteLinkMenu,
                             showCanvasLinkMenu = showCanvasLinkMenu,
                             onDismissCanvasLinkMenu = onDismissCanvasLinkMenu,
+                            showDatabaseLinkMenu = showDatabaseLinkMenu,
+                            onDismissDatabaseLinkMenu = onDismissDatabaseLinkMenu,
                             isFirstToggleChild = isFirstToggleChild,
                             selectionRequest = selectionRequest,
                             validNoteIds = validNoteIds,
@@ -1025,6 +1032,8 @@ fun EditorToolbar(
     onNoteLinkCreateBlank: () -> Unit = {},
     onCanvasLinkSelected: (String) -> Unit = {},
     loadLinkableCanvases: suspend () -> List<NoteMetadataEntity> = { emptyList() },
+    onDatabaseLinkSelected: (String) -> Unit = {},
+    loadLinkableDatabases: suspend () -> List<LinkableDatabase> = { emptyList() },
     hazeState: HazeState
 ) {
     if (isDesktopPlatform) return
@@ -1319,6 +1328,19 @@ fun EditorToolbar(
                                 )
                             }
                         }
+                        MobileMenuState.LINK_TO_DATABASE -> {
+                            Column(modifier = Modifier.fillMaxWidth()) {
+                                MenuDragHandle(onClose = { onMenuStateChange(MobileMenuState.MAIN) })
+                                DatabaseLinkMenuContent(
+                                    loadDatabases = loadLinkableDatabases,
+                                    onDatabaseSelected = {
+                                        onDatabaseLinkSelected(it)
+                                        onMenuStateChange(MobileMenuState.MAIN)
+                                    },
+                                    autoFocusSearch = false
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -1329,6 +1351,7 @@ fun EditorToolbar(
 private fun mobileMenuStateAfterInserting(type: String): MobileMenuState = when (type) {
     "linked_note" -> MobileMenuState.LINK_TO_NOTE
     "linked_canvas" -> MobileMenuState.LINK_TO_CANVAS
+    "linked_database" -> MobileMenuState.LINK_TO_DATABASE
     else -> MobileMenuState.MAIN
 }
 
@@ -1528,7 +1551,8 @@ fun buildSlashMenuSections(
         SlashMenuItemData("Database", Res.drawable.database) { onInsertMediaBlock("database") },
         SlashMenuItemData("Canvas", Res.drawable.group) { onInsertMediaBlock("canvas") },
         SlashMenuItemData("Link to Note", Res.drawable.link) { onInsertMediaBlock("linked_note") },
-        SlashMenuItemData("Link to Canvas", Res.drawable.group) { onInsertMediaBlock("linked_canvas") }
+        SlashMenuItemData("Link to Canvas", Res.drawable.group) { onInsertMediaBlock("linked_canvas") },
+        SlashMenuItemData("Link to Database", Res.drawable.database) { onInsertMediaBlock("linked_database") }
     )),
     SlashMenuSectionData(
         "Properties",
@@ -1871,6 +1895,62 @@ fun CanvasLinkMenuContent(
         onQueryChange = { query = it },
         searchPlaceholder = "Search canvases...",
         sectionTitle = "Link to Canvas",
+        entries = entries,
+        onDismissRequest = onDismissRequest,
+        autoFocusSearch = autoFocusSearch
+    )
+}
+
+@Composable
+fun DatabaseLinkMenu(
+    expanded: Boolean,
+    onDismissRequest: () -> Unit,
+    loadDatabases: suspend () -> List<LinkableDatabase>,
+    onDatabaseSelected: (databaseId: String) -> Unit
+) {
+    if (!expanded) return
+
+    EmberrDesktopMenu(
+        expanded = true,
+        onDismissRequest = onDismissRequest,
+        properties = PopupProperties(focusable = true),
+        modifier = Modifier
+            .width(290.dp)
+            .heightIn(max = 400.dp)
+    ) {
+        DatabaseLinkMenuContent(
+            loadDatabases = loadDatabases,
+            onDatabaseSelected = onDatabaseSelected,
+            onDismissRequest = onDismissRequest
+        )
+    }
+}
+
+@Composable
+fun DatabaseLinkMenuContent(
+    loadDatabases: suspend () -> List<LinkableDatabase>,
+    onDatabaseSelected: (databaseId: String) -> Unit,
+    onDismissRequest: () -> Unit = {},
+    autoFocusSearch: Boolean = true
+) {
+    var query by remember { mutableStateOf("") }
+    val databases by produceState(initialValue = emptyList<LinkableDatabase>()) { value = loadDatabases() }
+
+    val entries = remember(query, databases) {
+        databases
+            .map { database ->
+                val databaseTitle = database.title.ifBlank { "Untitled database" }
+                database.databaseId to "$databaseTitle in ${database.noteTitle.ifBlank { "Untitled" }}"
+            }
+            .filter { (_, label) -> label.contains(query, ignoreCase = true) }
+            .map { (databaseId, label) -> SlashMenuItemData(label, Res.drawable.database) { onDatabaseSelected(databaseId) } }
+    }
+
+    SearchableLinkList(
+        query = query,
+        onQueryChange = { query = it },
+        searchPlaceholder = "Search databases...",
+        sectionTitle = "Link to Database",
         entries = entries,
         onDismissRequest = onDismissRequest,
         autoFocusSearch = autoFocusSearch

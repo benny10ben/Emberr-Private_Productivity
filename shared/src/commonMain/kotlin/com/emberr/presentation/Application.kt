@@ -595,7 +595,7 @@ fun EmberrApp(
                                     noteId = routedNoteId,
                                     onNavigateBack = { if (!navController.popBackStack()) onExitApp() }
                                 )
-                                NoteKind.NOTE -> com.emberr.presentation.home.note.NoteScreen(
+                                NoteKind.NOTE, NoteKind.DATABASE -> com.emberr.presentation.home.note.NoteScreen(
                                     noteId = routedNoteId,
                                     onNavigateBack = { if (!navController.popBackStack()) onExitApp() },
                                     onNavigateToEditor = { subNoteId ->

@@ -420,6 +420,7 @@ class HomeViewModel(
             com.emberr.domain.ai.models.cleanupPendingModelDeletions()
         }
         viewModelScope.launch {
+            repository.createMissingDatabaseNotes()
             while (true) {
                 val nextCheck = repeatingTemplateRowCreator.createRowsDueAt(localNow())
                 withTimeoutOrNull(millisecondsUntil(nextCheck).milliseconds) {

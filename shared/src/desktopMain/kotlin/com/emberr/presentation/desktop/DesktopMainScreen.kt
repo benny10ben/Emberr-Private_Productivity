@@ -1457,7 +1457,7 @@ fun DesktopMainScreen(
                             showBackButton = isSidebarVisible,
                             onNavigateBack = { detail = DetailPane.Daily(selectedDate) }
                         )
-                        NoteKind.NOTE -> NoteScreen(
+                        NoteKind.NOTE, NoteKind.DATABASE -> NoteScreen(
                             noteId = d.noteId,
                             onNavigateBack = { detail = DetailPane.Daily(selectedDate) },
                             showBackButton = isSidebarVisible,

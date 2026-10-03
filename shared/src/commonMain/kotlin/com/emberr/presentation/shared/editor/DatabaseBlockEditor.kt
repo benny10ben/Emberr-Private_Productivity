@@ -7,6 +7,10 @@ import com.emberr.domain.database.DatabaseRow
 import com.emberr.domain.database.DatabaseRowChange
 import com.emberr.domain.database.DatabaseStyleTarget
 import com.emberr.domain.database.HistoryDirection
+import com.emberr.domain.database.DatabaseSettingsChange
+import com.emberr.domain.database.idsOfShownDatabases
+import com.emberr.domain.database.newerSettings
+import com.emberr.domain.database.withEditsFrom
 import com.emberr.domain.database.newDatabaseFilter
 import com.emberr.domain.database.manualRowOrderWithCopiesPlaced
 import com.emberr.domain.database.manualRowOrderWithRowPlaced
@@ -47,6 +51,7 @@ import com.emberr.domain.model.DatabaseSort
 import com.emberr.domain.model.DatabaseTemplateRepeat
 import com.emberr.domain.model.DatabaseView
 import com.emberr.domain.model.DatabaseViewType
+import com.emberr.domain.model.NoteBlock
 import com.emberr.domain.model.PropertyBlock
 import com.emberr.domain.model.PropertyDateRange
 import com.emberr.domain.model.withDateRange
@@ -59,12 +64,19 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -75,6 +87,7 @@ import kotlin.uuid.Uuid
 
 interface DatabaseBlockHost {
     val historyGeneration: Int
+    val blocks: StateFlow<List<NoteBlock>>
     fun findDatabaseBlock(blockId: String): DatabaseBlock?
     fun changeDatabaseBlock(blockId: String, change: (DatabaseBlock) -> DatabaseBlock)
     fun showDatabaseView(blockId: String, viewId: String)
@@ -86,6 +99,12 @@ interface DatabaseBlockHost {
     )
     fun recordDatabaseRowStep(rowChanges: List<DatabaseRowChange>, typingKey: String?, historyGeneration: Int)
     fun endDatabaseTypingStep()
+}
+
+sealed interface DatabaseSettingsState {
+    data object Loading : DatabaseSettingsState
+    data object Missing : DatabaseSettingsState
+    data class Found(val settings: DatabaseBlock) : DatabaseSettingsState
 }
 
 @Stable
@@ -109,6 +128,11 @@ class DatabaseBlockEditor(
     private val pendingTextEdits = LinkedHashMap<String, PendingTextEdit>()
     private var pendingTextEditsJob: Job? = null
     private val rowNoteIdsToIndex = mutableSetOf<String>()
+    private val databaseIdsWithRenamesToIndex = mutableSetOf<String>()
+    private val savedSettings = MutableStateFlow<Map<String, DatabaseBlock?>>(emptyMap())
+    private val unsavedSettings = MutableStateFlow<Map<String, DatabaseBlock>>(emptyMap())
+    private val databaseIdsOfSettingsToWrite = mutableSetOf<String>()
+    private var settingsWritesJob: Job? = null
 
     private val _rowToFocus = MutableStateFlow<String?>(null)
     val rowToFocus: StateFlow<String?> = _rowToFocus.asStateFlow()
@@ -119,6 +143,53 @@ class DatabaseBlockEditor(
     fun rowsOf(databaseId: String): Flow<List<DatabaseRow>> = repository.observeDatabaseRows(databaseId)
 
     val databaseTemplates: Flow<List<NoteMetadataEntity>> = repository.getAllDatabaseTemplates()
+
+    fun settingsOf(databaseId: String): DatabaseBlock? =
+        newerSettings(savedSettings.value[databaseId], unsavedSettings.value[databaseId])
+
+    fun settingsShownFor(databaseId: String): Flow<DatabaseSettingsState> =
+        combine(savedSettings, unsavedSettings) { saved, unsaved ->
+            when {
+                databaseId !in saved -> DatabaseSettingsState.Loading
+                else -> newerSettings(saved[databaseId], unsaved[databaseId])
+                    ?.let { DatabaseSettingsState.Found(it) }
+                    ?: DatabaseSettingsState.Missing
+            }
+        }.distinctUntilChanged()
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    suspend fun keepDatabaseSettingsUpdated() {
+        host.blocks
+            .map { it.idsOfShownDatabases() }
+            .distinctUntilChanged()
+            .flatMapLatest { databaseIds ->
+                if (databaseIds.isEmpty()) {
+                    flowOf(emptyMap<String, DatabaseBlock?>())
+                } else {
+                    combine(databaseIds.map { databaseId -> repository.observeDatabaseSettings(databaseId).map { databaseId to it } }) {
+                        it.toMap()
+                    }
+                }
+            }
+            .collect { savedSettings.value = it }
+    }
+
+    fun saveSettings(settings: DatabaseBlock, waitsForMoreTyping: Boolean) {
+        val databaseId = settings.databaseId
+        unsavedSettings.update { it + (databaseId to settings) }
+        databaseIdsOfSettingsToWrite += databaseId
+        settingsWritesJob?.cancel()
+        settingsWritesJob = null
+        if (!waitsForMoreTyping) {
+            writeSettingsNow()
+            return
+        }
+        settingsWritesJob = appScope.launch(Dispatchers.Main.immediate) {
+            delay(TEXT_SAVE_DELAY_MILLIS.milliseconds)
+            settingsWritesJob = null
+            writeSettingsNow()
+        }
+    }
 
     fun setTitle(blockId: String, title: String) {
         host.changeDatabaseBlock(blockId) { it.copy(title = title) }
@@ -559,18 +630,28 @@ class DatabaseBlockEditor(
         }
     }
 
-    fun hasUnfinishedWrites(): Boolean = pendingTextEdits.isNotEmpty() || writesInFlight > 0
+    fun hasUnfinishedWrites(): Boolean =
+        pendingTextEdits.isNotEmpty() || databaseIdsOfSettingsToWrite.isNotEmpty() || writesInFlight > 0
 
     suspend fun finishWrites() {
         writeTextEditsNow()
+        writeSettingsNow()
         writeOrder.withLock { }
     }
 
-    fun applyHistoryStep(rowChanges: List<DatabaseRowChange>, direction: HistoryDirection) {
-        if (rowChanges.isEmpty()) return
+    fun applyHistoryStep(rowChanges: List<DatabaseRowChange>, settingsChanges: List<DatabaseSettingsChange>, direction: HistoryDirection) {
+        if (rowChanges.isEmpty() && settingsChanges.isEmpty()) return
         writeInOrder {
-            repository.applyDatabaseRowChanges(rowChanges, direction)
-            rowChanges.map { it.rowNoteId }.distinct().forEach { rememberRowWasWritten(it) }
+            if (rowChanges.isNotEmpty()) {
+                repository.applyDatabaseRowChanges(rowChanges, direction)
+                rowChanges.map { it.rowNoteId }.distinct().forEach { rememberRowWasWritten(it) }
+            }
+            val now = System.currentTimeMillis()
+            val settingsChangesInApplyOrder = if (direction == HistoryDirection.UNDO) settingsChanges.asReversed() else settingsChanges
+            settingsChangesInApplyOrder.forEach { change ->
+                val wasWritten = repository.changeDatabaseSettings(change.databaseId) { saved -> change.settingsToWrite(direction, saved, now) }
+                if (wasWritten && change.before.title != change.after.title) databaseIdsWithRenamesToIndex += change.databaseId
+            }
             _historyStepsApplied.value++
         }
     }
@@ -584,6 +665,7 @@ class DatabaseBlockEditor(
 
     fun finishWhenEditorCloses() {
         writeTextEditsNow()
+        writeSettingsNow()
         writeInOrder { indexChangedRows() }
     }
 
@@ -616,6 +698,27 @@ class DatabaseBlockEditor(
                     rememberRowWasWritten(edit.rowNoteId)
                     host.recordDatabaseRowStep(listOf(change), typingKey = edit.typingKey, historyGeneration = historyGeneration)
                 }
+            }
+        }
+    }
+
+    private fun writeSettingsNow() {
+        settingsWritesJob?.cancel()
+        settingsWritesJob = null
+        if (databaseIdsOfSettingsToWrite.isEmpty()) return
+        val databaseIds = databaseIdsOfSettingsToWrite.toList()
+        databaseIdsOfSettingsToWrite.clear()
+        writeInOrder {
+            databaseIds.forEach { databaseId ->
+                val settings = unsavedSettings.value[databaseId] ?: return@forEach
+                val now = System.currentTimeMillis()
+                var titleBeforeWrite: String? = null
+                val wasWritten = repository.changeDatabaseSettings(databaseId) { saved ->
+                    titleBeforeWrite = saved.title
+                    saved.withEditsFrom(settings, now)
+                }
+                if (!wasWritten) unsavedSettings.update { if (it[databaseId] === settings) it - databaseId else it }
+                if (wasWritten && titleBeforeWrite != settings.title) databaseIdsWithRenamesToIndex += databaseId
             }
         }
     }
@@ -660,6 +763,9 @@ class DatabaseBlockEditor(
     }
 
     private suspend fun indexChangedRows() {
+        val renamedDatabaseIds = databaseIdsWithRenamesToIndex.toList()
+        databaseIdsWithRenamesToIndex.clear()
+        renamedDatabaseIds.forEach { databaseId -> repository.indexNotesShowingDatabase(databaseId) }
         val rowNoteIds = rowNoteIdsToIndex.toList()
         rowNoteIdsToIndex.clear()
         rowNoteIds.forEach { rowNoteId ->

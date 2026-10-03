@@ -2,7 +2,6 @@ package com.emberr.domain.database
 
 import com.emberr.data.local.room.dao.BlockDao
 import com.emberr.data.local.room.dao.NoteDao
-import com.emberr.domain.canvas.EmbeddedCanvasCleanup.DELETED_BLOCK_GRACE_PERIOD_MILLIS
 import com.emberr.domain.media.LocalMediaGcLog
 import com.emberr.domain.model.DatabaseBlock
 import com.emberr.domain.model.NoteBlock
@@ -13,15 +12,15 @@ import kotlinx.serialization.json.Json
 
 object DatabaseRowCleanup {
     const val DATABASE_BLOCK_JSON_MARKER = "\"type\":\"database\""
-    const val DELETED_BLOCK_GRACE_PERIOD_MILLIS = 7L * 24 * 60 * 60 * 1000
+    const val DELETED_BLOCK_GRACE_PERIOD_MILLIS = 30L * 24 * 60 * 60 * 1000
 
     fun databasesToDeleteAtLaunch(
-        databaseIdsWithRows: Set<String>,
+        knownDatabaseIds: Set<String>,
         databaseBlocks: List<DatabaseBlock>,
         now: Long
     ): Set<String> {
-        val blocksByDatabaseId = databaseBlocks.groupBy { it.databaseId }
-        return databaseIdsWithRows.filterTo(HashSet()) { databaseId ->
+        val blocksByDatabaseId = databaseBlocks.filterNot { it.holdsSharedSettings }.groupBy { it.databaseId }
+        return knownDatabaseIds.filterTo(HashSet()) { databaseId ->
             val blocksShowingDatabase = blocksByDatabaseId[databaseId].orEmpty()
             blocksShowingDatabase.isNotEmpty() && blocksShowingDatabase.all { block ->
                 block.isDeleted && now - block.updatedAt >= DELETED_BLOCK_GRACE_PERIOD_MILLIS
@@ -29,8 +28,14 @@ object DatabaseRowCleanup {
         }
     }
 
+    fun databasesNoBlockMentions(candidateDatabaseIds: Set<String>, databaseBlocks: List<DatabaseBlock>): Set<String> =
+        candidateDatabaseIds - databaseBlocks.filterNot { it.holdsSharedSettings }.mapTo(HashSet()) { it.databaseId }
+
+    fun isUntouchedLongEnoughToDeleteWhenEmpty(lastEditedAt: Long, now: Long): Boolean =
+        now - lastEditedAt >= DELETED_BLOCK_GRACE_PERIOD_MILLIS
+
     fun databasesNoLiveBlockUses(candidateDatabaseIds: Set<String>, databaseBlocks: List<DatabaseBlock>): Set<String> {
-        val usedDatabaseIds = databaseBlocks.filter { !it.isDeleted }.mapTo(HashSet()) { it.databaseId }
+        val usedDatabaseIds = databaseBlocks.filter { !it.isDeleted && !it.holdsSharedSettings }.mapTo(HashSet()) { it.databaseId }
         return candidateDatabaseIds - usedDatabaseIds
     }
 }
@@ -44,17 +49,20 @@ class DatabaseRowCleaner(
 
     suspend fun deleteRowsOfRemovedDatabases() = withContext(Dispatchers.IO) {
         try {
-            val databaseIdsWithRows = noteDao.getDatabaseIdsThatHaveRows().toSet()
-            if (databaseIdsWithRows.isEmpty()) return@withContext
-
             val databaseBlocks = blockDao.findBlocksContainingIncludingDeleted(DatabaseRowCleanup.DATABASE_BLOCK_JSON_MARKER)
                 .mapNotNull { entity ->
                     runCatching { blockJson.decodeFromString<NoteBlock>(entity.blockDataJson) }.getOrNull() as? DatabaseBlock
                 }
+            val databaseIdsWithSettings = databaseBlocks.filter { it.holdsSharedSettings }.mapTo(HashSet()) { it.databaseId }
+            val databaseIdsWithRows = noteDao.getDatabaseIdsThatHaveRows().toSet()
+            val knownDatabaseIds = databaseIdsWithRows + databaseIdsWithSettings
+            if (knownDatabaseIds.isEmpty()) return@withContext
+            val now = System.currentTimeMillis()
+
             val databaseIdsToDelete = DatabaseRowCleanup.databasesToDeleteAtLaunch(
-                databaseIdsWithRows = databaseIdsWithRows,
+                knownDatabaseIds = knownDatabaseIds,
                 databaseBlocks = databaseBlocks,
-                now = System.currentTimeMillis()
+                now = now
             )
 
             var deletedRowCount = 0
@@ -63,8 +71,19 @@ class DatabaseRowCleaner(
                     noteRepository.deleteNote(rowNote.noteId, "")
                     deletedRowCount++
                 }
+                if (noteDao.getNoteById(databaseNoteId(databaseId)) != null) noteRepository.deleteNote(databaseNoteId(databaseId), "")
             }
-            LocalMediaGcLog.d("deleteRowsOfRemovedDatabases: deleted $deletedRowCount row(s) of ${databaseIdsToDelete.size} database(s)")
+
+            val abandonedEmptyDatabaseIds = DatabaseRowCleanup.databasesNoBlockMentions(databaseIdsWithSettings - databaseIdsWithRows, databaseBlocks)
+                .filter { databaseId ->
+                    val databaseNote = noteDao.getNoteById(databaseNoteId(databaseId))
+                    databaseNote != null && DatabaseRowCleanup.isUntouchedLongEnoughToDeleteWhenEmpty(databaseNote.updatedAt, now)
+                }
+            abandonedEmptyDatabaseIds.forEach { databaseId -> noteRepository.deleteNote(databaseNoteId(databaseId), "") }
+            LocalMediaGcLog.d(
+                "deleteRowsOfRemovedDatabases: deleted $deletedRowCount row(s) of ${databaseIdsToDelete.size} database(s) " +
+                    "and ${abandonedEmptyDatabaseIds.size} abandoned empty database(s)"
+            )
         } catch (e: Exception) {
             LocalMediaGcLog.e("deleteRowsOfRemovedDatabases: failed with ${e::class.simpleName}: ${e.message}", e)
         }

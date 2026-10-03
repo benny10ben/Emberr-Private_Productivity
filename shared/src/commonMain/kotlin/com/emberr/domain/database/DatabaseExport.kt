@@ -40,7 +40,8 @@ fun DatabaseBlock.asExportBlocks(rows: List<DatabaseRow>): List<NoteBlock> {
 suspend fun List<NoteBlock>.withDatabasesAsTables(repository: NoteRepository): List<NoteBlock> =
     flatMap { block ->
         if (block is DatabaseBlock && !block.isDeleted) {
-            block.asExportBlocks(repository.observeDatabaseRows(block.databaseId).first())
+            val settings = repository.observeDatabaseSettings(block.databaseId).first() ?: return@flatMap emptyList()
+            block.withSharedSettingsFrom(settings).asExportBlocks(repository.observeDatabaseRows(block.databaseId).first())
         } else {
             listOf(block)
         }

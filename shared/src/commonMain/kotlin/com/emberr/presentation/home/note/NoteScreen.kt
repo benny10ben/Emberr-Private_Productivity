@@ -221,6 +221,7 @@ fun NoteScreen(
         .getOrDefault(SubNoteOpenMode.SIDE_PANEL)
     var showNoteLinkMenu by remember { mutableStateOf(false) }
     var showCanvasLinkMenu by remember { mutableStateOf(false) }
+    var showDatabaseLinkMenu by remember { mutableStateOf(false) }
     var eventOptionsTargetBlockId by remember { mutableStateOf<String?>(null) }
     var eventOptionsOccurrenceDate by remember { mutableStateOf<String?>(null) }
 
@@ -406,6 +407,7 @@ fun NoteScreen(
                 when (type) {
                     "linked_note" -> showNoteLinkMenu = true
                     "linked_canvas" -> showCanvasLinkMenu = true
+                    "linked_database" -> showDatabaseLinkMenu = true
                     else -> viewModel.insertNewMediaBlock(type)
                 }
             }
@@ -414,6 +416,9 @@ fun NoteScreen(
             override fun onInsertCanvasBlock(canvasNoteId: String) =
                 viewModel.insertNewMediaBlock("canvas", canvasNoteId = canvasNoteId)
             override suspend fun getLinkableCanvases() = viewModel.getLinkableCanvases()
+            override fun onInsertLinkedDatabaseBlock(databaseId: String) =
+                viewModel.insertNewMediaBlock("linked_database", databaseId = databaseId)
+            override suspend fun getLinkableDatabases() = viewModel.getLinkableDatabases()
             override fun onOutsideTap() {}
             override fun onVoiceRecorded(id: String, filePath: String, duration: Int) = viewModel.handleVoiceRecorded(id, filePath, duration)
             override fun onRemoveVoice(id: String) = viewModel.handleRemoveVoice(id)
@@ -526,6 +531,8 @@ fun NoteScreen(
                     onDismissNoteLinkMenu = { showNoteLinkMenu = false },
                     showCanvasLinkMenu = showCanvasLinkMenu,
                     onDismissCanvasLinkMenu = { showCanvasLinkMenu = false },
+                    showDatabaseLinkMenu = showDatabaseLinkMenu,
+                    onDismissDatabaseLinkMenu = { showDatabaseLinkMenu = false },
                     onMentionQueryChange = { newQuery ->
                         mentionQuery = newQuery
                         if (!isDesktopPlatform) {
@@ -614,6 +621,8 @@ fun NoteScreen(
                         },
                         onCanvasLinkSelected = { canvasNoteId -> editorActions.onInsertCanvasBlock(canvasNoteId) },
                         loadLinkableCanvases = { editorActions.getLinkableCanvases() },
+                        onDatabaseLinkSelected = { databaseId -> editorActions.onInsertLinkedDatabaseBlock(databaseId) },
+                        loadLinkableDatabases = { editorActions.getLinkableDatabases() },
                         onSelectCurrentBlock = {
                             GlobalEditorState.currentlyFocusedBlockId?.let { id ->
                                 editorActions.onToggleSelection(id)

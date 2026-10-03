@@ -554,6 +554,7 @@ fun NoteBlock.withCustomPropertyRemoved(customPropertyId: String, now: Long): No
 data class DatabaseBlock(
     override val id: String,
     val databaseId: String,
+    val isLinkedDatabase: Boolean = false,
     val title: String = "",
     val columns: List<DatabaseColumnTarget> = emptyList(),
     val notesColumnAfterKey: String? = null,

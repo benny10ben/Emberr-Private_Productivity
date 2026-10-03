@@ -89,6 +89,7 @@ fun DailyEditorPane(
     val pendingRecurringDeletion by viewModel.pendingRecurringDeletion.collectAsState()
     var showNoteLinkMenu by remember { mutableStateOf(false) }
     var showCanvasLinkMenu by remember { mutableStateOf(false) }
+    var showDatabaseLinkMenu by remember { mutableStateOf(false) }
 
     val isSelectionMode = selectedBlockIds.isNotEmpty()
     val selectedBlocksList = blocks.filter { it.id in selectedBlockIds }
@@ -183,6 +184,7 @@ fun DailyEditorPane(
                 when (type) {
                     "linked_note" -> showNoteLinkMenu = true
                     "linked_canvas" -> showCanvasLinkMenu = true
+                    "linked_database" -> showDatabaseLinkMenu = true
                     else -> viewModel.insertNewMediaBlock(type)
                 }
             }
@@ -191,6 +193,9 @@ fun DailyEditorPane(
             override fun onInsertCanvasBlock(canvasNoteId: String) =
                 viewModel.insertNewMediaBlock("canvas", canvasNoteId = canvasNoteId)
             override suspend fun getLinkableCanvases() = viewModel.getLinkableCanvases()
+            override fun onInsertLinkedDatabaseBlock(databaseId: String) =
+                viewModel.insertNewMediaBlock("linked_database", databaseId = databaseId)
+            override suspend fun getLinkableDatabases() = viewModel.getLinkableDatabases()
             override fun onOutsideTap() {}
             override fun onVoiceRecorded(id: String, filePath: String, duration: Int) = viewModel.handleVoiceRecorded(id, filePath, duration)
             override fun onRemoveVoice(id: String) = viewModel.handleRemoveVoice(id)
@@ -298,6 +303,8 @@ fun DailyEditorPane(
             onDismissNoteLinkMenu = { showNoteLinkMenu = false },
             showCanvasLinkMenu = showCanvasLinkMenu,
             onDismissCanvasLinkMenu = { showCanvasLinkMenu = false },
+            showDatabaseLinkMenu = showDatabaseLinkMenu,
+            onDismissDatabaseLinkMenu = { showDatabaseLinkMenu = false },
             onMentionQueryChange = { newQuery ->
                 mentionQuery = newQuery
                 if (!isDesktopPlatform) {
@@ -376,6 +383,8 @@ fun DailyEditorPane(
                 },
                 onCanvasLinkSelected = { canvasNoteId -> actions.onInsertCanvasBlock(canvasNoteId) },
                 loadLinkableCanvases = { actions.getLinkableCanvases() },
+                onDatabaseLinkSelected = { databaseId -> actions.onInsertLinkedDatabaseBlock(databaseId) },
+                loadLinkableDatabases = { actions.getLinkableDatabases() },
                 onSelectCurrentBlock = {
                     GlobalEditorState.currentlyFocusedBlockId?.let { id ->
                         actions.onToggleSelection(id)

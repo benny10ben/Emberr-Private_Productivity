@@ -6,6 +6,7 @@ import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import com.emberr.data.local.prefs.SettingsManager
 import com.emberr.data.local.room.AppDatabase
 import com.emberr.data.local.room.entity.DEFAULT_SPACE_ID
+import com.emberr.data.local.room.entity.NoteKind
 import com.emberr.data.local.room.entity.NoteMetadataEntity
 import com.emberr.database.EmberrDatabase
 import com.emberr.domain.ai.LocalAiEngine
@@ -14,9 +15,13 @@ import com.emberr.domain.ai.external.AiSettingsRepository
 import com.emberr.domain.database.DatabaseCellPreset
 import com.emberr.domain.database.DatabaseRow
 import com.emberr.domain.database.HistoryDirection
+import com.emberr.domain.database.LinkableDatabase
+import com.emberr.domain.database.databaseNoteId
+import com.emberr.domain.database.databaseSettingsBlockId
 import com.emberr.domain.database.RepeatedRowToCreate
 import com.emberr.domain.database.databaseCellBlockId
 import com.emberr.domain.database.repeatedRowNoteId
+import com.emberr.domain.model.CanvasBlock
 import com.emberr.domain.model.DatabaseBlock
 import com.emberr.domain.model.DatabaseColumnTarget
 import com.emberr.domain.model.NoteBlock
@@ -33,6 +38,7 @@ import java.lang.reflect.Proxy
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -79,6 +85,7 @@ class NoteRepositoryDatabaseRowsTest {
     private val statusColumn = DatabaseColumnTarget.Property(PropertyType.STATUS)
     private val days = DatabaseBlock(id = "days-block", databaseId = "days", title = "Days", columns = listOf(nameColumn), updatedAt = 1L)
     private val daysWithStatus = days.copy(columns = listOf(nameColumn, statusColumn))
+    private val linkedDays = DatabaseBlock(id = "linked-days-block", databaseId = "days", isLinkedDatabase = true, updatedAt = 1L)
 
     @AfterTest
     fun closeDatabases() {
@@ -516,5 +523,185 @@ class NoteRepositoryDatabaseRowsTest {
 
         assertEquals("green", chosenColor)
         assertNull(repository.getPropertyTags("STATUS").first().single().colorName)
+    }
+
+    private suspend fun settingsOf(databaseId: String): DatabaseBlock? = repository.observeDatabaseSettings(databaseId).first()
+
+    @Test
+    fun aNewDatabaseGetsAHiddenNoteForItsSharedSettings() = runTest {
+        repository.createDatabase("films")
+
+        val databaseNote = repository.getNoteById(databaseNoteId("films"))
+
+        assertEquals(NoteKind.DATABASE, databaseNote?.kind)
+        assertEquals(true, databaseNote?.isSubNote)
+        assertEquals(databaseSettingsBlockId("films"), settingsOf("films")?.id)
+    }
+
+    @Test
+    fun aDatabaseFromBeforeTheHiddenNoteGetsOneWithTheSettingsItHad() = runTest {
+        saveNote(note("week-plan", "Week plan"), days)
+
+        val settings = settingsOf("days")
+
+        assertEquals("Days", settings?.title)
+        assertEquals(listOf(nameColumn), settings?.columns)
+        assertEquals(databaseSettingsBlockId("days"), settings?.id)
+    }
+
+    @Test
+    fun movingTheSettingsOutOfOldDatabasesHappensOnceForEveryDatabase() = runTest {
+        saveNote(note("week-plan", "Week plan"), days)
+        saveNote(note("dashboard", "Dashboard"), linkedDays)
+
+        repository.createMissingDatabaseNotes()
+        repository.createMissingDatabaseNotes()
+
+        assertEquals("Days", settingsOf("days")?.title)
+        assertEquals(listOf(databaseSettingsBlockId("days")), repository.getNoteContent(databaseNoteId("days"))?.blocks?.map { it.id })
+    }
+
+    @Test
+    fun changingTheSharedSettingsSavesThemInTheHiddenNote() = runTest {
+        repository.createDatabase("films")
+        waitForTheClockToTick()
+
+        val wasChanged = repository.changeDatabaseSettings("films") { it.copy(title = "Films", updatedAt = 5L) }
+        val wasChangedAgain = repository.changeDatabaseSettings("films") { it }
+
+        assertTrue(wasChanged)
+        assertFalse(wasChangedAgain)
+        assertEquals("Films", settingsOf("films")?.title)
+        assertEquals("Films", repository.getNoteById(databaseNoteId("films"))?.title)
+    }
+
+    @Test
+    fun theHiddenDatabaseNoteNeverShowsUpInSearchOrTheLinkToNoteList() = runTest {
+        repository.createDatabase("films")
+        repository.changeDatabaseSettings("films") { it.copy(title = "Films", updatedAt = 5L) }
+
+        val titleResults = repository.searchNoteTitlesAndSnippets("Films")
+        val contentResults = repository.searchNotes("Films")
+        val linkableNotes = repository.getAllLinkableNotes().first()
+
+        assertEquals(emptyList(), titleResults)
+        assertEquals(emptyList(), contentResults)
+        assertTrue(linkableNotes.none { it.noteId == databaseNoteId("films") })
+    }
+
+    @Test
+    fun searchingADatabasesTitleFindsEveryLiveNoteThatShowsIt() = runTest {
+        saveNote(note("week-plan", "Week plan"), days)
+        saveNote(note("dashboard", "Dashboard"), linkedDays)
+        saveNote(note("old", "Old", trashedAt = 5L), linkedDays.copy(id = "trashed-view"))
+        repository.createMissingDatabaseNotes()
+
+        val results = repository.searchNotes("Days")
+
+        assertEquals(setOf("week-plan", "dashboard"), results.map { it.note.noteId }.toSet())
+        assertTrue(results.all { it.matchedText == "Days" })
+    }
+
+    @Test
+    fun onlyDatabasesShownInLiveNotesCanBeLinked() = runTest {
+        saveNote(note("week-plan", "Week plan"), days)
+        repository.createMissingDatabaseNotes()
+        saveNote(note("old", "Old", trashedAt = 5L), days.copy(id = "trashed-block", databaseId = "trashed-days"))
+        saveNote(note("template", "Week template", isTemplate = true), days.copy(id = "template-block", databaseId = "template-days"))
+
+        val linkable = repository.getLinkableDatabases()
+
+        assertEquals(listOf(LinkableDatabase(databaseId = "days", title = "Days", noteTitle = "Week plan")), linkable)
+    }
+
+    @Test
+    fun copyingALinkedDatabaseKeepsItShowingTheSameRows() = runTest {
+        saveRow("monday", "days", title = "Monday", name = "Gym")
+
+        val copiedLink = repository.copyDatabasesIn(NoteContent(blocks = listOf(linkedDays))).blocks.single() as DatabaseBlock
+
+        assertEquals(linkedDays, copiedLink)
+        assertEquals(listOf("monday"), rowsOf("days").map { it.noteId })
+    }
+
+    @Test
+    fun copyingADatabaseCopiesItsRowsAndItsSharedSettings() = runTest {
+        saveNote(note("template", "Week template", isTemplate = true), days)
+        saveRow("monday", "days", title = "Monday", name = "Gym")
+
+        val copiedBlocks = repository.copyDatabasesIn(NoteContent(blocks = listOf(linkedDays, days))).blocks.map { it as DatabaseBlock }
+        val (copiedLink, copiedView) = copiedBlocks
+
+        assertNotEquals("days", copiedView.databaseId)
+        assertEquals(copiedView.databaseId, copiedLink.databaseId)
+        assertEquals(listOf("Monday"), rowsOf(copiedView.databaseId).map { it.title })
+        assertEquals("Days", settingsOf(copiedView.databaseId)?.title)
+    }
+
+    @Test
+    fun deletingTheNoteOfTheFirstViewKeepsTheDatabaseWhileALinkStillShowsIt() = runTest {
+        saveNote(note("week-plan", "Week plan"), days)
+        saveNote(note("dashboard", "Dashboard"), linkedDays)
+        saveRow("monday", "days", title = "Monday", name = "Gym")
+        repository.createMissingDatabaseNotes()
+
+        repository.deleteNote("week-plan", "")
+
+        assertEquals(listOf("monday"), rowsOf("days").map { it.noteId })
+        assertEquals("Days", settingsOf("days")?.title)
+        assertEquals(listOf(databaseSettingsBlockId("days")), repository.getNoteContent(databaseNoteId("days"))?.blocks?.map { it.id })
+    }
+
+    @Test
+    fun deletingTheLastNoteThatShowsADatabaseKeepsItsDataForNowAndParksTheViewAsDeleted() = runTest {
+        saveNote(note("week-plan", "Week plan"), days)
+        saveRow("monday", "days", title = "Monday", name = "Gym")
+        repository.createMissingDatabaseNotes()
+
+        repository.deleteNote("week-plan", "")
+        val parkedView = repository.getNoteContent(databaseNoteId("days"))?.blocks?.firstOrNull { it.id == days.id }
+
+        assertEquals(listOf("monday"), rowsOf("days").map { it.noteId })
+        assertEquals("Days", settingsOf("days")?.title)
+        assertEquals(true, parkedView?.isDeleted)
+        assertTrue((parkedView?.updatedAt ?: 0L) > days.updatedAt)
+    }
+
+    @Test
+    fun aParkedViewDoesNotCountAsShowingTheDatabase() = runTest {
+        saveNote(note("week-plan", "Week plan"), days)
+        repository.createMissingDatabaseNotes()
+        repository.deleteNote("week-plan", "")
+
+        assertEquals(emptyList(), repository.getLinkableDatabases())
+    }
+
+    private fun embeddedCanvasNote(canvasNoteId: String) = note(canvasNoteId, "").copy(isSubNote = true, kind = NoteKind.CANVAS)
+
+    private fun canvasBlock(id: String, canvasNoteId: String) = CanvasBlock(id = id, canvasNoteId = canvasNoteId, updatedAt = 1L)
+
+    @Test
+    fun deletingTheLastNoteThatShowsAnEmbeddedCanvasKeepsItForNowAndParksTheBlockAsDeleted() = runTest {
+        saveNote(embeddedCanvasNote("canvas-1"))
+        saveNote(note("sketches", "Sketches"), canvasBlock("canvas-block", "canvas-1"))
+
+        repository.deleteNote("sketches", "")
+        val parkedBlock = repository.getNoteContent("canvas-1")?.blocks?.singleOrNull()
+
+        assertTrue(repository.getNoteById("canvas-1") != null)
+        assertEquals("canvas-block", parkedBlock?.id)
+        assertEquals(true, parkedBlock?.isDeleted)
+    }
+
+    @Test
+    fun deletingANoteWhileAnotherNoteStillShowsTheCanvasLeavesTheCanvasAlone() = runTest {
+        saveNote(embeddedCanvasNote("canvas-1"))
+        saveNote(note("sketches", "Sketches"), canvasBlock("canvas-block", "canvas-1"))
+        saveNote(note("board", "Board"), canvasBlock("other-canvas-block", "canvas-1"))
+
+        repository.deleteNote("sketches", "")
+
+        assertTrue(repository.getNoteById("canvas-1") != null)
+        assertEquals(emptyList(), repository.getNoteContent("canvas-1")?.blocks.orEmpty())
     }
 }

@@ -8,6 +8,7 @@ import com.emberr.domain.model.BulletedListBlock
 import com.emberr.domain.model.CanvasBlock
 import com.emberr.domain.model.CheckboxBlock
 import com.emberr.domain.model.CodeBlock
+import com.emberr.domain.database.holdsSharedSettings
 import com.emberr.domain.model.DatabaseBlock
 import com.emberr.domain.model.DatabaseColumnTarget
 import com.emberr.domain.model.labelOf
@@ -325,6 +326,15 @@ object NoteMarkdownWriter {
 
     private fun renderDatabase(block: DatabaseBlock, tag: String?, options: RenderOptions): String {
         if (!options.isVault) return ""
+        if (!block.holdsSharedSettings) {
+            val viewFence = buildString {
+                appendLine("```${VaultFormat.DATABASE_FENCE_NAME}")
+                appendLine("database: ${block.databaseId}")
+                if (block.isLinkedDatabase) appendLine("linked: true")
+                append("```")
+            }
+            return withTagOnItsOwnLine(viewFence, tag)
+        }
         val columnNames = block.columns.joinToString(", ") { column ->
             if (column is DatabaseColumnTarget.Property) column.propertyType.name.lowercase() else flattenLineBreaks(block.labelOf(column))
         }

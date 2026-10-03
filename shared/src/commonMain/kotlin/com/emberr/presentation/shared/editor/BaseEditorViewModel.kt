@@ -10,7 +10,12 @@ import com.emberr.data.local.room.entity.NoteKind
 import com.emberr.data.local.room.entity.NoteMetadataEntity
 import com.emberr.domain.database.DatabaseRowChange
 import com.emberr.domain.database.HistoryDirection
+import com.emberr.domain.database.DatabaseSettingsChange
+import com.emberr.domain.database.LinkableDatabase
+import com.emberr.domain.database.changedThroughView
+import com.emberr.domain.database.combinedWith
 import com.emberr.domain.database.mergedWith
+import com.emberr.domain.database.withSharedSettingsFrom
 import com.emberr.domain.database.withActiveView
 import com.emberr.domain.database.withSettingTimesStamped
 import com.emberr.domain.model.*
@@ -420,7 +425,8 @@ abstract class BaseEditorViewModel(
         val before: List<NoteBlock>,
         val after: List<NoteBlock>,
         val coalescingKey: String?,
-        val databaseRowChanges: List<DatabaseRowChange> = emptyList()
+        val databaseRowChanges: List<DatabaseRowChange> = emptyList(),
+        val databaseSettingsChanges: List<DatabaseSettingsChange> = emptyList()
     )
 
     private val undoStack = ArrayDeque<HistoryEntry>()
@@ -556,7 +562,7 @@ abstract class BaseEditorViewModel(
             applyHistory(entry, restoreBefore = true)
             focusHistoryTarget(entry, restoreBefore = true)
         }
-        databaseBlockEditor.applyHistoryStep(entry.databaseRowChanges, HistoryDirection.UNDO)
+        databaseBlockEditor.applyHistoryStep(entry.databaseRowChanges, entry.databaseSettingsChanges, HistoryDirection.UNDO)
         redoStack.addLast(entry)
         historyCoalescingSealed = true
         updateHistoryFlags()
@@ -569,26 +575,28 @@ abstract class BaseEditorViewModel(
             applyHistory(entry, restoreBefore = false)
             focusHistoryTarget(entry, restoreBefore = false)
         }
-        databaseBlockEditor.applyHistoryStep(entry.databaseRowChanges, HistoryDirection.REDO)
+        databaseBlockEditor.applyHistoryStep(entry.databaseRowChanges, entry.databaseSettingsChanges, HistoryDirection.REDO)
         undoStack.addLast(entry)
         historyCoalescingSealed = true
         updateHistoryFlags()
         scheduleAutosave()
     }
 
-    private val databaseBlockHost = object : DatabaseBlockHost {
+    private val databaseBlockHost: DatabaseBlockHost = object : DatabaseBlockHost {
         override val historyGeneration: Int
             get() = this@BaseEditorViewModel.historyGeneration
 
-        override fun findDatabaseBlock(blockId: String): DatabaseBlock? =
-            _blocks.value.firstOrNull { it.id == blockId && !it.isDeleted } as? DatabaseBlock
+        override val blocks: StateFlow<List<NoteBlock>>
+            get() = _blocks
+
+        override fun findDatabaseBlock(blockId: String): DatabaseBlock? {
+            val viewBlock = databaseViewBlock(blockId) ?: return null
+            val settings = databaseBlockEditor.settingsOf(viewBlock.databaseId) ?: return null
+            return viewBlock.withSharedSettingsFrom(settings)
+        }
 
         override fun changeDatabaseBlock(blockId: String, change: (DatabaseBlock) -> DatabaseBlock) {
-            val now = System.currentTimeMillis()
-            modifyBlocks { list ->
-                mapBlockById(list, blockId) { if (it is DatabaseBlock) it.changedBy(change, now) else it }
-            }
-            scheduleAutosave()
+            changeDatabaseThroughView(blockId, change, rowChanges = emptyList(), now = System.currentTimeMillis())
         }
 
         override fun showDatabaseView(blockId: String, viewId: String) {
@@ -623,18 +631,7 @@ abstract class BaseEditorViewModel(
             change: (DatabaseBlock) -> DatabaseBlock
         ) {
             if (historyGeneration != this@BaseEditorViewModel.historyGeneration) return
-            val now = System.currentTimeMillis()
-            val blocksBefore = _blocks.value
-            isRecordingDatabaseStepByHand = true
-            modifyBlocks { list ->
-                mapBlockById(list, blockId) { if (it is DatabaseBlock) it.changedBy(change, now) else it }
-            }
-            isRecordingDatabaseStepByHand = false
-            val blocksAfter = _blocks.value
-            if (blocksAfter != blocksBefore || rowChanges.isNotEmpty()) {
-                pushHistoryEntry(HistoryEntry(blocksBefore, blocksAfter, coalescingKey = null, databaseRowChanges = rowChanges))
-            }
-            scheduleAutosave()
+            changeDatabaseThroughView(blockId, change, rowChanges, now = System.currentTimeMillis())
         }
 
         override fun recordDatabaseRowStep(rowChanges: List<DatabaseRowChange>, typingKey: String?, historyGeneration: Int) {
@@ -656,12 +653,83 @@ abstract class BaseEditorViewModel(
         }
     }
 
-    val databaseBlockEditor = DatabaseBlockEditor(repository, appScope, databaseBlockHost)
+    val databaseBlockEditor: DatabaseBlockEditor = DatabaseBlockEditor(repository, appScope, databaseBlockHost)
 
-    private fun DatabaseBlock.changedBy(change: (DatabaseBlock) -> DatabaseBlock, now: Long): DatabaseBlock {
-        val changedBlock = change(this)
-        return if (changedBlock == this) this else changedBlock.copy(updatedAt = now).withSettingTimesStamped(before = this, now)
+    init {
+        viewModelScope.launch { databaseBlockEditor.keepDatabaseSettingsUpdated() }
     }
+
+    private fun DatabaseBlock.changedTo(changedBlock: DatabaseBlock, now: Long): DatabaseBlock =
+        if (changedBlock == this) this else changedBlock.copy(updatedAt = now).withSettingTimesStamped(before = this, now)
+
+    private fun databaseViewBlock(blockId: String): DatabaseBlock? =
+        _blocks.value.firstOrNull { it.id == blockId && !it.isDeleted } as? DatabaseBlock
+
+    private fun changeDatabaseThroughView(
+        blockId: String,
+        change: (DatabaseBlock) -> DatabaseBlock,
+        rowChanges: List<DatabaseRowChange>,
+        now: Long
+    ) {
+        val viewBlock = databaseViewBlock(blockId)
+        val settings = viewBlock?.let { databaseBlockEditor.settingsOf(it.databaseId) }
+        if (viewBlock == null || settings == null) {
+            if (rowChanges.isNotEmpty()) {
+                val currentBlocks = _blocks.value
+                pushHistoryEntry(HistoryEntry(currentBlocks, currentBlocks, coalescingKey = null, databaseRowChanges = rowChanges))
+            }
+            return
+        }
+        val viewChange = viewBlock.changedThroughView(settings, change)
+        val settingsAfter = settings.changedTo(viewChange.settings, now)
+        val settingsChanges = if (settingsAfter === settings) {
+            emptyList()
+        } else {
+            listOf(DatabaseSettingsChange(before = settings, after = settingsAfter))
+        }
+        fun withViewChanged(list: List<NoteBlock>): List<NoteBlock> =
+            mapBlockById(list, viewBlock.id) { if (it is DatabaseBlock) it.changedTo(viewChange.viewBlock, now) else it }
+
+        if (settingsChanges.isEmpty() && rowChanges.isEmpty()) {
+            modifyBlocks(::withViewChanged)
+            scheduleAutosave()
+            return
+        }
+
+        val blocksBefore = _blocks.value
+        isRecordingDatabaseStepByHand = true
+        modifyBlocks(::withViewChanged)
+        isRecordingDatabaseStepByHand = false
+        val blocksAfter = _blocks.value
+
+        val titleTypingKey = settingsChanges.singleOrNull()
+            ?.takeIf { it.changesOnlyTheTitle && blocksAfter === blocksBefore && rowChanges.isEmpty() }
+            ?.let { "database-title:${viewBlock.databaseId}" }
+        if (settingsChanges.isNotEmpty()) {
+            databaseBlockEditor.saveSettings(settingsAfter, waitsForMoreTyping = titleTypingKey != null)
+        }
+
+        val top = undoStack.lastOrNull()
+        if (titleTypingKey != null && !historyCoalescingSealed && top != null && top.coalescingKey == titleTypingKey) {
+            redoStack.clear()
+            undoStack[undoStack.lastIndex] = top.copy(databaseSettingsChanges = top.databaseSettingsChanges.combinedWith(settingsChanges))
+            updateHistoryFlags()
+        } else {
+            pushHistoryEntry(
+                HistoryEntry(
+                    before = blocksBefore,
+                    after = blocksAfter,
+                    coalescingKey = titleTypingKey,
+                    databaseRowChanges = rowChanges,
+                    databaseSettingsChanges = settingsChanges
+                )
+            )
+        }
+        historyCoalescingSealed = titleTypingKey == null || settingsAfter.title.isEmpty() || settingsAfter.title.last().isWhitespace()
+        scheduleAutosave()
+    }
+
+    suspend fun getLinkableDatabases(): List<LinkableDatabase> = repository.getLinkableDatabases()
 
     private fun focusHistoryTarget(entry: HistoryEntry, restoreBefore: Boolean) {
         val changed = changedBlockIds(entry.before, entry.after)
@@ -1850,10 +1918,15 @@ abstract class BaseEditorViewModel(
     fun insertNewMediaBlock(
         type: String,
         linkedNoteId: String? = null,
-        canvasNoteId: String? = null
+        canvasNoteId: String? = null,
+        databaseId: String? = null
     ) {
         if (type == "canvas" && canvasNoteId == null) {
             createEmbeddedCanvasThenInsertBlock()
+            return
+        }
+        if (type == "database" && databaseId == null) {
+            createDatabaseThenInsertBlock()
             return
         }
         val activeBlockId = currentlyFocusedBlockId ?: _focusRequest.value?.id ?: _selectedBlockIds.value.firstOrNull()
@@ -1879,13 +1952,21 @@ abstract class BaseEditorViewModel(
                 }
                 "voice" -> VoiceBlock(id = newId, indentationLevel = indent, isPinned = isPinnedContext, updatedAt = now)
                 "table" -> TableBlock(id = newId, indentationLevel = indent, isPinned = isPinnedContext, updatedAt = now)
-                "database" -> DatabaseBlock(
-                    id = newId,
-                    databaseId = UUID.randomUUID().toString(),
-                    indentationLevel = indent,
-                    isPinned = isPinnedContext,
-                    updatedAt = now
-                )
+                "database" -> {
+                    if (databaseId == null) return@modifyBlocks list
+                    DatabaseBlock(id = newId, databaseId = databaseId, indentationLevel = indent, isPinned = isPinnedContext, updatedAt = now)
+                }
+                "linked_database" -> {
+                    if (databaseId == null) return@modifyBlocks list
+                    DatabaseBlock(
+                        id = newId,
+                        databaseId = databaseId,
+                        isLinkedDatabase = true,
+                        indentationLevel = indent,
+                        isPinned = isPinnedContext,
+                        updatedAt = now
+                    )
+                }
                 "canvas" -> {
                     if (canvasNoteId == null) return@modifyBlocks list
                     CanvasBlock(id = newId, canvasNoteId = canvasNoteId, indentationLevel = indent, isPinned = isPinnedContext, updatedAt = now)
@@ -1963,6 +2044,21 @@ abstract class BaseEditorViewModel(
                 }
                 withContext(Dispatchers.Main) {
                     insertNewMediaBlock("canvas", canvasNoteId = canvasNoteId)
+                    flushPendingSave()
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    private fun createDatabaseThenInsertBlock() {
+        val databaseId = UUID.randomUUID().toString()
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                repository.createDatabase(databaseId)
+                withContext(Dispatchers.Main) {
+                    insertNewMediaBlock("database", databaseId = databaseId)
                     flushPendingSave()
                 }
             } catch (e: Exception) {

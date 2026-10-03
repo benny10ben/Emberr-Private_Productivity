@@ -3,6 +3,7 @@
 package com.emberr.domain.vault
 
 import com.emberr.data.local.room.entity.NoteMetadataEntity
+import com.emberr.domain.database.databaseSettingsBlockId
 import com.emberr.domain.model.BookmarkBlock
 import com.emberr.domain.model.BulletedListBlock
 import com.emberr.domain.model.CheckboxBlock
@@ -46,6 +47,7 @@ import kotlinx.datetime.TimeZone
 import com.emberr.domain.model.VoiceBlock
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 private const val LINKED_NOTE_ID = "note-2"
 private const val LINKED_NOTE_TITLE = "Other Note"
@@ -308,6 +310,40 @@ class NoteMarkdownRoundTripTest {
     }
 
     @Test
+    fun aDatabaseViewInANoteIsWrittenAsJustItsDatabaseId() {
+        val view = DatabaseBlock(id = "block-view", databaseId = "database-id-1", title = "Stale", updatedAt = 100L)
+
+        val markdown = NoteMarkdownWriter.writeNote(VaultNoteWriteRequest(metadata = noteMetadata(), blocks = listOf(view)))
+
+        assertTrue("```emberr-database\ndatabase: database-id-1\n```" in markdown, markdown)
+        assertEquals(listOf<NoteBlock>(view), readBack(markdown, listOf(view)).blocks)
+    }
+
+    @Test
+    fun aLinkedDatabaseIsWrittenAsALinkWithoutTheSharedTitleOrColumns() {
+        val linked = DatabaseBlock(id = "block-linked", databaseId = "database-id-1", isLinkedDatabase = true, updatedAt = 100L)
+
+        val markdown = NoteMarkdownWriter.writeNote(VaultNoteWriteRequest(metadata = noteMetadata(), blocks = listOf(linked)))
+
+        assertTrue("```emberr-database\ndatabase: database-id-1\nlinked: true\n```" in markdown, markdown)
+        assertEquals(listOf<NoteBlock>(linked), readBack(markdown, listOf(linked)).blocks)
+    }
+
+    @Test
+    fun aLinkedDatabaseFenceTypedInTheVaultBecomesALinkedDatabase() {
+        val markdown = NoteMarkdownWriter.writeNote(
+            VaultNoteWriteRequest(metadata = noteMetadata(), blocks = emptyList())
+        ) + "```emberr-database\ndatabase: database-id-9\nlinked: true\n```\n"
+
+        val blocks = readBack(markdown, emptyList()).blocks
+
+        assertEquals(
+            listOf<NoteBlock>(DatabaseBlock(id = "generated-0", databaseId = "database-id-9", isLinkedDatabase = true, updatedAt = 9_999L)),
+            blocks
+        )
+    }
+
+    @Test
     fun aDatabaseFenceWithoutADatabaseIdStaysACodeBlock() {
         val markdown = NoteMarkdownWriter.writeNote(
             VaultNoteWriteRequest(metadata = noteMetadata(), blocks = emptyList())
@@ -324,7 +360,7 @@ class NoteMarkdownRoundTripTest {
     @Test
     fun onlyTheTitleOfADatabaseCanBeChangedInTheVault() {
         val existing = DatabaseBlock(
-            id = "block-database",
+            id = databaseSettingsBlockId("database-id-1"),
             databaseId = "database-id-1",
             title = "Books",
             columns = listOf(DatabaseColumnTarget.Property(PropertyType.STATUS)),

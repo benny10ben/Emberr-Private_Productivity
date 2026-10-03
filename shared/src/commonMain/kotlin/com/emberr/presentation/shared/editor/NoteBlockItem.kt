@@ -164,6 +164,8 @@ fun NoteBlockItem(
     onDismissNoteLinkMenu: () -> Unit = {},
     showCanvasLinkMenu: Boolean = false,
     onDismissCanvasLinkMenu: () -> Unit = {},
+    showDatabaseLinkMenu: Boolean = false,
+    onDismissDatabaseLinkMenu: () -> Unit = {},
     isFirstToggleChild: Boolean = false,
     selectionRequest: SelectionRequest? = null,
     validNoteIds: Set<String> = emptySet(),
@@ -326,6 +328,7 @@ fun NoteBlockItem(
     val isSlashMenuActiveHere = isDesktopPlatform && isActiveBlock && showSlashMenu
     val isNoteLinkMenuActiveHere = isDesktopPlatform && isActiveBlock && showNoteLinkMenu
     val isCanvasLinkMenuActiveHere = isDesktopPlatform && isActiveBlock && showCanvasLinkMenu
+    val isDatabaseLinkMenuActiveHere = isDesktopPlatform && isActiveBlock && showDatabaseLinkMenu
 
     var isChoosingHighlightColor by remember { mutableStateOf(false) }
 
@@ -467,6 +470,18 @@ fun NoteBlockItem(
                 onCanvasSelected = { canvasNoteId ->
                     actions.onInsertCanvasBlock(canvasNoteId)
                     onDismissCanvasLinkMenu()
+                }
+            )
+        }
+
+        if (isDatabaseLinkMenuActiveHere) {
+            DatabaseLinkMenu(
+                expanded = true,
+                onDismissRequest = onDismissDatabaseLinkMenu,
+                loadDatabases = { actions.getLinkableDatabases() },
+                onDatabaseSelected = { databaseId ->
+                    actions.onInsertLinkedDatabaseBlock(databaseId)
+                    onDismissDatabaseLinkMenu()
                 }
             )
         }

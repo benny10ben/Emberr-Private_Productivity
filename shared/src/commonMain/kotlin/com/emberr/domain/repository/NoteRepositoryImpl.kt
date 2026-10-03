@@ -43,6 +43,15 @@ import com.emberr.domain.database.DatabaseRowCleanup
 import com.emberr.domain.database.RepeatedRowToCreate
 import com.emberr.domain.database.repeatedRowTitle
 import com.emberr.domain.database.HistoryDirection
+import com.emberr.domain.database.LinkableDatabase
+import com.emberr.domain.database.databaseNoteId
+import com.emberr.domain.database.databaseSettingsBlockId
+import com.emberr.domain.database.holdsSharedSettings
+import com.emberr.domain.database.keepsSharedSettingsInside
+import com.emberr.domain.database.newDatabaseSettings
+import com.emberr.domain.database.sharedSettingsCopiedTo
+import com.emberr.domain.database.sharedSettingsMovedOut
+import com.emberr.domain.database.withDatabaseTitles
 import com.emberr.domain.database.buildDatabaseRow
 import com.emberr.domain.database.copiedForRow
 import com.emberr.domain.database.databaseCellForEditing
@@ -100,12 +109,14 @@ import kotlinx.datetime.plus
 import kotlinx.datetime.toInstant
 import com.emberr.domain.sync.AutoSyncTrigger
 import com.emberr.domain.vault.VaultMirrorTrigger
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.transform
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
@@ -513,8 +524,10 @@ class NoteRepositoryImpl(
 
             val alreadyFoundIds = matchedIds + contentMatches.map { it.note.noteId }
             val canvasMatches = findCanvasTextMatches(spaceId, query).filterNot { it.note.noteId in alreadyFoundIds }
+            val alreadyFoundOrCanvasIds = alreadyFoundIds + canvasMatches.map { it.note.noteId }
+            val databaseMatches = findDatabaseTitleMatches(spaceId, query, contentMatchIds).filterNot { it.note.noteId in alreadyFoundOrCanvasIds }
 
-            (metadataResults + resolveSubNoteParents(contentMatches + canvasMatches)).sortedByDescending { it.note.updatedAt }
+            (metadataResults + resolveSubNoteParents(contentMatches + canvasMatches + databaseMatches)).sortedByDescending { it.note.updatedAt }
         }
 
     private suspend fun resolveSubNoteParents(results: List<NoteSearchResult>): List<NoteSearchResult> {
@@ -522,7 +535,7 @@ class NoteRepositoryImpl(
         val loadLiveParents: suspend (List<String>) -> List<NoteMetadataEntity> = { noteIds ->
             noteDao.getNotesByIds(noteIds).filter { it.trashedAt == null }
         }
-        val parentsByDatabaseId = parentsOf(DatabaseRowCleanup.DATABASE_BLOCK_JSON_MARKER, loadLiveParents) { (it as? DatabaseBlock)?.databaseId }
+        val parentsByDatabaseId = parentsOf(DatabaseRowCleanup.DATABASE_BLOCK_JSON_MARKER, loadLiveParents) { it.shownDatabaseIdOrNull() }
         val parentsByLinkedNoteId = parentsOf(LINKED_NOTE_BLOCK_JSON_MARKER, loadLiveParents) { (it as? LinkedNoteBlock)?.linkedNoteId }
         return results.withSubNoteParents(parentsByDatabaseId, parentsByLinkedNoteId)
     }
@@ -533,10 +546,12 @@ class NoteRepositoryImpl(
             val loadAnyParents: suspend (List<String>) -> List<NoteMetadataEntity> = { noteIds ->
                 noteDao.getNotesByIdsIncludingTemplates(noteIds)
             }
-            val parentsByDatabaseId = parentsOf(DatabaseRowCleanup.DATABASE_BLOCK_JSON_MARKER, loadAnyParents) { (it as? DatabaseBlock)?.databaseId }
+            val parentsByDatabaseId = parentsOf(DatabaseRowCleanup.DATABASE_BLOCK_JSON_MARKER, loadAnyParents) { it.shownDatabaseIdOrNull() }
             val parentsByLinkedNoteId = parentsOf(LINKED_NOTE_BLOCK_JSON_MARKER, loadAnyParents) { (it as? LinkedNoteBlock)?.linkedNoteId }
             notes.subNoteParentTitles(parentsByDatabaseId, parentsByLinkedNoteId)
         }
+
+    private fun NoteBlock.shownDatabaseIdOrNull(): String? = (this as? DatabaseBlock)?.takeUnless { it.holdsSharedSettings }?.databaseId
 
     private suspend fun parentsOf(
         blockJsonMarker: String,
@@ -569,6 +584,30 @@ class NoteRepositoryImpl(
         }
         return resultsByNoteId.values.toList()
     }
+
+    private suspend fun findDatabaseTitleMatches(spaceId: String, query: String, contentMatchIds: List<String>): List<NoteSearchResult> {
+        val resultsByNoteId = LinkedHashMap<String, NoteSearchResult>()
+        for (databaseNote in noteDao.getNotesByIdsIncludingTemplates(contentMatchIds).filter { it.kind == NoteKind.DATABASE }) {
+            val settings = blockDao.findMatchingBlocksForNote(databaseNote.noteId, query)
+                .firstNotNullOfOrNull { entity -> (decodeBlockOrNull(entity.blockDataJson) as? DatabaseBlock)?.takeIf { it.holdsSharedSettings } }
+                ?: continue
+            if (!settings.title.contains(query, ignoreCase = true)) continue
+            noteDao.getSearchableNotesByIds(notesShowingDatabase(settings.databaseId))
+                .filter { it.spaceId == spaceId }
+                .forEach { note -> resultsByNoteId.putIfAbsent(note.noteId, NoteSearchResult(note = note, matchedText = settings.title)) }
+        }
+        return resultsByNoteId.values.toList()
+    }
+
+    private suspend fun notesShowingDatabase(databaseId: String): List<String> =
+        blockDao.findBlocksContainingIncludingDeleted("\"databaseId\":\"$databaseId\"")
+            .filter { entity ->
+                if (entity.isDeleted) return@filter false
+                val view = decodeBlockOrNull(entity.blockDataJson) as? DatabaseBlock ?: return@filter false
+                view.databaseId == databaseId && !view.holdsSharedSettings && !view.isDeleted
+            }
+            .map { it.noteId }
+            .distinct()
 
     private suspend fun notesContainingCanvas(canvasNoteId: String): List<String> =
         blockDao.findBlocksContainingIncludingDeleted(canvasNoteId)
@@ -719,8 +758,8 @@ class NoteRepositoryImpl(
             val previousTombstone = selfHostDeletedNoteDao.getTombstoneByNoteId(noteId)
             val blocksOfNote = blockDao.getAllBlocksForNoteIncludingDeleted(noteId)
                 .mapNotNull { decodeBlockOrNull(it.blockDataJson) }
-            val embeddedCanvasIds = blocksOfNote.mapNotNull { (it as? CanvasBlock)?.canvasNoteId }.toSet()
-            val shownDatabaseIds = blocksOfNote.mapNotNull { (it as? DatabaseBlock)?.databaseId }.toSet()
+            if (metadata?.kind != NoteKind.DATABASE) parkViewsOfDatabasesNoOtherNoteShows(noteId, blocksOfNote)
+            parkCanvasBlocksNoOtherNoteShows(noteId, blocksOfNote)
             hardDeleteLocalNote(noteId)
             selfHostDeletedNoteDao.upsertTombstone(
                 SelfHostDeletedNoteEntity(
@@ -732,27 +771,48 @@ class NoteRepositoryImpl(
                 )
             )
             AutoSyncTrigger.requestSync()
-            deleteEmbeddedCanvasesNoLongerShown(embeddedCanvasIds)
-            deleteRowsOfDatabasesNoLongerShown(shownDatabaseIds)
         }
     }
 
-    private suspend fun deleteRowsOfDatabasesNoLongerShown(candidateDatabaseIds: Set<String>) {
-        if (candidateDatabaseIds.isEmpty()) return
-        val remainingDatabaseBlocks = blockDao.findBlocksContainingIncludingDeleted(DatabaseRowCleanup.DATABASE_BLOCK_JSON_MARKER)
+    private suspend fun parkViewsOfDatabasesNoOtherNoteShows(noteId: String, blocksOfNote: List<NoteBlock>) {
+        val views = blocksOfNote.filterIsInstance<DatabaseBlock>().filterNot { it.holdsSharedSettings }
+        if (views.isEmpty()) return
+        val databaseBlocksInOtherNotes = blockDao.findBlocksContainingIncludingDeleted(DatabaseRowCleanup.DATABASE_BLOCK_JSON_MARKER)
+            .filter { it.noteId != noteId }
             .mapNotNull { decodeBlockOrNull(it.blockDataJson) as? DatabaseBlock }
-        DatabaseRowCleanup.databasesNoLiveBlockUses(candidateDatabaseIds, remainingDatabaseBlocks).forEach { databaseId ->
-            noteDao.getAllRowNotesIncludingTrashed(databaseId).forEach { rowNote -> deleteNote(rowNote.noteId, "") }
+        val databaseIdsNoOtherNoteShows = DatabaseRowCleanup.databasesNoLiveBlockUses(views.mapTo(HashSet()) { it.databaseId }, databaseBlocksInOtherNotes)
+        val now = System.currentTimeMillis()
+        views.filter { it.databaseId in databaseIdsNoOtherNoteShows }.forEach { view -> parkDatabaseView(view, now) }
+    }
+
+    private suspend fun parkDatabaseView(view: DatabaseBlock, now: Long) {
+        createMissingDatabaseNote(view.databaseId)
+        SyncCoordinator.mutex.withLock {
+            val databaseNote = noteDao.getNoteById(databaseNoteId(view.databaseId)) ?: return@withLock
+            val blocks = getNoteContent(databaseNote.noteId)?.blocks.orEmpty()
+            val parkedView = view.copy(isDeleted = true, updatedAt = if (view.isDeleted) view.updatedAt else now)
+            saveNote(databaseNote, NoteContent(blocks = blocks.filterNot { it.id == parkedView.id } + parkedView))
         }
     }
 
-    private suspend fun deleteEmbeddedCanvasesNoLongerShown(candidateCanvasIds: Set<String>) {
-        if (candidateCanvasIds.isEmpty()) return
-        val remainingCanvasBlocks = blockDao.findBlocksContainingIncludingDeleted(EmbeddedCanvasCleanup.CANVAS_NOTE_ID_FIELD)
+    private suspend fun parkCanvasBlocksNoOtherNoteShows(noteId: String, blocksOfNote: List<NoteBlock>) {
+        val canvasBlocks = blocksOfNote.filterIsInstance<CanvasBlock>().filter { it.canvasNoteId != noteId }
+        if (canvasBlocks.isEmpty()) return
+        val canvasBlocksInOtherNotes = blockDao.findBlocksContainingIncludingDeleted(EmbeddedCanvasCleanup.CANVAS_NOTE_ID_FIELD)
+            .filter { it.noteId != noteId }
             .mapNotNull { decodeBlockOrNull(it.blockDataJson) as? CanvasBlock }
-        EmbeddedCanvasCleanup.canvasesNoLiveBlockUses(candidateCanvasIds, remainingCanvasBlocks)
-            .filter { canvasNoteId -> noteDao.getNoteById(canvasNoteId)?.isEmbeddedCanvas == true }
-            .forEach { canvasNoteId -> deleteNote(canvasNoteId, "") }
+        val canvasIdsNoOtherNoteShows = EmbeddedCanvasCleanup.canvasesNoLiveBlockUses(canvasBlocks.mapTo(HashSet()) { it.canvasNoteId }, canvasBlocksInOtherNotes)
+        val now = System.currentTimeMillis()
+        canvasBlocks.filter { it.canvasNoteId in canvasIdsNoOtherNoteShows }.forEach { canvasBlock -> parkCanvasBlock(canvasBlock, now) }
+    }
+
+    private suspend fun parkCanvasBlock(canvasBlock: CanvasBlock, now: Long) {
+        SyncCoordinator.mutex.withLock {
+            val canvasNote = noteDao.getNoteById(canvasBlock.canvasNoteId)?.takeIf { it.isEmbeddedCanvas } ?: return@withLock
+            val blocks = getNoteContent(canvasNote.noteId)?.blocks.orEmpty()
+            val parkedBlock = canvasBlock.copy(isDeleted = true, updatedAt = if (canvasBlock.isDeleted) canvasBlock.updatedAt else now)
+            saveNote(canvasNote, NoteContent(blocks = blocks.filterNot { it.id == parkedBlock.id } + parkedBlock))
+        }
     }
 
     override suspend fun deleteAllContentInSpace(spaceId: String) {
@@ -1399,6 +1459,128 @@ class NoteRepositoryImpl(
             }
         }
 
+    override fun observeDatabaseSettings(databaseId: String): Flow<DatabaseBlock?> =
+        blockDao.observeBlocksForNote(databaseNoteId(databaseId))
+            .map { entities ->
+                entities.firstNotNullOfOrNull { entity ->
+                    (decodeBlockOrNull(entity.blockDataJson) as? DatabaseBlock)?.takeIf { it.holdsSharedSettings && it.databaseId == databaseId }
+                }
+            }
+            .transform { settings ->
+                if (settings == null && createMissingDatabaseNote(databaseId)) return@transform
+                emit(settings)
+            }
+            .distinctUntilChanged()
+            .flowOn(Dispatchers.IO)
+
+    override suspend fun changeDatabaseSettings(databaseId: String, change: (DatabaseBlock) -> DatabaseBlock?): Boolean =
+        withContext(Dispatchers.IO) {
+            SyncCoordinator.mutex.withLock {
+                val note = noteDao.getNoteById(databaseNoteId(databaseId)) ?: return@withLock false
+                val blocks = getNoteContent(note.noteId)?.blocks.orEmpty()
+                val settings = blocks.firstOrNull { it.id == databaseSettingsBlockId(databaseId) } as? DatabaseBlock ?: return@withLock false
+                val changedSettings = change(settings) ?: return@withLock false
+                if (changedSettings == settings) return@withLock false
+
+                saveNote(note.copy(title = changedSettings.title), NoteContent(blocks = blocks.map { if (it.id == settings.id) changedSettings else it }))
+                true
+            }
+        }
+
+    override suspend fun createDatabase(databaseId: String) =
+        withContext(Dispatchers.IO) {
+            SyncCoordinator.mutex.withLock {
+                saveDatabaseNote(newDatabaseSettings(databaseId, System.currentTimeMillis()), spaceId = null)
+            }
+        }
+
+    override suspend fun createMissingDatabaseNotes() =
+        withContext(Dispatchers.IO) {
+            try {
+                blockDao.findBlocksContainingIncludingDeleted(DatabaseRowCleanup.DATABASE_BLOCK_JSON_MARKER)
+                    .filter { !it.isDeleted }
+                    .mapNotNull { (decodeBlockOrNull(it.blockDataJson) as? DatabaseBlock)?.takeUnless { block -> block.holdsSharedSettings }?.databaseId }
+                    .distinct()
+                    .forEach { databaseId -> createMissingDatabaseNote(databaseId) }
+            } catch (cause: CancellationException) {
+                throw cause
+            } catch (cause: Exception) {
+                cause.printStackTrace()
+            }
+        }
+
+    private suspend fun createMissingDatabaseNote(databaseId: String): Boolean =
+        withContext(Dispatchers.IO) {
+            SyncCoordinator.mutex.withLock {
+                if (noteDao.getNoteById(databaseNoteId(databaseId)) != null) return@withLock false
+                val (hostNoteId, viewWithSettings) = blockDao.findBlocksContainingIncludingDeleted(databaseId)
+                    .filter { !it.isDeleted }
+                    .mapNotNull { entity ->
+                        val databaseBlock = decodeBlockOrNull(entity.blockDataJson) as? DatabaseBlock ?: return@mapNotNull null
+                        if (databaseBlock.databaseId != databaseId || databaseBlock.holdsSharedSettings || databaseBlock.isDeleted) return@mapNotNull null
+                        entity.noteId to databaseBlock
+                    }
+                    .maxWithOrNull(compareBy<Pair<String, DatabaseBlock>>({ (_, view) -> view.keepsSharedSettingsInside() }, { (_, view) -> view.updatedAt }))
+                    ?: return@withLock false
+                saveDatabaseNote(viewWithSettings.sharedSettingsMovedOut(), spaceId = noteDao.getNoteById(hostNoteId)?.spaceId)
+                true
+            }
+        }
+
+    private suspend fun copyDatabaseSettings(sourceDatabaseId: String, copyDatabaseId: String) {
+        createMissingDatabaseNote(sourceDatabaseId)
+        val now = System.currentTimeMillis()
+        val sourceSettings = getNoteContent(databaseNoteId(sourceDatabaseId))?.blocks.orEmpty()
+            .firstOrNull { it.id == databaseSettingsBlockId(sourceDatabaseId) } as? DatabaseBlock
+        val copySettings = sourceSettings?.sharedSettingsCopiedTo(copyDatabaseId, now) ?: newDatabaseSettings(copyDatabaseId, now)
+        SyncCoordinator.mutex.withLock {
+            saveDatabaseNote(copySettings, spaceId = null)
+        }
+    }
+
+    private suspend fun saveDatabaseNote(settings: DatabaseBlock, spaceId: String?) {
+        val now = System.currentTimeMillis()
+        val databaseNote = NoteMetadataEntity(
+            noteId = databaseNoteId(settings.databaseId),
+            title = settings.title,
+            folderId = null,
+            isDaily = false,
+            dateString = null,
+            createdAt = now,
+            updatedAt = now,
+            filePath = "",
+            isSubNote = true,
+            kind = NoteKind.DATABASE
+        )
+        val content = NoteContent(blocks = listOf(settings))
+        if (spaceId == null) saveNote(databaseNote, content) else saveNoteInSpace(spaceId, databaseNote, content)
+    }
+
+    override suspend fun getLinkableDatabases(): List<LinkableDatabase> =
+        withContext(Dispatchers.IO) {
+            val databaseBlocksWithNoteIds = blockDao.findBlocksContainingIncludingDeleted(DatabaseRowCleanup.DATABASE_BLOCK_JSON_MARKER)
+                .filter { !it.isDeleted }
+                .mapNotNull { entity ->
+                    val databaseBlock = decodeBlockOrNull(entity.blockDataJson) as? DatabaseBlock ?: return@mapNotNull null
+                    if (databaseBlock.isDeleted) return@mapNotNull null
+                    entity.noteId to databaseBlock
+                }
+            val titlesByDatabaseId = databaseBlocksWithNoteIds
+                .filter { (_, databaseBlock) -> databaseBlock.holdsSharedSettings }
+                .associate { (_, settings) -> settings.databaseId to settings.title }
+            val views = databaseBlocksWithNoteIds.filterNot { (_, databaseBlock) -> databaseBlock.holdsSharedSettings }
+            if (views.isEmpty()) return@withContext emptyList()
+            val spaceId = activeSpaceId()
+            val notesById = noteDao.getNotesByIds(views.map { (noteId, _) -> noteId }.distinct())
+                .filter { it.trashedAt == null && it.spaceId == spaceId }
+                .associateBy { it.noteId }
+            views
+                .mapNotNull { (noteId, view) -> notesById[noteId]?.let { note -> note to view } }
+                .sortedByDescending { (note, _) -> note.updatedAt }
+                .map { (note, view) -> LinkableDatabase(view.databaseId, titlesByDatabaseId[view.databaseId] ?: view.title, note.title) }
+                .distinctBy { it.databaseId }
+        }
+
     private suspend fun saveRowNoteKeepingItsBlocks(rowNote: NoteMetadataEntity) {
         saveNote(rowNote, getNoteContent(rowNote.noteId) ?: NoteContent(blocks = emptyList()))
     }
@@ -1444,24 +1626,46 @@ class NoteRepositoryImpl(
     override suspend fun indexNote(metadata: NoteMetadataEntity, content: NoteContent) =
         withContext(Dispatchers.IO) {
             try {
-                noteIndexer.indexNote(metadata, content, databaseRowLocationOf(metadata))
+                noteIndexer.indexNote(metadata, withDatabaseTitlesFilledIn(content), databaseRowLocationOf(metadata))
             } catch (e: Exception) {
                 e.printStackTrace()
             }
         }
 
+    override suspend fun indexNotesShowingDatabase(databaseId: String) =
+        withContext(Dispatchers.IO) {
+            noteDao.getSearchableNotesByIds(notesShowingDatabase(databaseId)).forEach { note ->
+                val content = getNoteContent(note.noteId) ?: return@forEach
+                indexNote(note, content)
+            }
+        }
+
+    private suspend fun withDatabaseTitlesFilledIn(content: NoteContent): NoteContent {
+        val databaseIds = content.blocks.filterIsInstance<DatabaseBlock>().map { it.databaseId }.distinct()
+        if (databaseIds.isEmpty()) return content
+        val titlesByDatabaseId = databaseIds.mapNotNull { databaseId ->
+            val settings = getNoteContent(databaseNoteId(databaseId))?.blocks.orEmpty()
+                .firstOrNull { it.id == databaseSettingsBlockId(databaseId) } as? DatabaseBlock
+            settings?.let { databaseId to it.title }
+        }.toMap()
+        return content.copy(blocks = content.blocks.withDatabaseTitles(titlesByDatabaseId))
+    }
+
     private suspend fun databaseRowLocationOf(rowNote: NoteMetadataEntity): DatabaseRowLocation? {
         val databaseId = rowNote.databaseId ?: return null
-        return blockDao.findBlocksContainingIncludingDeleted(databaseId)
+        val databaseBlocksWithNoteIds = blockDao.findBlocksContainingIncludingDeleted(databaseId)
             .filter { !it.isDeleted }
-            .firstNotNullOfOrNull { entity ->
-                val databaseBlock = decodeBlockOrNull(entity.blockDataJson) as? DatabaseBlock ?: return@firstNotNullOfOrNull null
-                if (databaseBlock.databaseId != databaseId) return@firstNotNullOfOrNull null
-                DatabaseRowLocation(
-                    databaseTitle = databaseBlock.title,
-                    hostNoteTitle = noteDao.getNoteById(entity.noteId)?.title
-                )
+            .mapNotNull { entity ->
+                val databaseBlock = decodeBlockOrNull(entity.blockDataJson) as? DatabaseBlock ?: return@mapNotNull null
+                if (databaseBlock.databaseId != databaseId) return@mapNotNull null
+                entity.noteId to databaseBlock
             }
+        val (hostNoteId, view) = databaseBlocksWithNoteIds.firstOrNull { (_, databaseBlock) -> !databaseBlock.holdsSharedSettings } ?: return null
+        val settings = databaseBlocksWithNoteIds.firstOrNull { (_, databaseBlock) -> databaseBlock.holdsSharedSettings }?.second
+        return DatabaseRowLocation(
+            databaseTitle = (settings ?: view).title,
+            hostNoteTitle = noteDao.getNoteById(hostNoteId)?.title
+        )
     }
 
     override suspend fun indexCanvas(noteId: String, canvas: CanvasContent) =
@@ -1497,7 +1701,7 @@ class NoteRepositoryImpl(
     override suspend fun indexDailyNote(dateString: String, content: NoteContent, metadata: NoteMetadataEntity) =
         withContext(Dispatchers.IO) {
             try {
-                noteIndexer.indexNote(metadata, content)
+                noteIndexer.indexNote(metadata, withDatabaseTitlesFilledIn(content))
             } catch (e: Exception) {
                 e.printStackTrace()
             }
@@ -2093,12 +2297,16 @@ class NoteRepositoryImpl(
         copyIdsBySourceDatabaseId: MutableMap<String, String>,
         copyRowIdsBySourceDatabaseId: MutableMap<String, Map<String, String>>
     ): NoteContent {
-        val liveSourceDatabaseIds = content.blocks.filterIsInstance<DatabaseBlock>().filterNot { it.isDeleted }.mapTo(HashSet()) { it.databaseId }
+        val liveSourceDatabaseIds = content.blocks.filterIsInstance<DatabaseBlock>()
+            .filterNot { it.isDeleted || it.isLinkedDatabase }
+            .mapTo(HashSet()) { it.databaseId }
         val blocks = content.blocks.map { block ->
             if (block !is DatabaseBlock) return@map block
+            if (block.isLinkedDatabase && block.databaseId !in liveSourceDatabaseIds) return@map block
             val copiedDatabaseId = copyIdsBySourceDatabaseId[block.databaseId] ?: UUID.randomUUID().toString().also { copiedDatabaseId ->
                 copyIdsBySourceDatabaseId[block.databaseId] = copiedDatabaseId
                 copyRowIdsBySourceDatabaseId[block.databaseId] = if (block.databaseId in liveSourceDatabaseIds) {
+                    copyDatabaseSettings(block.databaseId, copiedDatabaseId)
                     copyDatabaseRows(block.databaseId, copiedDatabaseId, copyIdsBySourceDatabaseId, copyRowIdsBySourceDatabaseId)
                 } else {
                     emptyMap()
