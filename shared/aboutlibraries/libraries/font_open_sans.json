@@ -1,0 +1,13 @@
+{
+  "uniqueId": "font:open-sans",
+  "name": "Open Sans (font)",
+  "description": "Copyright 2020 The Open Sans Project Authors (https://github.com/googlefonts/opensans)",
+  "website": "https://github.com/googlefonts/opensans",
+  "developers": [],
+  "scm": {
+    "url": "https://github.com/googlefonts/opensans"
+  },
+  "licenses": [
+    "ofl-open-sans"
+  ]
+}

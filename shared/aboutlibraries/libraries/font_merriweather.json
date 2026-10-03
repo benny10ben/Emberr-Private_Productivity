@@ -1,0 +1,13 @@
+{
+  "uniqueId": "font:merriweather",
+  "name": "Merriweather (font)",
+  "description": "Copyright 2024 The Merriweather Project Authors (https://github.com/EbenSorkin/Merriweather4) with Reserved Font Name \"Merriweather\".",
+  "website": "https://github.com/EbenSorkin/Merriweather4",
+  "developers": [],
+  "scm": {
+    "url": "https://github.com/EbenSorkin/Merriweather4"
+  },
+  "licenses": [
+    "ofl-merriweather"
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "uniqueId": "ggml-org:whisper.cpp",
+  "name": "whisper.cpp",
+  "description": "Speech recognition engine, bundled as native code inside Llamatik.",
+  "website": "https://github.com/ggml-org/whisper.cpp",
+  "developers": [],
+  "scm": {
+    "url": "https://github.com/ggml-org/whisper.cpp"
+  },
+  "licenses": [
+    "whisper-cpp-mit"
+  ]
+}

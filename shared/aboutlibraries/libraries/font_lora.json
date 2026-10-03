@@ -1,0 +1,13 @@
+{
+  "uniqueId": "font:lora",
+  "name": "Lora (font)",
+  "description": "Copyright 2011 The Lora Project Authors (https://github.com/cyrealtype/Lora-Cyrillic), with Reserved Font Name \"Lora\".",
+  "website": "https://github.com/cyrealtype/Lora-Cyrillic",
+  "developers": [],
+  "scm": {
+    "url": "https://github.com/cyrealtype/Lora-Cyrillic"
+  },
+  "licenses": [
+    "ofl-lora"
+  ]
+}

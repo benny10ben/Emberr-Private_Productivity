@@ -1,0 +1,12 @@
+{
+  "uniqueId": "net.zetetic:sqlcipher-android",
+  "name": "SQLCipher for Android",
+  "website": "https://www.zetetic.net/sqlcipher/",
+  "developers": [],
+  "scm": {
+    "url": "https://github.com/sqlcipher/sqlcipher-android"
+  },
+  "licenses": [
+    "sqlcipher-bsd"
+  ]
+}

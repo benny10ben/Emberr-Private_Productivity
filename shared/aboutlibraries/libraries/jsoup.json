@@ -1,0 +1,9 @@
+{
+  "uniqueId": "org.jsoup:jsoup",
+  "name": "jsoup Java HTML Parser",
+  "website": "https://jsoup.org/",
+  "developers": [],
+  "licenses": [
+    "jsoup-mit"
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "uniqueId": "steveruizok:perfect-freehand",
+  "artifactVersion": "1.2.3",
+  "name": "perfect-freehand",
+  "description": "Freehand stroke smoothing, ported to Kotlin for drawing on the canvas block.",
+  "website": "https://github.com/steveruizok/perfect-freehand",
+  "developers": [],
+  "scm": {
+    "url": "https://github.com/steveruizok/perfect-freehand"
+  },
+  "licenses": [
+    "perfect-freehand-mit"
+  ]
+}

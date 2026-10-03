@@ -1,0 +1,9 @@
+{
+  "uniqueId": "androidx.camera:camera-core",
+  "name": "Camera Core",
+  "website": "https://developer.android.com/jetpack/androidx/releases/camera#1.6.2",
+  "developers": [],
+  "licenses": [
+    "libyuv-bsd-3"
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "uniqueId": "leejet:stable-diffusion.cpp",
+  "name": "stable-diffusion.cpp",
+  "description": "Image generation engine, bundled as native code inside Llamatik on desktop.",
+  "website": "https://github.com/leejet/stable-diffusion.cpp",
+  "developers": [],
+  "scm": {
+    "url": "https://github.com/leejet/stable-diffusion.cpp"
+  },
+  "licenses": [
+    "stable-diffusion-cpp-mit"
+  ]
+}

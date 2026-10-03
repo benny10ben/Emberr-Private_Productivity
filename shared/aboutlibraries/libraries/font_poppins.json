@@ -1,0 +1,13 @@
+{
+  "uniqueId": "font:poppins",
+  "name": "Poppins (font)",
+  "description": "Copyright 2020 The Poppins Project Authors (https://github.com/itfoundry/Poppins)",
+  "website": "https://github.com/itfoundry/Poppins",
+  "developers": [],
+  "scm": {
+    "url": "https://github.com/itfoundry/Poppins"
+  },
+  "licenses": [
+    "ofl-poppins"
+  ]
+}

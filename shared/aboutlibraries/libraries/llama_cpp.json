@@ -1,0 +1,13 @@
+{
+  "uniqueId": "ggml-org:llama.cpp",
+  "name": "llama.cpp",
+  "description": "On-device AI inference engine, bundled as native code inside Llamatik.",
+  "website": "https://github.com/ggml-org/llama.cpp",
+  "developers": [],
+  "scm": {
+    "url": "https://github.com/ggml-org/llama.cpp"
+  },
+  "licenses": [
+    "llama-cpp-mit"
+  ]
+}

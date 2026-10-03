@@ -1,0 +1,13 @@
+{
+  "uniqueId": "llvm:openmp",
+  "name": "LLVM OpenMP runtime (libomp)",
+  "description": "Parallel processing runtime, bundled as native code inside Llamatik on Android.",
+  "website": "https://github.com/llvm/llvm-project/tree/main/openmp",
+  "developers": [],
+  "scm": {
+    "url": "https://github.com/llvm/llvm-project/tree/main/openmp"
+  },
+  "licenses": [
+    "llvm-apache-2.0-with-llvm-exception"
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "uniqueId": "com.github.javakeyring:java-keyring",
+  "name": "java-keyring",
+  "website": "https://github.com/javakeyring/java-keyring",
+  "developers": [],
+  "scm": {
+    "url": "https://github.com/javakeyring/java-keyring"
+  },
+  "licenses": [
+    "java-keyring-bsd-3"
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "uniqueId": "font:jetbrains-mono",
+  "name": "JetBrains Mono (font)",
+  "description": "Copyright 2020 The JetBrains Mono Project Authors (https://github.com/JetBrains/JetBrainsMono)",
+  "website": "https://github.com/JetBrains/JetBrainsMono",
+  "developers": [],
+  "scm": {
+    "url": "https://github.com/JetBrains/JetBrainsMono"
+  },
+  "licenses": [
+    "ofl-jetbrains-mono"
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "uniqueId": "androidx.glance:glance-appwidget-external-protobuf",
+  "name": "Glance AppWidget External Protobuf",
+  "website": "https://developer.android.com/jetpack/androidx/releases/glance#1.2.0",
+  "developers": [],
+  "licenses": [
+    "protobuf-bsd-3"
+  ]
+}

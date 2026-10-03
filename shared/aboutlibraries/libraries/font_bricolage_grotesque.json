@@ -1,0 +1,13 @@
+{
+  "uniqueId": "font:bricolage-grotesque",
+  "name": "Bricolage Grotesque (font)",
+  "description": "Copyright 2022 The Bricolage Grotesque Project Authors (https://github.com/ateliertriay/bricolage)",
+  "website": "https://github.com/ateliertriay/bricolage",
+  "developers": [],
+  "scm": {
+    "url": "https://github.com/ateliertriay/bricolage"
+  },
+  "licenses": [
+    "ofl-bricolage-grotesque"
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "uniqueId": "font:fuzzy-bubbles",
+  "name": "Fuzzy Bubbles (font)",
+  "description": "Copyright 2005 The Fuzzy Bubbles Project Authors (https://github.com/googlefonts/fuzzy-bubbles)",
+  "website": "https://github.com/googlefonts/fuzzy-bubbles",
+  "developers": [],
+  "scm": {
+    "url": "https://github.com/googlefonts/fuzzy-bubbles"
+  },
+  "licenses": [
+    "ofl-fuzzy-bubbles"
+  ]
+}

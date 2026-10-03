@@ -1,0 +1,13 @@
+{
+  "uniqueId": "font:yuyu-short",
+  "name": "Yuyu Short (font)",
+  "description": "Copyright 2026 The Yuyu Font Project Authors (https://github.com/JuliaGarciaLopez/Yuyu-Font)",
+  "website": "https://github.com/JuliaGarciaLopez/Yuyu-Font",
+  "developers": [],
+  "scm": {
+    "url": "https://github.com/JuliaGarciaLopez/Yuyu-Font"
+  },
+  "licenses": [
+    "ofl-yuyu-short"
+  ]
+}

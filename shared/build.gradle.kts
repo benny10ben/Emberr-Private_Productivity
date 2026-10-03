@@ -10,6 +10,7 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.ksp)
     alias(libs.plugins.cash.sqldelight)
+    alias(libs.plugins.aboutlibraries)
 }
 
 ksp {
@@ -134,6 +135,7 @@ kotlin {
                 implementation(libs.llamatik.library)
                 implementation(libs.sqldelight.coroutines.extensions)
                 implementation(libs.kotlinx.collections.immutable)
+                implementation(libs.aboutlibraries.core)
             }
         }
 
@@ -687,6 +689,16 @@ tasks.matching { it.name in stockComposePackagingTaskNames }.configureEach {
 
 compose.resources {
     packageOfResClass = "emberr.shared.generated.resources"
+}
+
+aboutLibraries {
+    collect {
+        configPath = file("aboutlibraries")
+    }
+    export {
+        outputFile = file("src/commonMain/composeResources/files/aboutlibraries.json")
+        prettyPrint = true
+    }
 }
 
 sqldelight {

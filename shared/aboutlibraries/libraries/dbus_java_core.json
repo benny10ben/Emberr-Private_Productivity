@@ -1,0 +1,9 @@
+{
+  "uniqueId": "com.github.hypfvieh:dbus-java-core",
+  "name": "dbus-java-core",
+  "website": "https://github.com/hypfvieh/dbus-java/dbus-java-core",
+  "developers": [],
+  "licenses": [
+    "dbus-java-mit"
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "uniqueId": "font:inter",
+  "name": "Inter (font)",
+  "description": "Copyright 2016 The Inter Project Authors (https://github.com/rsms/inter)",
+  "website": "https://github.com/rsms/inter",
+  "developers": [],
+  "scm": {
+    "url": "https://github.com/rsms/inter"
+  },
+  "licenses": [
+    "ofl-inter"
+  ]
+}

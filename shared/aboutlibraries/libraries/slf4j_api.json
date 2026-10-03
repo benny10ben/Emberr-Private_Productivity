@@ -1,0 +1,9 @@
+{
+  "uniqueId": "org.slf4j:slf4j-api",
+  "name": "SLF4J API Module",
+  "website": "http://www.slf4j.org",
+  "developers": [],
+  "licenses": [
+    "slf4j-mit"
+  ]
+}
