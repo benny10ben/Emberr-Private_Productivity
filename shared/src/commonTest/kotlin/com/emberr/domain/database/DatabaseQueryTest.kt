@@ -186,7 +186,7 @@ class DatabaseQueryTest {
         assertEquals(listOf("early"), matching(DatabaseFilterCondition.IS_BEFORE))
         assertEquals(listOf("late"), matching(DatabaseFilterCondition.IS_AFTER))
         assertEquals(listOf("early", "same"), matching(DatabaseFilterCondition.IS_ON_OR_BEFORE))
-        assertEquals(listOf("same", "late"), matching(DatabaseFilterCondition.IS_ON_OR_AFTER))
+        assertEquals(listOf("late", "same"), matching(DatabaseFilterCondition.IS_ON_OR_AFTER))
     }
 
     @Test
@@ -208,8 +208,8 @@ class DatabaseQueryTest {
         assertEquals(listOf("yesterday"), matching(DatabaseFilterCondition.IS, DatabaseRelativeDate.YESTERDAY))
         assertEquals(listOf("next-week"), matching(DatabaseFilterCondition.IS, DatabaseRelativeDate.ONE_WEEK_FROM_NOW))
         assertEquals(listOf("last-month"), matching(DatabaseFilterCondition.IS, DatabaseRelativeDate.ONE_MONTH_AGO))
-        assertEquals(listOf("yesterday", "last-month"), matching(DatabaseFilterCondition.IS_BEFORE, DatabaseRelativeDate.TODAY))
-        assertEquals(listOf("today", "tomorrow", "next-week"), matching(DatabaseFilterCondition.IS_ON_OR_AFTER, DatabaseRelativeDate.TODAY))
+        assertEquals(listOf("last-month", "yesterday"), matching(DatabaseFilterCondition.IS_BEFORE, DatabaseRelativeDate.TODAY))
+        assertEquals(listOf("next-week", "today", "tomorrow"), matching(DatabaseFilterCondition.IS_ON_OR_AFTER, DatabaseRelativeDate.TODAY))
     }
 
     @Test
@@ -242,12 +242,12 @@ class DatabaseQueryTest {
             noteIdsOf(query(rows, listOf(filter(dueDateColumn, DatabaseFilterCondition.IS_WITHIN, dateRange = dateRange)), null))
 
         assertEquals(listOf("monday", "sunday"), within(DatabaseDateRange.THIS_WEEK))
-        assertEquals(listOf("monday", "week-ago", "month-start"), within(DatabaseDateRange.THIS_MONTH))
-        assertEquals(listOf("monday", "sunday", "week-ago", "in-a-week", "month-start", "new-year"), within(DatabaseDateRange.THIS_YEAR))
+        assertEquals(listOf("monday", "month-start", "week-ago"), within(DatabaseDateRange.THIS_MONTH))
+        assertEquals(listOf("in-a-week", "monday", "month-start", "new-year", "sunday", "week-ago"), within(DatabaseDateRange.THIS_YEAR))
         assertEquals(listOf("monday", "week-ago"), within(DatabaseDateRange.PAST_7_DAYS))
-        assertEquals(listOf("sunday", "in-a-week"), within(DatabaseDateRange.NEXT_7_DAYS))
-        assertEquals(listOf("monday", "week-ago", "month-start"), within(DatabaseDateRange.PAST_30_DAYS))
-        assertEquals(listOf("sunday", "in-a-week"), within(DatabaseDateRange.NEXT_30_DAYS))
+        assertEquals(listOf("in-a-week", "sunday"), within(DatabaseDateRange.NEXT_7_DAYS))
+        assertEquals(listOf("monday", "month-start", "week-ago"), within(DatabaseDateRange.PAST_30_DAYS))
+        assertEquals(listOf("in-a-week", "sunday"), within(DatabaseDateRange.NEXT_30_DAYS))
     }
 
     @Test
