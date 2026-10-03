@@ -161,8 +161,7 @@ class SyncViewModel(
                     settingsManager.saveLastSyncTimestamp(syncStart)
                     _syncStatus.value = "Success!"
 
-                    // Clean up orphaned media and reconcile files after a successful sync.
-                    syncRepository.cleanupOrphanedMedia()
+                    // Reconcile files after a successful sync.
                     syncRepository.reconcileMedia()
                 } else {
                     _syncStatus.value = "Partial sync, will retry"

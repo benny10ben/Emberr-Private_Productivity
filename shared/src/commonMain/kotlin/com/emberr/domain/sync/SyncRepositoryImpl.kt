@@ -161,27 +161,6 @@ class SyncRepositoryImpl(
     private suspend fun collectAllReferencedMediaFileNames(): Set<String> =
         mediaReferenceIndex.loadReferencedFileNames()
 
-    override suspend fun cleanupOrphanedMedia() = withContext(Dispatchers.IO) {
-        try {
-            val referencedFileNames = collectAllReferencedMediaFileNames()
-            val remoteMedia = syncClient.listRemoteMedia()
-            val nowMs = System.currentTimeMillis()
-            // Filters and deletes remote media files that are no longer referenced locally and exceed the grace period.
-            val orphaned = remoteMedia.filter {
-                it.fileName !in referencedFileNames && (nowMs - it.lastModified) > MEDIA_ORPHAN_GRACE_PERIOD_MS
-            }
-            orphaned.forEach { entry ->
-                try {
-                    syncClient.deleteRemoteMedia(entry.fileName)
-                } catch (e: Exception) {
-                    LanSyncLog.e("cleanupOrphanedMedia: failed to delete orphaned ${entry.fileName}: ${e.message}", e)
-                }
-            }
-        } catch (e: Exception) {
-            LanSyncLog.e("cleanupOrphanedMedia: failed with ${e::class.simpleName}: ${e.message}", e)
-        }
-    }
-
     override suspend fun reconcileMedia() = withContext(Dispatchers.IO) {
         try {
             val referencedFileNames = collectAllReferencedMediaFileNames()
@@ -226,10 +205,6 @@ class SyncRepositoryImpl(
             LanSyncLog.e("reconcileMedia: could not check local existence for $fileName", e)
             false
         }
-    }
-
-    private companion object {
-        const val MEDIA_ORPHAN_GRACE_PERIOD_MS = 24L * 60 * 60 * 1000
     }
 
     private suspend fun adoptRemoteEmbeddingsIfNeeded(

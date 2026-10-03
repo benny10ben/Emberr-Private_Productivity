@@ -281,21 +281,6 @@ fun startSyncServer(
                     .map { RemoteMediaEntry(fileName = it.name, lastModified = it.lastModified()) }
                 call.respond(RemoteMediaList(entries))
             }
-
-            delete("/sync/media/{fileName}") {
-                if (call.rejectedUnacceptableRequest(settingsManager, hmacSigner)) return@delete
-
-                val fileName = call.parameters["fileName"]
-                if (fileName == null) {
-                    call.respond(io.ktor.http.HttpStatusCode.BadRequest)
-                    return@delete
-                }
-
-                val mediaDir = java.io.File(System.getProperty("user.home"), ".emberr/media")
-                val file = java.io.File(mediaDir, fileName)
-                if (file.exists()) file.delete()
-                call.respond(io.ktor.http.HttpStatusCode.OK)
-            }
         }
     }
 

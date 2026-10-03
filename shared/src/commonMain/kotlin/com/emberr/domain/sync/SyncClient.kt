@@ -199,16 +199,6 @@ class SyncClient(
         }
     }
 
-    suspend fun deleteRemoteMedia(fileName: String): Boolean {
-        return try {
-            val response = client.delete("$serverUrl/sync/media/$fileName")
-            response.status.value in 200..299
-        } catch (e: Exception) {
-            LanSyncLog.e("deleteRemoteMedia: $fileName failed with ${e::class.simpleName}: ${e.message}", e)
-            false
-        }
-    }
-
     // Asks the peer how many bytes of a previous, interrupted upload attempt it still has
     // buffered in its receiving temp file, so this attempt knows where to resume from. Returns 0
     // both when there's genuinely no partial upload and when the check itself fails
