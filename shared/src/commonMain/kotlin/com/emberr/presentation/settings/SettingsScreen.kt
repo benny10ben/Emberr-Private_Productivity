@@ -116,6 +116,7 @@ fun SettingsScreen(
     onExportReady: () -> Unit = {},
     onRequestBackupFolder: () -> Unit = {},
     onNavigateToSelfHostSetup: () -> Unit = {},
+    onNavigateToAbout: () -> Unit = {},
     showBackButton: Boolean = true,
     viewModel: SettingsViewModel = koinViewModel(),
     syncViewModel: SyncViewModel = koinViewModel()
@@ -294,7 +295,7 @@ fun SettingsScreen(
         add(
             SettingsCategory(title = "Help", icon = Res.drawable.badge_question_mark) {
                 Column {
-                    HelpSettingsSection()
+                    HelpSettingsSection(onAboutClick = onNavigateToAbout)
                     AppUpdateSettingsSection()
                 }
             }
@@ -1235,7 +1236,7 @@ private fun AiSettingsSection(
 }
 
 @Composable
-private fun HelpSettingsSection() {
+private fun HelpSettingsSection(onAboutClick: () -> Unit) {
     SettingsGroup(title = "Need Help?") {
         SettingsActionRow(
             icon = painterResource(Res.drawable.badge_question_mark),
@@ -1259,7 +1260,7 @@ private fun HelpSettingsSection() {
             icon = painterResource(Res.drawable.info),
             title = "About Emberr",
             trailingLabel = appVersionName?.let { "v$it" },
-            onClick = {}
+            onClick = onAboutClick
         )
     }
 }
@@ -1302,14 +1303,7 @@ fun SettingsGroup(
             .padding(horizontal = 16.dp)
             .padding(top = 22.dp)
     ) {
-        Text(
-            text = title.uppercase(),
-            style = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.SemiBold,
-            letterSpacing = 1.4.sp,
-            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.45f),
-            modifier = Modifier.padding(start = 6.dp, bottom = 10.dp)
-        )
+        SettingsGroupTitle(title = title)
 
         Column(
             modifier = Modifier
@@ -1319,6 +1313,18 @@ fun SettingsGroup(
             content = content
         )
     }
+}
+
+@Composable
+internal fun SettingsGroupTitle(title: String) {
+    Text(
+        text = title.uppercase(),
+        style = MaterialTheme.typography.labelSmall,
+        fontWeight = FontWeight.SemiBold,
+        letterSpacing = 1.4.sp,
+        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.45f),
+        modifier = Modifier.padding(start = 6.dp, bottom = 10.dp)
+    )
 }
 
 @Composable

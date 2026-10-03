@@ -52,6 +52,8 @@ import com.emberr.presentation.LocalCanvasFullScreenOverlay
 import com.emberr.presentation.shared.editor.DatabaseBlockEditor
 import com.emberr.presentation.shared.editor.EditorActions
 import com.emberr.presentation.settings.SettingsScreen
+import com.emberr.presentation.settings.about.AboutScreen
+import com.emberr.presentation.settings.about.OpenSourceLicensesScreen
 import com.emberr.presentation.settings.selfhost.SelfHostSetupScreen
 import com.emberr.presentation.shared.UserSettings
 import com.emberr.presentation.shared.components.EmberrButtonPrimary
@@ -163,6 +165,8 @@ sealed interface DetailPane {
     data class Note(val noteId: String) : DetailPane
     data object Settings : DetailPane
     data object SelfHostSetup : DetailPane
+    data object About : DetailPane
+    data object OpenSourceLicenses : DetailPane
     data object Trash : DetailPane
     data object Properties : DetailPane
     data object Reminders : DetailPane
@@ -177,6 +181,8 @@ private fun DetailPane.encode(): String = when (this) {
     is DetailPane.Note -> "NOTE:${noteId}"
     DetailPane.Settings -> "PANEL:SETTINGS"
     DetailPane.SelfHostSetup -> "PANEL:SELFHOST"
+    DetailPane.About -> "PANEL:ABOUT"
+    DetailPane.OpenSourceLicenses -> "PANEL:LICENSES"
     DetailPane.Trash -> "PANEL:TRASH"
     DetailPane.Properties -> "PANEL:PROPERTIES"
     DetailPane.Reminders -> "PANEL:REMINDERS"
@@ -192,6 +198,8 @@ private fun decodeDetailPane(raw: String, today: LocalDate): DetailPane = when {
     raw.startsWith("NOTE:") -> DetailPane.Note(raw.removePrefix("NOTE:"))
     raw == "PANEL:SETTINGS" -> DetailPane.Settings
     raw == "PANEL:SELFHOST" -> DetailPane.SelfHostSetup
+    raw == "PANEL:ABOUT" -> DetailPane.About
+    raw == "PANEL:LICENSES" -> DetailPane.OpenSourceLicenses
     raw == "PANEL:TRASH" -> DetailPane.Trash
     raw == "PANEL:PROPERTIES" -> DetailPane.Properties
     raw == "PANEL:REMINDERS" -> DetailPane.Reminders
@@ -1477,6 +1485,7 @@ fun DesktopMainScreen(
                             onExportReady = onExportBackup,
                             onImportClick = onImportBackupClick,
                             onNavigateToSelfHostSetup = { detail = DetailPane.SelfHostSetup },
+                            onNavigateToAbout = { detail = DetailPane.About },
                             showBackButton = isSidebarVisible,
                             syncViewModel = syncViewModel
                         )
@@ -1485,6 +1494,19 @@ fun DesktopMainScreen(
                 DetailPane.SelfHostSetup -> key("selfhost_setup") {
                     Box(Modifier.fillMaxSize()) {
                         SelfHostSetupScreen(onNavigateBack = { detail = DetailPane.Settings })
+                    }
+                }
+                DetailPane.About -> key("about") {
+                    Box(Modifier.fillMaxSize()) {
+                        AboutScreen(
+                            onNavigateBack = { detail = DetailPane.Settings },
+                            onOpenSourceLicensesClick = { detail = DetailPane.OpenSourceLicenses }
+                        )
+                    }
+                }
+                DetailPane.OpenSourceLicenses -> key("open_source_licenses") {
+                    Box(Modifier.fillMaxSize()) {
+                        OpenSourceLicensesScreen(onNavigateBack = { detail = DetailPane.About })
                     }
                 }
                 DetailPane.Trash -> key("trash") {

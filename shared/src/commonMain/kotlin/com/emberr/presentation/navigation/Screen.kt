@@ -32,6 +32,10 @@ sealed class Screen(val route: String, val title: String? = null, val icon: Imag
 
     object SelfHostSetup : Screen("self_host_setup")
 
+    object About : Screen("about")
+
+    object OpenSourceLicenses : Screen("open_source_licenses")
+
     object AiChat : Screen("rag_chat")
 
     object Splash : Screen("splash_screen")

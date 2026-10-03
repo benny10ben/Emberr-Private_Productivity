@@ -814,7 +814,7 @@ fun EmberrApp(
                                 )
                             },
                             exitTransition = {
-                                if (targetState.destination.route == Screen.SelfHostSetup.route) {
+                                if (targetState.destination.route in listOf(Screen.SelfHostSetup.route, Screen.About.route)) {
                                     ExitTransition.None
                                 } else {
                                     slideOutOfContainer(
@@ -824,7 +824,7 @@ fun EmberrApp(
                                 }
                             },
                             popEnterTransition = {
-                                if (initialState.destination.route == Screen.SelfHostSetup.route) {
+                                if (initialState.destination.route in listOf(Screen.SelfHostSetup.route, Screen.About.route)) {
                                     EnterTransition.None
                                 } else {
                                     slideIntoContainer(
@@ -845,7 +845,8 @@ fun EmberrApp(
                                 onExportReady = onExportBackup,
                                 onImportClick = onImportBackupClick,
                                 onRequestBackupFolder = onRequestBackupFolder,
-                                onNavigateToSelfHostSetup = { navController.navigate(Screen.SelfHostSetup.route) }
+                                onNavigateToSelfHostSetup = { navController.navigate(Screen.SelfHostSetup.route) },
+                                onNavigateToAbout = { navController.navigate(Screen.About.route) }
                             )
                         }
 
@@ -877,6 +878,79 @@ fun EmberrApp(
                             }
                         ) {
                             com.emberr.presentation.settings.selfhost.SelfHostSetupScreen(
+                                onNavigateBack = { navController.popBackStack() }
+                            )
+                        }
+
+                        composable(
+                            route = Screen.About.route,
+                            enterTransition = {
+                                slideIntoContainer(
+                                    AnimatedContentTransitionScope.SlideDirection.Left,
+                                    tween(300)
+                                )
+                            },
+                            exitTransition = {
+                                if (targetState.destination.route == Screen.OpenSourceLicenses.route) {
+                                    ExitTransition.None
+                                } else {
+                                    slideOutOfContainer(
+                                        AnimatedContentTransitionScope.SlideDirection.Left,
+                                        tween(300)
+                                    )
+                                }
+                            },
+                            popEnterTransition = {
+                                if (initialState.destination.route == Screen.OpenSourceLicenses.route) {
+                                    EnterTransition.None
+                                } else {
+                                    slideIntoContainer(
+                                        AnimatedContentTransitionScope.SlideDirection.Right,
+                                        tween(300)
+                                    )
+                                }
+                            },
+                            popExitTransition = {
+                                slideOutOfContainer(
+                                    AnimatedContentTransitionScope.SlideDirection.Right,
+                                    tween(300)
+                                )
+                            }
+                        ) {
+                            com.emberr.presentation.settings.about.AboutScreen(
+                                onNavigateBack = { navController.popBackStack() },
+                                onOpenSourceLicensesClick = { navController.navigate(Screen.OpenSourceLicenses.route) }
+                            )
+                        }
+
+                        composable(
+                            route = Screen.OpenSourceLicenses.route,
+                            enterTransition = {
+                                slideIntoContainer(
+                                    AnimatedContentTransitionScope.SlideDirection.Left,
+                                    tween(300)
+                                )
+                            },
+                            exitTransition = {
+                                slideOutOfContainer(
+                                    AnimatedContentTransitionScope.SlideDirection.Left,
+                                    tween(300)
+                                )
+                            },
+                            popEnterTransition = {
+                                slideIntoContainer(
+                                    AnimatedContentTransitionScope.SlideDirection.Right,
+                                    tween(300)
+                                )
+                            },
+                            popExitTransition = {
+                                slideOutOfContainer(
+                                    AnimatedContentTransitionScope.SlideDirection.Right,
+                                    tween(300)
+                                )
+                            }
+                        ) {
+                            com.emberr.presentation.settings.about.OpenSourceLicensesScreen(
                                 onNavigateBack = { navController.popBackStack() }
                             )
                         }
