@@ -57,8 +57,7 @@ Figured I might as well share it. If you're also tired of ugly UIs, privacy head
 
 ## Platforms
 
-Android, Linux and Windows. macOS support is planned.
-
+Android, Linux and Windows for now.
 ## Tech Stack
 
 - **UI:** Compose Multiplatform (Android & Desktop)
