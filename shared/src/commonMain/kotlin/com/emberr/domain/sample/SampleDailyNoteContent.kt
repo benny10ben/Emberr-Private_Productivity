@@ -19,7 +19,7 @@ import com.emberr.domain.model.VoiceBlock
 
 object SampleDailyNoteContent {
 
-    private const val PROJECT_PAGE_URL = "https://github.com/benny10ben/Emberr-Privacy-Notes-Tasks-Calendar"
+    private const val PROJECT_PAGE_URL = "https://github.com/benny10ben/Emberr-Private_Productivity"
 
     fun buildBlocks(createdAt: Long): List<NoteBlock> {
         val spacers = BreathingRoom(idPrefix = "sample_daily", createdAt = createdAt)
