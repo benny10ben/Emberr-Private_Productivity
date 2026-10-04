@@ -168,9 +168,9 @@ private const val ZOOM_BUTTON_STEP = 1.25f
 private const val VIEW_POSITION_SAVE_DELAY_MILLIS = 500L
 private const val TOOL_SETTINGS_SAVE_DELAY_MILLIS = 300L
 private val EDGE_HIT_DISTANCE = 6.dp
-private val EDGE_STROKE_WIDTH = 1.5.dp
+internal val EDGE_STROKE_WIDTH = 1.5.dp
 private val SELECTED_EDGE_STROKE_WIDTH = 2.5.dp
-private val ARROW_SIZE = 9.dp
+internal val ARROW_SIZE = 9.dp
 private val CARD_CORNER_RADIUS = 6.dp
 private val GROUP_CORNER_RADIUS = 10.dp
 private const val DOT_ALPHA = 0.18f
@@ -224,6 +224,7 @@ fun CanvasScreen(
 
     val canvas by viewModel.canvas.collectAsState()
     val isAddingImage by viewModel.isAddingImage.collectAsState()
+    val isFavorite by viewModel.isFavorite.collectAsState()
     var viewport by remember(noteId) { mutableStateOf(CanvasViewport()) }
     var selection by remember(noteId) { mutableStateOf<CanvasSelection>(CanvasSelection.None) }
     var editingNodeId by remember(noteId) { mutableStateOf<String?>(null) }
@@ -1433,9 +1434,12 @@ fun CanvasScreen(
                 CanvasOptionsButton(
                     hazeState = hazeState,
                     showStickyNoteOption = !isStickyNote && isDesktopPlatform,
+                    showFavoriteOption = !isEmbedded,
                     showMoveToTrashOption = !isEmbedded,
+                    isFavorite = isFavorite,
                     loadCurrentTitle = { viewModel.currentTitle() },
                     onRename = { newTitle -> viewModel.renameCanvas(newTitle) },
+                    onToggleFavorite = { viewModel.toggleFavorite() },
                     onOpenAsStickyNote = { StickyNoteWindowBus.open(noteId) },
                     onMoveToTrash = { viewModel.moveCanvasToTrash(onMoved = onNavigateBack) }
                 )
@@ -1744,7 +1748,7 @@ fun CanvasScreen(
 }
 
 @Composable
-private fun CanvasGroupCard(
+internal fun CanvasGroupCard(
     group: CanvasNodeEntity,
     viewport: CanvasViewport,
     isSelected: Boolean,
@@ -1809,7 +1813,7 @@ private fun CanvasGroupCard(
 }
 
 @Composable
-private fun CanvasNodeCard(
+internal fun CanvasNodeCard(
     node: CanvasNodeEntity,
     viewport: CanvasViewport,
     isSelected: Boolean,
@@ -1876,7 +1880,7 @@ private fun CanvasNodeCard(
 }
 
 @Composable
-private fun CanvasFreeTextCard(
+internal fun CanvasFreeTextCard(
     node: CanvasNodeEntity,
     viewport: CanvasViewport,
     isSelected: Boolean,
@@ -2105,7 +2109,7 @@ private fun DrawScope.drawDotGrid(viewport: CanvasViewport, density: Float, colo
     drawPoints(dots, PointMode.Points, color, strokeWidth = 2f * density, cap = StrokeCap.Round)
 }
 
-private fun DrawScope.drawCanvasEdge(curve: CanvasCurve, color: Color, strokeWidth: Float, arrowSize: Float) {
+internal fun DrawScope.drawCanvasEdge(curve: CanvasCurve, color: Color, strokeWidth: Float, arrowSize: Float) {
     val directionIntoTarget = (curve.end - curve.endControl).takeIf { it.getDistance() > 0.01f } ?: (curve.end - curve.start)
     val directionLength = directionIntoTarget.getDistance()
     if (directionLength < 0.01f) return

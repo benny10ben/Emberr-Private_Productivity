@@ -84,10 +84,16 @@ class CanvasViewModel(
     private val loadedNoteId = MutableStateFlow<String?>(null)
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    val title: StateFlow<String> = loadedNoteId
+    private val loadedMetadata = loadedNoteId
         .flatMapLatest { id -> if (id == null) flowOf(null) else noteRepository.observeNoteMetadata(id) }
+
+    val title: StateFlow<String> = loadedMetadata
         .map { it?.title.orEmpty() }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), "")
+
+    val isFavorite: StateFlow<Boolean> = loadedMetadata
+        .map { it?.isFavorite == true }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
     private val unsavedNodes = LinkedHashMap<String, CanvasNodeEntity>()
     private val unsavedEdges = LinkedHashMap<String, CanvasEdgeEntity>()
     private val unsavedStrokes = LinkedHashMap<String, CanvasStrokeEntity>()
@@ -130,6 +136,17 @@ class CanvasViewModel(
             }
             noteRepository.indexCanvas(targetNoteId, _canvas.value)
             lastIndexedSignature = indexSignatureOf(_canvas.value)
+        }
+    }
+
+    fun toggleFavorite() {
+        val targetNoteId = noteId ?: return
+        appScope.launch(Dispatchers.IO) {
+            SyncCoordinator.mutex.withLock {
+                val metadata = noteRepository.getNoteById(targetNoteId) ?: return@withLock
+                val content = noteRepository.getNoteContent(targetNoteId) ?: NoteContent(blocks = emptyList())
+                noteRepository.saveNote(metadata.copy(isFavorite = !metadata.isFavorite), content)
+            }
         }
     }
 

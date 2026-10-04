@@ -29,6 +29,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -56,6 +59,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -183,9 +187,12 @@ fun canvasNodeBackgroundFor(colorName: String?): Color {
 fun CanvasOptionsButton(
     hazeState: HazeState,
     showStickyNoteOption: Boolean,
+    showFavoriteOption: Boolean,
     showMoveToTrashOption: Boolean,
+    isFavorite: Boolean,
     loadCurrentTitle: suspend () -> String,
     onRename: (String) -> Unit,
+    onToggleFavorite: () -> Unit,
     onOpenAsStickyNote: () -> Unit,
     onMoveToTrash: () -> Unit,
     modifier: Modifier = Modifier
@@ -207,7 +214,9 @@ fun CanvasOptionsButton(
             CanvasMobileOptionsSheets(
                 showOptionsSheet = showOptionsMenu,
                 showRenameSheet = showRenamePopup,
+                showFavoriteOption = showFavoriteOption,
                 showMoveToTrashOption = showMoveToTrashOption,
+                isFavorite = isFavorite,
                 loadCurrentTitle = loadCurrentTitle,
                 onOpenRename = {
                     showOptionsMenu = false
@@ -216,6 +225,7 @@ fun CanvasOptionsButton(
                 onDismissOptions = { showOptionsMenu = false },
                 onDismissRename = { showRenamePopup = false },
                 onRename = onRename,
+                onToggleFavorite = onToggleFavorite,
                 onMoveToTrash = onMoveToTrash
             )
         } else {
@@ -223,7 +233,9 @@ fun CanvasOptionsButton(
                 showOptionsMenu = showOptionsMenu,
                 showRenamePopup = showRenamePopup,
                 showStickyNoteOption = showStickyNoteOption,
+                showFavoriteOption = showFavoriteOption,
                 showMoveToTrashOption = showMoveToTrashOption,
+                isFavorite = isFavorite,
                 loadCurrentTitle = loadCurrentTitle,
                 onOpenRename = {
                     showOptionsMenu = false
@@ -232,6 +244,7 @@ fun CanvasOptionsButton(
                 onDismissOptions = { showOptionsMenu = false },
                 onDismissRename = { showRenamePopup = false },
                 onRename = onRename,
+                onToggleFavorite = onToggleFavorite,
                 onOpenAsStickyNote = onOpenAsStickyNote,
                 onMoveToTrash = onMoveToTrash
             )
@@ -244,18 +257,27 @@ private fun CanvasDesktopOptionsMenus(
     showOptionsMenu: Boolean,
     showRenamePopup: Boolean,
     showStickyNoteOption: Boolean,
+    showFavoriteOption: Boolean,
     showMoveToTrashOption: Boolean,
+    isFavorite: Boolean,
     loadCurrentTitle: suspend () -> String,
     onOpenRename: () -> Unit,
     onDismissOptions: () -> Unit,
     onDismissRename: () -> Unit,
     onRename: (String) -> Unit,
+    onToggleFavorite: () -> Unit,
     onOpenAsStickyNote: () -> Unit,
     onMoveToTrash: () -> Unit
 ) {
     EmberrDesktopMenu(expanded = showOptionsMenu, onDismissRequest = onDismissOptions) {
         Column(Modifier.width(240.dp).padding(vertical = 4.dp)) {
             DesktopMenuItem(painterResource(Res.drawable.pen), "Rename") { onOpenRename() }
+            if (showFavoriteOption) {
+                DesktopMenuItem(favoriteIconFor(isFavorite), favoriteLabelFor(isFavorite)) {
+                    onDismissOptions()
+                    onToggleFavorite()
+                }
+            }
             if (showStickyNoteOption) {
                 DesktopMenuItem(painterResource(Res.drawable.square_arrow_out_up_right), "Open as Sticky Note") {
                     onDismissOptions()
@@ -286,17 +308,27 @@ private fun CanvasDesktopOptionsMenus(
     }
 }
 
+@Composable
+private fun favoriteIconFor(isFavorite: Boolean): Painter =
+    rememberVectorPainter(if (isFavorite) Icons.Default.Star else Icons.Default.StarBorder)
+
+private fun favoriteLabelFor(isFavorite: Boolean): String =
+    if (isFavorite) "Remove from Favorites" else "Add to Favorites"
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun CanvasMobileOptionsSheets(
     showOptionsSheet: Boolean,
     showRenameSheet: Boolean,
+    showFavoriteOption: Boolean,
     showMoveToTrashOption: Boolean,
+    isFavorite: Boolean,
     loadCurrentTitle: suspend () -> String,
     onOpenRename: () -> Unit,
     onDismissOptions: () -> Unit,
     onDismissRename: () -> Unit,
     onRename: (String) -> Unit,
+    onToggleFavorite: () -> Unit,
     onMoveToTrash: () -> Unit
 ) {
     var currentTitle by remember { mutableStateOf("") }
@@ -311,6 +343,9 @@ private fun CanvasMobileOptionsSheets(
         ) {
             Column(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)) {
                 BottomSheetOptionItem(painterResource(Res.drawable.pen), "Rename") { closeAnd(onOpenRename) }
+                if (showFavoriteOption) {
+                    BottomSheetOptionItem(favoriteIconFor(isFavorite), favoriteLabelFor(isFavorite)) { closeAnd(onToggleFavorite) }
+                }
                 if (showMoveToTrashOption) {
                     BottomSheetOptionItem(painterResource(Res.drawable.trash), "Move to Trash", isDestructive = true) {
                         closeAnd(onMoveToTrash)
