@@ -29,7 +29,7 @@ Figured I might as well share it. If you're also tired of ugly UIs, privacy head
 - Built-in calendar and reminders
 - Mobile to desktop sync (the data is encrypted so don't worry about using through public wifi)
 - Self-host your data on your own server (the data is encrypted on the server)
-- Local AI that runs entirely on-device for more privacy or add your own API key for cloud AI providers (Can turn off)
+- Local AI that runs entirely on-device for more privacy or add your own API key for cloud AI providers (You can turn off all AI features with a single toggle in settings)
 - End-to-end encryption for your data 
 - No trackers, no ads, no sharing data to third parties
 
