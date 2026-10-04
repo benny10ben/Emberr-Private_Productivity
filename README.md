@@ -6,7 +6,7 @@ Emberr is a local-first, privacy-focused, 100% open source notes and productivit
 
 > **Beta:** Emberr is still in beta. Expect some rough edges and occasional bugs.
 
-<img src=".github/assets/desktop_screenshots.png" width="100%" />
+<img src=".github/assets/screenshots.png" width="100%" />
 
 <a href="https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/benny10ben/Emberr-Private_Productivity"><img src="https://raw.githubusercontent.com/ImranR98/Obtainium/main/assets/graphics/badge_obtainium.png" alt="Get it on Obtainium" height="60" /></a>
 
