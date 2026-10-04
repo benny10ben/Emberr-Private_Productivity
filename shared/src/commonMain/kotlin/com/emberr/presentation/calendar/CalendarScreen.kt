@@ -2,9 +2,6 @@ package com.emberr.presentation.calendar
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedContentTransitionScope
-import androidx.compose.animation.AnimatedVisibilityScope
-import androidx.compose.animation.ExperimentalSharedTransitionApi
-import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
@@ -95,6 +92,7 @@ import com.emberr.domain.util.system.isDesktopPlatform
 import com.emberr.presentation.BOTTOM_BAR_BOTTOM_PADDING
 import com.emberr.presentation.COMPACT_BOTTOM_BAR_PILL_HEIGHT
 import com.emberr.presentation.EXPANDED_BOTTOM_BAR_PILL_HEIGHT
+import com.emberr.presentation.COMPACT_BOTTOM_BAR_BOTTOM_PADDING
 import com.emberr.presentation.shared.components.EmberrBlur
 import com.emberr.presentation.shared.components.EmberrBottomSheet
 import com.emberr.presentation.shared.components.EmberrBottomSheetOption
@@ -150,13 +148,11 @@ private object NoRippleIndicationNodeFactory : IndicationNodeFactory {
     override fun hashCode(): Int = -1
 }
 
-@OptIn(ExperimentalSharedTransitionApi::class, ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CalendarScreen(
     onNavigateBack: () -> Unit = {},
     showBackButton: Boolean = true,
-    sharedTransitionScope: SharedTransitionScope? = null,
-    bottomBarAnimatedVisibilityScope: AnimatedVisibilityScope? = null,
     viewModel: CalendarViewModel = koinViewModel()
 ) {
     val internalHazeState = remember { HazeState() }
@@ -491,8 +487,6 @@ fun CalendarScreen(
                 CalendarBottomBar(
                     hazeState = internalHazeState,
                     isCompact = isBottomBarCompact,
-                    sharedTransitionScope = sharedTransitionScope!!,
-                    bottomBarAnimatedVisibilityScope = bottomBarAnimatedVisibilityScope!!,
                     onViewsClick = { showViewsSheet = true },
                     onCategoriesClick = { showCategoriesSheet = true },
                     modifier = Modifier
@@ -1507,13 +1501,10 @@ private fun MonthDayCell(
     }
 }
 
-@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 private fun CalendarBottomBar(
     hazeState: HazeState,
     isCompact: Boolean,
-    sharedTransitionScope: SharedTransitionScope,
-    bottomBarAnimatedVisibilityScope: AnimatedVisibilityScope,
     onViewsClick: () -> Unit,
     onCategoriesClick: () -> Unit,
     modifier: Modifier = Modifier
@@ -1525,7 +1516,11 @@ private fun CalendarBottomBar(
         targetValue = if (isCompact) COMPACT_BOTTOM_BAR_PILL_HEIGHT else EXPANDED_BOTTOM_BAR_PILL_HEIGHT,
         animationSpec = barAnimationSpec
     )
-    val shrinkCompensation = (EXPANDED_BOTTOM_BAR_PILL_HEIGHT - barSize) / 2
+    val bottomGap by animateDpAsState(
+        targetValue = if (isCompact) COMPACT_BOTTOM_BAR_BOTTOM_PADDING else BOTTOM_BAR_BOTTOM_PADDING,
+        animationSpec = barAnimationSpec
+    )
+    val topGap = EXPANDED_BOTTOM_BAR_PILL_HEIGHT + BOTTOM_BAR_BOTTOM_PADDING - barSize - bottomGap
     val navItemHeight = barSize - 12.dp
 
     Box(
@@ -1533,34 +1528,20 @@ private fun CalendarBottomBar(
             .fillMaxWidth()
             .navigationBarsPadding()
             .padding(
-                top = shrinkCompensation,
-                bottom = BOTTOM_BAR_BOTTOM_PADDING + shrinkCompensation,
+                top = topGap,
+                bottom = bottomGap,
                 start = 16.dp,
                 end = 16.dp
             ),
         contentAlignment = Alignment.BottomCenter
     ) {
-        val isMorphing = bottomBarAnimatedVisibilityScope.transition.isRunning
-        val shadowElevation by animateDpAsState(
-            targetValue = if (isMorphing) EmberrShadowElevation.None else EmberrShadowElevation.Standard,
-            animationSpec = tween(durationMillis = 150, easing = FastOutSlowInEasing)
-        )
         Surface(
             shape = CircleShape,
             color = Color.Transparent,
             modifier = Modifier
                 .wrapContentWidth()
                 .height(barSize)
-                .then(
-                    with(sharedTransitionScope) {
-                        Modifier.sharedBounds(
-                            sharedContentState = rememberSharedContentState(key = "calendarBottomBarPill"),
-                            animatedVisibilityScope = bottomBarAnimatedVisibilityScope,
-                            boundsTransform = { _, _ -> tween(durationMillis = 300, easing = FastOutSlowInEasing) }
-                        )
-                    }
-                )
-                .customEmberrShadow(CircleShape, elevation = shadowElevation)
+                .customEmberrShadow(CircleShape, elevation = EmberrShadowElevation.Standard)
                 .clip(CircleShape)
                 .emberrBlur(hazeState, EmberrBlur.Regular)
                 .border(
@@ -1570,11 +1551,7 @@ private fun CalendarBottomBar(
                 )
         ) {
             Row(
-                modifier = with(sharedTransitionScope) {
-                    Modifier
-                        .padding(horizontal = 10.dp, vertical = 6.dp)
-                        .skipToLookaheadSize()
-                },
+                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {

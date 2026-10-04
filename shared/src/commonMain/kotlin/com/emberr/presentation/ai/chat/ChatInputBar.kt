@@ -105,7 +105,7 @@ internal fun ChatInputBar(
     val sharedPillModifier = if (sharedTransitionScope != null && chatAnimatedVisibilityScope != null) {
         with(sharedTransitionScope) {
             Modifier.sharedBounds(
-                sharedContentState = rememberSharedContentState(key = "calendarBottomBarPill"),
+                sharedContentState = rememberSharedContentState(key = "bottomBarPill"),
                 animatedVisibilityScope = chatAnimatedVisibilityScope,
                 boundsTransform = { _, _ -> tween(durationMillis = 300, easing = FastOutSlowInEasing) }
             )
