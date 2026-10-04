@@ -24,6 +24,7 @@ Figured I might as well share it. If you're also tired of ugly UIs, privacy head
 ## Features
 
 - Block-based editor for notes, checklists, tables, and more
+- Spaces to keep different parts of your life (work, personal, school) separate
 - Attach images, documents, and voice notes to any note
 - Daily notes with automatic task rollover
 - Built-in calendar and reminders
@@ -39,6 +40,7 @@ Figured I might as well share it. If you're also tired of ugly UIs, privacy head
 
 - UI / UX and performance improvements
 - Keyboard shortcuts for the desktop app
+- Split views
 - Support for ARM based desktops
 - Improved Kanban and gallery views for the database block
 - Login/credentials block to store important info (hopefully with autofill too)
