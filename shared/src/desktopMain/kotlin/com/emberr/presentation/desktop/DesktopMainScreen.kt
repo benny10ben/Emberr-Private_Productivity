@@ -83,6 +83,7 @@ import com.emberr.presentation.home.flattenFolderTree
 import com.emberr.presentation.home.rowsBetween
 import com.emberr.presentation.home.treeSelectionMenu
 import com.emberr.presentation.home.note.NoteScreen
+import com.emberr.presentation.home.overview.OverviewSection
 import com.emberr.presentation.home.overview.bookmarks.BookmarksScreen
 import com.emberr.presentation.home.overview.documents.DocumentsScreen
 import com.emberr.presentation.home.overview.images.ImagesScreen
@@ -139,16 +140,12 @@ import dev.chrisbanes.haze.hazeSource
 import emberr.shared.generated.resources.Res
 import emberr.shared.generated.resources.arrow_up_down
 import emberr.shared.generated.resources.astroid
-import emberr.shared.generated.resources.bookmark
 import emberr.shared.generated.resources.calendar
 import emberr.shared.generated.resources.sidebar
-import emberr.shared.generated.resources.check_square
 import emberr.shared.generated.resources.ellipsis
 import emberr.shared.generated.resources.history2
 import emberr.shared.generated.resources.pen_square
 import emberr.shared.generated.resources.folder_plus
-import emberr.shared.generated.resources.images
-import emberr.shared.generated.resources.notes2
 import emberr.shared.generated.resources.search
 import emberr.shared.generated.resources.template
 import emberr.shared.generated.resources.x
@@ -162,6 +159,7 @@ private val DesktopPanelShape = RoundedCornerShape(18.dp)
 // Right-panel state. Replaces Home's boolean flags.
 sealed interface DetailPane {
     data class Daily(val date: LocalDate) : DetailPane
+    data object Empty : DetailPane
     data class Note(val noteId: String) : DetailPane
     data object Settings : DetailPane
     data object SelfHostSetup : DetailPane
@@ -178,6 +176,7 @@ sealed interface DetailPane {
 
 private fun DetailPane.encode(): String = when (this) {
     is DetailPane.Daily -> "DAILY:${date}"
+    DetailPane.Empty -> "PANEL:EMPTY"
     is DetailPane.Note -> "NOTE:${noteId}"
     DetailPane.Settings -> "PANEL:SETTINGS"
     DetailPane.SelfHostSetup -> "PANEL:SELFHOST"
@@ -196,6 +195,7 @@ private fun decodeDetailPane(raw: String, today: LocalDate): DetailPane = when {
     raw.startsWith("DAILY:") -> runCatching { DetailPane.Daily(LocalDate.parse(raw.removePrefix("DAILY:"))) }
         .getOrElse { DetailPane.Daily(today) }
     raw.startsWith("NOTE:") -> DetailPane.Note(raw.removePrefix("NOTE:"))
+    raw == "PANEL:EMPTY" -> DetailPane.Empty
     raw == "PANEL:SETTINGS" -> DetailPane.Settings
     raw == "PANEL:SELFHOST" -> DetailPane.SelfHostSetup
     raw == "PANEL:ABOUT" -> DetailPane.About
@@ -208,6 +208,13 @@ private fun decodeDetailPane(raw: String, today: LocalDate): DetailPane = when {
     raw == "PANEL:DOCUMENTS" -> DetailPane.Documents
     raw == "PANEL:CALENDAR" -> DetailPane.Calendar
     else -> DetailPane.Daily(today)
+}
+
+private fun OverviewSection.detailPane(): DetailPane = when (this) {
+    OverviewSection.TASKS -> DetailPane.Reminders
+    OverviewSection.BOOKMARKS -> DetailPane.Bookmarks
+    OverviewSection.IMAGES -> DetailPane.Images
+    OverviewSection.DOCUMENTS -> DetailPane.Documents
 }
 
 @Composable
@@ -544,6 +551,9 @@ fun DesktopMainScreen(
     val isAiDisabled by settingsManager.aiFeaturesDisabledFlow.collectAsState(
         initial = settingsManager.isAiFeaturesDisabled()
     )
+    val isDailyNotesEnabled by settingsManager.dailyNotesEnabledFlow.collectAsState(
+        initial = settingsManager.isDailyNotesEnabled()
+    )
     var panelWidth by remember { mutableStateOf(sidebarWidth) }
     var hasLoadedWidth by remember { mutableStateOf(false) }
     var ragPanelWidth by remember { mutableStateOf(DEFAULT_RAG_PANEL_WIDTH) }
@@ -571,6 +581,7 @@ fun DesktopMainScreen(
     val bookmarksCount by homeViewModel.bookmarksCount.collectAsState()
     val imagesCount by homeViewModel.imagesCount.collectAsState()
     val documentsCount by homeViewModel.documentsCount.collectAsState()
+    val visibleOverviewSections by homeViewModel.visibleOverviewSections.collectAsState()
     val templates by homeViewModel.filteredTemplates.collectAsState()
     val templateSearchQuery by homeViewModel.templateSearchQuery.collectAsState()
 
@@ -597,8 +608,16 @@ fun DesktopMainScreen(
 
     LaunchedEffect(lastOpenedState, isLoading) {
         if (!hasRestored && !isLoading) {
-            val restored = if (lastOpenedState.isBlank()) DetailPane.Daily(today)
+            val decoded = if (lastOpenedState.isBlank()) DetailPane.Daily(today)
             else decodeDetailPane(lastOpenedState, today)
+            val decodedOverviewSection = OverviewSection.entries.firstOrNull { section -> section.detailPane() == decoded }
+            val restored = when {
+                decoded is DetailPane.Daily && !isDailyNotesEnabled -> DetailPane.Empty
+                decoded is DetailPane.Empty && isDailyNotesEnabled -> DetailPane.Daily(today)
+                decodedOverviewSection != null && decodedOverviewSection !in visibleOverviewSections ->
+                    if (isDailyNotesEnabled) DetailPane.Daily(today) else DetailPane.Empty
+                else -> decoded
+            }
             if (restored is DetailPane.Daily) dailyViewModel.selectDate(restored.date)
             detail = restored
             hasRestored = true
@@ -607,6 +626,10 @@ fun DesktopMainScreen(
 
     LaunchedEffect(detail) {
         detail?.let { settingsManager.saveLastOpenedDesktopState(it.encode()) }
+    }
+
+    LaunchedEffect(isDailyNotesEnabled) {
+        if (!isDailyNotesEnabled && detail is DetailPane.Daily) detail = DetailPane.Empty
     }
 
     // Menus / popups
@@ -659,6 +682,9 @@ fun DesktopMainScreen(
         detail = DetailPane.Note(id)
         isPeeking = false
     }
+    val closeDetailPane: () -> Unit = {
+        detail = if (isDailyNotesEnabled) DetailPane.Daily(selectedDate) else DetailPane.Empty
+    }
 
     LaunchedEffect(syncState) {
         if (syncState != "Idle" && syncState != "Syncing...") {
@@ -710,8 +736,12 @@ fun DesktopMainScreen(
         isOpeningReminderTarget = false
 
         if (detail is DetailPane.Note && !keepCurrentPane) {
-            dailyViewModel.selectDate(today)
-            detail = DetailPane.Daily(today)
+            if (isDailyNotesEnabled) {
+                dailyViewModel.selectDate(today)
+                detail = DetailPane.Daily(today)
+            } else {
+                detail = DetailPane.Empty
+            }
         }
         sidebarListState.scrollToItem(0)
     }
@@ -850,17 +880,19 @@ fun DesktopMainScreen(
                         Icon(painterResource(Res.drawable.sidebar), "Collapse sidebar", tint = MaterialTheme.colorScheme.onSurface)
                     }
                     Spacer(Modifier.weight(1f))
-                    Box(modifier = Modifier.padding(end = 8.dp)) {
-                        TopBarIconButton(
-                            icon = painterResource(Res.drawable.history2),
-                            contentDescription = "Open timeline",
-                            bgColor = MaterialTheme.colorScheme.background,
-                            tint = MaterialTheme.colorScheme.primary,
-                            onClick = {
-                                dailyViewModel.loadTimeline()
-                                showTimelineDialog = true
-                            }
-                        )
+                    if (isDailyNotesEnabled) {
+                        Box(modifier = Modifier.padding(end = 8.dp)) {
+                            TopBarIconButton(
+                                icon = painterResource(Res.drawable.history2),
+                                contentDescription = "Open timeline",
+                                bgColor = MaterialTheme.colorScheme.background,
+                                tint = MaterialTheme.colorScheme.primary,
+                                onClick = {
+                                    dailyViewModel.loadTimeline()
+                                    showTimelineDialog = true
+                                }
+                            )
+                        }
                     }
                     Box {
                         TopBarIconButtonGroup(
@@ -904,11 +936,15 @@ fun DesktopMainScreen(
                     )
                 } else {
                     // calendar strip
-                    CollapsedWeekStrip(
-                        selectedDate = selectedDate,
-                        modifier = Modifier.padding(start = 8.dp, end = 8.dp, top = 20.dp, bottom = 12.dp),
-                        onDateSelected = { openDaily(it) }
-                    )
+                    if (isDailyNotesEnabled) {
+                        CollapsedWeekStrip(
+                            selectedDate = selectedDate,
+                            modifier = Modifier.padding(start = 8.dp, end = 8.dp, top = 20.dp, bottom = 12.dp),
+                            onDateSelected = { openDaily(it) }
+                        )
+                    } else {
+                        Spacer(Modifier.height(12.dp))
+                    }
 
                     // Scrolling: overview rows + favorites + notes tree + recents
                     Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
@@ -986,32 +1022,25 @@ fun DesktopMainScreen(
                                 contentPadding = PaddingValues(bottom = 80.dp)
                             ) {
                                 item {
-                                    Column(modifier = Modifier.padding(top = 4.dp, bottom = 8.dp)) {
-                                        OverviewRow(
-                                            painterResource(Res.drawable.check_square),
-                                            "Tasks",
-                                            "$remindersCount left",
-                                            isSelected = detail == DetailPane.Reminders
-                                        ) { detail = DetailPane.Reminders; isPeeking = false }
-                                        OverviewRow(
-                                            painterResource(Res.drawable.bookmark),
-                                            "Bookmarks",
-                                            "$bookmarksCount saved",
-                                            isSelected = detail == DetailPane.Bookmarks
-                                        ) { detail = DetailPane.Bookmarks; isPeeking = false }
-                                        OverviewRow(
-                                            painterResource(Res.drawable.images),
-                                            "Images",
-                                            "$imagesCount saved",
-                                            isSelected = detail == DetailPane.Images
-                                        ) { detail = DetailPane.Images; isPeeking = false }
-                                        OverviewRow(
-                                            painterResource(Res.drawable.notes2),
-                                            "Documents",
-                                            "$documentsCount attached",
-                                            isSelected = detail == DetailPane.Documents
-                                        ) { detail = DetailPane.Documents; isPeeking = false }
-                                        SidebarGroupSeparator()
+                                    if (visibleOverviewSections.isNotEmpty()) {
+                                        Column(modifier = Modifier.padding(top = 4.dp, bottom = 8.dp)) {
+                                            visibleOverviewSections.forEach { section ->
+                                                val sectionPane = section.detailPane()
+                                                val subtitle = when (section) {
+                                                    OverviewSection.TASKS -> "$remindersCount left"
+                                                    OverviewSection.BOOKMARKS -> "$bookmarksCount saved"
+                                                    OverviewSection.IMAGES -> "$imagesCount saved"
+                                                    OverviewSection.DOCUMENTS -> "$documentsCount attached"
+                                                }
+                                                OverviewRow(
+                                                    painterResource(section.icon),
+                                                    section.title,
+                                                    subtitle,
+                                                    isSelected = detail == sectionPane
+                                                ) { detail = sectionPane; isPeeking = false }
+                                            }
+                                            SidebarGroupSeparator()
+                                        }
                                     }
                                 }
 
@@ -1440,6 +1469,13 @@ fun DesktopMainScreen(
         Box(Modifier.fillMaxSize().hazeSource(state = hazeState)) {
             when (val d = detail) {
                 null -> Box(Modifier.fillMaxSize())
+                DetailPane.Empty -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text(
+                        text = "Select a note from the sidebar",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f)
+                    )
+                }
                 is DetailPane.Daily -> Box(Modifier.fillMaxSize()) {
                     DailyEditorPane(
                         viewModel = dailyViewModel,
@@ -1463,11 +1499,11 @@ fun DesktopMainScreen(
                         NoteKind.CANVAS -> CanvasScreen(
                             noteId = d.noteId,
                             showBackButton = isSidebarVisible,
-                            onNavigateBack = { detail = DetailPane.Daily(selectedDate) }
+                            onNavigateBack = closeDetailPane
                         )
                         NoteKind.NOTE, NoteKind.DATABASE -> NoteScreen(
                             noteId = d.noteId,
-                            onNavigateBack = { detail = DetailPane.Daily(selectedDate) },
+                            onNavigateBack = closeDetailPane,
                             showBackButton = isSidebarVisible,
                             onSelectionModeChange = onSelectionModeChange,
                             onPickImage = onPickImage, onTakePhoto = onTakePhoto, onPickDocument = onPickDocument,
@@ -1481,7 +1517,7 @@ fun DesktopMainScreen(
                 DetailPane.Settings -> key("settings") {
                     Box(Modifier.fillMaxSize()) {
                         SettingsScreen(
-                            onNavigateBack = { detail = DetailPane.Daily(selectedDate) },
+                            onNavigateBack = closeDetailPane,
                             onExportReady = onExportBackup,
                             onImportClick = onImportBackupClick,
                             onNavigateToSelfHostSetup = { detail = DetailPane.SelfHostSetup },
@@ -1511,38 +1547,38 @@ fun DesktopMainScreen(
                 }
                 DetailPane.Trash -> key("trash") {
                     Box(Modifier.fillMaxSize()) {
-                        TrashScreen(onNavigateBack = { detail = DetailPane.Daily(selectedDate) })
+                        TrashScreen(onNavigateBack = closeDetailPane)
                     }
                 }
                 DetailPane.Properties -> key("properties") {
                     Box(Modifier.fillMaxSize()) {
-                        PropertiesScreen(onNavigateBack = { detail = DetailPane.Daily(selectedDate) })
+                        PropertiesScreen(onNavigateBack = closeDetailPane)
                     }
                 }
                 DetailPane.Reminders -> key("reminders") {
                     Box(Modifier.fillMaxSize()) {
-                        TasksScreen(onNavigateBack = { detail = DetailPane.Daily(selectedDate) }, onOpenFile = onOpenFile, onNavigateToEditor = { openNote(it) })
+                        TasksScreen(onNavigateBack = closeDetailPane, onOpenFile = onOpenFile, onNavigateToEditor = { openNote(it) })
                     }
                 }
                 DetailPane.Images -> key("images") {
                     Box(Modifier.fillMaxSize()) {
-                        ImagesScreen(onNavigateBack = { detail = DetailPane.Daily(selectedDate) }, onTriggerImagePicker = { onPickImage { } })
+                        ImagesScreen(onNavigateBack = closeDetailPane, onTriggerImagePicker = { onPickImage { } })
                     }
                 }
                 DetailPane.Documents -> key("documents") {
                     Box(Modifier.fillMaxSize()) {
-                        DocumentsScreen(onNavigateBack = { detail = DetailPane.Daily(selectedDate) }, onTriggerDocumentPicker = { onPickDocument { } }, onOpenFile = onOpenFile)
+                        DocumentsScreen(onNavigateBack = closeDetailPane, onTriggerDocumentPicker = { onPickDocument { } }, onOpenFile = onOpenFile)
                     }
                 }
                 DetailPane.Bookmarks -> key("bookmarks") {
                     Box(Modifier.fillMaxSize()) {
-                        BookmarksScreen(onNavigateBack = { detail = DetailPane.Daily(selectedDate) })
+                        BookmarksScreen(onNavigateBack = closeDetailPane)
                     }
                 }
                 DetailPane.Calendar -> key("calendar") {
                     Box(Modifier.fillMaxSize()) {
                         CalendarScreen(
-                            onNavigateBack = { detail = DetailPane.Daily(selectedDate) },
+                            onNavigateBack = closeDetailPane,
                             showBackButton = isSidebarVisible
                         )
                     }

@@ -105,6 +105,10 @@ fun EmberrApp(
 
     val navController = rememberNavController()
     val noteRepository: NoteRepository = koinInject()
+    val settingsManager = koinInject<com.emberr.data.local.prefs.SettingsManager>()
+    val isDailyNotesEnabled by settingsManager.dailyNotesEnabledFlow.collectAsState(
+        initial = settingsManager.isDailyNotesEnabled()
+    )
 
     LaunchedEffect(Unit) {
         com.emberr.domain.util.eventbus.WidgetNavigationBus.requestedRoutes.collect { requestedRoute ->
@@ -122,7 +126,7 @@ fun EmberrApp(
 
                 val isDailyRoute = requestedRoute.startsWith(Screen.Daily.createRoute())
 
-                if (isDailyRoute) {
+                if (isDailyRoute && settingsManager.isDailyNotesEnabled()) {
                     navController.navigate(requestedRoute) {
                         popUpTo(navController.graph.id) { inclusive = true }
                         launchSingleTop = true
@@ -169,7 +173,10 @@ fun EmberrApp(
         }
     }
 
-    var activeTab by remember { mutableStateOf(Screen.Daily.route) }
+    var activeTab by remember {
+        val opensOnDaily = isDailyNotesEnabled && !settingsManager.isStartOnHomeEnabled()
+        mutableStateOf(if (opensOnDaily) Screen.Daily.route else Screen.Home.route)
+    }
     var isBottomBarCompact by remember { mutableStateOf(false) }
 
     // Mobile search: the bottom bar turns into the search field, and the moment there is a query
@@ -195,9 +202,11 @@ fun EmberrApp(
     // AI chat ViewModel
     val ragViewModel: com.emberr.presentation.ai.RagViewModel = koinViewModel()
 
-    val settingsManager = koinInject<com.emberr.data.local.prefs.SettingsManager>()
     val isAiDisabled by settingsManager.aiFeaturesDisabledFlow.collectAsState(
         initial = settingsManager.isAiFeaturesDisabled()
+    )
+    val isMicButtonVisible by settingsManager.micButtonVisibleFlow.collectAsState(
+        initial = settingsManager.isMicButtonVisible()
     )
 
     // Controls the AI chat overlay
@@ -435,7 +444,9 @@ fun EmberrApp(
                         composable(Screen.Splash.route) {
                             LoadingScreen(
                                 onLoadingComplete = {
-                                    navController.navigate(Screen.Daily.createRoute()) {
+                                    val opensOnDaily = isDailyNotesEnabled && !settingsManager.isStartOnHomeEnabled()
+                                    val firstRoute = if (opensOnDaily) Screen.Daily.createRoute() else Screen.Home.route
+                                    navController.navigate(firstRoute) {
                                         popUpTo(Screen.Splash.route) { inclusive = true }
                                     }
                                 }
@@ -683,9 +694,7 @@ fun EmberrApp(
                             }
                         ) {
                             com.emberr.presentation.calendar.CalendarScreen(
-                                onNavigateBack = { navController.popBackStack() },
-                                sharedTransitionScope = sharedTransitionScope,
-                                bottomBarAnimatedVisibilityScope = this,
+                                onNavigateBack = { navController.popBackStack() }
                             )
                         }
 
@@ -840,8 +849,21 @@ fun EmberrApp(
                                 )
                             }
                         ) {
+                            val leaveSettings: () -> Unit = {
+                                val isDailyInBackStack = runCatching {
+                                    navController.getBackStackEntry(Screen.Daily.route)
+                                }.isSuccess
+                                if (!isDailyNotesEnabled && isDailyInBackStack) {
+                                    navController.navigate(Screen.Home.route) {
+                                        popUpTo(navController.graph.id) { inclusive = true }
+                                    }
+                                } else {
+                                    navController.popBackStack()
+                                }
+                            }
+                            KmpBackHandler(enabled = !isDailyNotesEnabled, onBack = leaveSettings)
                             com.emberr.presentation.settings.SettingsScreen(
-                                onNavigateBack = { navController.popBackStack() },
+                                onNavigateBack = leaveSettings,
                                 onExportReady = onExportBackup,
                                 onImportClick = onImportBackupClick,
                                 onRequestBackupFolder = onRequestBackupFolder,
@@ -1081,6 +1103,8 @@ fun EmberrApp(
                                 activeTab = activeTab,
                                 onAiIconTap = openAiChat,
                                 isAiEnabled = !isAiDisabled,
+                                isDailyNotesEnabled = isDailyNotesEnabled,
+                                isMicButtonVisible = isMicButtonVisible,
                                 onSearchClick = { isSearchBarOpen = true },
                                 isSearchMode = isSearchBarOpen,
                                 searchQuery = searchQuery,

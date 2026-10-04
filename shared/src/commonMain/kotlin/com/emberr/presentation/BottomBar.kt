@@ -7,6 +7,7 @@ import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -80,8 +81,11 @@ import org.jetbrains.compose.resources.painterResource
 internal val EXPANDED_BOTTOM_BAR_PILL_HEIGHT = 52.dp
 internal val COMPACT_BOTTOM_BAR_PILL_HEIGHT = 44.dp
 internal val BOTTOM_BAR_BOTTOM_PADDING = 12.dp
+internal val COMPACT_BOTTOM_BAR_BOTTOM_PADDING = 6.dp
 internal val BOTTOM_BAR_PILL_SHRINK_COMPENSATION =
     (EXPANDED_BOTTOM_BAR_PILL_HEIGHT - COMPACT_BOTTOM_BAR_PILL_HEIGHT) / 2
+private const val ALWAYS_SHOWN_BOTTOM_BAR_ITEM_COUNT = 2
+private const val MAX_BOTTOM_BAR_ITEM_COUNT = 5
 
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
@@ -97,6 +101,8 @@ fun EmberrBottomBar(
     onMicClick: () -> Unit,
     onAiIconTap: () -> Unit = {},
     isAiEnabled: Boolean = true,
+    isDailyNotesEnabled: Boolean = true,
+    isMicButtonVisible: Boolean = true,
     isListening: Boolean = false,
     isCompact: Boolean = false,
     isSearchMode: Boolean = false,
@@ -115,7 +121,11 @@ fun EmberrBottomBar(
         },
         animationSpec = barAnimationSpec
     )
-    val shrinkCompensation = (EXPANDED_BOTTOM_BAR_PILL_HEIGHT - barSize) / 2
+    val bottomGap by animateDpAsState(
+        targetValue = if (isCompact && !isSearchMode) COMPACT_BOTTOM_BAR_BOTTOM_PADDING else BOTTOM_BAR_BOTTOM_PADDING,
+        animationSpec = barAnimationSpec
+    )
+    val topGap = EXPANDED_BOTTOM_BAR_PILL_HEIGHT + BOTTOM_BAR_BOTTOM_PADDING - barSize - bottomGap
     val horizontalInset by animateDpAsState(
         targetValue = when {
             isSearchMode -> 0.dp
@@ -125,6 +135,13 @@ fun EmberrBottomBar(
         animationSpec = barAnimationSpec
     )
     val navItemHeight = barSize - 12.dp
+
+    val optionalItemsShown = listOf(isDailyNotesEnabled, isAiEnabled, !isDesktopPlatform && isMicButtonVisible).count { isShown -> isShown }
+    val shownItemCount = ALWAYS_SHOWN_BOTTOM_BAR_ITEM_COUNT + optionalItemsShown
+    val barWidthFraction by animateFloatAsState(
+        targetValue = if (isSearchMode) 1f else shownItemCount.toFloat() / MAX_BOTTOM_BAR_ITEM_COUNT,
+        animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing)
+    )
 
     // The bar only rides the keyboard while searching, and keeps riding it on the way out, so
     // closing search lets it sink back down with the keyboard instead of snapping to the bottom
@@ -154,8 +171,8 @@ fun EmberrBottomBar(
             }
             .navigationBarsPadding()
             .padding(
-                top = shrinkCompensation,
-                bottom = BOTTOM_BAR_BOTTOM_PADDING + shrinkCompensation,
+                top = topGap,
+                bottom = bottomGap,
                 start = 16.dp,
                 end = 16.dp
             ),
@@ -178,110 +195,114 @@ fun EmberrBottomBar(
                 targetValue = if (isMorphing) EmberrShadowElevation.None else EmberrShadowElevation.Standard,
                 animationSpec = tween(durationMillis = 150, easing = FastOutSlowInEasing)
             )
-            Surface(
-                shape = CircleShape,
-                color = Color.Transparent,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = horizontalInset)
-                    .height(barSize)
-                    .then(
-                        with(sharedTransitionScope) {
-                            Modifier.sharedBounds(
-                                sharedContentState = rememberSharedContentState(key = "calendarBottomBarPill"),
-                                animatedVisibilityScope = bottomBarAnimatedVisibilityScope,
-                                boundsTransform = { _, _ -> tween(durationMillis = 300, easing = FastOutSlowInEasing) }
-                            )
-                        }
-                    )
-                    .customEmberrShadow(CircleShape, elevation = shadowElevation)
-                    .clip(CircleShape)
-                    .emberrBlur(hazeState, EmberrBlur.Regular)
-                    .border(
-                        width = 0.5.dp,
-                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
-                        shape = CircleShape
-                    )
-            ) {
-                AnimatedContent(
-                    targetState = isSearchMode,
-                    transitionSpec = { fadeIn(tween(200)) togetherWith fadeOut(tween(150)) },
-                    modifier = with(sharedTransitionScope) {
-                        Modifier
-                            .fillMaxSize()
-                            .padding(horizontal = 6.dp, vertical = 6.dp)
-                            .skipToLookaheadSize()
-                    },
-                    label = "bottom_bar_search_morph"
-                ) { showSearchField ->
-                    if (showSearchField) {
-                        BottomBarSearchField(
-                            query = searchQuery,
-                            onQueryChange = onSearchQueryChange,
-                            onClose = onCloseSearch
-                        )
-                    } else {
-                        Row(
-                            modifier = Modifier.fillMaxSize(),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            BottomNavItem(
-                                icon = painterResource(Res.drawable.daily),
-                                isSelected = activeTab == Screen.Daily.route,
-                                modifier = Modifier.weight(1f).height(navItemHeight)
-                            ) {
-                                if (currentRoute != Screen.Daily.route) navController.navigate(Screen.Daily.createRoute()) {
-                                    popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                                    launchSingleTop = true
-                                    restoreState = true
-                                }
-                            }
-                            BottomNavItem(
-                                icon = painterResource(Res.drawable.house),
-                                isSelected = activeTab == Screen.Home.route,
-                                modifier = Modifier.weight(1f).height(navItemHeight)
-                            ) {
-                                if (currentRoute != Screen.Home.route) navController.navigate(Screen.Home.route) {
-                                    popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                                    launchSingleTop = true
-                                    restoreState = true
-                                }
-                            }
-                            if (isAiEnabled) {
-                                BottomNavItem(
-                                    icon = painterResource(Res.drawable.astroid),
-                                    isSelected = false,
-                                    modifier = Modifier.weight(1f).height(navItemHeight),
-                                    iconModifier = with(sharedTransitionScope) {
-                                        Modifier.sharedElement(
-                                            sharedContentState = rememberSharedContentState(key = "aiIcon"),
-                                            animatedVisibilityScope = bottomBarAnimatedVisibilityScope,
-                                            boundsTransform = { _, _ -> tween(durationMillis = 300, easing = FastOutSlowInEasing) }
-                                        )
-                                    },
-                                    onClick = onAiIconTap
+            Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                Surface(
+                    shape = CircleShape,
+                    color = Color.Transparent,
+                    modifier = Modifier
+                        .padding(horizontal = horizontalInset)
+                        .fillMaxWidth(barWidthFraction)
+                        .height(barSize)
+                        .then(
+                            with(sharedTransitionScope) {
+                                Modifier.sharedBounds(
+                                    sharedContentState = rememberSharedContentState(key = "bottomBarPill"),
+                                    animatedVisibilityScope = bottomBarAnimatedVisibilityScope,
+                                    boundsTransform = { _, _ -> tween(durationMillis = 300, easing = FastOutSlowInEasing) }
                                 )
                             }
-                            BottomNavItem(
-                                icon = painterResource(Res.drawable.search),
-                                isSelected = false,
-                                modifier = Modifier.weight(1f).height(navItemHeight),
-                                onClick = onSearchClick
+                        )
+                        .customEmberrShadow(CircleShape, elevation = shadowElevation)
+                        .clip(CircleShape)
+                        .emberrBlur(hazeState, EmberrBlur.Regular)
+                        .border(
+                            width = 0.5.dp,
+                            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
+                            shape = CircleShape
+                        )
+                ) {
+                    AnimatedContent(
+                        targetState = isSearchMode,
+                        transitionSpec = { fadeIn(tween(200)) togetherWith fadeOut(tween(150)) },
+                        modifier = with(sharedTransitionScope) {
+                            Modifier
+                                .fillMaxSize()
+                                .padding(horizontal = 6.dp, vertical = 6.dp)
+                                .skipToLookaheadSize()
+                        },
+                        label = "bottom_bar_search_morph"
+                    ) { showSearchField ->
+                        if (showSearchField) {
+                            BottomBarSearchField(
+                                query = searchQuery,
+                                onQueryChange = onSearchQueryChange,
+                                onClose = onCloseSearch
                             )
-                            if (!isDesktopPlatform) {
-                                Surface(
-                                    shape = CircleShape,
-                                    color = if (isListening) defaultContentColor else Color.Transparent,
-                                    contentColor = if (isListening) MaterialTheme.colorScheme.background else defaultContentColor.copy(alpha = 0.6f),
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .height(navItemHeight)
-                                        .clip(CircleShape)
-                                        .clickable { onMicClick() }
+                        } else {
+                            Row(
+                                modifier = Modifier.fillMaxSize(),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                if (isDailyNotesEnabled) {
+                                    BottomNavItem(
+                                        icon = painterResource(Res.drawable.daily),
+                                        isSelected = activeTab == Screen.Daily.route,
+                                        modifier = Modifier.weight(1f).height(navItemHeight)
+                                    ) {
+                                        if (currentRoute != Screen.Daily.route) navController.navigate(Screen.Daily.createRoute()) {
+                                            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                                            launchSingleTop = true
+                                            restoreState = true
+                                        }
+                                    }
+                                }
+                                BottomNavItem(
+                                    icon = painterResource(Res.drawable.house),
+                                    isSelected = activeTab == Screen.Home.route,
+                                    modifier = Modifier.weight(1f).height(navItemHeight)
                                 ) {
-                                    Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-                                        Icon(painterResource(Res.drawable.microphone), "Mic", modifier = Modifier.size(20.dp))
+                                    if (currentRoute != Screen.Home.route) navController.navigate(Screen.Home.route) {
+                                        popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                                        launchSingleTop = true
+                                        restoreState = true
+                                    }
+                                }
+                                if (isAiEnabled) {
+                                    BottomNavItem(
+                                        icon = painterResource(Res.drawable.astroid),
+                                        isSelected = false,
+                                        modifier = Modifier.weight(1f).height(navItemHeight),
+                                        iconModifier = with(sharedTransitionScope) {
+                                            Modifier.sharedElement(
+                                                sharedContentState = rememberSharedContentState(key = "aiIcon"),
+                                                animatedVisibilityScope = bottomBarAnimatedVisibilityScope,
+                                                boundsTransform = { _, _ -> tween(durationMillis = 300, easing = FastOutSlowInEasing) }
+                                            )
+                                        },
+                                        onClick = onAiIconTap
+                                    )
+                                }
+                                BottomNavItem(
+                                    icon = painterResource(Res.drawable.search),
+                                    isSelected = false,
+                                    modifier = Modifier.weight(1f).height(navItemHeight),
+                                    onClick = onSearchClick
+                                )
+                                if (!isDesktopPlatform && isMicButtonVisible) {
+                                    Surface(
+                                        shape = CircleShape,
+                                        color = if (isListening) defaultContentColor else Color.Transparent,
+                                        contentColor = if (isListening) MaterialTheme.colorScheme.background else defaultContentColor.copy(alpha = 0.6f),
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .height(navItemHeight)
+                                            .clip(CircleShape)
+                                            .clickable { onMicClick() }
+                                    ) {
+                                        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                                            Icon(painterResource(Res.drawable.microphone), "Mic", modifier = Modifier.size(20.dp))
+                                        }
                                     }
                                 }
                             }

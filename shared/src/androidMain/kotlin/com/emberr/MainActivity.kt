@@ -123,6 +123,7 @@ class MainActivity : ComponentActivity() {
     private val settingsViewModel: com.emberr.presentation.settings.SettingsViewModel by inject()
     private val activeSpaceStore: com.emberr.domain.space.ActiveSpaceStore by inject()
     private val updateChecker: AndroidUpdateChecker by inject()
+    private val settingsManager: com.emberr.data.local.prefs.SettingsManager by inject()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         val splashScreen = installSplashScreen()
@@ -143,7 +144,9 @@ class MainActivity : ComponentActivity() {
             (application as? EmberrApplication)?.warmUpAiEngineOnce()
         }
 
-        val routeForThisLaunch = consumeWidgetRoute(intent) ?: Screen.Daily.route
+        val opensOnDaily = settingsManager.isDailyNotesEnabled() && !settingsManager.isStartOnHomeEnabled()
+        val routeForThisLaunch = consumeWidgetRoute(intent)
+            ?: if (opensOnDaily) Screen.Daily.route else Screen.Home.route
 
         handleIntent(intent)
 
