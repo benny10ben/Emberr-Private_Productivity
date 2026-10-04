@@ -674,7 +674,7 @@ fun SidebarSectionHeader(
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isHovered by interactionSource.collectIsHoveredAsState()
-    val chevronAlpha by animateFloatAsState(if (isHovered) 0.8f else 0.3f, RowFloatSpec, label = "header_chevron_$title")
+    val chevronAlpha by animateFloatAsState(if (isHovered) 0.8f else 0.6f, RowFloatSpec, label = "header_chevron_$title")
     val chevronRotation by animateFloatAsState(if (isExpanded) 0f else -90f, ChevronSpec, label = "header_turn_$title")
 
     Row(
@@ -696,8 +696,7 @@ fun SidebarSectionHeader(
             Text(
                 text = title,
                 style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.42f)
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
             )
             Icon(
                 imageVector = Icons.Default.KeyboardArrowDown,

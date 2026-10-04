@@ -30,11 +30,15 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import com.emberr.presentation.shared.rememberStableStatusBarsPadding
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
@@ -53,6 +57,7 @@ import com.emberr.domain.model.NoteContent
 import com.emberr.domain.util.eventbus.WidgetComposeRequest
 import com.emberr.domain.util.eventbus.WidgetComposeRequestBus
 import com.emberr.domain.util.system.isDesktopPlatform
+import com.emberr.presentation.home.overview.OverviewSection
 import com.emberr.presentation.shared.UserSettings
 import com.emberr.presentation.shared.components.EmberrBlur
 import com.emberr.presentation.shared.components.EmberrBottomSheet
@@ -62,6 +67,7 @@ import com.emberr.presentation.shared.components.EmberrBottomSheetAction
 import com.emberr.presentation.shared.components.EmberrDesktopMenu
 import com.emberr.presentation.shared.components.KmpBackHandler
 import com.emberr.presentation.shared.components.NoteKindTabs
+import com.emberr.presentation.shared.canvas.CanvasPreview
 import com.emberr.presentation.shared.components.EmberrPillShadowAmbientColor
 import com.emberr.presentation.shared.components.EmberrPillShadowSpotColor
 import com.emberr.presentation.shared.components.EmberrTopHeaderBar
@@ -95,12 +101,14 @@ import emberr.shared.generated.resources.pen
 import emberr.shared.generated.resources.pen_square
 import emberr.shared.generated.resources.star
 import emberr.shared.generated.resources.folder_plus
+import emberr.shared.generated.resources.group
 import emberr.shared.generated.resources.template
 import emberr.shared.generated.resources.trash
 import emberr.shared.generated.resources.x
 import org.jetbrains.compose.resources.painterResource
 
 private val HORIZONTAL_PADDING = 16.dp
+private val SECTION_HEADER_START_PADDING = HORIZONTAL_PADDING + 4.dp
 private val DefaultCornerShape = RoundedCornerShape(12.dp)
 
 @Composable
@@ -114,7 +122,7 @@ private fun SectionToggleIcon(isExpanded: Boolean, contentDescription: String) {
         imageVector = Icons.Default.KeyboardArrowDown,
         contentDescription = contentDescription,
         modifier = Modifier.padding(start = 4.dp).size(20.dp).graphicsLayer { rotationZ = rotation },
-        tint = MaterialTheme.colorScheme.onSurface
+        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
     )
 }
 
@@ -130,6 +138,22 @@ private fun Modifier.cardGestures(
     onClick = onClick,
     onLongClick = onLongClick
 )
+
+private fun Modifier.borderWithoutBottom(width: Dp, color: Color, cornerRadius: Dp): Modifier =
+    drawWithContent {
+        drawContent()
+        val strokeWidth = width.toPx()
+        val halfStroke = strokeWidth / 2f
+        val arcDiameter = (cornerRadius.toPx() - halfStroke) * 2f
+        val right = size.width - halfStroke
+        val outline = Path().apply {
+            moveTo(halfStroke, size.height)
+            arcTo(Rect(halfStroke, halfStroke, halfStroke + arcDiameter, halfStroke + arcDiameter), 180f, 90f, false)
+            arcTo(Rect(right - arcDiameter, halfStroke, right, halfStroke + arcDiameter), 270f, 90f, false)
+            lineTo(right, size.height)
+        }
+        drawPath(outline, color, style = Stroke(width = strokeWidth))
+    }
 
 @Composable
 private fun Modifier.noRippleClickable(onClick: () -> Unit): Modifier =
@@ -182,6 +206,7 @@ fun HomeScreen(
     val bookmarksCount by viewModel.bookmarksCount.collectAsState()
     val imagesCount by viewModel.imagesCount.collectAsState()
     val documentsCount by viewModel.documentsCount.collectAsState()
+    val visibleOverviewSections by viewModel.visibleOverviewSections.collectAsState()
 
     val currentSortType by viewModel.sortType.collectAsState()
     val currentSortOrder by viewModel.sortOrder.collectAsState()
@@ -403,27 +428,31 @@ fun HomeScreen(
                     verticalItemSpacing = 0.dp,
                     modifier = Modifier.fillMaxSize().hazeSource(state = hazeState).background(MaterialTheme.colorScheme.background)
                 ) {
-                    item {
-                        Box(Modifier.padding(start = HORIZONTAL_PADDING).padding(bottom = 10.dp)) {
-                            OverviewCard("Tasks", "$remindersCount left", onClick = { onNavigateToReminders() })
-                        }
-                    }
-                    item {
-                        Box(Modifier.padding(end = HORIZONTAL_PADDING).padding(bottom = 10.dp)) {
-                            OverviewCard("Bookmarks", "$bookmarksCount saved", onClick = { onNavigateToBookmarks() })
-                        }
-                    }
-                    item {
-                        Box(Modifier.padding(start = HORIZONTAL_PADDING).padding(bottom = 10.dp)) {
-                            OverviewCard("Images", "$imagesCount saved", onClick = { onNavigateToImages() })
-                        }
-                    }
-                    item {
-                        Box(Modifier.padding(end = HORIZONTAL_PADDING).padding(bottom = 10.dp)) {
-                            OverviewCard(
-                                "Documents",
-                                "$documentsCount attached",
-                                onClick = { onNavigateToDocuments() })
+                    if (visibleOverviewSections.isNotEmpty()) {
+                        item(span = StaggeredGridItemSpan.FullLine) {
+                            Column(
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = HORIZONTAL_PADDING).padding(bottom = 10.dp),
+                                verticalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                visibleOverviewSections.chunked(2).forEach { sectionsInRow ->
+                                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                        sectionsInRow.forEach { section ->
+                                            Box(Modifier.weight(1f)) {
+                                                when (section) {
+                                                    OverviewSection.TASKS ->
+                                                        OverviewCard(section.title, "$remindersCount left", onClick = { onNavigateToReminders() })
+                                                    OverviewSection.BOOKMARKS ->
+                                                        OverviewCard(section.title, "$bookmarksCount saved", onClick = { onNavigateToBookmarks() })
+                                                    OverviewSection.IMAGES ->
+                                                        OverviewCard(section.title, "$imagesCount saved", onClick = { onNavigateToImages() })
+                                                    OverviewSection.DOCUMENTS ->
+                                                        OverviewCard(section.title, "$documentsCount attached", onClick = { onNavigateToDocuments() })
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
 
@@ -431,10 +460,10 @@ fun HomeScreen(
                         item(span = StaggeredGridItemSpan.FullLine) {
                             Row(
                                 modifier = Modifier.fillMaxWidth().padding(
-                                    start = HORIZONTAL_PADDING,
+                                    start = SECTION_HEADER_START_PADDING,
                                     end = HORIZONTAL_PADDING,
-                                    top = 14.dp,
-                                    bottom = 8.dp
+                                    top = if (visibleOverviewSections.isNotEmpty()) 14.dp else 0.dp,
+                                    bottom = 14.dp
                                 ), verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Row(
@@ -447,8 +476,7 @@ fun HomeScreen(
                                     Text(
                                         "Favorites",
                                         style = MaterialTheme.typography.labelSmall,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = MaterialTheme.colorScheme.onSurface
+                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                                     )
                                     SectionToggleIcon(isFavoritesExpanded, "Toggle Favorites")
                                 }
@@ -521,13 +549,13 @@ fun HomeScreen(
 
                     if (treeRows.isNotEmpty() || !isSelectionMode) {
                         item(span = StaggeredGridItemSpan.FullLine) {
-                            Row(modifier = Modifier.fillMaxWidth().padding(start = HORIZONTAL_PADDING, end = HORIZONTAL_PADDING, top = 26.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                            val hasContentAboveNotes = visibleOverviewSections.isNotEmpty() || favoriteNotes.isNotEmpty()
+                            Row(modifier = Modifier.fillMaxWidth().padding(start = SECTION_HEADER_START_PADDING, end = HORIZONTAL_PADDING, top = if (hasContentAboveNotes) 26.dp else 0.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
                                 Row(modifier = Modifier.clip(RoundedCornerShape(4.dp)).noRippleClickable { viewModel.toggleHomeSection(SyncConstants.HOME_SECTION_NOTES) }.padding(end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                                     Text(
                                         "Notes",
                                         style = MaterialTheme.typography.labelSmall,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = MaterialTheme.colorScheme.onSurface
+                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                                     )
                                     SectionToggleIcon(isNotesExpanded, "Toggle Notes")
                                 }
@@ -866,7 +894,7 @@ fun HomeScreen(
 
                     if (recentNotes.isNotEmpty()) {
                         item(span = StaggeredGridItemSpan.FullLine) {
-                            Row(modifier = Modifier.fillMaxWidth().padding(start = HORIZONTAL_PADDING, end = HORIZONTAL_PADDING, top = 26.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Row(modifier = Modifier.fillMaxWidth().padding(start = SECTION_HEADER_START_PADDING, end = HORIZONTAL_PADDING, top = 26.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Row(
                                     modifier = Modifier.clip(RoundedCornerShape(4.dp))
                                         .noRippleClickable {
@@ -877,8 +905,7 @@ fun HomeScreen(
                                     Text(
                                         "Recents",
                                         style = MaterialTheme.typography.labelSmall,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = MaterialTheme.colorScheme.onSurface
+                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                                     )
                                     SectionToggleIcon(isRecentsExpanded, "Toggle Recents")
                                 }
@@ -1303,8 +1330,10 @@ fun NoteCard(
         if (isSelected) MaterialTheme.colorScheme.background.copy(alpha = 0.6f) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
     val coverHeight = 72.dp
     val iconOverhang = 12.dp
-    val hasCover = note.coverImagePath != null
+    val isCanvas = note.kind == NoteKind.CANVAS
+    val hasCover = note.coverImagePath != null || isCanvas
     val hasIcon = !note.icon.isNullOrEmpty()
+    val hasCanvasIcon = isCanvas && !hasIcon
     val hasHeader = hasCover || hasIcon
 
     Box(
@@ -1314,7 +1343,15 @@ fun NoteCard(
     ) {
         Column(Modifier.fillMaxSize()) {
             if (hasHeader) {
-                Box(modifier = Modifier.fillMaxWidth().height(coverHeight)) {
+                Box(
+                    modifier = Modifier.fillMaxWidth().height(coverHeight).then(
+                        if (hasCover && !isDesktopPlatform) Modifier.borderWithoutBottom(
+                            width = 0.5.dp,
+                            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
+                            cornerRadius = 12.dp
+                        ) else Modifier
+                    )
+                ) {
                     if (note.coverImagePath != null) {
                         val absolutePath =
                             mediaStorageHelper.getAbsoluteMediaPath(note.coverImagePath)
@@ -1329,6 +1366,12 @@ fun NoteCard(
                             modifier = Modifier.fillMaxSize(),
                             contentScale = ContentScale.Crop
                         )
+                    } else if (isCanvas) {
+                        CanvasPreview(
+                            canvasNoteId = note.noteId,
+                            lastUpdatedAt = note.updatedAt,
+                            modifier = Modifier.fillMaxSize()
+                        )
                     } else {
                         Box(
                             Modifier.fillMaxSize()
@@ -1341,7 +1384,7 @@ fun NoteCard(
                 modifier = Modifier.fillMaxWidth().weight(1f).padding(
                     start = 12.dp,
                     end = if (note.isFavorite && !hasHeader) 26.dp else 12.dp,
-                    top = if (hasIcon) iconOverhang + 10.dp else 10.dp,
+                    top = if (hasIcon || hasCanvasIcon) iconOverhang + 10.dp else 10.dp,
                     bottom = 10.dp
                 )
             ) {
@@ -1363,7 +1406,7 @@ fun NoteCard(
                     )
                 }
                 Spacer(Modifier.height(4.dp))
-                Text(text = note.snippet.takeIf { it.isNotBlank() } ?: "Empty note...",
+                Text(text = note.snippet.takeIf { it.isNotBlank() } ?: if (isCanvas) "Canvas" else "Empty note...",
                     style = MaterialTheme.typography.labelSmall,
                     color = mutedColor,
                     maxLines = 3,
@@ -1375,6 +1418,13 @@ fun NoteCard(
             fontSize = 22.sp,
             modifier = Modifier.align(Alignment.TopStart).padding(start = 10.dp)
                 .offset(y = coverHeight - iconOverhang)
+        )
+        if (hasCanvasIcon) Icon(
+            painterResource(Res.drawable.group),
+            contentDescription = "Canvas",
+            tint = titleColor,
+            modifier = Modifier.align(Alignment.TopStart).padding(start = 12.dp)
+                .offset(y = coverHeight - iconOverhang).size(22.dp)
         )
         if (note.isFavorite) Icon(
             Icons.Default.Star,
