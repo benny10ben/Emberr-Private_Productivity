@@ -46,6 +46,7 @@ import com.emberr.presentation.shared.components.EmberrBottomSheet
 import com.emberr.presentation.shared.components.EmberrAlertDialog
 import com.emberr.presentation.shared.components.EmberrButtonPrimary
 import com.emberr.presentation.shared.components.EmberrButtonSecondary
+import com.emberr.presentation.shared.components.EmberrShadowElevation
 import com.emberr.presentation.shared.components.EmberrTextField
 import com.emberr.presentation.shared.components.EmberrVerticalScrollbar
 import com.emberr.presentation.shared.components.EmberrBottomSheetOption
@@ -379,27 +380,28 @@ fun SettingsScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 20.dp)
                         .padding(bottom = 32.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    EmberrButtonPrimary(
-                        text = "Export",
-                        onClick = {
-                            showImportExportSheet = false
-                            onExportReady()
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        EmberrButtonPrimary(
+                            text = "Export",
+                            onClick = {
+                                showImportExportSheet = false
+                                onExportReady()
+                            },
+                            modifier = Modifier.weight(1f)
+                        )
 
-                    EmberrButtonSecondary(
-                        text = "Import",
-                        onClick = {
-                            showImportExportSheet = false
-                            onImportClick()
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                        EmberrButtonSecondary(
+                            text = "Import",
+                            onClick = {
+                                showImportExportSheet = false
+                                onImportClick()
+                            },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
 
                     EmberrButtonPrimary(
                         text = "Close",
@@ -652,7 +654,7 @@ fun SettingsScreen(
             title = "Turn Off AI Features?"
         ) {
             Text(
-                text = "This permanently deletes the downloaded embedding and language models, the note search index, and every saved provider API key. Your notes and saved chats are untouched. Turning AI back on later means downloading and re-indexing everything again.",
+                text = "Deletes downloaded models, the search index and saved API keys. Your notes and chats are kept.",
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f)
             )
@@ -681,8 +683,7 @@ fun SettingsScreen(
             title = "Clear All Data?"
         ) {
             Text(
-                text = "This permanently deletes every note, task, reminder, attachment, chat, AI model and setting on this device, and forgets your sync pairing and server login. Copies on your other devices, your sync server and your backup files are not touched. " +
-                    if (isDesktopPlatform) "Emberr will restart." else "Emberr will close. Open it again to start fresh.",
+                text = "Deletes everything on this device. Your other devices, sync server and backups are not touched. ",
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f)
             )
@@ -693,14 +694,21 @@ fun SettingsScreen(
                     onClick = { showClearAllDataConfirmation = false },
                     modifier = Modifier.weight(1f)
                 )
-                EmberrButtonPrimary(
-                    text = "Delete Everything",
+                Button(
                     onClick = {
                         showClearAllDataConfirmation = false
                         viewModel.clearAllData()
                     },
-                    modifier = Modifier.weight(1f)
-                )
+                    modifier = Modifier.weight(1f).height(46.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = MaterialTheme.colorScheme.onError
+                    ),
+                    elevation = ButtonDefaults.buttonElevation(defaultElevation = EmberrShadowElevation.None)
+                ) {
+                    Text("Delete", style = MaterialTheme.typography.bodyLarge)
+                }
             }
         }
     }
@@ -732,9 +740,9 @@ fun SettingsScreen(
         ) {
             Text(
                 text = if (isDesktopPlatform) {
-                    "This removes the LAN sync credentials stored on this desktop. Your phone won't be notified automatically - unpair from this desktop on your phone as well, or it will keep trying to reach it."
+                    "Removes sync pairing from this desktop. Unpair on your phone too."
                 } else {
-                    "This removes the LAN sync credentials stored on this device. Keep the desktop app open so it can be notified - if you can't, unpair from Desktop manually as well, or it will keep thinking it's still paired."
+                    "Removes sync pairing from this device. Keep the desktop app open, or unpair there too."
                 },
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f)
@@ -1123,10 +1131,9 @@ private fun AppearanceSettingsSection(
             onCheckedChange = onDailyNotesEnabledChange
         )
 
-        SettingsFootnote(
-            text = "Turn this off to hide the daily notes screen and the week strip. " +
-                "Daily notes you already wrote are kept, but they no longer show up in search."
-        )
+        if (isDesktopPlatform) {
+            SettingsFootnote(text = "Hides daily notes. Existing ones are kept.")
+        }
 
         if (!isDesktopPlatform && dailyNotesEnabled) {
             SettingsDivider()
@@ -1135,11 +1142,6 @@ private fun AppearanceSettingsSection(
                 title = "Open Home First",
                 isChecked = startOnHome,
                 onCheckedChange = onStartOnHomeChange
-            )
-
-            SettingsFootnote(
-                text = "Opens Home instead of today's daily note when you start Emberr. " +
-                    "The daily tab stays in the bottom bar. Takes effect the next time you open Emberr."
             )
         }
 
@@ -1151,8 +1153,6 @@ private fun AppearanceSettingsSection(
                 isChecked = micButtonVisible,
                 onCheckedChange = onMicButtonVisibleChange
             )
-
-            SettingsFootnote(text = "Shows the microphone in the bottom bar for adding tasks by voice.")
         }
     }
 
@@ -1167,10 +1167,9 @@ private fun AppearanceSettingsSection(
             )
         }
 
-        val overviewPlace = if (isDesktopPlatform) "shortcuts show at the top of the sidebar" else "cards show at the top of Home"
-        SettingsFootnote(
-            text = "Choose which $overviewPlace. Hiding one doesn't delete anything, and task reminders still go off."
-        )
+        if (isDesktopPlatform) {
+            SettingsFootnote(text = "Shortcuts shown in the sidebar.")
+        }
     }
 
     if (isDesktopPlatform) {
