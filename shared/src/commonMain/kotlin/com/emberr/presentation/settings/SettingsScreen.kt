@@ -62,18 +62,22 @@ import com.emberr.ui.theme.FontSizePreference
 import com.emberr.ui.theme.FontStylePreference
 import com.emberr.ui.theme.ThemePreference
 import com.emberr.ui.theme.fontFamilyFor
+import com.emberr.presentation.home.overview.OverviewSection
 import emberr.shared.generated.resources.Res
 import emberr.shared.generated.resources.astroid
 import emberr.shared.generated.resources.badge_plus
 import emberr.shared.generated.resources.badge_question_mark
 import emberr.shared.generated.resources.bell
 import emberr.shared.generated.resources.calendar_clock
+import emberr.shared.generated.resources.daily
 import emberr.shared.generated.resources.chevron_right
 import emberr.shared.generated.resources.file_down
 import emberr.shared.generated.resources.files
 import emberr.shared.generated.resources.folder_input
 import emberr.shared.generated.resources.folder_sync
+import emberr.shared.generated.resources.house
 import emberr.shared.generated.resources.info
+import emberr.shared.generated.resources.microphone
 import emberr.shared.generated.resources.palette
 import emberr.shared.generated.resources.qr_code
 import emberr.shared.generated.resources.refresh_cw
@@ -158,6 +162,10 @@ fun SettingsScreen(
     var showSubNoteOpenModeSheet by remember { mutableStateOf(false) }
 
     val showScrollbar by viewModel.showScrollbar.collectAsState()
+    val dailyNotesEnabled by viewModel.dailyNotesEnabled.collectAsState()
+    val startOnHome by viewModel.startOnHome.collectAsState()
+    val micButtonVisible by viewModel.micButtonVisible.collectAsState()
+    val hiddenOverviewSections by viewModel.hiddenOverviewSections.collectAsState()
     val customWindowFrameEnabled by viewModel.customWindowFrameEnabled.collectAsState()
     val autoHideTitleBar by viewModel.autoHideTitleBar.collectAsState()
 
@@ -269,6 +277,10 @@ fun SettingsScreen(
                         .getOrDefault(SubNoteOpenMode.SIDE_PANEL).displayName,
                     topBarFadeStyleLabel = topBarFadeStyleFor(topBarFadeStyle).displayName,
                     showScrollbar = showScrollbar,
+                    dailyNotesEnabled = dailyNotesEnabled,
+                    startOnHome = startOnHome,
+                    micButtonVisible = micButtonVisible,
+                    hiddenOverviewSections = hiddenOverviewSections,
                     customWindowFrameEnabled = customWindowFrameEnabled,
                     autoHideTitleBar = autoHideTitleBar,
                     onThemeClick = { showThemeSheet = true },
@@ -277,6 +289,12 @@ fun SettingsScreen(
                     onSubNoteOpenModeClick = { showSubNoteOpenModeSheet = true },
                     onTopBarFadeStyleClick = { showTopBarFadeStyleSheet = true },
                     onShowScrollbarChange = { viewModel.setShowScrollbar(it) },
+                    onDailyNotesEnabledChange = { viewModel.setDailyNotesEnabled(it) },
+                    onStartOnHomeChange = { viewModel.setStartOnHome(it) },
+                    onMicButtonVisibleChange = { viewModel.setMicButtonVisible(it) },
+                    onOverviewSectionVisibleChange = { section, isVisible ->
+                        viewModel.setOverviewSectionVisible(section, isVisible)
+                    },
                     onCustomWindowFrameChange = { viewModel.setCustomWindowFrameEnabled(it) },
                     onAutoHideTitleBarChange = { viewModel.setAutoHideTitleBar(it) }
                 )
@@ -1045,6 +1063,10 @@ private fun AppearanceSettingsSection(
     subNoteOpenModeLabel: String,
     topBarFadeStyleLabel: String,
     showScrollbar: Boolean,
+    dailyNotesEnabled: Boolean,
+    startOnHome: Boolean,
+    micButtonVisible: Boolean,
+    hiddenOverviewSections: Set<String>,
     customWindowFrameEnabled: Boolean,
     autoHideTitleBar: Boolean,
     onThemeClick: () -> Unit,
@@ -1053,6 +1075,10 @@ private fun AppearanceSettingsSection(
     onSubNoteOpenModeClick: () -> Unit,
     onTopBarFadeStyleClick: () -> Unit,
     onShowScrollbarChange: (Boolean) -> Unit,
+    onDailyNotesEnabledChange: (Boolean) -> Unit,
+    onStartOnHomeChange: (Boolean) -> Unit,
+    onMicButtonVisibleChange: (Boolean) -> Unit,
+    onOverviewSectionVisibleChange: (OverviewSection, Boolean) -> Unit,
     onCustomWindowFrameChange: (Boolean) -> Unit,
     onAutoHideTitleBarChange: (Boolean) -> Unit
 ) {
@@ -1087,6 +1113,64 @@ private fun AppearanceSettingsSection(
                 onClick = onTopBarFadeStyleClick
             )
         }
+    }
+
+    SettingsGroup(title = "Layout") {
+        SettingsToggleRow(
+            icon = painterResource(Res.drawable.daily),
+            title = "Daily Notes",
+            isChecked = dailyNotesEnabled,
+            onCheckedChange = onDailyNotesEnabledChange
+        )
+
+        SettingsFootnote(
+            text = "Turn this off to hide the daily notes screen and the week strip. " +
+                "Daily notes you already wrote are kept, but they no longer show up in search."
+        )
+
+        if (!isDesktopPlatform && dailyNotesEnabled) {
+            SettingsDivider()
+            SettingsToggleRow(
+                icon = painterResource(Res.drawable.house),
+                title = "Open Home First",
+                isChecked = startOnHome,
+                onCheckedChange = onStartOnHomeChange
+            )
+
+            SettingsFootnote(
+                text = "Opens Home instead of today's daily note when you start Emberr. " +
+                    "The daily tab stays in the bottom bar. Takes effect the next time you open Emberr."
+            )
+        }
+
+        if (!isDesktopPlatform) {
+            SettingsDivider()
+            SettingsToggleRow(
+                icon = painterResource(Res.drawable.microphone),
+                title = "Mic Button",
+                isChecked = micButtonVisible,
+                onCheckedChange = onMicButtonVisibleChange
+            )
+
+            SettingsFootnote(text = "Shows the microphone in the bottom bar for adding tasks by voice.")
+        }
+    }
+
+    SettingsGroup(title = "Overview") {
+        OverviewSection.entries.forEachIndexed { index, section ->
+            if (index > 0) SettingsDivider()
+            SettingsToggleRow(
+                icon = painterResource(section.icon),
+                title = section.title,
+                isChecked = section.storageKey !in hiddenOverviewSections,
+                onCheckedChange = { isVisible -> onOverviewSectionVisibleChange(section, isVisible) }
+            )
+        }
+
+        val overviewPlace = if (isDesktopPlatform) "shortcuts show at the top of the sidebar" else "cards show at the top of Home"
+        SettingsFootnote(
+            text = "Choose which $overviewPlace. Hiding one doesn't delete anything, and task reminders still go off."
+        )
     }
 
     if (isDesktopPlatform) {

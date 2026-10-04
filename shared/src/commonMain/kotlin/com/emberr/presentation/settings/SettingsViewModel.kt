@@ -8,6 +8,7 @@ import com.emberr.domain.ai.AiPurgeReport
 import com.emberr.domain.ai.DisableAiFeaturesUseCase
 import com.emberr.domain.util.system.eraseAllAppData
 import com.emberr.domain.util.system.showNativeToast
+import com.emberr.presentation.home.overview.OverviewSection
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -126,6 +127,49 @@ class SettingsViewModel(
 
     fun setShowScrollbar(enabled: Boolean) {
         settingsManager.saveShowScrollbar(enabled)
+    }
+
+    val dailyNotesEnabled: StateFlow<Boolean> = settingsManager.dailyNotesEnabledFlow.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = settingsManager.isDailyNotesEnabled()
+    )
+
+    fun setDailyNotesEnabled(enabled: Boolean) {
+        settingsManager.saveDailyNotesEnabled(enabled)
+    }
+
+    val startOnHome: StateFlow<Boolean> = settingsManager.startOnHomeFlow.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = settingsManager.isStartOnHomeEnabled()
+    )
+
+    fun setStartOnHome(enabled: Boolean) {
+        settingsManager.saveStartOnHome(enabled)
+    }
+
+    val micButtonVisible: StateFlow<Boolean> = settingsManager.micButtonVisibleFlow.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = settingsManager.isMicButtonVisible()
+    )
+
+    fun setMicButtonVisible(visible: Boolean) {
+        settingsManager.saveMicButtonVisible(visible)
+    }
+
+    val hiddenOverviewSections: StateFlow<Set<String>> = settingsManager.hiddenOverviewSectionsFlow.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = settingsManager.getHiddenOverviewSections()
+    )
+
+    fun setOverviewSectionVisible(section: OverviewSection, isVisible: Boolean) {
+        val hiddenStorageKeys = settingsManager.getHiddenOverviewSections()
+        settingsManager.saveHiddenOverviewSections(
+            if (isVisible) hiddenStorageKeys - section.storageKey else hiddenStorageKeys + section.storageKey
+        )
     }
 
     val customWindowFrameEnabled: StateFlow<Boolean> =

@@ -25,6 +25,10 @@ object BackupFormat {
         lines += "top_bar_fade_style=${settingsManager.getTopBarFadeStyle()}"
         lines += "subnote_open_mode=${settingsManager.subNoteOpenModeFlow.first()}"
         lines += "show_scrollbar=${settingsManager.isShowScrollbarEnabled()}"
+        lines += "daily_notes_enabled=${settingsManager.isDailyNotesEnabled()}"
+        lines += "start_on_home=${settingsManager.isStartOnHomeEnabled()}"
+        lines += "mic_button_visible=${settingsManager.isMicButtonVisible()}"
+        lines += "hidden_overview_sections=${settingsManager.getHiddenOverviewSections().joinToString(",")}"
         lines += "ai_generation_mode=${settingsManager.aiGenerationModeFlow.first()}"
         lines += "selected_external_ai_provider=${settingsManager.selectedExternalAiProviderFlow.first()}"
         lines += "ai_knowledge_mode=${settingsManager.knowledgeModeFlow.first()}"
@@ -71,6 +75,12 @@ object BackupFormat {
         values["top_bar_fade_style"]?.let { settingsManager.saveTopBarFadeStyle(it) }
         values["subnote_open_mode"]?.let { settingsManager.saveSubNoteOpenMode(it) }
         values["show_scrollbar"]?.toBooleanStrictOrNull()?.let { settingsManager.saveShowScrollbar(it) }
+        values["daily_notes_enabled"]?.toBooleanStrictOrNull()?.let { settingsManager.saveDailyNotesEnabled(it) }
+        values["start_on_home"]?.toBooleanStrictOrNull()?.let { settingsManager.saveStartOnHome(it) }
+        values["mic_button_visible"]?.toBooleanStrictOrNull()?.let { settingsManager.saveMicButtonVisible(it) }
+        values["hidden_overview_sections"]?.let { joinedKeys ->
+            settingsManager.saveHiddenOverviewSections(joinedKeys.split(",").filter { it.isNotBlank() }.toSet())
+        }
         values["ai_generation_mode"]?.let { settingsManager.saveAiGenerationMode(it) }
         values["selected_external_ai_provider"]?.let { settingsManager.saveSelectedExternalAiProvider(it) }
         values["ai_knowledge_mode"]?.let { settingsManager.saveKnowledgeMode(it) }

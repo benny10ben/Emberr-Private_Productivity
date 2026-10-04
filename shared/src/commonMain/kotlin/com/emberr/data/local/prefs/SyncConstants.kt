@@ -46,6 +46,13 @@ object SyncConstants {
     const val DEFAULT_EXTERNAL_AI_READ_ONLY = false
     const val KEY_SHOW_SCROLLBAR = "show_scrollbar"
     const val DEFAULT_SHOW_SCROLLBAR = false
+    const val KEY_DAILY_NOTES_ENABLED = "daily_notes_enabled"
+    const val DEFAULT_DAILY_NOTES_ENABLED = true
+    const val KEY_START_ON_HOME = "start_on_home"
+    const val DEFAULT_START_ON_HOME = false
+    const val KEY_MIC_BUTTON_VISIBLE = "mic_button_visible"
+    const val DEFAULT_MIC_BUTTON_VISIBLE = true
+    const val KEY_HIDDEN_OVERVIEW_SECTIONS = "hidden_overview_sections"
     const val KEY_CUSTOM_WINDOW_FRAME = "custom_window_frame"
     const val DEFAULT_CUSTOM_WINDOW_FRAME = true
     const val KEY_AUTO_HIDE_TITLE_BAR = "auto_hide_title_bar"

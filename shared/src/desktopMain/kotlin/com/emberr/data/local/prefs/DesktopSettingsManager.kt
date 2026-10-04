@@ -299,6 +299,57 @@ class DesktopSettingsManager(private val secretStore: DesktopSecretStore) : Sett
         _showScrollbar.value = enabled
     }
 
+    private val _dailyNotesEnabled = MutableStateFlow(
+        prefs.getBoolean(SyncConstants.KEY_DAILY_NOTES_ENABLED, SyncConstants.DEFAULT_DAILY_NOTES_ENABLED)
+    )
+    override val dailyNotesEnabledFlow: Flow<Boolean> = _dailyNotesEnabled
+
+    override fun isDailyNotesEnabled(): Boolean = _dailyNotesEnabled.value
+
+    override fun saveDailyNotesEnabled(enabled: Boolean) {
+        prefs.putBoolean(SyncConstants.KEY_DAILY_NOTES_ENABLED, enabled)
+        _dailyNotesEnabled.value = enabled
+    }
+
+    private val _startOnHome = MutableStateFlow(
+        prefs.getBoolean(SyncConstants.KEY_START_ON_HOME, SyncConstants.DEFAULT_START_ON_HOME)
+    )
+    override val startOnHomeFlow: Flow<Boolean> = _startOnHome
+
+    override fun isStartOnHomeEnabled(): Boolean = _startOnHome.value
+
+    override fun saveStartOnHome(enabled: Boolean) {
+        prefs.putBoolean(SyncConstants.KEY_START_ON_HOME, enabled)
+        _startOnHome.value = enabled
+    }
+
+    private val _micButtonVisible = MutableStateFlow(
+        prefs.getBoolean(SyncConstants.KEY_MIC_BUTTON_VISIBLE, SyncConstants.DEFAULT_MIC_BUTTON_VISIBLE)
+    )
+    override val micButtonVisibleFlow: Flow<Boolean> = _micButtonVisible
+
+    override fun isMicButtonVisible(): Boolean = _micButtonVisible.value
+
+    override fun saveMicButtonVisible(visible: Boolean) {
+        prefs.putBoolean(SyncConstants.KEY_MIC_BUTTON_VISIBLE, visible)
+        _micButtonVisible.value = visible
+    }
+
+    private val _hiddenOverviewSections = MutableStateFlow(
+        prefs.get(SyncConstants.KEY_HIDDEN_OVERVIEW_SECTIONS, "")
+            .split(",")
+            .filter { storageKey -> storageKey.isNotBlank() }
+            .toSet()
+    )
+    override val hiddenOverviewSectionsFlow: Flow<Set<String>> = _hiddenOverviewSections
+
+    override fun getHiddenOverviewSections(): Set<String> = _hiddenOverviewSections.value
+
+    override fun saveHiddenOverviewSections(storageKeys: Set<String>) {
+        prefs.put(SyncConstants.KEY_HIDDEN_OVERVIEW_SECTIONS, storageKeys.joinToString(","))
+        _hiddenOverviewSections.value = storageKeys
+    }
+
     private val _customWindowFrameEnabled = MutableStateFlow(
         prefs.getBoolean(
             SyncConstants.KEY_CUSTOM_WINDOW_FRAME,

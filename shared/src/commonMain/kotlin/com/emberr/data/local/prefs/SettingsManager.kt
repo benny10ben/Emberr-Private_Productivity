@@ -104,6 +104,22 @@ interface SettingsManager {
     fun isShowScrollbarEnabled(): Boolean
     fun saveShowScrollbar(enabled: Boolean)
 
+    val dailyNotesEnabledFlow: Flow<Boolean>
+    fun isDailyNotesEnabled(): Boolean
+    fun saveDailyNotesEnabled(enabled: Boolean)
+
+    val startOnHomeFlow: Flow<Boolean>
+    fun isStartOnHomeEnabled(): Boolean
+    fun saveStartOnHome(enabled: Boolean)
+
+    val micButtonVisibleFlow: Flow<Boolean>
+    fun isMicButtonVisible(): Boolean
+    fun saveMicButtonVisible(visible: Boolean)
+
+    val hiddenOverviewSectionsFlow: Flow<Set<String>>
+    fun getHiddenOverviewSections(): Set<String>
+    fun saveHiddenOverviewSections(storageKeys: Set<String>)
+
     val customWindowFrameEnabledFlow: Flow<Boolean>
     fun isCustomWindowFrameEnabled(): Boolean
     fun saveCustomWindowFrameEnabled(enabled: Boolean)
