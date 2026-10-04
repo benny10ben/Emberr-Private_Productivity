@@ -364,29 +364,6 @@ class NoteEditorViewModel(
         }
     }
 
-    private fun generateSnippet(blocks: List<NoteBlock>): String {
-        return blocks.asSequence()
-            .mapNotNull { extractTextFromBlock(it) }
-            .filter { it.isNotBlank() }
-            .joinToString(" ")
-            .trim()
-            .take(120)
-    }
-
-    private fun extractTextFromBlock(block: NoteBlock): String? {
-        if (block.isDeleted) return null
-        return when (block) {
-            is TextBlock -> block.text
-            is HeadingBlock -> block.text
-            is QuoteBlock -> block.text
-            is CheckboxBlock -> block.text
-            is BulletedListBlock -> block.text
-            is NumberedListBlock -> block.text
-            is ToggleBlock -> block.text
-            else -> null
-        }
-    }
-
     suspend fun generatePlainTextExport(): String {
         val title = _noteTitle.value.ifBlank { "Untitled Note" }
         val body = com.emberr.domain.util.export.ExportEngine.generatePlainText(blocksForExport())
