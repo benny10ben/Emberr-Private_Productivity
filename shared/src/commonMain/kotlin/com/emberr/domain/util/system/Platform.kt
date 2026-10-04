@@ -5,3 +5,4 @@ expect val appVersionName: String?
 expect fun showFeedback(message: String)
 expect fun triggerHapticFeedback()
 expect fun restartApplication()
+expect suspend fun eraseAllAppData(): Boolean

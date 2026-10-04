@@ -6,6 +6,8 @@ import com.emberr.data.local.prefs.SettingsManager
 import com.emberr.domain.backup.automatic.BackupRescheduler
 import com.emberr.domain.ai.AiPurgeReport
 import com.emberr.domain.ai.DisableAiFeaturesUseCase
+import com.emberr.domain.util.system.eraseAllAppData
+import com.emberr.domain.util.system.showNativeToast
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -179,6 +181,14 @@ class SettingsViewModel(
                 _aiPurgeResultMessage.value = "Couldn't finish removing AI data: ${e.message}"
             } finally {
                 _isPurgingAiData.value = false
+            }
+        }
+    }
+
+    fun clearAllData() {
+        viewModelScope.launch {
+            if (!eraseAllAppData()) {
+                showNativeToast("Couldn't clear your data. Nothing was deleted.")
             }
         }
     }

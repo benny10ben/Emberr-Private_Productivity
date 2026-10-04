@@ -1,5 +1,6 @@
 package com.emberr.domain.util.system
 
+import android.app.ActivityManager
 import android.content.Context
 import android.os.VibrationEffect
 import android.os.Vibrator
@@ -26,3 +27,9 @@ actual fun triggerHapticFeedback() {
 }
 
 actual fun restartApplication() {}
+
+actual suspend fun eraseAllAppData(): Boolean {
+    val context = KoinPlatform.getKoin().get<Context>()
+    val activityManager = context.getSystemService(ActivityManager::class.java) ?: return false
+    return activityManager.clearApplicationUserData()
+}

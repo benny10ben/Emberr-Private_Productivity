@@ -27,6 +27,7 @@ import coil3.compose.setSingletonImageLoaderFactory
 import coil3.memory.MemoryCache
 import coil3.network.ktor3.KtorNetworkFetcherFactory
 import com.emberr.core.desktop.DesktopSingleInstance
+import com.emberr.core.desktop.eraseAppDataIfRequested
 import com.emberr.core.security.secrets.DesktopSecretStore
 import com.emberr.data.local.prefs.SettingsManager
 import com.emberr.data.local.prefs.SyncConstants
@@ -101,6 +102,8 @@ fun main() {
         return
     }
     stagedUpdateInstallation?.installStagedUpdateWhenAppQuits(appVersionName)
+
+    eraseAppDataIfRequested(java.io.File(System.getProperty("user.home"), ".emberr"))
 
     runEmberrDesktopApp()
 }
