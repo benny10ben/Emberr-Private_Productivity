@@ -562,7 +562,7 @@ fun NoteScreen(
                     listState = editorListState,
                     onUndo = { viewModel.undo() },
                     onRedo = { viewModel.redo() },
-                    emptyContent = { NoteEmptyPageMessage() }
+                    emptyNotePlaceholder = "Type something..."
                 )
 
 

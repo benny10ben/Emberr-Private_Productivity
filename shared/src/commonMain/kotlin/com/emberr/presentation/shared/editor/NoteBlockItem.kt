@@ -167,6 +167,7 @@ fun NoteBlockItem(
     showDatabaseLinkMenu: Boolean = false,
     onDismissDatabaseLinkMenu: () -> Unit = {},
     isFirstToggleChild: Boolean = false,
+    emptyNotePlaceholder: String = "",
     selectionRequest: SelectionRequest? = null,
     validNoteIds: Set<String> = emptySet(),
     onRightClick: ((Offset) -> Unit)? = null,
@@ -198,7 +199,7 @@ fun NoteBlockItem(
     val placeholderText = when {
         block is CheckboxBlock && block.reminderTimestamp != null -> "Untitled event"
         isFirstToggleChild -> "Type something..."
-        else -> ""
+        else -> emptyNotePlaceholder
     }
 
     // LOCAL STATE FOR INSTANT TYPING
