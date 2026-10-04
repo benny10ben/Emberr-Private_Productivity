@@ -1541,7 +1541,10 @@ fun DesktopMainScreen(
                 }
                 DetailPane.Calendar -> key("calendar") {
                     Box(Modifier.fillMaxSize()) {
-                        CalendarScreen(onNavigateBack = { detail = DetailPane.Daily(selectedDate) })
+                        CalendarScreen(
+                            onNavigateBack = { detail = DetailPane.Daily(selectedDate) },
+                            showBackButton = isSidebarVisible
+                        )
                     }
                 }
             }

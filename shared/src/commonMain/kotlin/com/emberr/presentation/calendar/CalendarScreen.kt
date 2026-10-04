@@ -22,21 +22,27 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.InteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentWidth
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import com.emberr.domain.util.eventbus.WidgetCalendarDateBus
 import com.emberr.domain.util.eventbus.WidgetCalendarEventBus
 import com.emberr.domain.util.eventbus.WidgetComposeRequest
@@ -59,7 +65,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableLongStateOf
@@ -81,6 +86,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
@@ -97,6 +103,7 @@ import com.emberr.presentation.shared.components.EmberrDesktopMenuOption
 import com.emberr.presentation.shared.components.EmberrDesktopMenu
 import com.emberr.presentation.shared.components.EmberrShadowElevation
 import com.emberr.presentation.shared.components.EmberrTopHeaderBar
+import com.emberr.presentation.shared.components.TopEdgeBlurHeight
 import com.emberr.presentation.shared.components.customEmberrShadow
 import com.emberr.presentation.shared.components.TopHeaderBarButtonSize
 import com.emberr.presentation.shared.components.TopBarIconButton
@@ -107,12 +114,14 @@ import com.emberr.presentation.shared.components.smoothWheelScroll
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
 import emberr.shared.generated.resources.Res
+import emberr.shared.generated.resources.plus
 import emberr.shared.generated.resources.tablet
 import emberr.shared.generated.resources.widget2
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlin.time.Clock
 import kotlinx.datetime.DateTimeUnit
+import kotlinx.datetime.DayOfWeek
 import kotlin.time.Instant
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
@@ -145,6 +154,7 @@ private object NoRippleIndicationNodeFactory : IndicationNodeFactory {
 @Composable
 fun CalendarScreen(
     onNavigateBack: () -> Unit = {},
+    showBackButton: Boolean = true,
     sharedTransitionScope: SharedTransitionScope? = null,
     bottomBarAnimatedVisibilityScope: AnimatedVisibilityScope? = null,
     viewModel: CalendarViewModel = koinViewModel()
@@ -166,7 +176,6 @@ fun CalendarScreen(
     var slideDirection by remember { mutableStateOf(AnimatedContentTransitionScope.SlideDirection.Left) }
 
     val scrollState = remember(viewMode) { ScrollState(0) }
-    val isScrolled by remember(scrollState) { derivedStateOf { scrollState.value > 0 } }
 
     val density = LocalDensity.current
     var topBarHeightPx by remember { mutableFloatStateOf(0f) }
@@ -300,11 +309,12 @@ fun CalendarScreen(
                         )
                     }
                     CalendarViewMode.MONTH -> {
-                        MonthGrid(
-                            anchorMonth = selectedDate,
+                        MonthView(
+                            selectedDate = selectedDate,
                             slideDirection = slideDirection,
                             viewModel = viewModel,
                             categories = categories,
+                            selectedDateEvents = events,
                             onSwipePreviousMonth = {
                                 slideDirection = AnimatedContentTransitionScope.SlideDirection.Right
                                 selectedDate =
@@ -316,9 +326,14 @@ fun CalendarScreen(
                                     LocalDate(selectedDate.year, selectedDate.month, 1).plus(1, DateTimeUnit.MONTH)
                             },
                             onDayClick = { date ->
+                                slideDirection = if (date < selectedDate) {
+                                    AnimatedContentTransitionScope.SlideDirection.Right
+                                } else {
+                                    AnimatedContentTransitionScope.SlideDirection.Left
+                                }
                                 selectedDate = date
-                                viewModel.setViewMode(CalendarViewMode.DAY)
                             },
+                            onEventClick = onEventClick,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .weight(1f)
@@ -373,8 +388,14 @@ fun CalendarScreen(
             ) {
                 EmberrTopHeaderBar(
                     hazeState = internalHazeState,
+                    topEdgeBlurHeight = if (viewMode == CalendarViewMode.THREE_DAY || viewMode == CalendarViewMode.WEEK) {
+                        topBarHeightDp + 40.dp + 48.dp
+                    } else {
+                        TopEdgeBlurHeight
+                    },
                     contentPadding = topHeaderBarPadding(bottom = 16.dp),
                     verticalAlignment = Alignment.Top,
+                    showBackButton = showBackButton,
                     onBackClick = onNavigateBack,
                     centerContent = {
                         CalendarTitle(
@@ -384,48 +405,71 @@ fun CalendarScreen(
                         )
                     },
                     actions = {
-                        if (isDesktopPlatform) {
-                            Box {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            if (viewMode == CalendarViewMode.MONTH) {
                                 TopBarIconButton(
-                                    icon = Icons.Default.MoreVert,
-                                    contentDescription = "Options",
+                                    icon = painterResource(Res.drawable.plus),
+                                    contentDescription = "Add event",
                                     bgColor = Color.Transparent,
                                     tint = MaterialTheme.colorScheme.primary,
                                     hazeState = internalHazeState,
                                     hazeStyle = EmberrBlur.Regular,
-                                    onClick = { showCalendarOptionsMenu = true }
-                                )
-
-                                EmberrDesktopMenu(
-                                    expanded = showCalendarOptionsMenu,
-                                    onDismissRequest = { showCalendarOptionsMenu = false },
-                                    modifier = Modifier.width(260.dp)
-                                ) {
-                                    Column(modifier = Modifier.padding(vertical = 8.dp, horizontal = 8.dp).padding(top = 6.dp)) {
-                                        ViewModeSection(
-                                            viewMode = viewMode,
-                                            onViewModeChange = {
-                                                viewModel.setViewMode(it)
-                                                showCalendarOptionsMenu = false
-                                            }
-                                        )
-
-                                        HorizontalDivider(
-                                            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f),
-                                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
-                                        )
-
-                                        CategorySection(
-                                            categories = categories,
-                                            onAddCategory = viewModel::addCategory,
-                                            onUpdateCategory = viewModel::updateCategory,
-                                            onDeleteCategory = viewModel::deleteCategory
+                                    onClick = {
+                                        eventEditorState = EventEditorState(
+                                            original = null,
+                                            name = "",
+                                            date = selectedDate,
+                                            hour = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).hour,
+                                            minute = 0,
+                                            categoryId = null,
+                                            durationMinutes = 30
                                         )
                                     }
-                                }
+                                )
                             }
-                        } else {
-                            Box(modifier = Modifier.size(TopHeaderBarButtonSize))
+                            if (isDesktopPlatform) {
+                                Box {
+                                    TopBarIconButton(
+                                        icon = Icons.Default.MoreVert,
+                                        contentDescription = "Options",
+                                        bgColor = Color.Transparent,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        hazeState = internalHazeState,
+                                        hazeStyle = EmberrBlur.Regular,
+                                        onClick = { showCalendarOptionsMenu = true }
+                                    )
+
+                                    EmberrDesktopMenu(
+                                        expanded = showCalendarOptionsMenu,
+                                        onDismissRequest = { showCalendarOptionsMenu = false },
+                                        modifier = Modifier.width(260.dp)
+                                    ) {
+                                        Column(modifier = Modifier.padding(vertical = 8.dp, horizontal = 8.dp).padding(top = 6.dp)) {
+                                            ViewModeSection(
+                                                viewMode = viewMode,
+                                                onViewModeChange = {
+                                                    viewModel.setViewMode(it)
+                                                    showCalendarOptionsMenu = false
+                                                }
+                                            )
+
+                                            HorizontalDivider(
+                                                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f),
+                                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+                                            )
+
+                                            CategorySection(
+                                                categories = categories,
+                                                onAddCategory = viewModel::addCategory,
+                                                onUpdateCategory = viewModel::updateCategory,
+                                                onDeleteCategory = viewModel::deleteCategory
+                                            )
+                                        }
+                                    }
+                                }
+                            } else if (viewMode != CalendarViewMode.MONTH) {
+                                Box(modifier = Modifier.size(TopHeaderBarButtonSize))
+                            }
                         }
                     }
                 )
@@ -435,12 +479,10 @@ fun CalendarScreen(
                 MultiDayHeaderBar(
                     dates = multiDayDates,
                     slideDirection = slideDirection,
-                    hazeState = internalHazeState,
-                    isScrolled = isScrolled,
                     modifier = Modifier
                         .align(Alignment.TopCenter)
                         .fillMaxWidth()
-                        .zIndex(9f)
+                        .zIndex(11f)
                         .padding(top = topBarHeightDp)
                 )
             }
@@ -595,8 +637,9 @@ private fun CalendarTitle(
             (slideIntoContainer(slideDirection, tween(300, easing = FastOutSlowInEasing)) + fadeIn(tween(300))) togetherWith
                     (slideOutOfContainer(slideDirection, tween(300, easing = FastOutSlowInEasing)) + fadeOut(tween(300)))
         },
+        contentKey = { date -> if (viewMode == CalendarViewMode.MONTH) monthKey(date) else date },
         label = "CalendarTitleTransition",
-        modifier = Modifier.height(72.dp)
+        modifier = Modifier.height(if (viewMode == CalendarViewMode.DAY) 72.dp else 52.dp)
     ) { date ->
         Box(
             modifier = Modifier.fillMaxHeight(),
@@ -639,22 +682,9 @@ private fun CalendarTitle(
 private fun MultiDayHeaderBar(
     dates: List<LocalDate>,
     slideDirection: AnimatedContentTransitionScope.SlideDirection,
-    hazeState: HazeState,
-    isScrolled: Boolean,
     modifier: Modifier = Modifier
 ) {
-    Column(
-        modifier = modifier
-            .then(
-                if (isScrolled) {
-                    Modifier
-                        .emberrBlur(hazeState, EmberrBlur.Regular)
-                        .background(Color.Transparent)
-                } else {
-                    Modifier.background(MaterialTheme.colorScheme.background)
-                }
-            )
-    ) {
+    Column(modifier = modifier) {
         AnimatedContent(
             targetState = dates,
             transitionSpec = {
@@ -675,7 +705,11 @@ private fun MultiDayHeaderBar(
                         Text(
                             text = if (windowDates.size >= 7) formatSingleLetterDayLabel(date) else formatShortDayLabel(date),
                             style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurface,
+                            color = if (date.dayOfWeek == DayOfWeek.SUNDAY) {
+                                MaterialTheme.colorScheme.error
+                            } else {
+                                MaterialTheme.colorScheme.onSurface
+                            },
                             maxLines = 1
                         )
                     }
@@ -688,7 +722,11 @@ private fun MultiDayHeaderBar(
                 }
             }
         }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f), thickness = 1.dp)
+        HorizontalDivider(
+            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
+            thickness = 1.dp,
+            modifier = Modifier.padding(start = 56.dp)
+        )
     }
 }
 
@@ -1133,8 +1171,62 @@ private fun buildMonthGridDates(anchorMonth: LocalDate): List<LocalDate> {
 }
 
 @Composable
+private fun MonthView(
+    selectedDate: LocalDate,
+    slideDirection: AnimatedContentTransitionScope.SlideDirection,
+    viewModel: CalendarViewModel,
+    categories: List<CalendarCategory>,
+    selectedDateEvents: List<CalendarEvent>,
+    onSwipePreviousMonth: () -> Unit,
+    onSwipeNextMonth: () -> Unit,
+    onDayClick: (LocalDate) -> Unit,
+    onEventClick: (CalendarEvent) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    if (isDesktopPlatform) {
+        Row(modifier = modifier) {
+            MonthGrid(
+                selectedDate = selectedDate,
+                slideDirection = slideDirection,
+                viewModel = viewModel,
+                categories = categories,
+                onSwipePreviousMonth = onSwipePreviousMonth,
+                onSwipeNextMonth = onSwipeNextMonth,
+                onDayClick = onDayClick,
+                modifier = Modifier.weight(1f).fillMaxHeight()
+            )
+            MonthEventList(
+                events = selectedDateEvents,
+                categories = categories,
+                onEventClick = onEventClick,
+                modifier = Modifier.weight(1f).fillMaxHeight()
+            )
+        }
+    } else {
+        Column(modifier = modifier) {
+            MonthGrid(
+                selectedDate = selectedDate,
+                slideDirection = slideDirection,
+                viewModel = viewModel,
+                categories = categories,
+                onSwipePreviousMonth = onSwipePreviousMonth,
+                onSwipeNextMonth = onSwipeNextMonth,
+                onDayClick = onDayClick,
+                modifier = Modifier.weight(1f).fillMaxWidth()
+            )
+            MonthEventList(
+                events = selectedDateEvents,
+                categories = categories,
+                onEventClick = onEventClick,
+                modifier = Modifier.weight(1f).fillMaxWidth()
+            )
+        }
+    }
+}
+
+@Composable
 private fun MonthGrid(
-    anchorMonth: LocalDate,
+    selectedDate: LocalDate,
     slideDirection: AnimatedContentTransitionScope.SlideDirection,
     viewModel: CalendarViewModel,
     categories: List<CalendarCategory>,
@@ -1170,16 +1262,17 @@ private fun MonthGrid(
             }
     ) {
         AnimatedContent(
-            targetState = anchorMonth,
+            targetState = selectedDate,
             transitionSpec = {
                 (slideIntoContainer(slideDirection, tween(300, easing = FastOutSlowInEasing)) + fadeIn(tween(300))) togetherWith
                         (slideOutOfContainer(slideDirection, tween(300, easing = FastOutSlowInEasing)) + fadeOut(tween(300)))
             },
+            contentKey = { date -> monthKey(date) },
             label = "MonthGridTransition",
             modifier = Modifier.fillMaxSize()
-        ) { month ->
+        ) { date ->
             MonthGridContent(
-                anchorMonth = month,
+                selectedDate = date,
                 viewModel = viewModel,
                 categories = categories,
                 onDayClick = onDayClick
@@ -1188,44 +1281,57 @@ private fun MonthGrid(
     }
 }
 
+private fun monthKey(date: LocalDate): String = "${date.year}-${date.month.number}"
+
 @Composable
 private fun MonthGridContent(
-    anchorMonth: LocalDate,
+    selectedDate: LocalDate,
     viewModel: CalendarViewModel,
     categories: List<CalendarCategory>,
     onDayClick: (LocalDate) -> Unit
 ) {
     val today = remember { Clock.System.todayIn(TimeZone.currentSystemDefault()) }
-    val gridDates = remember(anchorMonth) { buildMonthGridDates(anchorMonth) }
-    val yearMonth = remember(anchorMonth) {
-        "${anchorMonth.year}-${anchorMonth.month.number.toString().padStart(2, '0')}"
+    val gridDates = remember(selectedDate.year, selectedDate.month) { buildMonthGridDates(selectedDate) }
+    val yearMonth = remember(selectedDate.year, selectedDate.month) {
+        "${selectedDate.year}-${selectedDate.month.number.toString().padStart(2, '0')}"
     }
     val monthEvents by remember(yearMonth) { viewModel.eventsForMonth(yearMonth) }
         .collectAsState(initial = emptyList())
     val eventsByDate = remember(monthEvents) { monthEvents.groupBy { it.dateString } }
     val weekRows = remember(gridDates) { gridDates.chunked(7) }
 
-    Column(modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp).padding(bottom = if (isDesktopPlatform) 0.dp else 56.dp)) {
+    Column(modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp).padding(bottom = 8.dp)) {
         Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
-            listOf("S", "M", "T", "W", "T", "F", "S").forEach { label ->
+            listOf("S", "M", "T", "W", "T", "F", "S").forEachIndexed { index, label ->
                 Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
                     Text(
                         text = label,
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                        color = if (index == 0) {
+                            MaterialTheme.colorScheme.error
+                        } else {
+                            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                        }
                     )
                 }
             }
         }
 
-        Column(modifier = Modifier.fillMaxWidth().weight(1f)) {
+        Column(
+            modifier = Modifier.fillMaxWidth().weight(1f),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
             weekRows.forEach { week ->
-                Row(modifier = Modifier.fillMaxWidth().weight(1f)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().weight(1f),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
                     week.forEach { date ->
                         MonthDayCell(
                             date = date,
-                            isCurrentMonth = date.month == anchorMonth.month,
+                            isCurrentMonth = date.month == selectedDate.month,
                             isToday = date == today,
+                            isSelected = date == selectedDate,
                             events = eventsByDate[date.toString()] ?: emptyList(),
                             categories = categories,
                             onClick = { onDayClick(date) },
@@ -1239,35 +1345,149 @@ private fun MonthGridContent(
 }
 
 @Composable
+private fun MonthEventList(
+    events: List<CalendarEvent>,
+    categories: List<CalendarCategory>,
+    onEventClick: (CalendarEvent) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val listState = rememberLazyListState()
+    val sortedEvents = remember(events) { events.sortedBy { it.reminderTimestamp } }
+    val bottomPadding = if (isDesktopPlatform) {
+        16.dp
+    } else {
+        WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() +
+            EXPANDED_BOTTOM_BAR_PILL_HEIGHT + BOTTOM_BAR_BOTTOM_PADDING + 16.dp
+    }
+
+    Box(modifier = modifier) {
+        if (sortedEvents.isEmpty()) {
+            Text(
+                text = "No events",
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                modifier = Modifier.align(Alignment.Center).padding(bottom = bottomPadding)
+            )
+        } else {
+            LazyColumn(
+                state = listState,
+                modifier = Modifier.fillMaxSize().smoothWheelScroll(listState),
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = bottomPadding),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                items(sortedEvents) { event ->
+                    MonthEventRow(
+                        event = event,
+                        category = categories.firstOrNull { it.id == event.categoryId },
+                        onClick = { onEventClick(event) }
+                    )
+                }
+            }
+
+            EmberrVerticalScrollbar(
+                listState = listState,
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .fillMaxHeight()
+                    .padding(bottom = bottomPadding)
+            )
+        }
+    }
+}
+
+@Composable
+private fun MonthEventRow(
+    event: CalendarEvent,
+    category: CalendarCategory?,
+    onClick: () -> Unit
+) {
+    val startTime = Instant.fromEpochMilliseconds(event.reminderTimestamp)
+        .toLocalDateTime(TimeZone.currentSystemDefault())
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surface)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(8.dp)
+                .background(
+                    category?.colorHex?.toCategoryColor() ?: MaterialTheme.colorScheme.outline,
+                    CircleShape
+                )
+        )
+        Text(
+            text = event.text.ifBlank { "Untitled event" },
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f).padding(horizontal = 12.dp)
+        )
+        Text(
+            text = formatTimeOfDay(startTime.hour, startTime.minute),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+        )
+    }
+}
+
+@Composable
 private fun MonthDayCell(
     date: LocalDate,
     isCurrentMonth: Boolean,
     isToday: Boolean,
+    isSelected: Boolean,
     events: List<CalendarEvent>,
     categories: List<CalendarCategory>,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val cellShape = RoundedCornerShape(8.dp)
+    val surfaceColor = MaterialTheme.colorScheme.surface
+    val cellColor = if (isCurrentMonth) surfaceColor else surfaceColor.copy(alpha = 0.5f)
+    val eventColors = events.take(3).map { event ->
+        categories.firstOrNull { it.id == event.categoryId }?.colorHex?.toCategoryColor()
+            ?: MaterialTheme.colorScheme.outline
+    }
+    val dayNumberColor = if (date.dayOfWeek == DayOfWeek.SUNDAY) {
+        MaterialTheme.colorScheme.error
+    } else {
+        MaterialTheme.colorScheme.onSurface
+    }
+
     Column(
         modifier = modifier
+            .clip(cellShape)
+            .background(cellColor)
+            .then(if (eventColors.isNotEmpty()) Modifier.background(eventColors.first().copy(alpha = 0.15f)) else Modifier)
+            .then(if (isSelected) Modifier.border(1.dp, MaterialTheme.colorScheme.outline, cellShape) else Modifier)
             .clickable(onClick = onClick)
-            .padding(4.dp),
+            .padding(top = 4.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Box(
             modifier = Modifier
-                .padding(top = 4.dp)
                 .size(26.dp)
-                .then(if (isToday) Modifier.background(MaterialTheme.colorScheme.primary, CircleShape) else Modifier),
+                .then(
+                    if (isToday) Modifier.background(MaterialTheme.colorScheme.primary, RoundedCornerShape(6.dp))
+                    else Modifier
+                ),
             contentAlignment = Alignment.Center
         ) {
             Text(
                 text = date.day.toString(),
-                style = MaterialTheme.typography.labelSmall,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium,
                 color = when {
                     isToday -> MaterialTheme.colorScheme.onPrimary
-                    isCurrentMonth -> MaterialTheme.colorScheme.onSurface
-                    else -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
+                    isCurrentMonth -> dayNumberColor
+                    else -> dayNumberColor.copy(alpha = 0.3f)
                 }
             )
         }
@@ -1276,15 +1496,11 @@ private fun MonthDayCell(
             horizontalArrangement = Arrangement.spacedBy(2.dp),
             modifier = Modifier.padding(top = 4.dp).height(5.dp)
         ) {
-            events.take(3).forEach { event ->
-                val category = categories.firstOrNull { it.id == event.categoryId }
+            eventColors.forEach { color ->
                 Box(
                     modifier = Modifier
                         .size(5.dp)
-                        .background(
-                            category?.colorHex?.toCategoryColor() ?: MaterialTheme.colorScheme.outline,
-                            CircleShape
-                        )
+                        .background(color, CircleShape)
                 )
             }
         }

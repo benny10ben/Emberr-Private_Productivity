@@ -60,7 +60,7 @@ private val TopEdgeGradientHeight = 200.dp
 
 private const val TopEdgeGradientStopCount = 24
 
-private val TopEdgeBlurHeight = 140.dp
+val TopEdgeBlurHeight = 140.dp
 
 private val TopEdgeFadeEasing = Easing { position -> smoothStep(position) }
 
