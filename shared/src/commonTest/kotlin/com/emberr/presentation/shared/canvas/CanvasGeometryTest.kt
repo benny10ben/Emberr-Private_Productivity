@@ -2,6 +2,7 @@ package com.emberr.presentation.shared.canvas
 
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.Size
 import com.emberr.data.local.room.entity.CanvasSide
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -194,6 +195,65 @@ class CanvasGeometryTest {
     @Test
     fun anEmptyCanvasHasNoBusiestArea() {
         assertEquals(null, busiestAreaCenter(emptyList(), clusterRadius = 600f))
+    }
+
+    @Test
+    fun theBusiestClusterLeavesOutFarAwayBoxes() {
+        val clusteredBoxes = listOf(
+            rectCenteredOn(Offset(1000f, 1000f), 100f, 50f),
+            rectCenteredOn(Offset(1100f, 1000f), 100f, 50f),
+            rectCenteredOn(Offset(1000f, 1100f), 100f, 50f)
+        )
+        val loneBox = rectCenteredOn(Offset(-5000f, 0f), 100f, 50f)
+
+        assertEquals(clusteredBoxes, busiestClusterOf(clusteredBoxes + loneBox, clusterRadius = 600f))
+    }
+
+    @Test
+    fun thePreviewShowsTheWholeBusiestClusterInItsMiddle() {
+        val clusteredBoxes = listOf(
+            rectCenteredOn(Offset(1000f, 1000f), 100f, 50f),
+            rectCenteredOn(Offset(1100f, 1000f), 100f, 50f),
+            rectCenteredOn(Offset(1000f, 1100f), 100f, 50f)
+        )
+        val loneBox = rectCenteredOn(Offset(-5000f, 0f), 100f, 50f)
+        val previewSize = Size(300f, 100f)
+        val previewArea = Rect(Offset.Zero, previewSize)
+
+        val viewport = canvasPreviewViewport(clusteredBoxes + loneBox, previewSize, density)!!
+
+        assertClose(Offset(150f, 50f), viewport.worldToScreen(Offset(1050f, 1050f), density))
+        clusteredBoxes.forEach { box ->
+            val boxOnScreen = viewport.worldRectToScreen(box, density)
+            assertTrue(previewArea.contains(boxOnScreen.topLeft) && previewArea.contains(boxOnScreen.bottomRight), "$boxOnScreen is cut off")
+        }
+        assertTrue(!viewport.worldRectToScreen(loneBox, density).overlaps(previewArea))
+    }
+
+    @Test
+    fun thePreviewNeverMagnifiesASmallCanvas() {
+        val tinyBox = rectCenteredOn(Offset(0f, 0f), 10f, 10f)
+
+        val viewport = canvasPreviewViewport(listOf(tinyBox), Size(300f, 100f), density)!!
+
+        assertEquals(CANVAS_PREVIEW_MAX_ZOOM, viewport.zoom)
+    }
+
+    @Test
+    fun thePreviewDoesNotShrinkAHugeCanvasBelowTheMinimumZoom() {
+        val hugeBox = rectCenteredOn(Offset(0f, 0f), 100_000f, 100_000f)
+
+        val viewport = canvasPreviewViewport(listOf(hugeBox), Size(300f, 100f), density)!!
+
+        assertEquals(CANVAS_PREVIEW_MIN_ZOOM, viewport.zoom)
+    }
+
+    @Test
+    fun thereIsNoPreviewForAnEmptyCanvasOrAnEmptyPreviewArea() {
+        val box = rectCenteredOn(Offset(0f, 0f), 100f, 50f)
+
+        assertEquals(null, canvasPreviewViewport(emptyList(), Size(300f, 100f), density))
+        assertEquals(null, canvasPreviewViewport(listOf(box), Size.Zero, density))
     }
 
     @Test

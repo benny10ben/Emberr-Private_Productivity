@@ -2,6 +2,8 @@ package com.emberr.presentation.shared.canvas
 
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.geometry.center
 import com.emberr.data.local.room.entity.CanvasNodeEntity
 import com.emberr.data.local.room.entity.CanvasSide
 import kotlin.math.abs
@@ -20,6 +22,9 @@ const val CANVAS_FREE_TEXT_PADDING = 4f
 const val CANVAS_FREE_TEXT_STARTING_WIDTH = 16f
 const val CANVAS_FREE_TEXT_LINE_HEIGHT_RATIO = 1.5f
 const val CANVAS_CLUSTER_RADIUS = 600f
+const val CANVAS_PREVIEW_MIN_ZOOM = 0.1f
+const val CANVAS_PREVIEW_MAX_ZOOM = 1f
+const val CANVAS_PREVIEW_FILL_RATIO = 0.85f
 
 data class CanvasViewport(
     val panOffset: Offset = Offset.Zero,
@@ -63,12 +68,24 @@ val CanvasNodeEntity.groupTitleWorldRect: Rect
     get() = Rect(left = x, top = y - CANVAS_GROUP_TITLE_HEIGHT, right = x + width, bottom = y)
 
 fun busiestAreaCenter(boxes: List<Rect>, clusterRadius: Float): Offset? {
-    if (boxes.isEmpty()) return null
-    val boxCenters = boxes.map { it.center }
-    val busiestCluster = boxCenters
-        .map { candidate -> boxCenters.filter { (it - candidate).getDistance() <= clusterRadius } }
+    val busiestCluster = busiestClusterOf(boxes, clusterRadius).ifEmpty { return null }
+    return busiestCluster.map { it.center }.reduce { sum, center -> sum + center } / busiestCluster.size.toFloat()
+}
+
+fun busiestClusterOf(boxes: List<Rect>, clusterRadius: Float): List<Rect> {
+    if (boxes.isEmpty()) return emptyList()
+    return boxes
+        .map { candidate -> boxes.filter { (it.center - candidate.center).getDistance() <= clusterRadius } }
         .maxBy { cluster -> cluster.size }
-    return busiestCluster.reduce { sum, center -> sum + center } / busiestCluster.size.toFloat()
+}
+
+fun canvasPreviewViewport(contentRects: List<Rect>, previewSize: Size, density: Float): CanvasViewport? {
+    if (previewSize.isEmpty()) return null
+    val busiestCluster = busiestClusterOf(contentRects, CANVAS_CLUSTER_RADIUS).ifEmpty { return null }
+    val clusterBounds = busiestCluster.reduce { bounds, rect -> bounds.expandedToInclude(rect) }
+    val fittingZoom = min(previewSize.width / clusterBounds.width, previewSize.height / clusterBounds.height) / density
+    val zoom = (fittingZoom * CANVAS_PREVIEW_FILL_RATIO).coerceIn(CANVAS_PREVIEW_MIN_ZOOM, CANVAS_PREVIEW_MAX_ZOOM)
+    return CanvasViewport(panOffset = previewSize.center - clusterBounds.center * (zoom * density), zoom = zoom)
 }
 
 fun Rect.expandedToInclude(other: Rect): Rect = Rect(
