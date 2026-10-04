@@ -86,25 +86,27 @@ Emberr can be tracked and auto-updated with [Obtainium](https://github.com/Imran
 
 ### Linux
 
-**Option 1: AppImage (one file, nothing to install)**
-
-Download [Emberr-x86_64.AppImage](https://github.com/benny10ben/Emberr-Private_Productivity/releases), then run:
-
-```sh
-chmod +x Emberr-x86_64.AppImage
-./Emberr-x86_64.AppImage
-```
-
-**Option 2: Tarball (adds Emberr to your app menu)**
+**Option 1: Tarball (recommended, adds Emberr to your app menu)**
 
 Download [emberr-x86_64.tar.gz](https://github.com/benny10ben/Emberr-Private_Productivity/releases), then run:
 
 ```sh
+cd ~/Downloads
 tar -xzf emberr-x86_64.tar.gz
 ./emberr-*-x86_64/install.sh
 ```
 
 It installs for your user only, with no root needed. To remove it, run `uninstall.sh` from the same extracted folder.
+
+**Option 2: AppImage (one file, nothing to install)**
+
+Download [Emberr-x86_64.AppImage](https://github.com/benny10ben/Emberr-Private_Productivity/releases), then run:
+
+```sh
+cd ~/Downloads
+chmod +x Emberr-x86_64.AppImage
+./Emberr-x86_64.AppImage
+```
 
 ### Windows
 
