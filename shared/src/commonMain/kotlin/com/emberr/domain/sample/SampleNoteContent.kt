@@ -14,7 +14,7 @@ object SampleNoteContent {
         val spacers = BreathingRoom(idPrefix = "sample_note", createdAt = createdAt)
 
         val foldersSentence =
-            "Your notes can live in folders/sub-folders. This one sits in Personal, and there are three more waiting whenever you need them."
+            "This note sits in Favorites, so it stays at the top. Your other notes can live in folders/sub-folders, and a few are already waiting below."
         val safetyNetSentence =
             "Nothing you delete is really gone for thirty days, so go ahead and rename, drag and throw things out."
 
@@ -29,8 +29,8 @@ object SampleNoteContent {
                 id = "sample_note_intro",
                 text = foldersSentence,
                 inlineSpans = listOfNotNull(
-                    emphasisedWord(foldersSentence, "Personal", bold = true),
-                    emphasisedWord(foldersSentence, "three more", italic = true)
+                    emphasisedWord(foldersSentence, "Favorites", bold = true),
+                    emphasisedWord(foldersSentence, "already waiting", italic = true)
                 ),
                 updatedAt = createdAt
             ),
@@ -85,7 +85,7 @@ object SampleNoteContent {
             spacers.next(),
             CheckboxBlock(
                 id = "sample_note_try_it",
-                text = "Try it: start a note in Work, then link back to this one with @",
+                text = "Try it: start a note in Reading List, then link back to this one with @",
                 isChecked = false,
                 updatedAt = createdAt
             ),

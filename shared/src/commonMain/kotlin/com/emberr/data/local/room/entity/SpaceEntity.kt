@@ -5,7 +5,7 @@ import androidx.room.PrimaryKey
 import kotlinx.serialization.Serializable
 
 const val DEFAULT_SPACE_ID = "00000000-0000-0000-0000-000000000001"
-const val DEFAULT_SPACE_NAME = "Default"
+const val DEFAULT_SPACE_NAME = "Personal"
 
 const val PLACEHOLDER_SPACE_UPDATED_AT = 0L
 

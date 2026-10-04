@@ -118,14 +118,18 @@ val sharedModule = module {
     single {
         com.emberr.domain.sample.SampleDailyNoteSeeder(
             repository = get(),
-            settingsManager = get()
+            settingsManager = get(),
+            canvasRepository = get()
         )
     }
 
     single {
         com.emberr.domain.sample.SampleNotesSeeder(
             repository = get(),
-            settingsManager = get()
+            settingsManager = get(),
+            canvasRepository = get(),
+            canvasViewPositionStore = get(),
+            favoriteNoteOrderStore = get()
         )
     }
 
@@ -347,7 +351,7 @@ val sharedModule = module {
     }
 
     viewModel { TrashViewModel(repository = get()) }
-    viewModel { SearchViewModel(repository = get(), activeSpaceStore = get()) }
+    viewModel { SearchViewModel(repository = get(), activeSpaceStore = get(), settingsManager = get()) }
     viewModel {
         com.emberr.presentation.space.SpaceViewModel(
             spaceRepository = get(),

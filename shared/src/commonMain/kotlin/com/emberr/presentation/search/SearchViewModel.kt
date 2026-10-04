@@ -2,6 +2,7 @@ package com.emberr.presentation.search
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.emberr.data.local.prefs.SettingsManager
 import com.emberr.domain.model.NoteSearchResult
 import com.emberr.domain.repository.NoteRepository
 import com.emberr.domain.space.ActiveSpaceStore
@@ -38,10 +39,11 @@ private const val QUERY_SETTLE_MILLIS = 90L
  */
 class SearchViewModel(
     private val repository: NoteRepository,
-    activeSpaceStore: ActiveSpaceStore
+    activeSpaceStore: ActiveSpaceStore,
+    settingsManager: SettingsManager
 ) : ViewModel() {
 
-    private data class SearchRequest(val query: String, val spaceId: String)
+    private data class SearchRequest(val query: String, val spaceId: String, val includesDailyNotes: Boolean)
 
     private val _query = MutableStateFlow("")
     val query: StateFlow<String> = _query.asStateFlow()
@@ -49,15 +51,16 @@ class SearchViewModel(
     @OptIn(FlowPreview::class, ExperimentalCoroutinesApi::class)
     val results: StateFlow<List<NoteSearchResult>> = combine(
         _query.debounce(QUERY_SETTLE_MILLIS).distinctUntilChanged(),
-        activeSpaceStore.activeSpaceId
-    ) { query, spaceId -> SearchRequest(query, spaceId) }
+        activeSpaceStore.activeSpaceId,
+        settingsManager.dailyNotesEnabledFlow
+    ) { query, spaceId, isDailyNotesEnabled -> SearchRequest(query, spaceId, isDailyNotesEnabled) }
         .distinctUntilChanged()
         .flatMapLatest { request ->
             if (request.query.isBlank()) flowOf(emptyList())
             else flow {
-                val quickMatches = repository.searchNoteTitlesAndSnippets(request.query)
+                val quickMatches = repository.searchNoteTitlesAndSnippets(request.query).visibleFor(request)
                 if (quickMatches.isNotEmpty()) emit(quickMatches)
-                emit(repository.searchNotes(request.query))
+                emit(repository.searchNotes(request.query).visibleFor(request))
             }
         }
         .flowOn(Dispatchers.IO)
@@ -66,4 +69,7 @@ class SearchViewModel(
     fun onQueryChange(newQuery: String) {
         _query.value = newQuery
     }
+
+    private fun List<NoteSearchResult>.visibleFor(request: SearchRequest): List<NoteSearchResult> =
+        if (request.includesDailyNotes) this else filterNot { result -> result.note.isDaily }
 }

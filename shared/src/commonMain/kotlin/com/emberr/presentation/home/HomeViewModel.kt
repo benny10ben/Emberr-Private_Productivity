@@ -21,6 +21,8 @@ import com.emberr.domain.sample.SampleNotesSeeder
 import com.emberr.domain.space.ActiveSpaceStore
 import com.emberr.domain.template.DefaultTemplateSeeder
 import com.emberr.domain.util.sync.SyncCoordinator
+import com.emberr.presentation.home.overview.OverviewSection
+import com.emberr.presentation.home.overview.visibleOverviewSections
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
@@ -246,6 +248,14 @@ class HomeViewModel(
     private val _expandedFolderIds = MutableStateFlow(readStoredExpandedFolderIds())
     val expandedFolderIds: StateFlow<Set<String>> = _expandedFolderIds.asStateFlow()
 
+    val visibleOverviewSections: StateFlow<List<OverviewSection>> = settingsManager.hiddenOverviewSectionsFlow
+        .map { hiddenStorageKeys -> visibleOverviewSections(hiddenStorageKeys) }
+        .stateIn(
+            viewModelScope,
+            SharingStarted.Eagerly,
+            visibleOverviewSections(settingsManager.getHiddenOverviewSections())
+        )
+
     private val _remindersCount = MutableStateFlow(0)
     val remindersCount: StateFlow<Int> = _remindersCount.asStateFlow()
 
@@ -407,9 +417,7 @@ class HomeViewModel(
         viewModelScope.launch(Dispatchers.IO) {
             repository.cleanupOldTrashedNotes()
             templateSeeder.seedIfMissing()
-            sampleNotesSeeder.seedIfNeededAndReturnFolderToOpen()?.let { folderId ->
-                updateExpandedFolderIds { it + folderId }
-            }
+            sampleNotesSeeder.seedIfNeeded()
         }
         viewModelScope.launch(Dispatchers.IO) {
             delay(2_000.milliseconds)

@@ -2,8 +2,10 @@ package com.emberr.domain.sample
 
 import com.emberr.domain.model.BookmarkBlock
 import com.emberr.domain.model.BulletedListBlock
+import com.emberr.domain.model.CanvasBlock
 import com.emberr.domain.model.CheckboxBlock
 import com.emberr.domain.model.CodeBlock
+import com.emberr.domain.model.DatabaseBlock
 import com.emberr.domain.model.DocumentBlock
 import com.emberr.domain.model.HeadingBlock
 import com.emberr.domain.model.ImageBlock
@@ -17,15 +19,27 @@ import com.emberr.domain.model.ThreeDotDividerBlock
 import com.emberr.domain.model.ToggleBlock
 import com.emberr.domain.model.VoiceBlock
 
+data class SampleDatabaseRow(val title: String, val status: String)
+
 object SampleDailyNoteContent {
 
     private const val PROJECT_PAGE_URL = "https://github.com/benny10ben/Emberr-Private_Productivity"
+    const val DATABASE_ID = "sample_daily_database"
+    const val DATABASE_TITLE = "Weekend plans"
+    val databaseStatusOptions = listOf("To do", "Doing", "Done")
+    val databaseRows = listOf(
+        SampleDatabaseRow(title = "Try a new recipe", status = "To do"),
+        SampleDatabaseRow(title = "Call an old friend", status = "Done")
+    )
+    const val CANVAS_NOTE_ID = "sample_daily_canvas_note"
 
     fun buildBlocks(createdAt: Long): List<NoteBlock> {
         val spacers = BreathingRoom(idPrefix = "sample_daily", createdAt = createdAt)
 
         val introSentence =
-            "This is today. Every day gets a page of its own, and the dates above move you around."
+            "This is the Daily screen, where every day gets a page of its own. Use it for today's tasks and quick thoughts, and tap the dates above to move between days."
+        val homeScreenSentence =
+            "Notes that are not tied to a day, like recipes or trip plans, live on the Home screen, sorted into folders."
         val blockKitSentence =
             "Any line can become any of these. Make a word bold, lean on italic, or cross it out once it stops being true."
 
@@ -40,7 +54,15 @@ object SampleDailyNoteContent {
                 id = "sample_daily_intro",
                 text = introSentence,
                 inlineSpans = listOfNotNull(
-                    emphasisedWord(introSentence, "today", bold = true)
+                    emphasisedWord(introSentence, "Daily screen", bold = true)
+                ),
+                updatedAt = createdAt
+            ),
+            TextBlock(
+                id = "sample_daily_home_screen_hint",
+                text = homeScreenSentence,
+                inlineSpans = listOfNotNull(
+                    emphasisedWord(homeScreenSentence, "Home screen", bold = true)
                 ),
                 updatedAt = createdAt
             ),
@@ -159,6 +181,22 @@ object SampleDailyNoteContent {
                 ),
                 updatedAt = createdAt
             ),
+            spacers.next(),
+
+            TextBlock(
+                id = "sample_daily_database_intro",
+                text = "A database, when every row deserves its own page. Add columns, then sort, filter or switch it to a board or gallery:",
+                updatedAt = createdAt
+            ),
+            DatabaseBlock(id = "sample_daily_database", databaseId = DATABASE_ID, updatedAt = createdAt),
+            spacers.next(),
+
+            TextBlock(
+                id = "sample_daily_canvas_intro",
+                text = "A canvas, for thinking in cards and arrows. Open it to start sketching:",
+                updatedAt = createdAt
+            ),
+            CanvasBlock(id = "sample_daily_canvas", canvasNoteId = CANVAS_NOTE_ID, updatedAt = createdAt),
             spacers.next(),
 
             TextBlock(
