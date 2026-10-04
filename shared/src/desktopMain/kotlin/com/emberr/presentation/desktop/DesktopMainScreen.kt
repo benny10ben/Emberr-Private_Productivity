@@ -77,6 +77,9 @@ import com.emberr.presentation.home.HomeItem
 import com.emberr.presentation.home.HomeItemKey
 import com.emberr.presentation.home.TemplatesDesktopMenu
 import com.emberr.presentation.home.ROOT_TREE_GUIDE_LINES
+import com.emberr.presentation.home.TreeRowFadeInSpec
+import com.emberr.presentation.home.TreeRowFadeOutSpec
+import com.emberr.presentation.home.TreeRowPlacementSpec
 import com.emberr.presentation.home.TreeSelectionMenu
 import com.emberr.presentation.home.buildTreeGuideLines
 import com.emberr.presentation.home.flattenFolderTree
@@ -110,8 +113,6 @@ import kotlinx.datetime.plus
 import kotlinx.datetime.todayIn
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.spring
 import com.emberr.presentation.shared.components.TopBarIconButton
 import com.emberr.presentation.shared.components.EmberrPillShadowAmbientColor
 import com.emberr.presentation.shared.components.EmberrPillShadowSpotColor
@@ -721,6 +722,13 @@ fun DesktopMainScreen(
     // Drag
     val dragState = rememberDesktopListDragState()
     val sidebarListState = rememberLazyListState()
+    val hasOverviewRows = visibleOverviewSections.isNotEmpty()
+    DisposableEffect(hasOverviewRows) {
+        val isSidebarAtTop = sidebarListState.firstVisibleItemIndex == 0 &&
+                sidebarListState.firstVisibleItemScrollOffset == 0
+        if (isSidebarAtTop) sidebarListState.requestScrollToItem(0)
+        onDispose {}
+    }
     val density = LocalDensity.current
     val rowHeightPx = with(density) { SIDEBAR_ROW_HEIGHT.toPx() }
 
@@ -850,7 +858,7 @@ fun DesktopMainScreen(
         }
 
         val rowKeys: List<String?> = buildList {
-            add(null)
+            if (visibleOverviewSections.isNotEmpty()) add(null)
             add(null) // Space header
 
             if (favoriteNotes.isNotEmpty()) {
@@ -860,6 +868,7 @@ fun DesktopMainScreen(
 
             add(null) // Notes header
 
+            if (isNotesExpanded && treeRows.isEmpty()) add(null)
             if (isNotesExpanded) treeRows.forEach { add(it.key) }
 
             if (recentNotes.isNotEmpty()) {
@@ -1021,9 +1030,17 @@ fun DesktopMainScreen(
                                 modifier = Modifier.fillMaxSize().smoothWheelScroll(sidebarListState),
                                 contentPadding = PaddingValues(bottom = 80.dp)
                             ) {
-                                item {
-                                    if (visibleOverviewSections.isNotEmpty()) {
-                                        Column(modifier = Modifier.padding(top = 4.dp, bottom = 8.dp)) {
+                                if (visibleOverviewSections.isNotEmpty()) {
+                                    item(key = "sb_overview") {
+                                        Column(
+                                            modifier = Modifier
+                                                .animateItem(
+                                                    fadeInSpec = TreeRowFadeInSpec,
+                                                    fadeOutSpec = TreeRowFadeOutSpec,
+                                                    placementSpec = TreeRowPlacementSpec
+                                                )
+                                                .padding(top = 4.dp, bottom = 8.dp)
+                                        ) {
                                             visibleOverviewSections.forEach { section ->
                                                 val sectionPane = section.detailPane()
                                                 val subtitle = when (section) {
@@ -1044,22 +1061,35 @@ fun DesktopMainScreen(
                                     }
                                 }
 
-                                item {
+                                item(key = "sb_space_header") {
                                     SidebarSpaceHeader(
                                         displayName = spaces.firstOrNull { it.spaceId == activeSpaceId }?.displayName.orEmpty(),
                                         canDelete = spaces.size > 1,
                                         onRename = { name -> spaceViewModel.renameSpace(activeSpaceId, name) },
-                                        onDelete = { spaceViewModel.deleteSpace(activeSpaceId) }
+                                        onDelete = { spaceViewModel.deleteSpace(activeSpaceId) },
+                                        modifier = Modifier.animateItem(fadeInSpec = null, fadeOutSpec = null, placementSpec = TreeRowPlacementSpec)
                                     )
                                 }
 
                                 if (favoriteNotes.isNotEmpty()) {
-                                    item { SidebarSectionHeader("Favorites", isFavoritesExpanded, { isFavoritesExpanded = !isFavoritesExpanded }) }
+                                    item(key = "sb_favorites_header") {
+                                        SidebarSectionHeader(
+                                            "Favorites",
+                                            isFavoritesExpanded,
+                                            { isFavoritesExpanded = !isFavoritesExpanded },
+                                            modifier = Modifier.animateItem(fadeInSpec = null, fadeOutSpec = null, placementSpec = TreeRowPlacementSpec)
+                                        )
+                                    }
                                     if (isFavoritesExpanded) {
                                         items(favoriteNotes, key = { "$FAVORITE_ROW_PREFIX${it.noteId}" }) { note ->
                                             val favoriteRowKey = HomeItemKey.forNote(note.noteId)
                                             val rowMenuTarget = menuForRow(favoriteRowKey)
                                             SidebarNoteRow(
+                                                modifier = Modifier.animateItem(
+                                                    fadeInSpec = TreeRowFadeInSpec,
+                                                    fadeOutSpec = TreeRowFadeOutSpec,
+                                                    placementSpec = TreeRowPlacementSpec
+                                                ),
                                                 note = note, level = 0,
                                                 isActive = (detail as? DetailPane.Note)?.noteId == note.noteId,
                                                 isSelected = selectedNoteIds.contains(note.noteId),
@@ -1082,10 +1112,11 @@ fun DesktopMainScreen(
                                     }
                                 }
 
-                                item {
+                                item(key = "sb_notes_header") {
                                     SidebarSectionHeader(
                                         title = "Notes", isExpanded = isNotesExpanded,
                                         onToggle = { isNotesExpanded = !isNotesExpanded },
+                                        modifier = Modifier.animateItem(fadeInSpec = null, fadeOutSpec = null, placementSpec = TreeRowPlacementSpec),
                                         trailing = {
                                             Box {
                                                 TopBarIconButtonGroup(
@@ -1308,9 +1339,9 @@ fun DesktopMainScreen(
                                         when (row) {
                                             is HomeItem.Folder -> SidebarFolderRow(
                                                 modifier = Modifier.animateItem(
-                                                    fadeInSpec = tween(220, easing = FastOutSlowInEasing),
-                                                    fadeOutSpec = tween(180, easing = FastOutSlowInEasing),
-                                                    placementSpec = spring(stiffness = Spring.StiffnessMediumLow)
+                                                    fadeInSpec = TreeRowFadeInSpec,
+                                                    fadeOutSpec = TreeRowFadeOutSpec,
+                                                    placementSpec = TreeRowPlacementSpec
                                                 ),
                                                 folder = row.folder,
                                                 level = row.level,
@@ -1351,9 +1382,9 @@ fun DesktopMainScreen(
                                             )
                                             is HomeItem.Note -> SidebarNoteRow(
                                                 modifier = Modifier.animateItem(
-                                                    fadeInSpec = tween(220, easing = FastOutSlowInEasing),
-                                                    fadeOutSpec = tween(180, easing = FastOutSlowInEasing),
-                                                    placementSpec = spring(stiffness = Spring.StiffnessMediumLow)
+                                                    fadeInSpec = TreeRowFadeInSpec,
+                                                    fadeOutSpec = TreeRowFadeOutSpec,
+                                                    placementSpec = TreeRowPlacementSpec
                                                 ),
                                                 note = row.note,
                                                 level = row.level,
@@ -1379,10 +1410,22 @@ fun DesktopMainScreen(
                                 }
 
                                 if (recentNotes.isNotEmpty()) {
-                                    item { SidebarSectionHeader("Recents", isRecentsExpanded, { isRecentsExpanded = !isRecentsExpanded }) }
+                                    item(key = "sb_recents_header") {
+                                        SidebarSectionHeader(
+                                            "Recents",
+                                            isRecentsExpanded,
+                                            { isRecentsExpanded = !isRecentsExpanded },
+                                            modifier = Modifier.animateItem(fadeInSpec = null, fadeOutSpec = null, placementSpec = TreeRowPlacementSpec)
+                                        )
+                                    }
                                     if (isRecentsExpanded) {
                                         items(recentNotes, key = { "sb_recent_${it.noteId}" }) { note ->
                                             SidebarNoteRow(
+                                                modifier = Modifier.animateItem(
+                                                    fadeInSpec = TreeRowFadeInSpec,
+                                                    fadeOutSpec = TreeRowFadeOutSpec,
+                                                    placementSpec = TreeRowPlacementSpec
+                                                ),
                                                 note = note, level = 0,
                                                 isActive = (detail as? DetailPane.Note)?.noteId == note.noteId,
                                                 isSelected = false,

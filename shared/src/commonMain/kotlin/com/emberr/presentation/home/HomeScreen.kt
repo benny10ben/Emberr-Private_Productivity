@@ -329,6 +329,18 @@ fun HomeScreen(
 
 
     val isSelectionMode = selectedNoteIds.isNotEmpty() || selectedFolderIds.isNotEmpty()
+    val isNotesHeaderVisible = treeRows.isNotEmpty() || !isSelectionMode
+
+    val visibleRowsAboveTree = listOf(
+        visibleOverviewSections.isNotEmpty(),
+        favoriteNotes.isNotEmpty(),
+        isNotesHeaderVisible
+    )
+    DisposableEffect(visibleRowsAboveTree) {
+        val isGridAtTop = gridState.firstVisibleItemIndex == 0 && gridState.firstVisibleItemScrollOffset == 0
+        if (isGridAtTop) gridState.requestScrollToItem(0)
+        onDispose {}
+    }
 
     val favoriteNoteIds = remember(favoriteNotes) { favoriteNotes.map { it.noteId }.toSet() }
     val selectionMenu = remember(selectedNoteIds, selectedFolderIds, favoriteNoteIds) {
@@ -429,9 +441,15 @@ fun HomeScreen(
                     modifier = Modifier.fillMaxSize().hazeSource(state = hazeState).background(MaterialTheme.colorScheme.background)
                 ) {
                     if (visibleOverviewSections.isNotEmpty()) {
-                        item(span = StaggeredGridItemSpan.FullLine) {
+                        item(span = StaggeredGridItemSpan.FullLine, key = "home_overview") {
                             Column(
-                                modifier = Modifier.fillMaxWidth().padding(horizontal = HORIZONTAL_PADDING).padding(bottom = 10.dp),
+                                modifier = Modifier
+                                    .animateItem(
+                                        fadeInSpec = TreeRowFadeInSpec,
+                                        fadeOutSpec = TreeRowFadeOutSpec,
+                                        placementSpec = TreeRowPlacementSpec
+                                    )
+                                    .fillMaxWidth().padding(horizontal = HORIZONTAL_PADDING).padding(bottom = 10.dp),
                                 verticalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
                                 visibleOverviewSections.chunked(2).forEach { sectionsInRow ->
@@ -457,9 +475,9 @@ fun HomeScreen(
                     }
 
                     if (favoriteNotes.isNotEmpty()) {
-                        item(span = StaggeredGridItemSpan.FullLine) {
+                        item(span = StaggeredGridItemSpan.FullLine, key = "home_favorites_header") {
                             Row(
-                                modifier = Modifier.fillMaxWidth().padding(
+                                modifier = Modifier.animateItem(fadeInSpec = null, fadeOutSpec = null, placementSpec = TreeRowPlacementSpec).fillMaxWidth().padding(
                                     start = SECTION_HEADER_START_PADDING,
                                     end = HORIZONTAL_PADDING,
                                     top = if (visibleOverviewSections.isNotEmpty()) 14.dp else 0.dp,
@@ -483,10 +501,16 @@ fun HomeScreen(
                             }
                         }
                         if (isFavoritesExpanded) {
-                            item(span = StaggeredGridItemSpan.FullLine) {
+                            item(span = StaggeredGridItemSpan.FullLine, key = "home_favorites_row") {
                                 LazyRow(
                                     state = favListState,
-                                    modifier = Modifier.fillMaxWidth()
+                                    modifier = Modifier
+                                        .animateItem(
+                                            fadeInSpec = TreeRowFadeInSpec,
+                                            fadeOutSpec = TreeRowFadeOutSpec,
+                                            placementSpec = TreeRowPlacementSpec
+                                        )
+                                        .fillMaxWidth()
                                         .smoothWheelScroll(favListState, horizontal = true),
                                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                                     contentPadding = PaddingValues(horizontal = HORIZONTAL_PADDING)
@@ -547,10 +571,10 @@ fun HomeScreen(
                         }
                     }
 
-                    if (treeRows.isNotEmpty() || !isSelectionMode) {
-                        item(span = StaggeredGridItemSpan.FullLine) {
+                    if (isNotesHeaderVisible) {
+                        item(span = StaggeredGridItemSpan.FullLine, key = "home_notes_header") {
                             val hasContentAboveNotes = visibleOverviewSections.isNotEmpty() || favoriteNotes.isNotEmpty()
-                            Row(modifier = Modifier.fillMaxWidth().padding(start = SECTION_HEADER_START_PADDING, end = HORIZONTAL_PADDING, top = if (hasContentAboveNotes) 26.dp else 0.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                            Row(modifier = Modifier.animateItem(fadeInSpec = null, fadeOutSpec = null, placementSpec = TreeRowPlacementSpec).fillMaxWidth().padding(start = SECTION_HEADER_START_PADDING, end = HORIZONTAL_PADDING, top = if (hasContentAboveNotes) 26.dp else 0.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
                                 Row(modifier = Modifier.clip(RoundedCornerShape(4.dp)).noRippleClickable { viewModel.toggleHomeSection(SyncConstants.HOME_SECTION_NOTES) }.padding(end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                                     Text(
                                         "Notes",
@@ -804,9 +828,9 @@ fun HomeScreen(
                             Box(
                                 modifier = Modifier
                                     .animateItem(
-                                        fadeInSpec = tween(200, easing = FastOutSlowInEasing),
-                                        fadeOutSpec = tween(160, easing = FastOutSlowInEasing),
-                                        placementSpec = null
+                                        fadeInSpec = TreeRowFadeInSpec,
+                                        fadeOutSpec = TreeRowFadeOutSpec,
+                                        placementSpec = TreeRowPlacementSpec
                                     )
                                     .padding(horizontal = HORIZONTAL_PADDING)
                                     .mobileTreeDragSource(
@@ -893,8 +917,8 @@ fun HomeScreen(
                     }
 
                     if (recentNotes.isNotEmpty()) {
-                        item(span = StaggeredGridItemSpan.FullLine) {
-                            Row(modifier = Modifier.fillMaxWidth().padding(start = SECTION_HEADER_START_PADDING, end = HORIZONTAL_PADDING, top = 26.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        item(span = StaggeredGridItemSpan.FullLine, key = "home_recents_header") {
+                            Row(modifier = Modifier.animateItem(fadeInSpec = null, fadeOutSpec = null, placementSpec = TreeRowPlacementSpec).fillMaxWidth().padding(start = SECTION_HEADER_START_PADDING, end = HORIZONTAL_PADDING, top = 26.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Row(
                                     modifier = Modifier.clip(RoundedCornerShape(4.dp))
                                         .noRippleClickable {
@@ -920,9 +944,9 @@ fun HomeScreen(
                                 Box(
                                     modifier = Modifier
                                         .animateItem(
-                                            fadeInSpec = tween(200, easing = FastOutSlowInEasing),
-                                            fadeOutSpec = tween(160, easing = FastOutSlowInEasing),
-                                            placementSpec = null
+                                            fadeInSpec = TreeRowFadeInSpec,
+                                            fadeOutSpec = TreeRowFadeOutSpec,
+                                            placementSpec = TreeRowPlacementSpec
                                         )
                                         .padding(horizontal = HORIZONTAL_PADDING)
                                         .cardGestures(
