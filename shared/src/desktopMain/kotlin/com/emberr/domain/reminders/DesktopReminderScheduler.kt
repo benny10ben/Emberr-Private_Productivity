@@ -1,11 +1,15 @@
 package com.emberr.domain.reminders
 
+import java.io.File
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit
 
 private const val HELP_PROBE_TIMEOUT_SECONDS = 2L
+private const val NOTIFICATION_ICON_RESOURCE = "app_icon.png"
 
 class DesktopReminderScheduler : ReminderScheduler {
 
@@ -25,6 +29,17 @@ class DesktopReminderScheduler : ReminderScheduler {
             help.waitFor(HELP_PROBE_TIMEOUT_SECONDS, TimeUnit.SECONDS)
             helpText.contains("--action")
         }.getOrDefault(false)
+    }
+
+    private val notificationIconFile: File? by lazy {
+        runCatching {
+            val iconFile = File(System.getProperty("user.home"), ".emberr/notification_icon.png")
+            iconFile.parentFile.mkdirs()
+            val iconStream = DesktopReminderScheduler::class.java.classLoader
+                .getResourceAsStream(NOTIFICATION_ICON_RESOURCE) ?: return@runCatching null
+            iconStream.use { Files.copy(it, iconFile.toPath(), StandardCopyOption.REPLACE_EXISTING) }
+            iconFile
+        }.getOrNull()
     }
 
     override fun schedule(blockId: String, noteTitle: String, text: String, timestamp: Long) {
@@ -49,11 +64,14 @@ class DesktopReminderScheduler : ReminderScheduler {
         try {
             when {
                 os.contains("win") -> {
+                    val iconUri = notificationIconFile?.toPath()?.toUri()?.toString().orEmpty().replace("'", "''")
                     val psScript = """
                         [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null
                         [Windows.UI.Notifications.ToastNotification, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null
                         
-                        ${'$'}template = [Windows.UI.Notifications.ToastNotificationManager]::GetTemplateContent([Windows.UI.Notifications.ToastTemplateType]::ToastText02)
+                        ${'$'}template = [Windows.UI.Notifications.ToastNotificationManager]::GetTemplateContent([Windows.UI.Notifications.ToastTemplateType]::ToastImageAndText02)
+                        ${'$'}imageNodes = ${'$'}template.GetElementsByTagName('image')
+                        ${'$'}imageNodes.Item(0).Attributes.GetNamedItem('src').NodeValue = '$iconUri'
                         ${'$'}textNodes = ${'$'}template.GetElementsByTagName('text')
                         ${'$'}textNodes.Item(0).AppendChild(${'$'}template.CreateTextNode('$title')) | Out-Null
                         ${'$'}textNodes.Item(1).AppendChild(${'$'}template.CreateTextNode('$message')) | Out-Null
@@ -76,19 +94,21 @@ class DesktopReminderScheduler : ReminderScheduler {
     }
 
     private fun showClickableLinuxNotification(blockId: String, title: String, message: String) {
+        val iconOption = notificationIconFile?.let { listOf("-i", it.absolutePath) }.orEmpty()
+
         if (!linuxNotificationsSupportActions) {
-            ProcessBuilder("notify-send", "-a", "Emberr", "-u", "normal", title, message).start()
+            ProcessBuilder(listOf("notify-send", "-a", "Emberr", "-u", "normal") + iconOption + listOf(title, message)).start()
             return
         }
 
         val notification = ProcessBuilder(
-            "notify-send",
-            "-a", "Emberr",
-            "-u", "normal",
-            "-A", "default=Open",
-            "-A", "open=Open",
-            title,
-            message
+            listOf(
+                "notify-send",
+                "-a", "Emberr",
+                "-u", "normal",
+                "-A", "default=Open",
+                "-A", "open=Open"
+            ) + iconOption + listOf(title, message)
         ).start()
 
         clickWatchers.submit {
