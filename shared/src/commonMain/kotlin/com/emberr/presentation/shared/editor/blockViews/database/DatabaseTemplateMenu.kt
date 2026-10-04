@@ -28,11 +28,11 @@ import com.emberr.presentation.shared.editor.DatabaseBlockEditor
 import emberr.shared.generated.resources.Res
 import emberr.shared.generated.resources.doc_text
 import emberr.shared.generated.resources.ellipsis
+import emberr.shared.generated.resources.file_text
 import emberr.shared.generated.resources.pen
 import emberr.shared.generated.resources.plus
 import emberr.shared.generated.resources.refresh_cw
 import emberr.shared.generated.resources.star
-import emberr.shared.generated.resources.template
 import emberr.shared.generated.resources.trash
 import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
@@ -80,7 +80,7 @@ internal fun DatabaseTemplateMenu(
             key(template.noteId) {
                 DatabaseTemplateOption(
                     label = templateLabel(template),
-                    icon = Res.drawable.template,
+                    icon = Res.drawable.file_text,
                     isDefault = template.noteId == defaultTemplateId,
                     onUse = { closeAnd { editor.addRowFromTemplate(block.id, template.noteId) } },
                     onSetDefault = { editor.setDefaultTemplate(block.id, template.noteId) },
