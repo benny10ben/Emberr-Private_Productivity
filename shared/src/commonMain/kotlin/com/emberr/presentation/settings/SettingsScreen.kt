@@ -26,6 +26,7 @@ import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -35,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import com.emberr.domain.sync.SyncPairingData
 import com.emberr.domain.sync.SyncServerStatus
+import com.emberr.domain.update.LATEST_RELEASE_PAGE_URL
 import com.emberr.domain.util.system.AppPermission
 import com.emberr.domain.util.system.appVersionName
 import com.emberr.domain.util.system.isDesktopPlatform
@@ -88,6 +90,7 @@ import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
 import org.koin.compose.viewmodel.koinViewModel
 
+private const val PRIVACY_POLICY_URL = "https://github.com/benny10ben/Emberr-Private_Productivity/blob/main/PRIVACY.md"
 private val SettingsCardShape = RoundedCornerShape(18.dp)
 private val SettingsSidebarWidth = 244.dp
 private val SettingsPaneMaxWidth = 760.dp
@@ -162,6 +165,7 @@ fun SettingsScreen(
     val isPurgingAiData by viewModel.isPurgingAiData.collectAsState()
     val aiPurgeResultMessage by viewModel.aiPurgeResultMessage.collectAsState()
     var showDisableAiConfirmation by remember { mutableStateOf(false) }
+    var showClearAllDataConfirmation by remember { mutableStateOf(false) }
 
     LaunchedEffect(aiPurgeResultMessage) {
         aiPurgeResultMessage?.let { message ->
@@ -305,7 +309,7 @@ fun SettingsScreen(
                 icon = Res.drawable.triangle_alert,
                 isDestructive = true
             ) {
-                DangerZoneSettingsSection(onClearAllData = {})
+                DangerZoneSettingsSection(onClearAllData = { showClearAllDataConfirmation = true })
             }
         )
     }
@@ -625,47 +629,62 @@ fun SettingsScreen(
     }
 
     if (showDisableAiConfirmation) {
-        AlertDialog(
+        EmberrAlertDialog(
             onDismissRequest = { showDisableAiConfirmation = false },
-            shape = RoundedCornerShape(20.dp),
-            containerColor = MaterialTheme.colorScheme.surface,
-            titleContentColor = MaterialTheme.colorScheme.onSurface,
-            textContentColor = MaterialTheme.colorScheme.onSurface,
-            title = {
-                Text(
-                    text = "Turn Off AI Features?",
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface
+            title = "Turn Off AI Features?"
+        ) {
+            Text(
+                text = "This permanently deletes the downloaded embedding and language models, the note search index, and every saved provider API key. Your notes and saved chats are untouched. Turning AI back on later means downloading and re-indexing everything again.",
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f)
+            )
+            Spacer(Modifier.height(20.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                EmberrButtonSecondary(
+                    text = "Cancel",
+                    onClick = { showDisableAiConfirmation = false },
+                    modifier = Modifier.weight(1f)
                 )
-            },
-            text = {
-                Text(
-                    text = "This permanently deletes the downloaded embedding and language models, the note search index, and every saved provider API key. Your notes and saved chats are untouched. Turning AI back on later means downloading and re-indexing everything again.",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurface
+                EmberrButtonPrimary(
+                    text = "Turn Off",
+                    onClick = {
+                        showDisableAiConfirmation = false
+                        viewModel.setAiFeaturesDisabled(true)
+                    },
+                    modifier = Modifier.weight(1f)
                 )
-            },
-            confirmButton = {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    EmberrButtonSecondary(
-                        text = "Cancel",
-                        onClick = { showDisableAiConfirmation = false },
-                        modifier = Modifier.weight(1f)
-                    )
-                    EmberrButtonPrimary(
-                        text = "Turn Off",
-                        onClick = {
-                            showDisableAiConfirmation = false
-                            viewModel.setAiFeaturesDisabled(true)
-                        },
-                        modifier = Modifier.weight(1f)
-                    )
-                }
             }
-        )
+        }
+    }
+
+    if (showClearAllDataConfirmation) {
+        EmberrAlertDialog(
+            onDismissRequest = { showClearAllDataConfirmation = false },
+            title = "Clear All Data?"
+        ) {
+            Text(
+                text = "This permanently deletes every note, task, reminder, attachment, chat, AI model and setting on this device, and forgets your sync pairing and server login. Copies on your other devices, your sync server and your backup files are not touched. " +
+                    if (isDesktopPlatform) "Emberr will restart." else "Emberr will close. Open it again to start fresh.",
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f)
+            )
+            Spacer(Modifier.height(20.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                EmberrButtonSecondary(
+                    text = "Cancel",
+                    onClick = { showClearAllDataConfirmation = false },
+                    modifier = Modifier.weight(1f)
+                )
+                EmberrButtonPrimary(
+                    text = "Delete Everything",
+                    onClick = {
+                        showClearAllDataConfirmation = false
+                        viewModel.clearAllData()
+                    },
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
     }
 
     if (showPairingDialog && activePairingData != null) {
@@ -689,69 +708,36 @@ fun SettingsScreen(
     }
 
     if (showUnpairConfirmation) {
-        AlertDialog(
+        EmberrAlertDialog(
             onDismissRequest = { showUnpairConfirmation = false },
-            shape = RoundedCornerShape(20.dp),
-            containerColor = MaterialTheme.colorScheme.surface,
-            titleContentColor = MaterialTheme.colorScheme.onSurface,
-            textContentColor = MaterialTheme.colorScheme.onSurface,
-            title = {
-                Text(
-                    text = "Unpair Device?",
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-            },
-            text = {
-                Text(
-                    text = if (isDesktopPlatform) {
-                        "This removes the LAN sync credentials stored on this desktop. Your phone won't be notified automatically - unpair from this desktop on your phone as well, or it will keep trying to reach it."
-                    } else {
-                        "This removes the LAN sync credentials stored on this device. Keep the desktop app open so it can be notified - if you can't, unpair from Desktop manually as well, or it will keep thinking it's still paired."
-                    },
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-            },
-            confirmButton = {
-                if (isDesktopPlatform) {
-                    EmberrButtonPrimary(
-                        text = "Unpair",
-                        onClick = {
-                            showUnpairConfirmation = false
-                            syncViewModel.unpair()
-                        }
-                    )
+            title = "Unpair Device?"
+        ) {
+            Text(
+                text = if (isDesktopPlatform) {
+                    "This removes the LAN sync credentials stored on this desktop. Your phone won't be notified automatically - unpair from this desktop on your phone as well, or it will keep trying to reach it."
                 } else {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        EmberrButtonSecondary(
-                            text = "Cancel",
-                            onClick = { showUnpairConfirmation = false },
-                            modifier = Modifier.weight(1f)
-                        )
-                        EmberrButtonPrimary(
-                            text = "Unpair",
-                            onClick = {
-                                showUnpairConfirmation = false
-                                syncViewModel.unpair()
-                            },
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-                }
-            },
-            dismissButton = if (isDesktopPlatform) {
-                {
-                    EmberrButtonSecondary(
-                        text = "Cancel",
-                        onClick = { showUnpairConfirmation = false }
-                    )
-                }
-            } else null
-        )
+                    "This removes the LAN sync credentials stored on this device. Keep the desktop app open so it can be notified - if you can't, unpair from Desktop manually as well, or it will keep thinking it's still paired."
+                },
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f)
+            )
+            Spacer(Modifier.height(20.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                EmberrButtonSecondary(
+                    text = "Cancel",
+                    onClick = { showUnpairConfirmation = false },
+                    modifier = Modifier.weight(1f)
+                )
+                EmberrButtonPrimary(
+                    text = "Unpair",
+                    onClick = {
+                        showUnpairConfirmation = false
+                        syncViewModel.unpair()
+                    },
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
     }
 }
 
@@ -1171,7 +1157,7 @@ private fun AppearanceSettingsSection(
                             "desktop's one while it is open, so Emberr needs to restart to " +
                             "apply this. Unsaved work is saved as you type, so restarting now " +
                             "is safe.",
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f)
                     )
                     Spacer(Modifier.height(20.dp))
@@ -1231,6 +1217,7 @@ private fun AiSettingsSection(
 
 @Composable
 private fun HelpSettingsSection(onAboutClick: () -> Unit) {
+    val uriHandler = LocalUriHandler.current
     SettingsGroup(title = "Need Help?") {
         SettingsActionRow(
             icon = painterResource(Res.drawable.badge_question_mark),
@@ -1241,13 +1228,13 @@ private fun HelpSettingsSection(onAboutClick: () -> Unit) {
         SettingsActionRow(
             icon = painterResource(Res.drawable.badge_plus),
             title = "What's New",
-            onClick = {}
+            onClick = { uriHandler.openUri(LATEST_RELEASE_PAGE_URL) }
         )
         SettingsDivider()
         SettingsActionRow(
             icon = painterResource(Res.drawable.shield_alert),
             title = "Privacy Policy",
-            onClick = {}
+            onClick = { uriHandler.openUri(PRIVACY_POLICY_URL) }
         )
         SettingsDivider()
         SettingsActionRow(
