@@ -336,29 +336,21 @@ private fun ConnectedDashboard(
                     .padding(horizontal = 14.dp, vertical = 15.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(36.dp)
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(MaterialTheme.colorScheme.error.copy(alpha = 0.12f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    if (state.isDisconnecting) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(16.dp),
-                            strokeWidth = 2.dp,
-                            color = MaterialTheme.colorScheme.error
-                        )
-                    } else {
-                        Icon(
-                            imageVector = Icons.Default.LinkOff,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
+                if (state.isDisconnecting) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.Default.LinkOff,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(20.dp)
+                    )
                 }
-                Spacer(modifier = Modifier.width(14.dp))
+                Spacer(modifier = Modifier.width(16.dp))
                 Text(
                     text = "Disconnect Vault",
                     style = MaterialTheme.typography.bodyLarge,

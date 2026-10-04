@@ -159,7 +159,7 @@ fun PropertiesScreen(
                     text = "Built-in properties can't be renamed or deleted.",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f),
-                    modifier = Modifier.padding(start = 22.dp, end = 16.dp, top = 8.dp)
+                    modifier = Modifier.padding(start = 22.dp, end = 16.dp, top = 8.dp, bottom = 8.dp)
                 )
 
                 SettingsGroup(title = "Custom") {
@@ -259,7 +259,7 @@ private fun PropertyRow(
         modifier = Modifier
             .fillMaxWidth()
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
-            .padding(horizontal = 14.dp, vertical = 13.dp),
+            .padding(horizontal = 14.dp, vertical = 17.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         SettingsRowIcon(icon = painterResource(icon))

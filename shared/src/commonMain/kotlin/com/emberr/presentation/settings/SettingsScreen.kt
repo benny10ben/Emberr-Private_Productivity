@@ -32,7 +32,6 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import com.emberr.domain.sync.SyncPairingData
 import com.emberr.domain.sync.SyncServerStatus
@@ -90,7 +89,6 @@ import org.jetbrains.compose.resources.painterResource
 import org.koin.compose.viewmodel.koinViewModel
 
 private val SettingsCardShape = RoundedCornerShape(18.dp)
-private val SettingsRowIconShape = RoundedCornerShape(14.dp)
 private val SettingsSidebarWidth = 244.dp
 private val SettingsPaneMaxWidth = 760.dp
 private val BackupFrequencies = listOf("Hourly", "Daily", "Weekly")
@@ -924,7 +922,7 @@ private fun DataSettingsSection(
                         options = BackupFrequencies,
                         selectedOption = backupFrequency,
                         onOptionSelected = onBackupFrequencySelected,
-                        modifier = Modifier.padding(start = 68.dp, end = 14.dp, bottom = 14.dp)
+                        modifier = Modifier.padding(start = 50.dp, end = 14.dp, bottom = 14.dp)
                     )
 
                     if (backupFrequency == "Weekly") {
@@ -1101,10 +1099,6 @@ private fun AppearanceSettingsSection(
                 title = "Top Bar Fade",
                 trailingLabel = topBarFadeStyleLabel,
                 onClick = onTopBarFadeStyleClick
-            )
-
-            SettingsFootnote(
-                text = "Controls how content disappears behind the top bar as you scroll."
             )
         }
     }
@@ -1286,7 +1280,7 @@ private fun DangerZoneSettingsSection(onClearAllData: () -> Unit) {
 @Composable
 internal fun SettingsDivider() {
     HorizontalDivider(
-        modifier = Modifier.padding(start = 68.dp, end = 16.dp),
+        modifier = Modifier.padding(start = 50.dp, end = 16.dp),
         thickness = 1.dp,
         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
     )
@@ -1318,10 +1312,8 @@ fun SettingsGroup(
 @Composable
 internal fun SettingsGroupTitle(title: String) {
     Text(
-        text = title.uppercase(),
+        text = title,
         style = MaterialTheme.typography.labelSmall,
-        fontWeight = FontWeight.SemiBold,
-        letterSpacing = 1.4.sp,
         color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.45f),
         modifier = Modifier.padding(start = 6.dp, bottom = 10.dp)
     )
@@ -1331,20 +1323,12 @@ internal fun SettingsGroupTitle(title: String) {
 internal fun SettingsRowIcon(icon: Painter, isDestructive: Boolean = false) {
     val accentColor = if (isDestructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
 
-    Box(
-        modifier = Modifier
-            .size(38.dp)
-            .clip(SettingsRowIconShape)
-            .background(accentColor.copy(alpha = if (isDestructive) 0.14f else 0.09f)),
-        contentAlignment = Alignment.Center
-    ) {
-        Icon(
-            icon,
-            contentDescription = null,
-            tint = accentColor.copy(alpha = if (isDestructive) 1f else 0.8f),
-            modifier = Modifier.size(18.dp)
-        )
-    }
+    Icon(
+        icon,
+        contentDescription = null,
+        tint = accentColor.copy(alpha = if (isDestructive) 1f else 0.8f),
+        modifier = Modifier.size(20.dp)
+    )
 }
 
 @Composable
@@ -1357,16 +1341,12 @@ internal fun SettingsValuePill(label: String, isDestructive: Boolean = false) {
         color = labelColor.copy(alpha = if (isDestructive) 0.9f else 0.55f),
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
-        modifier = Modifier
-            .widthIn(max = 180.dp)
-            .clip(RoundedCornerShape(10.dp))
-            .background(labelColor.copy(alpha = 0.06f))
-            .padding(horizontal = 10.dp, vertical = 4.dp)
+        modifier = Modifier.widthIn(max = 180.dp)
     )
 }
 
 @Composable
-private fun SettingsFootnote(text: String, startPadding: Dp = 68.dp) {
+private fun SettingsFootnote(text: String, startPadding: Dp = 50.dp) {
     Text(
         text = text,
         style = MaterialTheme.typography.labelSmall,
@@ -1457,7 +1437,7 @@ fun SettingsActionRow(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onClick() }
-            .padding(horizontal = 14.dp, vertical = 13.dp),
+            .padding(horizontal = 14.dp, vertical = 17.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         SettingsRowIcon(icon = icon, isDestructive = isDestructive)
@@ -1499,7 +1479,7 @@ fun SettingsToggleRow(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onCheckedChange(!isChecked) }
-            .padding(horizontal = 14.dp, vertical = 10.dp),
+            .padding(horizontal = 14.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         SettingsRowIcon(icon = icon)
