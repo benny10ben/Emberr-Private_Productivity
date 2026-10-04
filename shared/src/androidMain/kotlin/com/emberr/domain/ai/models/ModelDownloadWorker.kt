@@ -10,6 +10,7 @@ import androidx.work.CoroutineWorker
 import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
+import com.emberr.R
 import kotlinx.coroutines.CancellationException
 
 class ModelDownloadWorker(
@@ -102,7 +103,7 @@ class ModelDownloadWorker(
         val notification = NotificationCompat.Builder(applicationContext, CHANNEL_ID)
             .setContentTitle("Downloading $displayName")
             .setContentText("$percent%")
-            .setSmallIcon(android.R.drawable.stat_sys_download)
+            .setSmallIcon(R.drawable.ic_notification)
             .setProgress(100, percent, false)
             .setOngoing(true)
             .setOnlyAlertOnce(true)

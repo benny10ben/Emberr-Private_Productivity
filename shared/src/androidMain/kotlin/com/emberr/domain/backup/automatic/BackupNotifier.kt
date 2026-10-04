@@ -5,6 +5,7 @@ import android.app.NotificationManager
 import android.content.Context
 import android.os.Build
 import androidx.core.app.NotificationCompat
+import com.emberr.R
 
 class BackupNotifier(private val context: Context) {
 
@@ -30,7 +31,7 @@ class BackupNotifier(private val context: Context) {
 
     fun showBackupFailedNotification(title: String, message: String) {
         val notification = NotificationCompat.Builder(context, channelId)
-            .setSmallIcon(android.R.drawable.ic_dialog_alert)
+            .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(title)
             .setContentText(message)
             .setStyle(NotificationCompat.BigTextStyle().bigText(message))
@@ -43,7 +44,7 @@ class BackupNotifier(private val context: Context) {
 
     fun showBackupSuccessNotification(fileName: String) {
         val notification = NotificationCompat.Builder(context, channelId)
-            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle("Backup Complete")
             .setContentText("$fileName saved successfully.")
             .setPriority(NotificationCompat.PRIORITY_LOW)

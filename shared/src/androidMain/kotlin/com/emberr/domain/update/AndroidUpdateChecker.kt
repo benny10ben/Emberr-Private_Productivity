@@ -8,6 +8,7 @@ import android.content.Intent
 import android.net.Uri
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import com.emberr.R
 import com.emberr.data.local.prefs.SettingsManager
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
@@ -118,7 +119,7 @@ class AndroidUpdateChecker(
         )
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.stat_sys_download_done)
+            .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle("Emberr $version is available")
             .setContentText("Tap to download it from GitHub.")
             .setContentIntent(openReleasePage)
