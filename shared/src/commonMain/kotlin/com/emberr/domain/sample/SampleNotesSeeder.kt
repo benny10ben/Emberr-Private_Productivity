@@ -23,6 +23,8 @@ class SampleNotesSeeder(
 
     private val starterFolderNames = listOf("Fitness", "Finance", "Reading List", "Travel", "Recipes")
 
+    private val fitnessNoteTitles = listOf("Push day", "Pull day", "Leg day")
+
     private fun folderIdFor(folderName: String): String = "sample_folder_${folderName.lowercase().replace(' ', '_')}"
 
     suspend fun seedIfNeeded() {
@@ -47,6 +49,25 @@ class SampleNotesSeeder(
                         sortOrder = listedPosition + 1,
                         updatedAt = createdAt
                     )
+                )
+            }
+
+            for ((listedPosition, title) in fitnessNoteTitles.withIndex()) {
+                val noteId = "sample_note_${title.lowercase().replace(' ', '_')}"
+                repository.saveNote(
+                    metadata = NoteMetadataEntity(
+                        noteId = noteId,
+                        title = title,
+                        folderId = folderIdFor("Fitness"),
+                        isFavorite = false,
+                        isDaily = false,
+                        dateString = null,
+                        createdAt = createdAt,
+                        updatedAt = createdAt,
+                        filePath = "note_$noteId.json",
+                        sortOrder = listedPosition + 1
+                    ),
+                    content = NoteContent(blocks = emptyList())
                 )
             }
 
