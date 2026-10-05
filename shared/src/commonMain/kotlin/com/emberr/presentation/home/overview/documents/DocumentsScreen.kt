@@ -191,6 +191,7 @@ fun DocumentsScreen(
 
             EmberrTopHeaderBar(
                 modifier = Modifier.align(Alignment.TopCenter),
+                topEdgeFadeAlpha = if (isAtScrollTop) 0f else 1f,
                 title = "Documents",
                 titleVisibility = titleCollapseProgress,
                 onTitleClick = onCollapsedTitleClick,

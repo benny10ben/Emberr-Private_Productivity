@@ -294,6 +294,7 @@ fun TasksScreen(
 
             EmberrTopHeaderBar(
                 modifier = Modifier.align(Alignment.TopCenter),
+                topEdgeFadeAlpha = if (isAtScrollTop) 0f else 1f,
                 title = if (isShowingCompleted) "Completed" else "Tasks",
                 titleVisibility = titleCollapseProgress,
                 titleSideInset = 112.dp,

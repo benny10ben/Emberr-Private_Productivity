@@ -62,6 +62,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableLongStateOf
@@ -172,6 +173,9 @@ fun CalendarScreen(
     var slideDirection by remember { mutableStateOf(AnimatedContentTransitionScope.SlideDirection.Left) }
 
     val scrollState = remember(viewMode) { ScrollState(0) }
+    val topEdgeFadeAlpha by remember(scrollState) {
+        derivedStateOf { if (scrollState.value > 0) 1f else 0f }
+    }
 
     val density = LocalDensity.current
     var topBarHeightPx by remember { mutableFloatStateOf(0f) }
@@ -384,6 +388,7 @@ fun CalendarScreen(
             ) {
                 EmberrTopHeaderBar(
                     hazeState = internalHazeState,
+                    topEdgeFadeAlpha = topEdgeFadeAlpha,
                     topEdgeBlurHeight = if (viewMode == CalendarViewMode.THREE_DAY || viewMode == CalendarViewMode.WEEK) {
                         topBarHeightDp + 40.dp + 48.dp
                     } else {

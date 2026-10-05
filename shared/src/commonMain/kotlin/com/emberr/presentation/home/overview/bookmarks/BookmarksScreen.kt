@@ -287,6 +287,7 @@ fun BookmarksScreen(
 
             EmberrTopHeaderBar(
                 modifier = Modifier.align(Alignment.TopCenter),
+                topEdgeFadeAlpha = if (isAtScrollTop) 0f else 1f,
                 title = "Bookmarks",
                 titleVisibility = titleCollapseProgress,
                 onTitleClick = onCollapsedTitleClick,

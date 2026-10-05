@@ -194,6 +194,7 @@ fun ImagesScreen(
 
             EmberrTopHeaderBar(
                 modifier = Modifier.align(Alignment.TopCenter),
+                topEdgeFadeAlpha = if (isAtScrollTop) 0f else 1f,
                 title = "Images",
                 titleVisibility = titleCollapseProgress,
                 onTitleClick = onCollapsedTitleClick,
