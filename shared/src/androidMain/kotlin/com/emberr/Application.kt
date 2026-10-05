@@ -10,6 +10,7 @@ import com.emberr.domain.backup.automatic.BackupScheduler
 import com.emberr.domain.selfhost.sync.SelfHostSyncScheduler
 import com.emberr.domain.vault.VaultMirrorService
 import com.emberr.domain.reminders.ReminderRescheduler
+import com.emberr.presentation.shared.FirstContentRenderSignal
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -45,6 +46,7 @@ class EmberrApplication : Application() {
             getKoin().get<SharedPreferences>()
             getKoin().get<com.emberr.domain.space.SpaceRepository>().prepareSpacesForLaunch()
             isReady = true
+            FirstContentRenderSignal.awaitFirstContentOrTimeout()
             getKoin().get<com.emberr.presentation.widget.note.NoteWidgetCoordinator>().start()
             getKoin().get<com.emberr.presentation.widget.tasks.TasksWidgetCoordinator>().start()
             getKoin().get<com.emberr.presentation.widget.notelist.NoteListWidgetCoordinator>().start()

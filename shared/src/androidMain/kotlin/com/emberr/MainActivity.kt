@@ -87,6 +87,12 @@ import com.emberr.domain.util.export.generateAndSaveAndroidPdf
 import com.emberr.domain.update.AndroidUpdateChecker
 import com.emberr.presentation.navigation.Screen
 import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.TimeSource
+import kotlin.time.Clock
+import kotlinx.datetime.DateTimeUnit
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.minus
+import kotlinx.datetime.todayIn
 import androidx.core.content.IntentCompat
 import android.provider.OpenableColumns
 
@@ -124,10 +130,11 @@ class MainActivity : ComponentActivity() {
     private val activeSpaceStore: com.emberr.domain.space.ActiveSpaceStore by inject()
     private val updateChecker: AndroidUpdateChecker by inject()
     private val settingsManager: com.emberr.data.local.prefs.SettingsManager by inject()
+    private val noteRepository: com.emberr.domain.repository.NoteRepository by inject()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         val splashScreen = installSplashScreen()
-        splashScreen.setKeepOnScreenCondition { !EmberrApplication.isReady }
+        val splashShownAt = TimeSource.Monotonic.markNow()
         super.onCreate(savedInstanceState)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             overrideActivityTransition(OVERRIDE_TRANSITION_OPEN, 0, 0)
@@ -144,9 +151,23 @@ class MainActivity : ComponentActivity() {
             (application as? EmberrApplication)?.warmUpAiEngineOnce()
         }
 
+        lifecycleScope.launch {
+            FirstContentRenderSignal.awaitFirstContentOrTimeout()
+            if (settingsManager.isDailyNotesEnabled()) loadTodaysDailyNoteIntoMemory()
+        }
+
         val opensOnDaily = settingsManager.isDailyNotesEnabled() && !settingsManager.isStartOnHomeEnabled()
         val routeForThisLaunch = consumeWidgetRoute(intent)
             ?: if (opensOnDaily) Screen.Daily.route else Screen.Home.route
+
+        val opensOnDailyOrHome = routeForThisLaunch.startsWith(Screen.Daily.createRoute()) ||
+                routeForThisLaunch == Screen.Home.route
+        splashScreen.setKeepOnScreenCondition {
+            val isStillLoadingStartScreen = opensOnDailyOrHome &&
+                    !FirstContentRenderSignal.hasFirstContent() &&
+                    splashShownAt.elapsedNow() < FirstContentRenderSignal.longestWaitForFirstContent
+            !EmberrApplication.isReady || isStillLoadingStartScreen
+        }
 
         handleIntent(intent)
 
@@ -411,6 +432,20 @@ class MainActivity : ComponentActivity() {
                     )
                 }
             }
+        }
+    }
+
+    private suspend fun loadTodaysDailyNoteIntoMemory() {
+        val today = Clock.System.todayIn(TimeZone.currentSystemDefault())
+        val datesDailyScreenReadsOnOpen = listOf(
+            "global_pinned",
+            today.toString(),
+            today.minus(1, DateTimeUnit.DAY).toString()
+        )
+        try {
+            datesDailyScreenReadsOnOpen.forEach { dateString -> noteRepository.getDailyNote(dateString) }
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
     }
 

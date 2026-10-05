@@ -20,9 +20,11 @@ import com.emberr.domain.repository.NoteRepository
 import com.emberr.domain.sample.SampleNotesSeeder
 import com.emberr.domain.space.ActiveSpaceStore
 import com.emberr.domain.template.DefaultTemplateSeeder
+import com.emberr.domain.util.system.isDesktopPlatform
 import com.emberr.domain.util.sync.SyncCoordinator
 import com.emberr.presentation.home.overview.OverviewSection
 import com.emberr.presentation.home.overview.visibleOverviewSections
+import com.emberr.presentation.shared.FirstContentRenderSignal
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
@@ -55,6 +57,21 @@ class HomeViewModel(
     private val favoriteNoteOrderStore: FavoriteNoteOrderStore,
     private val activeSpaceStore: ActiveSpaceStore
 ) : ViewModel() {
+
+    private enum class HomeList { FOLDERS, NOTES, FAVORITES, RECENTS }
+
+    private val loadedHomeLists = mutableSetOf<HomeList>()
+
+    private val _hasLoadedHomeLists = MutableStateFlow(false)
+    val hasLoadedHomeLists: StateFlow<Boolean> = _hasLoadedHomeLists.asStateFlow()
+
+    private fun <T> Flow<T>.marksHomeListLoaded(list: HomeList): Flow<T> = onEach {
+        loadedHomeLists += list
+        if (loadedHomeLists.size == HomeList.entries.size) {
+            _hasLoadedHomeLists.value = true
+            FirstContentRenderSignal.reportContentRendered()
+        }
+    }
 
     val sortType: StateFlow<SortType> = settingsManager.sortTypeFlow
         .map { stored -> SortType.entries.firstOrNull { it.name == stored } ?: SortType.LAST_EDITED }
@@ -269,6 +286,7 @@ class HomeViewModel(
     val documentsCount: StateFlow<Int> = _documentsCount.asStateFlow()
 
     private val _allFolders = repository.getAllFolders()
+        .marksHomeListLoaded(HomeList.FOLDERS)
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
     val noteCountsByFolder: StateFlow<Map<String, Int>> = repository.getNoteCountsByFolder()
@@ -279,6 +297,7 @@ class HomeViewModel(
             notes.filter { !it.title.equals("Inbox", ignoreCase = true) }
                 .sortedByDescending { it.updatedAt }.take(MAXIMUM_RECENT_NOTES_SHOWN)
         }
+        .marksHomeListLoaded(HomeList.RECENTS)
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
     val favoriteNotes = combine(
@@ -288,7 +307,8 @@ class HomeViewModel(
         val positionOfNote = manuallyOrderedNoteIds.withIndex()
             .associate { (position, noteId) -> noteId to position }
         notes.sortedBy { positionOfNote[it.noteId] ?: Int.MAX_VALUE }
-    }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+    }.marksHomeListLoaded(HomeList.FAVORITES)
+        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
     fun reorderFavoriteNotes(
         draggedNoteId: String,
@@ -388,6 +408,7 @@ class HomeViewModel(
                 order
             ).groupBy { it.folderId }
         }.flowOn(Dispatchers.IO)
+            .marksHomeListLoaded(HomeList.NOTES)
             .stateIn(viewModelScope, SharingStarted.Lazily, emptyMap())
 
     // Every saved template (predefined + user-created), alphabetical per NoteDao.getAllTemplates.
@@ -414,6 +435,12 @@ class HomeViewModel(
 
     init {
         _isLoading.value = false
+        if (!isDesktopPlatform) {
+            viewModelScope.launch {
+                FirstContentRenderSignal.awaitFirstContentOrTimeout()
+                startLoadingHomeLists()
+            }
+        }
         viewModelScope.launch(Dispatchers.IO) {
             repository.cleanupOldTrashedNotes()
             templateSeeder.seedIfMissing()
@@ -428,6 +455,7 @@ class HomeViewModel(
             com.emberr.domain.ai.models.cleanupPendingModelDeletions()
         }
         viewModelScope.launch {
+            FirstContentRenderSignal.awaitFirstContentOrTimeout()
             repository.createMissingDatabaseNotes()
             while (true) {
                 val nextCheck = repeatingTemplateRowCreator.createRowsDueAt(localNow())
@@ -458,6 +486,12 @@ class HomeViewModel(
         }
         viewModelScope.launch {
             repository.getBookmarksCount().collect { _bookmarksCount.value = it }
+        }
+    }
+
+    private fun startLoadingHomeLists() {
+        listOf(foldersByParent, notesByFolder, noteCountsByFolder, favoriteNotes, recentNotes).forEach { homeList ->
+            viewModelScope.launch { homeList.collect {} }
         }
     }
 
