@@ -61,6 +61,7 @@ fun OnboardingScreen(
                 onBack = ::goToPreviousStep,
                 onNext = ::goToNextStep
             )
-        }
+        },
+        showFloatingEmberrGhost = true
     )
 }

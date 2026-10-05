@@ -67,6 +67,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.emberr.domain.util.system.isDesktopPlatform
+import com.emberr.presentation.shared.components.EmberrGhost
 import com.emberr.presentation.shared.stableStatusBarsPadding
 import emberr.shared.generated.resources.Res
 import emberr.shared.generated.resources.chevron_left
@@ -95,6 +96,7 @@ private val SkipTapPadding = 12.dp
 private val DesktopSkipInset = 48.dp
 private val MobileSkipInset = 14.dp
 private val SkipLabelReserve = 22.dp
+private val DesktopEmberrGhostBoxSize = 55.dp
 private val MobileSystemBarsReserve = 48.dp
 private val WideMinStatementSpace = 160.dp
 private val CompactMinStatementSpace = 175.dp
@@ -121,7 +123,8 @@ fun OnboardingFlowScaffold(
     onSwipeForward: (() -> Unit)?,
     onSwipeBackward: (() -> Unit)?,
     panel: @Composable ColumnScope.() -> Unit,
-    bottomBar: @Composable () -> Unit
+    bottomBar: @Composable () -> Unit,
+    showFloatingEmberrGhost: Boolean = false
 ) {
     val grainBrush = rememberGrainBrush(speckColor = MaterialTheme.colorScheme.onBackground)
     val silk = if (ShowTexturedBackground) rememberOnboardingSilk() else null
@@ -263,6 +266,21 @@ fun OnboardingFlowScaffold(
                 fadeColor = MaterialTheme.colorScheme.background,
                 modifier = Modifier.fillMaxSize()
             )
+
+            if (showFloatingEmberrGhost && isDesktopPlatform) {
+                val skipLabelCenterY = skipInset + SkipTapPadding + SkipLabelReserve / 2
+                EmberrGhost(
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(
+                            start = skipInset + SkipTapPadding / 2,
+                            top = skipLabelCenterY - DesktopEmberrGhostBoxSize / 2
+                        )
+                        .size(DesktopEmberrGhostBoxSize)
+                )
+            } else if (showFloatingEmberrGhost) {
+                FloatingEmberrGhost(modifier = Modifier.fillMaxSize())
+            }
         }
     }
 }
