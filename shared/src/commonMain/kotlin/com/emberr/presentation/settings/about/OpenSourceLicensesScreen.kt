@@ -3,6 +3,7 @@ package com.emberr.presentation.settings.about
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -41,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import com.emberr.presentation.settings.SettingsGroupTitle
 import com.emberr.presentation.settings.SettingsValuePill
+import com.emberr.presentation.settings.desktopSettingsSidePadding
 import com.emberr.presentation.shared.components.EmberrBottomSheet
 import com.emberr.presentation.shared.components.EmberrButtonSecondary
 import com.emberr.presentation.shared.components.EmberrTopHeaderBar
@@ -80,14 +82,20 @@ fun OpenSourceLicensesScreen(onNavigateBack: () -> Unit) {
         libraries.partition { it.uniqueId.startsWith(FONT_ID_PREFIX) }
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        val sidePadding = desktopSettingsSidePadding(maxWidth)
         LazyColumn(
             state = listState,
             modifier = Modifier
                 .fillMaxSize()
                 .hazeSource(state = hazeState)
                 .background(MaterialTheme.colorScheme.background),
-            contentPadding = PaddingValues(top = topBarHeightDp + 8.dp, bottom = 48.dp)
+            contentPadding = PaddingValues(
+                start = sidePadding,
+                top = topBarHeightDp + 8.dp,
+                end = sidePadding,
+                bottom = 48.dp
+            )
         ) {
             libraryGroup(title = "Libraries", libraries = codeLibraries, onLibraryClick = { selectedLibrary = it })
             libraryGroup(title = "Fonts", libraries = fonts, onLibraryClick = { selectedLibrary = it })

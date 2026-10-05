@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -64,6 +65,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import com.emberr.domain.selfhost.sync.SelfHostSyncLog
 import com.emberr.presentation.settings.SettingsGroup
+import com.emberr.presentation.settings.desktopSettingsSidePadding
 import com.emberr.presentation.shared.components.EmberrAlertDialog
 import com.emberr.presentation.shared.components.EmberrButtonPrimary
 import com.emberr.presentation.shared.components.EmberrTextField
@@ -87,20 +89,23 @@ fun SelfHostSetupScreen(
     var topBarHeightPx by remember { mutableFloatStateOf(0f) }
     val topBarHeightDp = with(density) { topBarHeightPx.toDp() }
 
-    Box(modifier = Modifier.fillMaxSize().imePadding()) {
+    BoxWithConstraints(modifier = Modifier.fillMaxSize().imePadding()) {
+        val sidePadding = desktopSettingsSidePadding(maxWidth)
         when (val state = screenState) {
             SelfHostScreenState.Checking -> CheckingIndicator(topBarHeightDp = topBarHeightDp)
             is SelfHostScreenState.Unconfigured -> SetupForm(
                 form = state.form,
                 viewModel = viewModel,
                 hazeState = internalHazeState,
-                topBarHeightDp = topBarHeightDp
+                topBarHeightDp = topBarHeightDp,
+                sidePadding = sidePadding
             )
             is SelfHostScreenState.Connected -> ConnectedDashboard(
                 state = state.connectedState,
                 viewModel = viewModel,
                 hazeState = internalHazeState,
-                topBarHeightDp = topBarHeightDp
+                topBarHeightDp = topBarHeightDp,
+                sidePadding = sidePadding
             )
         }
 
@@ -139,7 +144,8 @@ private fun SetupForm(
     form: SelfHostSetupFormState,
     viewModel: SelfHostSetupViewModel,
     hazeState: HazeState,
-    topBarHeightDp: Dp
+    topBarHeightDp: Dp,
+    sidePadding: Dp
 ) {
     val listState = rememberLazyListState()
 
@@ -149,7 +155,12 @@ private fun SetupForm(
             .fillMaxSize()
             .hazeSource(state = hazeState)
             .background(MaterialTheme.colorScheme.background),
-        contentPadding = PaddingValues(top = topBarHeightDp + 8.dp, bottom = 48.dp)
+        contentPadding = PaddingValues(
+            start = sidePadding,
+            top = topBarHeightDp + 8.dp,
+            end = sidePadding,
+            bottom = 48.dp
+        )
     ) {
         item {
             SettingsGroup(title = "Server Details") {
@@ -235,7 +246,8 @@ private fun ConnectedDashboard(
     state: SelfHostConnectedState,
     viewModel: SelfHostSetupViewModel,
     hazeState: HazeState,
-    topBarHeightDp: Dp
+    topBarHeightDp: Dp,
+    sidePadding: Dp
 ) {
     var showDisconnectConfirmation by remember { mutableStateOf(false) }
 
@@ -247,7 +259,12 @@ private fun ConnectedDashboard(
             .fillMaxSize()
             .hazeSource(state = hazeState)
             .background(MaterialTheme.colorScheme.background),
-        contentPadding = PaddingValues(top = topBarHeightDp + 8.dp, bottom = 48.dp)
+        contentPadding = PaddingValues(
+            start = sidePadding,
+            top = topBarHeightDp + 8.dp,
+            end = sidePadding,
+            bottom = 48.dp
+        )
     ) {
         item {
             SettingsGroup(title = "Status") {
