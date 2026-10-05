@@ -166,7 +166,8 @@ internal fun EmbeddingSetupScreen(
                     onNext = ::onPrimaryClick
                 )
             }
-        }
+        },
+        showFloatingEmberrGhost = true
     )
 }
 
@@ -191,7 +192,7 @@ private fun embeddingSetupStatements(
         icon = Res.drawable.astroid,
         lead = "Local first, cloud optional.",
         headline = "Bring your own key.",
-        detail = "A local model is included and needs no account. Add a provider later in Settings."
+        detail = "Add a external provider later in Settings for more powerful AI."
     ),
     OnboardingStep(
         icon = Res.drawable.download,
