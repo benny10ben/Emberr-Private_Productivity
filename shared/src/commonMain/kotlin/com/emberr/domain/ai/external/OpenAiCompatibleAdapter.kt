@@ -1,9 +1,9 @@
 package com.emberr.domain.ai.external
 
 import com.emberr.domain.ai.chat.ChatTurn
-import com.emberr.domain.ai.tools.VaultToolDefinition
-import com.emberr.domain.ai.tools.VaultToolLimits
-import com.emberr.domain.ai.tools.VaultToolRunner
+import com.emberr.domain.ai.tools.NoteToolDefinition
+import com.emberr.domain.ai.tools.NoteToolLimits
+import com.emberr.domain.ai.tools.NoteToolExecutor
 import com.emberr.domain.ai.tools.renderForModel
 import io.ktor.client.HttpClient
 import io.ktor.client.request.header
@@ -104,8 +104,8 @@ class OpenAiCompatibleAdapter : ChatCompletionAdapter {
         contextBlock: String,
         conversationHistory: List<ChatTurn>,
         maxOutputTokens: Int,
-        toolDefinitions: List<VaultToolDefinition>,
-        toolRunner: VaultToolRunner?
+        toolDefinitions: List<NoteToolDefinition>,
+        toolRunner: NoteToolExecutor?
     ): Flow<String> = flow {
         val messages = mutableListOf<ChatMessagePayload>()
         messages.add(ChatMessagePayload(role = "system", content = "$systemPrompt\n\n$contextBlock"))
@@ -118,7 +118,7 @@ class OpenAiCompatibleAdapter : ChatCompletionAdapter {
         val tools = toolDefinitions.takeIf { it.isNotEmpty() && toolRunner != null }
             ?.map { it.toOpenAiToolJson() }
 
-        var remainingToolRounds = VaultToolLimits.MAX_TOOL_ROUNDS_PER_TURN
+        var remainingToolRounds = NoteToolLimits.MAX_TOOL_ROUNDS_PER_TURN
         while (true) {
             val toolsForThisRound = tools.takeIf { remainingToolRounds > 0 }
 
@@ -235,10 +235,10 @@ class OpenAiCompatibleAdapter : ChatCompletionAdapter {
         } catch (cause: SerializationException) {
             return emptyMap()
         }
-        return (parsed as? JsonObject)?.toVaultToolArguments().orEmpty()
+        return (parsed as? JsonObject)?.toNoteToolArguments().orEmpty()
     }
 
-    private fun VaultToolDefinition.toOpenAiToolJson(): JsonObject = buildJsonObject {
+    private fun NoteToolDefinition.toOpenAiToolJson(): JsonObject = buildJsonObject {
         put("type", "function")
         putJsonObject("function") {
             put("name", name)

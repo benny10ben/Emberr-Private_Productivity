@@ -471,18 +471,6 @@ class DesktopSettingsManager(private val secretStore: DesktopSecretStore) : Sett
         _aiFeaturesDisabled.value = disabled
     }
 
-    private val _externalAiReadOnly = MutableStateFlow(
-        prefs.getBoolean(SyncConstants.KEY_EXTERNAL_AI_READ_ONLY, SyncConstants.DEFAULT_EXTERNAL_AI_READ_ONLY)
-    )
-    override val externalAiReadOnlyFlow: Flow<Boolean> = _externalAiReadOnly
-
-    override fun isExternalAiReadOnly(): Boolean = _externalAiReadOnly.value
-
-    override fun saveExternalAiReadOnly(readOnly: Boolean) {
-        prefs.putBoolean(SyncConstants.KEY_EXTERNAL_AI_READ_ONLY, readOnly)
-        _externalAiReadOnly.value = readOnly
-    }
-
     private val _bookmarkCategoryOrderJson = MutableStateFlow(
         prefs.get(
             SyncConstants.KEY_BOOKMARK_CATEGORY_ORDER_JSON,

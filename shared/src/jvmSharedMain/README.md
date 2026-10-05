@@ -31,13 +31,6 @@ targets.
 If the code needs a JVM-only API but genuinely behaves differently on Android vs Desktop, it
 belongs in `androidMain` or `desktopMain`, not here.
 
-## Example in this project
-
-`VaultToolExecutor` reads and writes vault files with `java.io.File`, and that logic is
-identical whether the app is running on Android or Desktop, so it lives here. The tool schema
-types it uses (`VaultToolDefinition`, `VaultToolResult`, etc.) are plain data with no file
-access at all, so those live in `commonMain` instead.
-
 ## Tests
 
 `jvmSharedTest` is the matching test source set for this one. Tests for `jvmSharedMain` code

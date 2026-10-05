@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
@@ -23,7 +22,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -31,7 +29,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
@@ -39,7 +36,6 @@ import com.emberr.domain.ai.external.ExternalAiProvider
 import com.emberr.domain.ai.external.ExternalAiProviderConfig
 import com.emberr.presentation.ai.RagViewModel
 import com.emberr.presentation.ai.components.clickableWithoutMobileRipple
-import com.emberr.presentation.settings.SettingsToggleRow
 import com.emberr.presentation.shared.components.EmberrAlertDialog
 import com.emberr.presentation.shared.components.EmberrBottomSheet
 import com.emberr.presentation.shared.components.EmberrButtonPrimary
@@ -117,15 +113,6 @@ internal fun ExternalAiSettingsSheet(
                     )
                 }
             }
-
-            Spacer(Modifier.height(20.dp))
-            val isReadOnly by viewModel.externalAiReadOnly.collectAsState()
-            SettingsToggleRow(
-                icon = rememberVectorPainter(Icons.Default.Lock),
-                title = "Read-only vault access",
-                isChecked = isReadOnly,
-                onCheckedChange = viewModel::selectExternalAiReadOnly
-            )
 
             if (selectedProvider == ExternalAiProvider.CUSTOM) {
                 Spacer(Modifier.height(20.dp))

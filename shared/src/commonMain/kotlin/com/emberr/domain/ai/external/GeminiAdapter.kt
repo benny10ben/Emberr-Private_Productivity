@@ -1,9 +1,9 @@
 package com.emberr.domain.ai.external
 
 import com.emberr.domain.ai.chat.ChatTurn
-import com.emberr.domain.ai.tools.VaultToolDefinition
-import com.emberr.domain.ai.tools.VaultToolLimits
-import com.emberr.domain.ai.tools.VaultToolRunner
+import com.emberr.domain.ai.tools.NoteToolDefinition
+import com.emberr.domain.ai.tools.NoteToolLimits
+import com.emberr.domain.ai.tools.NoteToolExecutor
 import com.emberr.domain.ai.tools.renderForModel
 import io.ktor.client.HttpClient
 import io.ktor.client.request.parameter
@@ -92,8 +92,8 @@ class GeminiAdapter : ChatCompletionAdapter {
         contextBlock: String,
         conversationHistory: List<ChatTurn>,
         maxOutputTokens: Int,
-        toolDefinitions: List<VaultToolDefinition>,
-        toolRunner: VaultToolRunner?
+        toolDefinitions: List<NoteToolDefinition>,
+        toolRunner: NoteToolExecutor?
     ): Flow<String> = flow {
         val contents = mutableListOf<GeminiContent>()
         conversationHistory.forEach { turn ->
@@ -105,7 +105,7 @@ class GeminiAdapter : ChatCompletionAdapter {
         val tools = toolDefinitions.takeIf { it.isNotEmpty() && toolRunner != null }
             ?.let { listOf(it.toGeminiToolsJson()) }
 
-        var remainingToolRounds = VaultToolLimits.MAX_TOOL_ROUNDS_PER_TURN
+        var remainingToolRounds = NoteToolLimits.MAX_TOOL_ROUNDS_PER_TURN
         while (true) {
             val toolsForThisRound = tools.takeIf { remainingToolRounds > 0 }
 
@@ -129,7 +129,7 @@ class GeminiAdapter : ChatCompletionAdapter {
                     role = "user",
                     parts = round.functionCallParts.map { part ->
                         val functionCall = part.functionCall!!
-                        val result = toolRunner!!.run(functionCall.name, functionCall.args.toVaultToolArguments())
+                        val result = toolRunner!!.run(functionCall.name, functionCall.args.toNoteToolArguments())
                         GeminiPart(
                             functionResponse = GeminiFunctionResponse(
                                 name = functionCall.name,
@@ -204,7 +204,7 @@ class GeminiAdapter : ChatCompletionAdapter {
         return GeminiRoundResult(functionCallParts)
     }
 
-    private fun List<VaultToolDefinition>.toGeminiToolsJson(): JsonObject = buildJsonObject {
+    private fun List<NoteToolDefinition>.toGeminiToolsJson(): JsonObject = buildJsonObject {
         putJsonArray("functionDeclarations") {
             forEach { definition ->
                 addJsonObject {

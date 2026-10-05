@@ -11,10 +11,6 @@ interface AiSettingsRepository {
     val knowledgeMode: Flow<KnowledgeMode>
     val maxOutputTokens: Flow<Int>
     val localContextLength: Flow<Int>
-    val externalAiReadOnly: Flow<Boolean>
-
-    suspend fun selectExternalAiReadOnly(readOnly: Boolean)
-
     suspend fun getProviderConfig(provider: ExternalAiProvider): ExternalAiProviderConfig?
     suspend fun saveProviderConfig(provider: ExternalAiProvider, config: ExternalAiProviderConfig)
     suspend fun deleteProviderConfig(provider: ExternalAiProvider)

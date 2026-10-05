@@ -43,12 +43,6 @@ class AiSettingsRepositoryImpl(
 
     override val localContextLength: Flow<Int> = settingsManager.localContextLengthFlow
 
-    override val externalAiReadOnly: Flow<Boolean> = settingsManager.externalAiReadOnlyFlow
-
-    override suspend fun selectExternalAiReadOnly(readOnly: Boolean) {
-        withContext(Dispatchers.IO) { settingsManager.saveExternalAiReadOnly(readOnly) }
-    }
-
     private val json = Json { ignoreUnknownKeys = true }
 
     override suspend fun getProviderConfig(provider: ExternalAiProvider): ExternalAiProviderConfig? =

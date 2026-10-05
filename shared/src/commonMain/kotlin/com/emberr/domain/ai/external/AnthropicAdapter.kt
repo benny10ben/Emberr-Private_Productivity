@@ -1,9 +1,9 @@
 package com.emberr.domain.ai.external
 
 import com.emberr.domain.ai.chat.ChatTurn
-import com.emberr.domain.ai.tools.VaultToolDefinition
-import com.emberr.domain.ai.tools.VaultToolLimits
-import com.emberr.domain.ai.tools.VaultToolRunner
+import com.emberr.domain.ai.tools.NoteToolDefinition
+import com.emberr.domain.ai.tools.NoteToolLimits
+import com.emberr.domain.ai.tools.NoteToolExecutor
 import com.emberr.domain.ai.tools.renderForModel
 import io.ktor.client.HttpClient
 import io.ktor.client.request.header
@@ -87,8 +87,8 @@ class AnthropicAdapter : ChatCompletionAdapter {
         contextBlock: String,
         conversationHistory: List<ChatTurn>,
         maxOutputTokens: Int,
-        toolDefinitions: List<VaultToolDefinition>,
-        toolRunner: VaultToolRunner?
+        toolDefinitions: List<NoteToolDefinition>,
+        toolRunner: NoteToolExecutor?
     ): Flow<String> = flow {
         val messages = mutableListOf<AnthropicMessage>()
         conversationHistory.forEach { turn ->
@@ -100,7 +100,7 @@ class AnthropicAdapter : ChatCompletionAdapter {
         val tools = toolDefinitions.takeIf { it.isNotEmpty() && toolRunner != null }
             ?.map { it.toAnthropicToolJson() }
 
-        var remainingToolRounds = VaultToolLimits.MAX_TOOL_ROUNDS_PER_TURN
+        var remainingToolRounds = NoteToolLimits.MAX_TOOL_ROUNDS_PER_TURN
         while (true) {
             val toolsForThisRound = tools.takeIf { remainingToolRounds > 0 }
 
@@ -122,7 +122,7 @@ class AnthropicAdapter : ChatCompletionAdapter {
 
             val toolResults = buildJsonArray {
                 round.toolUseBlocks.forEach { toolUse ->
-                    val result = toolRunner!!.run(toolUse.name, toolUse.input.toVaultToolArguments())
+                    val result = toolRunner!!.run(toolUse.name, toolUse.input.toNoteToolArguments())
                     addJsonObject {
                         put("type", "tool_result")
                         put("tool_use_id", toolUse.id)
@@ -268,7 +268,7 @@ class AnthropicAdapter : ChatCompletionAdapter {
         return parsed as? JsonObject ?: JsonObject(emptyMap())
     }
 
-    private fun VaultToolDefinition.toAnthropicToolJson(): JsonObject = buildJsonObject {
+    private fun NoteToolDefinition.toAnthropicToolJson(): JsonObject = buildJsonObject {
         put("name", name)
         put("description", description)
         putJsonObject("input_schema") {

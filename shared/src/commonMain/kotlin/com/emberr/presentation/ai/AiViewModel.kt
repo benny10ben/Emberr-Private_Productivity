@@ -15,12 +15,7 @@ import com.emberr.domain.ai.external.AiSettingsRepository
 import com.emberr.domain.ai.external.ExternalAiException
 import com.emberr.domain.ai.external.ExternalAiProvider
 import com.emberr.domain.ai.external.ExternalAiProviderConfig
-import com.emberr.domain.ai.tools.VaultPendingWrite
-import com.emberr.domain.ai.tools.VaultPendingWriteEvents
-import com.emberr.domain.ai.tools.VaultPendingWriteStatus
-import com.emberr.domain.ai.tools.VaultToolCallEvents
-import com.emberr.domain.ai.tools.VaultToolResult
-import com.emberr.domain.ai.tools.VaultToolRunner
+import com.emberr.domain.ai.tools.NoteToolCallEvents
 import com.emberr.presentation.shared.editor.ActiveEditorRegistry
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -74,9 +69,7 @@ class RagViewModel(
     private val modelDownloadScheduler: ModelDownloadScheduler,
     private val reindexAllNotesUseCase: ReindexAllNotesUseCase,
     private val localModelUploadManager: LocalModelUploadManager,
-    private val vaultToolRunner: VaultToolRunner,
-    private val vaultPendingWriteEvents: VaultPendingWriteEvents,
-    private val vaultToolCallEvents: VaultToolCallEvents,
+    private val noteToolCallEvents: NoteToolCallEvents,
     private val activeSpaceStore: ActiveSpaceStore
 ) : ViewModel() {
 
@@ -103,13 +96,6 @@ class RagViewModel(
 
     val maxOutputTokens: StateFlow<Int> = aiSettingsRepository.maxOutputTokens
         .stateIn(viewModelScope, SharingStarted.Eagerly, DEFAULT_MAX_OUTPUT_TOKENS)
-
-    val externalAiReadOnly: StateFlow<Boolean> = aiSettingsRepository.externalAiReadOnly
-        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
-
-    fun selectExternalAiReadOnly(readOnly: Boolean) {
-        viewModelScope.launch { aiSettingsRepository.selectExternalAiReadOnly(readOnly) }
-    }
 
     val localContextLength: StateFlow<Int> = aiSettingsRepository.localContextLength
         .stateIn(viewModelScope, SharingStarted.Eagerly, DEFAULT_LOCAL_CONTEXT_LENGTH)
@@ -154,8 +140,7 @@ class RagViewModel(
         refreshInstalledLocalModels()
         reattachToRunningDownloadsIfAny()
         observeChatSessionSyncEvents()
-        observePendingVaultWrites()
-        observeVaultToolCalls()
+        observeNoteToolCalls()
         observeActiveSpaceChanges()
     }
 
@@ -170,17 +155,9 @@ class RagViewModel(
         }
     }
 
-    private fun observePendingVaultWrites() {
+    private fun observeNoteToolCalls() {
         viewModelScope.launch {
-            vaultPendingWriteEvents.proposed.collect { write ->
-                insertBeforeActivePlaceholder(ChatMessage(text = "", isUser = false, pendingVaultWrite = write))
-            }
-        }
-    }
-
-    private fun observeVaultToolCalls() {
-        viewModelScope.launch {
-            vaultToolCallEvents.calls.collect { call ->
+            noteToolCallEvents.calls.collect { call ->
                 insertBeforeActivePlaceholder(ChatMessage(text = "", isUser = false, toolCallSummary = call.description))
             }
         }
@@ -582,8 +559,8 @@ class RagViewModel(
 
         val list = _messages.value.toMutableList()
         val last = list.lastOrNull()
-        val lastIsInertCard = last?.pendingVaultWrite != null || last?.toolCallSummary != null
-        if (last != null && !last.isUser && last.text.isEmpty() && !lastIsInertCard) {
+        val lastIsToolCallSummary = last?.toolCallSummary != null
+        if (last != null && !last.isUser && last.text.isEmpty() && !lastIsToolCallSummary) {
             list.removeAt(list.lastIndex)
             _messages.value = list
         }
@@ -593,40 +570,6 @@ class RagViewModel(
 
     fun beginEditingMessage(messageId: String) {
         _editingMessageId.value = messageId
-    }
-
-    fun confirmPendingWrite(messageId: String) {
-        val message = _messages.value.firstOrNull { it.id == messageId } ?: return
-        val write = message.pendingVaultWrite ?: return
-        if (write.status != VaultPendingWriteStatus.PENDING) return
-
-        viewModelScope.launch {
-            val result = vaultToolRunner.applyPendingWrite(write)
-            val updatedWrite = if (result is VaultToolResult.Failure) {
-                write.copy(status = VaultPendingWriteStatus.FAILED, failureReason = result.reason)
-            } else {
-                write.copy(status = VaultPendingWriteStatus.APPLIED)
-            }
-            replacePendingWrite(messageId, updatedWrite)
-            persistCurrentSession()
-        }
-    }
-
-    fun rejectPendingWrite(messageId: String) {
-        val message = _messages.value.firstOrNull { it.id == messageId } ?: return
-        val write = message.pendingVaultWrite ?: return
-        if (write.status != VaultPendingWriteStatus.PENDING) return
-
-        replacePendingWrite(messageId, write.copy(status = VaultPendingWriteStatus.REJECTED))
-        viewModelScope.launch { persistCurrentSession() }
-    }
-
-    private fun replacePendingWrite(messageId: String, updatedWrite: VaultPendingWrite) {
-        val list = _messages.value.toMutableList()
-        val index = list.indexOfFirst { it.id == messageId }
-        if (index == -1) return
-        list[index] = list[index].copy(pendingVaultWrite = updatedWrite)
-        _messages.value = list
     }
 
     fun loadSession(sessionId: String) {
@@ -677,7 +620,7 @@ class RagViewModel(
 
         _messages.value.forEach { message ->
             when {
-                message.pendingVaultWrite != null || message.toolCallSummary != null -> Unit
+                message.toolCallSummary != null -> Unit
                 message.isUser -> pendingUserMessage = message.text
                 else -> {
                     val userMessage = pendingUserMessage

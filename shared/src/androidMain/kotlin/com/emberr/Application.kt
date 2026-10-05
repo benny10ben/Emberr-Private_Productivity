@@ -8,12 +8,10 @@ import com.emberr.di.sharedModule
 import com.emberr.domain.ai.LocalAiEngine
 import com.emberr.domain.backup.automatic.BackupScheduler
 import com.emberr.domain.selfhost.sync.SelfHostSyncScheduler
-import com.emberr.domain.vault.VaultMirrorService
 import com.emberr.domain.reminders.ReminderRescheduler
 import com.emberr.presentation.shared.FirstContentRenderSignal
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import org.koin.android.ext.android.getKoin
 import org.koin.android.ext.koin.androidContext
@@ -28,10 +26,6 @@ class EmberrApplication : Application() {
     }
 
     private val hasStartedAiWarmUp = AtomicBoolean(false)
-
-    // Notes can change with no screen on, so the vault export listens for as long as the process
-    // is alive rather than for as long as a window is.
-    private val vaultScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override fun onCreate() {
         super.onCreate()
@@ -58,10 +52,6 @@ class EmberrApplication : Application() {
             getKoin().get<ReminderRescheduler>().rescheduleUpcomingReminders()
             getKoin().get<BackupScheduler>()
             getKoin().get<SelfHostSyncScheduler>()
-
-            val vaultMirrorService = getKoin().get<VaultMirrorService>()
-            vaultMirrorService.startExportingAppChanges(vaultScope)
-            vaultMirrorService.refreshEverythingNow()
         }
 
     }

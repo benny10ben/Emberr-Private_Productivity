@@ -44,8 +44,6 @@ import com.emberr.domain.selfhost.sync.SelfHostSyncScheduler
 import com.emberr.domain.update.AppUpdateController
 import com.emberr.domain.update.detectStagedUpdateInstallation
 import com.emberr.domain.util.system.appVersionName
-import com.emberr.domain.vault.VaultLog
-import com.emberr.domain.vault.VaultMirrorService
 import com.emberr.presentation.EmberrApp
 import com.emberr.presentation.LocalImagePicker
 import com.emberr.presentation.settings.PlainTextSecretWarningDialog
@@ -179,18 +177,6 @@ private fun runEmberrDesktopApp() = application {
             } else {
                 SelfHostSyncLog.d("DesktopMain: no self-host vault configured, skipping background sync schedules")
             }
-        }
-    }
-
-    LaunchedEffect(isBackgroundStartupAllowed) {
-        if (!isBackgroundStartupAllowed) return@LaunchedEffect
-        val vaultMirrorService = withContext(Dispatchers.IO) {
-            VaultLog.keepErrorsIn(java.io.File(System.getProperty("user.home"), ".emberr/vault-errors.txt"))
-            GlobalContext.get().get<VaultMirrorService>()
-        }
-        vaultMirrorService.startWatching(this)
-        withContext(Dispatchers.IO) {
-            vaultMirrorService.refreshEverythingNow()
         }
     }
 

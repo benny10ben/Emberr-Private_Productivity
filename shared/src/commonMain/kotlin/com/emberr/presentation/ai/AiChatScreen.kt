@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -52,7 +51,6 @@ import com.emberr.presentation.ai.chat.ChatEmptyState
 import com.emberr.presentation.ai.chat.ChatInputBar
 import com.emberr.presentation.ai.chat.ModelUnavailablePrompt
 import com.emberr.presentation.ai.chat.ThinkingIndicator
-import com.emberr.presentation.ai.chat.VaultAccessPill
 import com.emberr.presentation.ai.history.ChatHistoryMenuContent
 import com.emberr.presentation.ai.history.ChatHistorySheet
 import com.emberr.presentation.ai.settings.AiSettingsSheet
@@ -64,11 +62,8 @@ import com.emberr.presentation.shared.components.EmberrDesktopMenu
 import com.emberr.presentation.shared.components.EmberrShadowElevation
 import com.emberr.presentation.shared.components.EmberrTopHeaderBar
 import com.emberr.presentation.shared.components.TopBarIconButton
-import com.emberr.presentation.shared.components.TopHeaderBarButtonSize
-import com.emberr.presentation.shared.components.TopHeaderBarTopPadding
 import com.emberr.presentation.shared.components.topHeaderBarPadding
 import com.emberr.presentation.shared.rememberStableStatusBarsPadding
-import com.emberr.presentation.shared.stableStatusBarsPadding
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
 
@@ -76,7 +71,6 @@ private const val SETUP_OVERLAY_FADE_MILLIS = 650
 
 internal val DesktopPanelTopInset = 12.dp
 internal val DesktopPanelContentInset = 13.dp
-private val VaultAccessPillGap = 4.dp
 
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
@@ -144,8 +138,6 @@ private fun AiChatContent(
     val isLoading by viewModel.isLoading.collectAsState()
     val isModelAvailable by viewModel.isModelAvailable.collectAsState()
     val embeddingSetupState by viewModel.embeddingSetupState.collectAsState()
-    val aiGenerationMode by viewModel.aiGenerationMode.collectAsState()
-    val externalAiReadOnly by viewModel.externalAiReadOnly.collectAsState()
     val localGeneratorDownloadProgress by viewModel.localGeneratorDownloadProgress.collectAsState()
     val listState = rememberLazyListState()
     val hazeState = remember { HazeState() }
@@ -274,9 +266,7 @@ private fun AiChatContent(
                                         viewModel.beginEditingMessage(message.id)
                                         inputText = message.text
                                     }
-                                } else null,
-                                onConfirmPendingWrite = { viewModel.confirmPendingWrite(message.id) },
-                                onRejectPendingWrite = { viewModel.rejectPendingWrite(message.id) }
+                                } else null
                             )
                         }
                         if (isLoading && messages.lastOrNull()?.text?.isEmpty() == true) {
@@ -340,22 +330,6 @@ private fun AiChatContent(
                 }
             }
         )
-
-        if (embeddingSetupState == EmbeddingSetupState.Ready) {
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .fillMaxWidth()
-                    .then(if (isDesktopPlatform) Modifier else Modifier.stableStatusBarsPadding())
-                    .padding(
-                        top = TopHeaderBarTopPadding +
-                            TopHeaderBarButtonSize + 8.dp + VaultAccessPillGap
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                VaultAccessPill(aiGenerationMode = aiGenerationMode, externalAiReadOnly = externalAiReadOnly)
-            }
-        }
 
         if (embeddingSetupState == EmbeddingSetupState.Ready) {
             ChatInputBar(

@@ -1,5 +1,3 @@
-// Small inline chip shown in chat when the AI reads from the vault.
-
 package com.emberr.presentation.ai.chat
 
 import androidx.compose.foundation.layout.Arrangement

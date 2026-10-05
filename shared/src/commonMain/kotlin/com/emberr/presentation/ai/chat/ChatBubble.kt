@@ -36,23 +36,11 @@ import org.jetbrains.compose.resources.painterResource
 @Composable
 internal fun ChatBubble(
     message: ChatMessage,
-    onEditClick: (() -> Unit)? = null,
-    onConfirmPendingWrite: (() -> Unit)? = null,
-    onRejectPendingWrite: (() -> Unit)? = null
+    onEditClick: (() -> Unit)? = null
 ) {
     val toolCallSummary = message.toolCallSummary
     if (toolCallSummary != null) {
         ToolCallIndicator(text = toolCallSummary)
-        return
-    }
-
-    val pendingWrite = message.pendingVaultWrite
-    if (pendingWrite != null) {
-        PendingVaultWriteCard(
-            write = pendingWrite,
-            onConfirm = { onConfirmPendingWrite?.invoke() },
-            onReject = { onRejectPendingWrite?.invoke() }
-        )
         return
     }
 
