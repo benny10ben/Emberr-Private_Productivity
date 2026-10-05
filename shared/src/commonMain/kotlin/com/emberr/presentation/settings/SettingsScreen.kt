@@ -32,6 +32,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.coerceAtLeast
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import com.emberr.domain.sync.SyncPairingData
@@ -99,6 +100,10 @@ private const val PRIVACY_POLICY_URL = "https://github.com/benny10ben/Emberr-Pri
 private val SettingsCardShape = RoundedCornerShape(18.dp)
 private val SettingsSidebarWidth = 244.dp
 private val SettingsPaneMaxWidth = 760.dp
+
+internal fun desktopSettingsSidePadding(availableWidth: Dp): Dp =
+    if (isDesktopPlatform) ((availableWidth - SettingsPaneMaxWidth) / 2).coerceAtLeast(0.dp) else 0.dp
+
 private val BackupFrequencies = listOf("Hourly", "Daily", "Weekly")
 private val FontSizeOptions = listOf(
     FontSizePreference.EXTRA_SMALL.name to "Extra Small",
@@ -794,34 +799,36 @@ private fun DesktopSettingsPanes(
     var selectedCategoryTitle by remember { mutableStateOf(categories.first().title) }
     val selectedCategory = categories.firstOrNull { it.title == selectedCategoryTitle } ?: categories.first()
 
-    Row(modifier = modifier.padding(top = contentTopPadding)) {
-        SettingsCategorySidebar(
-            categories = categories,
-            selectedCategoryTitle = selectedCategory.title,
-            onCategorySelected = { title -> selectedCategoryTitle = title }
-        )
+    Box(modifier = modifier.padding(top = contentTopPadding), contentAlignment = Alignment.TopCenter) {
+        Row(modifier = Modifier.widthIn(max = SettingsSidebarWidth + SettingsPaneMaxWidth).fillMaxSize()) {
+            SettingsCategorySidebar(
+                categories = categories,
+                selectedCategoryTitle = selectedCategory.title,
+                onCategorySelected = { title -> selectedCategoryTitle = title }
+            )
 
-        val paneScrollState = remember(selectedCategory.title) { ScrollState(0) }
+            val paneScrollState = remember(selectedCategory.title) { ScrollState(0) }
 
-        Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .verticalScroll(paneScrollState)
-            ) {
+            Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
                 Column(
                     modifier = Modifier
-                        .widthIn(max = SettingsPaneMaxWidth)
-                        .padding(bottom = 48.dp)
+                        .fillMaxSize()
+                        .verticalScroll(paneScrollState)
                 ) {
-                    key(selectedCategory.title) { selectedCategory.content() }
+                    Column(
+                        modifier = Modifier
+                            .widthIn(max = SettingsPaneMaxWidth)
+                            .padding(bottom = 48.dp)
+                    ) {
+                        key(selectedCategory.title) { selectedCategory.content() }
+                    }
                 }
-            }
 
-            EmberrVerticalScrollbar(
-                scrollState = paneScrollState,
-                modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight().padding(vertical = 8.dp)
-            )
+                EmberrVerticalScrollbar(
+                    scrollState = paneScrollState,
+                    modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight().padding(vertical = 8.dp)
+                )
+            }
         }
     }
 }
