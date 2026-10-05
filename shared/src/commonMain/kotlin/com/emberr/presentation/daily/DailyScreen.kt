@@ -18,8 +18,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.AnnotatedString
@@ -27,7 +25,6 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.zIndex
 import org.koin.compose.viewmodel.koinViewModel
 import com.emberr.domain.model.NoteBlock
 import com.emberr.domain.model.PropertyDateRange
@@ -123,7 +120,6 @@ fun DailyScreen(
     val selectedBlockIds by viewModel.selectedBlockIds.collectAsState()
     val focusRequest by viewModel.focusRequest.collectAsState()
     val selectionRequest by viewModel.selectionRequest.collectAsState()
-    var topBarBottomPx by remember { mutableFloatStateOf(0f) }
     val loadedDateString by viewModel.loadedDateString.collectAsState()
     val previewCache by viewModel.previewCache.collectAsState()
     val canUndo by viewModel.canUndo.collectAsState()
@@ -335,7 +331,7 @@ fun DailyScreen(
         }
     }
 
-    val rightPanelContent = @Composable {
+    val rightPanelContent: @Composable (Dp) -> Unit = { editorTopContentPadding ->
         var mobileMenuState by remember { mutableStateOf(MobileMenuState.MAIN) }
         var slashQuery by remember { mutableStateOf("") }
         var mentionQuery by remember { mutableStateOf<String?>(null) }
@@ -394,7 +390,6 @@ fun DailyScreen(
                     }
 
                     val pageListState = remember(pageDateString) { LazyListState() }
-                    val editorTopContentPadding = with(density) { topBarBottomPx.toDp() }
 
                     LaunchedEffect(isCurrentActivePage, pageListState) {
                         if (isCurrentActivePage) activeListState = pageListState
@@ -407,7 +402,7 @@ fun DailyScreen(
                             actions = sharedEditorActions,
                             focusRequest = if (isCurrentActivePage) focusRequest else null,
                             selectionRequest = if (isCurrentActivePage) selectionRequest else null,
-                            topBarClearancePx = topBarBottomPx,
+                            topBarClearancePx = with(density) { editorTopContentPadding.toPx() },
                             listState = pageListState,
                             selectedBlockIds = selectedBlockIds,
                             mobileMenuState = mobileMenuState,
@@ -581,123 +576,114 @@ fun DailyScreen(
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
-        contentWindowInsets = WindowInsets(0)
-    ) { paddingValues ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .consumeWindowInsets(paddingValues)
-        ) {
-            Box(Modifier.fillMaxSize()) {
-                Box(modifier = Modifier.fillMaxSize()) {
-                    rightPanelContent()
-                }
+        contentWindowInsets = WindowInsets(0),
+        topBar = {
+            val isCalendarStripVisible = !isSelectionMode && !isKeyboardOpen
+            val calendarStripHeightAllowance = 44.dp
+            val headerBlurHeight by animateDpAsState(
+                targetValue = if (isCalendarStripVisible) {
+                    DailyHeaderBaseBlurHeight + calendarStripHeightAllowance
+                } else {
+                    DailyHeaderBaseBlurHeight
+                },
+                animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing)
+            )
+            val headerGradientHeight by animateDpAsState(
+                targetValue = if (isCalendarStripVisible) {
+                    DailyHeaderBaseGradientHeight + calendarStripHeightAllowance
+                } else {
+                    DailyHeaderBaseGradientHeight
+                },
+                animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing)
+            )
 
-                val isCalendarStripVisible = !isSelectionMode && !isKeyboardOpen
-                val calendarStripHeightAllowance = 44.dp
-                val headerBlurHeight by animateDpAsState(
-                    targetValue = if (isCalendarStripVisible) {
-                        DailyHeaderBaseBlurHeight + calendarStripHeightAllowance
-                    } else {
-                        DailyHeaderBaseBlurHeight
-                    },
-                    animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing)
-                )
-                val headerGradientHeight by animateDpAsState(
-                    targetValue = if (isCalendarStripVisible) {
-                        DailyHeaderBaseGradientHeight + calendarStripHeightAllowance
-                    } else {
-                        DailyHeaderBaseGradientHeight
-                    },
-                    animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing)
-                )
+            Column {
+                EmberrTopHeaderBar(
+                    modifier = Modifier.pointerInput(Unit) { detectTapGestures {} },
+                    title = dailyHeaderTitle(selectedDate),
+                    titlePlacement = TopHeaderTitlePlacement.Start,
+                    titleStyle = MaterialTheme.typography.titleLarge,
+                    titleColor = MaterialTheme.colorScheme.onBackground,
+                    titlePadding = PaddingValues(top = 10.dp, bottom = 8.dp),
+                    onTitleClick = { showCalendarSheet = true },
+                    showBackButton = false,
+                    reserveBackButtonSpace = false,
+                    hazeState = hazeState,
+                    applyStatusBarPadding = true,
+                    contentPadding = topHeaderBarPadding(top = 8.dp, bottom = 14.dp),
+                    topEdgeBlurHeight = headerBlurHeight,
+                    topEdgeGradientHeight = headerGradientHeight,
+                    topEdgeFadeAlpha = topEdgeFadeAlpha,
+                    actions = {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            TopBarIconButton(
+                                icon = painterResource(Res.drawable.history2),
+                                contentDescription = "Open timeline",
+                                bgColor = Color.Transparent,
+                                tint = MaterialTheme.colorScheme.primary,
+                                hazeState = hazeState,
+                                hazeStyle = EmberrBlur.Regular,
+                                onClick = {
+                                    viewModel.loadTimeline()
+                                    showTimelineDialog = true
+                                }
+                            )
 
-                Column(
-                    modifier = Modifier
-                        .align(Alignment.TopCenter)
-                        .zIndex(2f)
-                        .onGloballyPositioned { topBarBottomPx = it.positionInRoot().y + it.size.height }
-                ) {
-                    EmberrTopHeaderBar(
-                        modifier = Modifier.pointerInput(Unit) { detectTapGestures {} },
-                        title = dailyHeaderTitle(selectedDate),
-                        titlePlacement = TopHeaderTitlePlacement.Start,
-                        titleStyle = MaterialTheme.typography.titleLarge,
-                        titleColor = MaterialTheme.colorScheme.onBackground,
-                        titlePadding = PaddingValues(top = 10.dp, bottom = 8.dp),
-                        onTitleClick = { showCalendarSheet = true },
-                        showBackButton = false,
-                        reserveBackButtonSpace = false,
-                        hazeState = hazeState,
-                        applyStatusBarPadding = true,
-                        contentPadding = topHeaderBarPadding(top = 8.dp, bottom = 14.dp),
-                        topEdgeBlurHeight = headerBlurHeight,
-                        topEdgeGradientHeight = headerGradientHeight,
-                        topEdgeFadeAlpha = topEdgeFadeAlpha,
-                        actions = {
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                TopBarIconButton(
-                                    icon = painterResource(Res.drawable.history2),
-                                    contentDescription = "Open timeline",
+                            Box {
+                                TopBarIconButtonGroup(
                                     bgColor = Color.Transparent,
                                     tint = MaterialTheme.colorScheme.primary,
                                     hazeState = hazeState,
                                     hazeStyle = EmberrBlur.Regular,
-                                    onClick = {
-                                        viewModel.loadTimeline()
-                                        showTimelineDialog = true
-                                    }
-                                )
-
-                                Box {
-                                    TopBarIconButtonGroup(
-                                        bgColor = Color.Transparent,
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        hazeState = hazeState,
-                                        hazeStyle = EmberrBlur.Regular,
-                                        items = listOf(
-                                            TopBarIconButtonItem(
-                                                icon = painterResource(Res.drawable.calendar),
-                                                contentDescription = "Open Calendar",
-                                                onClick = onNavigateToCalendar
-                                            ),
-                                            TopBarIconButtonItem(
-                                                icon = painterResource(Res.drawable.ellipsis),
-                                                contentDescription = "Settings",
-                                                onClick = { showSettingsMenu = true }
-                                            )
+                                    items = listOf(
+                                        TopBarIconButtonItem(
+                                            icon = painterResource(Res.drawable.calendar),
+                                            contentDescription = "Open Calendar",
+                                            onClick = onNavigateToCalendar
+                                        ),
+                                        TopBarIconButtonItem(
+                                            icon = painterResource(Res.drawable.ellipsis),
+                                            contentDescription = "Settings",
+                                            onClick = { showSettingsMenu = true }
                                         )
                                     )
+                                )
 
-                                    UserSettings(
-                                        expanded = showSettingsMenu,
-                                        onDismiss = { showSettingsMenu = false },
-                                        onNavigateToSettings = onNavigateToSettings,
-                                        onNavigateToProperties = onNavigateToProperties,
-                                        onNavigateToTrash = onNavigateToTrash
-                                    )
-                                }
+                                UserSettings(
+                                    expanded = showSettingsMenu,
+                                    onDismiss = { showSettingsMenu = false },
+                                    onNavigateToSettings = onNavigateToSettings,
+                                    onNavigateToProperties = onNavigateToProperties,
+                                    onNavigateToTrash = onNavigateToTrash
+                                )
                             }
                         }
-                    )
-
-                    AnimatedVisibility(
-                        visible = isCalendarStripVisible,
-                        enter = fadeIn(tween(durationMillis = 250, delayMillis = 100)) +
-                            expandVertically(tween(durationMillis = 250, delayMillis = 100)),
-                        exit = fadeOut(tween(200)) + shrinkVertically(tween(200))
-                    ) {
-                        DailyBottomWeekStrip(
-                            modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
-                            selectedDate = selectedDate,
-                            onDateSelected = { viewModel.selectDate(it) },
-                            hazeState = hazeState
-                        )
                     }
+                )
+
+                AnimatedVisibility(
+                    visible = isCalendarStripVisible,
+                    enter = fadeIn(tween(durationMillis = 250, delayMillis = 100)) +
+                        expandVertically(tween(durationMillis = 250, delayMillis = 100)),
+                    exit = fadeOut(tween(200)) + shrinkVertically(tween(200))
+                ) {
+                    DailyBottomWeekStrip(
+                        modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
+                        selectedDate = selectedDate,
+                        onDateSelected = { viewModel.selectDate(it) },
+                        hazeState = hazeState
+                    )
+                }
+            }
+        }
+    ) { paddingValues ->
+        Box(modifier = Modifier.fillMaxSize()) {
+            Box(Modifier.fillMaxSize()) {
+                Box(modifier = Modifier.fillMaxSize()) {
+                    rightPanelContent(paddingValues.calculateTopPadding())
                 }
             }
 
