@@ -11,7 +11,6 @@ import com.emberr.domain.backup.automatic.BackupRescheduler
 import com.emberr.domain.repository.NoteRepository
 import com.emberr.domain.space.SpaceRepository
 import com.emberr.domain.util.sync.SyncEventBus
-import com.emberr.domain.vault.VaultMirrorTrigger
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import java.io.File
@@ -98,7 +97,6 @@ class AndroidManualBackupImporter(
 
             spaceRepository.moveActiveSpaceIfItNoLongerExists()
             noteRepository.clearCaches()
-            VaultMirrorTrigger.requestFullRefresh()
             delay(100.milliseconds)
             SyncEventBus.emitSyncCompleted("import_complete")
         } finally {

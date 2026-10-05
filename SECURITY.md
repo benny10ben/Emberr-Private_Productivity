@@ -8,7 +8,7 @@ Emberr is still in beta. This document describes what is actually implemented to
 
 On Android, the Room database is opened through SQLCipher, so the database file on disk is encrypted. The SQLCipher passphrase is a randomly generated 32-byte key, which is itself encrypted with AES-256-GCM using a key held in the Android Keystore (via Tink) and stored in a local file. The passphrase never leaves the device and is not derived from anything an attacker could guess.
 
-**Desktop is different:** the desktop database currently uses a plain, unencrypted SQLite file (`~/.emberr/emberr_database.db`). Anyone with access to that file on disk can read your notes. This is a known gap which I do not feel needed at the moment as many people who uses Claude Code or Co-work can point to the vault and use it to write notes with AI.
+**Desktop is different:** the desktop database currently uses a plain, unencrypted SQLite file (`~/.emberr/emberr_database.db`). Anyone with access to that file on disk can read your notes. This is a known gap.
 
 ### 2. Self-hosted sync
 

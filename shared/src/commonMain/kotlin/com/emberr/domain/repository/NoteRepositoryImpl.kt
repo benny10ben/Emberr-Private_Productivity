@@ -108,7 +108,6 @@ import kotlinx.datetime.minus
 import kotlinx.datetime.plus
 import kotlinx.datetime.toInstant
 import com.emberr.domain.sync.AutoSyncTrigger
-import com.emberr.domain.vault.VaultMirrorTrigger
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -443,7 +442,6 @@ class NoteRepositoryImpl(
             cacheSavedContent(spaceId, noteId, dateString, NoteContent(blocks = upsertChangedBlocks(noteId, content)))
 
             AutoSyncTrigger.requestSync()
-            VaultMirrorTrigger.requestNoteRefresh(noteId)
 
             syncMediaReferences(noteId, content.blocks)
 
@@ -745,7 +743,6 @@ class NoteRepositoryImpl(
             )
 
             AutoSyncTrigger.requestSync()
-            VaultMirrorTrigger.requestNoteRefresh(metadata.noteId)
             refreshProjectionsForNote(stampedMetadata, content.blocks)
         }
 
@@ -854,7 +851,6 @@ class NoteRepositoryImpl(
             canvasDao.deleteAllStrokesForNote(noteId)
             mediaReferenceDao.deleteByNoteId(noteId)
             noteIndexer.deleteNoteFromIndex(noteId)
-            VaultMirrorTrigger.requestNoteRefresh(noteId)
         }
     }
 
@@ -927,7 +923,6 @@ class NoteRepositoryImpl(
                 folder.copy(updatedAt = System.currentTimeMillis(), spaceId = resolvedSpaceId)
             )
             AutoSyncTrigger.requestSync()
-            VaultMirrorTrigger.requestFullRefresh()
         }
 
     // Strictly greater, not >= - see applyRemoteCategory's identical reasoning.
@@ -936,7 +931,6 @@ class NoteRepositoryImpl(
             val local = folderDao.getFolderById(folder.folderId)
             if (local == null || folder.updatedAt > local.updatedAt) {
                 folderDao.insertFolder(folder)
-                VaultMirrorTrigger.requestFullRefresh()
             }
         }
 
@@ -944,14 +938,12 @@ class NoteRepositoryImpl(
         withContext(Dispatchers.IO) {
             folderDao.markFolderDeleted(folderId, System.currentTimeMillis())
             AutoSyncTrigger.requestSync()
-            VaultMirrorTrigger.requestFullRefresh()
         }
 
     override suspend fun restoreNote(noteId: String) =
         withContext(Dispatchers.IO) {
             noteDao.restoreNote(noteId, System.currentTimeMillis())
             AutoSyncTrigger.requestSync()
-            VaultMirrorTrigger.requestNoteRefresh(noteId)
         }
 
     override suspend fun cleanupOldTrashedNotes() = withContext(Dispatchers.IO) {
@@ -966,7 +958,6 @@ class NoteRepositoryImpl(
 
         if (deletedAny) {
             AutoSyncTrigger.requestSync()
-            VaultMirrorTrigger.requestFullRefresh()
         }
     }
 
@@ -2370,21 +2361,18 @@ class NoteRepositoryImpl(
         withContext(Dispatchers.IO) {
             noteDao.updateNoteSortOrder(noteId, order, System.currentTimeMillis())
             AutoSyncTrigger.requestSync()
-            VaultMirrorTrigger.requestNoteRefresh(noteId)
         }
 
     override suspend fun addNoteToFavorites(noteId: String) =
         withContext(Dispatchers.IO) {
             noteDao.addNoteToFavorites(noteId, System.currentTimeMillis())
             AutoSyncTrigger.requestSync()
-            VaultMirrorTrigger.requestNoteRefresh(noteId)
         }
 
     override suspend fun removeNoteFromFavoritesAndMoveToRoot(noteId: String) =
         withContext(Dispatchers.IO) {
             noteDao.removeNoteFromFavoritesAndMoveToRoot(noteId, System.currentTimeMillis())
             AutoSyncTrigger.requestSync()
-            VaultMirrorTrigger.requestNoteRefresh(noteId)
         }
 
     override suspend fun updateFolderSortOrder(folderId: String, order: Int) =

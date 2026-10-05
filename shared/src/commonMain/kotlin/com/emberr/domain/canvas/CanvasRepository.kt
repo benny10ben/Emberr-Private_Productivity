@@ -4,7 +4,6 @@ import com.emberr.data.local.room.dao.CanvasDao
 import com.emberr.data.local.room.dao.NoteDao
 import com.emberr.domain.sync.AutoSyncTrigger
 import com.emberr.domain.util.sync.SyncCoordinator
-import com.emberr.domain.vault.VaultMirrorTrigger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -41,7 +40,6 @@ class CanvasRepository(
             }
             _locallySavedNoteIds.tryEmit(noteId)
             AutoSyncTrigger.requestSync()
-            VaultMirrorTrigger.requestNoteRefresh(noteId)
         }
     }
 
@@ -61,7 +59,6 @@ class CanvasRepository(
             if (remoteNoteUpdatedAt != null && localNoteUpdatedAt != null && remoteNoteUpdatedAt > localNoteUpdatedAt) {
                 noteDao.updateNoteUpdatedAt(noteId, remoteNoteUpdatedAt)
             }
-            VaultMirrorTrigger.requestNoteRefresh(noteId)
             true
         }
 }

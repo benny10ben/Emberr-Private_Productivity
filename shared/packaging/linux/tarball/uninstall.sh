@@ -1,6 +1,6 @@
 #!/bin/sh
 # Removes the @APP_NAME@ install created by install.sh.
-# Your notes, vault, media and settings in ~/.emberr are deliberately left alone.
+# Your notes, media and settings in ~/.emberr are deliberately left alone.
 # Pass --remove-models to also delete the downloaded AI models, which can be gigabytes.
 
 set -eu

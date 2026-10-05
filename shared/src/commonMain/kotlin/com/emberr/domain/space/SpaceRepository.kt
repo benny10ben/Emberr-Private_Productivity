@@ -8,7 +8,6 @@ import com.emberr.data.local.room.entity.SpaceEntity
 import com.emberr.domain.ai.chat.ChatSessionRepository
 import com.emberr.domain.repository.NoteRepository
 import com.emberr.domain.sync.AutoSyncTrigger
-import com.emberr.domain.vault.VaultMirrorTrigger
 import kotlinx.coroutines.flow.Flow
 import java.util.UUID
 
@@ -65,7 +64,6 @@ class SpaceRepository(
             )
         )
         AutoSyncTrigger.requestSync()
-        VaultMirrorTrigger.requestFullRefresh()
         return newSpaceId
     }
 
@@ -74,7 +72,6 @@ class SpaceRepository(
         if (local == null || space.updatedAt > local.updatedAt) {
             spaceDao.insertOrUpdateSpace(space)
             moveActiveSpaceIfItNoLongerExists()
-            VaultMirrorTrigger.requestFullRefresh()
         }
     }
 
@@ -99,7 +96,6 @@ class SpaceRepository(
                 updatedAt = PLACEHOLDER_SPACE_UPDATED_AT
             )
         )
-        VaultMirrorTrigger.requestFullRefresh()
     }
 
     suspend fun renameSpace(spaceId: String, displayName: String) {
@@ -113,7 +109,6 @@ class SpaceRepository(
             updatedAt = System.currentTimeMillis()
         )
         AutoSyncTrigger.requestSync()
-        VaultMirrorTrigger.requestFullRefresh()
     }
 
     suspend fun reorderSpaces(orderedSpaceIds: List<String>) {
@@ -140,6 +135,5 @@ class SpaceRepository(
 
         DeletedSpaceTrigger.spaceWasDeleted(spaceId)
         AutoSyncTrigger.requestSync()
-        VaultMirrorTrigger.requestFullRefresh()
     }
 }
