@@ -1,7 +1,6 @@
 package com.emberr.domain.util.export
 
 import com.emberr.domain.model.*
-import com.emberr.domain.vault.NoteMarkdownWriter
 
 object ExportEngine {
 
@@ -15,14 +14,12 @@ object ExportEngine {
         return builder.toString().trim()
     }
 
-    // Renders through the same engine the AI vault uses:
-    // shared/src/commonMain/kotlin/com/emberr/domain/vault/NoteMarkdownWriter.kt
     fun generateMarkdown(
         blocks: List<NoteBlock>,
         title: String? = null,
         noteTitlesById: Map<String, String> = emptyMap(),
         categoryNamesById: Map<String, String> = emptyMap()
-    ): String = NoteMarkdownWriter.writeSharedMarkdown(
+    ): String = NoteMarkdownWriter.writeMarkdown(
         blocks = blocks,
         title = title,
         noteTitlesById = noteTitlesById,

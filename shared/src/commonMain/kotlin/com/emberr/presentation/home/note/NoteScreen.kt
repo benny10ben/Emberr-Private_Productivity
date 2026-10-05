@@ -313,8 +313,6 @@ fun NoteScreen(
         }
     }
 
-    // Copy and Download both render through the same engine the AI vault uses:
-    // shared/src/commonMain/kotlin/com/emberr/domain/vault/NoteMarkdownWriter.kt
     val handleCopyMarkdown: () -> Unit = {
         showOptionsMenu = false
         scope.launch {
