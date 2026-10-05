@@ -67,7 +67,7 @@ fun rememberOnboardingSteps(): List<OnboardingStep> = remember {
                 icon = Res.drawable.widget,
                 lead = "Write the way you think.",
                 headline = "Everything is a block.",
-                detail = "Text, checklists, tables, images, voice notes and documents in one note."
+                detail = "Text, checklists, tables, databases, images, voice notes and documents all in one note."
             )
         )
         add(
@@ -83,7 +83,7 @@ fun rememberOnboardingSteps(): List<OnboardingStep> = remember {
                 icon = Res.drawable.calendar,
                 lead = "Step back a month.",
                 headline = "See it on a calendar.",
-                detail = "Every task and reminder in one view, repeats included."
+                detail = "Every task and reminder in one view."
             )
         )
         add(
