@@ -49,11 +49,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.graphics.drawscope.scale
+import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalFocusManager
@@ -73,6 +78,8 @@ import com.emberr.presentation.shared.components.MinimalDatePickerDialog
 import com.emberr.presentation.shared.components.MinimalTimePickerDialog
 import com.emberr.presentation.shared.components.ReminderPresetMenu
 import com.emberr.presentation.shared.components.TimePresetMenu
+import com.emberr.presentation.shared.components.drawEmberrGhostEyes
+import com.emberr.presentation.shared.components.traceEmberrGhost
 import com.emberr.ui.theme.LocalAppIsDark
 import emberr.shared.generated.resources.Res
 import emberr.shared.generated.resources.calendar_add
@@ -84,19 +91,20 @@ import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.todayIn
 import kotlin.math.PI
-import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.milliseconds
 import org.jetbrains.compose.resources.painterResource
 
 private val VoiceTaskDialogShape = RoundedCornerShape(24.dp)
-private val OrbIndigo = Color(0xFF4F5B8A)
-private val OrbPeriwinkle = Color(0xFF9AA6E0)
-private val OrbLavender = Color(0xFF8E7CC3)
-private val OrbMidnight = Color(0xFF2C3354)
-private val OrbGlacier = Color(0xFF6FA8C7)
-private const val ORB_OUTLINE_POINTS = 90
+private const val EMBERR_GHOST_SIZE_FRACTION = 0.5f
+private const val EMBERR_GHOST_RIGHT_SHIFT_FRACTION = 0.06f
+private const val SOUND_WAVE_COUNT = 3
+private const val SOUND_WAVE_SECONDS = 1.4f
+private const val EAR_TWITCH_INTERVAL_SECONDS = 2.4f
+private const val EAR_TWITCH_SECONDS = 0.5f
+private val EarBase = Offset(0.47f, 0.30f)
+private val SoundWaveCenter = Offset(-0.27f, -0.02f)
 private val KEYBOARD_CLOSE_WAIT = 500.milliseconds
 
 @Composable
@@ -110,6 +118,8 @@ fun VoiceTaskDialog(
     onDiscard: () -> Unit
 ) {
     val focusManager = LocalFocusManager.current
+    val dialogBackgroundColor = if (LocalAppIsDark.current) MaterialTheme.colorScheme.surface
+    else MaterialTheme.colorScheme.background
     var editingTaskIndex by remember { mutableStateOf<Int?>(null) }
     val orbSize by animateDpAsState(
         targetValue = if (editingTaskIndex != null) 72.dp else 160.dp,
@@ -153,15 +163,13 @@ fun VoiceTaskDialog(
                     .widthIn(max = 380.dp)
                     .fillMaxWidth(0.88f)
                     .clip(VoiceTaskDialogShape)
-                    .background(
-                        if (LocalAppIsDark.current) MaterialTheme.colorScheme.surface
-                        else MaterialTheme.colorScheme.background
-                    )
+                    .background(dialogBackgroundColor)
                     .animateContentSize(tween(durationMillis = 300, easing = FastOutSlowInEasing))
                     .padding(24.dp)
             ) {
-                VoiceOrb(
+                ListeningEmberrGhost(
                     isListening = state.isListening,
+                    eyeColor = dialogBackgroundColor,
                     onClick = {
                         focusManager.clearFocus()
                         onOrbClick()
@@ -455,8 +463,9 @@ private fun VoiceTaskRowFrame(footer: @Composable () -> Unit, content: @Composab
 }
 
 @Composable
-private fun VoiceOrb(
+private fun ListeningEmberrGhost(
     isListening: Boolean,
+    eyeColor: Color,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -465,18 +474,19 @@ private fun VoiceOrb(
         animationSpec = tween(durationMillis = 700, easing = FastOutSlowInEasing)
     )
     var phase by remember { mutableFloatStateOf(0f) }
-    LaunchedEffect(isListening) {
-        if (!isListening) return@LaunchedEffect
+    LaunchedEffect(Unit) {
         var previousFrameNanos = withFrameNanos { it }
         while (true) {
             withFrameNanos { frameNanos ->
-                phase += (frameNanos - previousFrameNanos) / 1_000_000_000f
+                phase += (frameNanos - previousFrameNanos) / 1_000_000_000f * (1f + 0.5f * energy)
                 previousFrameNanos = frameNanos
             }
         }
     }
-    val outerBlob = remember { Path() }
-    val innerBlob = remember { Path() }
+    val emberrGhostColor = MaterialTheme.colorScheme.onSurface
+    val emberrGhostPath = remember { Path() }
+    val earLobePath = remember { earLobeShape() }
+    val earFoldPath = remember { earFoldShape() }
 
     Canvas(
         modifier = modifier
@@ -487,78 +497,83 @@ private fun VoiceOrb(
                 onClick = { if (!isListening) onClick() }
             )
     ) {
-        val halfSize = size.minDimension / 2f
-        val orbRadius = halfSize * 0.6f * (0.9f + 0.1f * energy)
-        val wobble = 0.07f * energy
-        val pulse = 0.5f + 0.5f * sin(phase * 2.4f)
-        val glowRadius = halfSize * (0.82f + 0.18f * energy * pulse)
-
-        drawCircle(
-            brush = Brush.radialGradient(
-                colors = listOf(
-                    OrbIndigo.copy(alpha = 0.2f + 0.3f * energy),
-                    OrbLavender.copy(alpha = 0.08f + 0.12f * energy),
-                    Color.Transparent
-                ),
-                center = center,
-                radius = glowRadius
-            ),
-            radius = glowRadius
+        val emberrGhostSize = size.minDimension * EMBERR_GHOST_SIZE_FRACTION
+        val emberrGhostCenter = Offset(
+            x = center.x + size.minDimension * EMBERR_GHOST_RIGHT_SHIFT_FRACTION,
+            y = center.y + sin(phase * 1.8f) * size.minDimension * 0.03f
         )
+        val emberrGhostTopLeft = Offset(emberrGhostCenter.x - emberrGhostSize / 2f, emberrGhostCenter.y - emberrGhostSize / 2f)
+        val tiltDegrees = sin(phase * 1.3f) * 3f + 7f * energy
+        val stretch = 1f + 0.03f * sin(phase * 2.2f)
 
-        outerBlob.traceBlob(center, orbRadius, wobble, phase, lobeCount = 3, spinDirection = 1f)
-        rotate(degrees = phase * 40f, pivot = center) {
-            drawPath(
-                path = outerBlob,
-                brush = Brush.sweepGradient(
-                    colors = listOf(OrbIndigo, OrbLavender, OrbMidnight, OrbGlacier, OrbIndigo),
-                    center = center
-                ),
-                alpha = 0.8f + 0.2f * energy
-            )
+        rotate(degrees = tiltDegrees, pivot = emberrGhostCenter) {
+            scale(scaleX = 1f, scaleY = stretch, pivot = emberrGhostCenter) {
+                val earBase = emberrGhostTopLeft + EarBase * emberrGhostSize
+                val earDegrees = earTiltDegrees(phase, energy)
+                val earScale = emberrGhostSize * (0.8f + 0.25f * energy)
+                withEarTransform(earBase, earDegrees, earScale) {
+                    drawPath(path = earLobePath, color = emberrGhostColor)
+                }
+                emberrGhostPath.traceEmberrGhost(phase, energy, emberrGhostTopLeft, emberrGhostSize)
+                drawPath(path = emberrGhostPath, color = emberrGhostColor)
+                withEarTransform(earBase, earDegrees, earScale) {
+                    drawPath(path = earFoldPath, color = eyeColor, style = Stroke(width = 0.022f, cap = StrokeCap.Round))
+                    drawSoundWaves(phase, energy, earDegrees, emberrGhostColor)
+                }
+                drawEmberrGhostEyes(phase, energy, emberrGhostTopLeft, emberrGhostSize, eyeColor)
+            }
         }
-
-        val hotCoreCenter = Offset(center.x - orbRadius * 0.12f, center.y - orbRadius * 0.12f)
-        innerBlob.traceBlob(hotCoreCenter, orbRadius * 0.7f, wobble * 1.4f, phase, lobeCount = 2, spinDirection = -1f)
-        drawPath(
-            path = innerBlob,
-            brush = Brush.radialGradient(
-                colors = listOf(OrbPeriwinkle.copy(alpha = 0.95f), OrbIndigo.copy(alpha = 0f)),
-                center = hotCoreCenter,
-                radius = orbRadius * 0.75f
-            )
-        )
-
-        val shineCenter = Offset(center.x - orbRadius * 0.35f, center.y - orbRadius * 0.4f)
-        drawCircle(
-            brush = Brush.radialGradient(
-                colors = listOf(Color.White.copy(alpha = 0.45f), Color.Transparent),
-                center = shineCenter,
-                radius = orbRadius * 0.45f
-            ),
-            radius = orbRadius * 0.45f,
-            center = shineCenter
-        )
     }
 }
 
-private fun Path.traceBlob(
-    center: Offset,
-    radius: Float,
-    wobble: Float,
-    phase: Float,
-    lobeCount: Int,
-    spinDirection: Float
-) {
-    reset()
-    for (point in 0..ORB_OUTLINE_POINTS) {
-        val angle = point.toFloat() / ORB_OUTLINE_POINTS * 2f * PI.toFloat()
-        val ripple = 0.6f * sin(lobeCount * angle + phase * 1.6f * spinDirection) +
-            0.4f * sin((lobeCount + 2) * angle - phase * 2.3f * spinDirection)
-        val pointRadius = radius * (1f + wobble * ripple)
-        val x = center.x + pointRadius * cos(angle)
-        val y = center.y + pointRadius * sin(angle)
-        if (point == 0) moveTo(x, y) else lineTo(x, y)
-    }
+private fun earTiltDegrees(phase: Float, energy: Float): Float {
+    val isTwitching = phase % EAR_TWITCH_INTERVAL_SECONDS < EAR_TWITCH_SECONDS
+    val twitch = if (isTwitching) sin(phase * 9f) * 4f * energy else 0f
+    return -18f * energy + 14f * (1f - energy) + twitch
+}
+
+private fun earLobeShape(): Path = Path().apply {
+    moveTo(0f, -0.10f)
+    cubicTo(-0.10f, -0.17f, -0.26f, -0.13f, -0.25f, -0.02f)
+    cubicTo(-0.24f, 0.08f, -0.12f, 0.11f, 0f, 0.10f)
     close()
+}
+
+private fun earFoldShape(): Path = Path().apply {
+    moveTo(-0.07f, -0.07f)
+    cubicTo(-0.15f, -0.10f, -0.21f, -0.05f, -0.19f, 0.02f)
+}
+
+private fun DrawScope.withEarTransform(
+    earBase: Offset,
+    earDegrees: Float,
+    earScale: Float,
+    drawEarPart: DrawScope.() -> Unit
+) {
+    withTransform(
+        transformBlock = {
+            translate(left = earBase.x, top = earBase.y)
+            rotate(degrees = earDegrees, pivot = Offset.Zero)
+            scale(scaleX = earScale, scaleY = earScale, pivot = Offset.Zero)
+        },
+        drawBlock = drawEarPart
+    )
+}
+
+private fun DrawScope.drawSoundWaves(phase: Float, energy: Float, earDegrees: Float, color: Color) {
+    if (energy <= 0f) return
+    repeat(SOUND_WAVE_COUNT) { wave ->
+        val progress = (phase / SOUND_WAVE_SECONDS + wave.toFloat() / SOUND_WAVE_COUNT) % 1f
+        val radius = 0.29f - 0.19f * progress
+        drawArc(
+            color = color,
+            startAngle = 150f - earDegrees,
+            sweepAngle = 60f,
+            useCenter = false,
+            topLeft = Offset(SoundWaveCenter.x - radius, SoundWaveCenter.y - radius),
+            size = Size(radius * 2f, radius * 2f),
+            alpha = sin(progress * PI.toFloat()) * 0.55f * energy,
+            style = Stroke(width = 0.02f, cap = StrokeCap.Round)
+        )
+    }
 }
