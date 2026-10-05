@@ -145,15 +145,18 @@ fun PropertiesScreen(
         ) {
             Column(modifier = Modifier.widthIn(max = PropertiesPaneMaxWidth).fillMaxWidth()) {
                 SettingsGroup(title = "Built-in") {
-                    PropertyType.entries.filterNot { it.isOnlyForDatabases }.forEachIndexed { index, propertyType ->
-                        if (index > 0) SettingsDivider()
-                        PropertyRow(
-                            icon = propertyType.iconResource(),
-                            name = propertyType.label,
-                            valueTypeLabel = propertyType.valueType.label,
-                            onClick = null
-                        )
-                    }
+                    PropertyType.entries
+                        .filterNot { it.isOnlyForDatabases }
+                        .sortedBy { it.label.lowercase() }
+                        .forEachIndexed { index, propertyType ->
+                            if (index > 0) SettingsDivider()
+                            PropertyRow(
+                                icon = propertyType.iconResource(),
+                                name = propertyType.label,
+                                valueTypeLabel = propertyType.valueType.label,
+                                onClick = null
+                            )
+                        }
                 }
                 Text(
                     text = "Built-in properties can't be renamed or deleted.",

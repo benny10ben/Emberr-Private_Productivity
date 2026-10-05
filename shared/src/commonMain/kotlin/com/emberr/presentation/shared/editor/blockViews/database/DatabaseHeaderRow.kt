@@ -485,7 +485,7 @@ internal fun DatabaseAddColumnChoices(
     closePickerAnd: (() -> Unit) -> Unit,
     beforeColumn: DatabaseColumnTarget? = null
 ) {
-    val builtInPropertiesToAdd = block.builtInPropertiesNotYetAdded()
+    val builtInPropertiesToAdd = block.builtInPropertiesNotYetAdded().sortedBy { it.label.lowercase() }
     builtInPropertiesToAdd.forEach { propertyType ->
         DatabaseMenuOption(
             label = propertyType.label,
