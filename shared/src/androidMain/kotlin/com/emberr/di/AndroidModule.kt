@@ -269,7 +269,7 @@ val androidModule = module {
     // Self-hosted WebDAV sync
     single<KeyDerivationManager> { Pbkdf2KeyDerivationManager() }
     single<SecureSyncKeyStorage> { SecureSyncKeyStorage(androidContext(), get()) }
-    single { SelfHostSyncScheduler(androidContext(), get(), get()) }
+    single { SelfHostSyncScheduler(androidContext(), get(), get(), get()) }
     worker {
         SelfHostSyncWorker(
             appContext = get(),
@@ -287,7 +287,7 @@ val androidModule = module {
     single<com.emberr.domain.sync.LanSyncServerController> {
         com.emberr.domain.sync.AndroidLanSyncServerController()
     }
-    viewModel { SyncViewModel(get(), get(), get(), get(), get(), get()) }
+    viewModel { SyncViewModel(get(), get(), get(), get(), get(), get(), get()) }
 
     // Manual export/import (unrelated to automatic backups below)
     single {
@@ -300,11 +300,8 @@ val androidModule = module {
     single {
         AndroidManualBackupImporter(
             context = androidContext(),
-            settingsManager = get(),
-            backupRepository = get(),
-            noteRepository = get(),
-            spaceRepository = get(),
-            backupRescheduler = get()
+            backupExporter = get(),
+            backupRestorer = get()
         )
     }
 

@@ -38,11 +38,15 @@ interface SettingsManager {
     fun getLastFetchedTimestamp(): Long
     fun saveLastFetchedTimestamp(timestamp: Long)
     fun getOrCreateLanSyncDesktopId(): String
+    fun forgetLanSyncDesktopId()
     fun getLastSyncedDesktopId(): String
     fun saveLastSyncedDesktopId(desktopId: String)
 
     fun getSelfHostLastSyncTimestamp(): Long
     fun saveSelfHostLastSyncTimestamp(timestamp: Long)
+
+    fun isSelfHostConnected(): Boolean
+    fun saveSelfHostConnected(connected: Boolean)
 
     fun getSelfHostSupportsETags(): Boolean?
     fun saveSelfHostSupportsETags(supports: Boolean)

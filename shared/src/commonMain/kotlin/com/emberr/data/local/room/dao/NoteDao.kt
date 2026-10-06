@@ -135,6 +135,9 @@ interface NoteDao {
     @Query("UPDATE notes_metadata SET selfHostSyncedAt = :syncedAt WHERE noteId = :noteId")
     suspend fun updateSelfHostSyncedAt(noteId: String, syncedAt: Long)
 
+    @Query("UPDATE notes_metadata SET selfHostSyncedAt = 0")
+    suspend fun forgetSelfHostSyncProgressForAllNotes()
+
     @Query("UPDATE notes_metadata SET updatedAt = :updatedAt WHERE noteId = :noteId")
     suspend fun updateNoteUpdatedAt(noteId: String, updatedAt: Long)
 
@@ -177,10 +180,10 @@ interface NoteDao {
     @Query("UPDATE notes_metadata SET sortOrder = :order, updatedAt = :updatedAt WHERE noteId = :noteId")
     suspend fun updateNoteSortOrder(noteId: String, order: Int, updatedAt: Long)
 
-    @Query("UPDATE notes_metadata SET isFavorite = 1, updatedAt = :updatedAt WHERE noteId = :noteId")
+    @Query("UPDATE notes_metadata SET isFavorite = 1, favoriteUpdatedAt = :updatedAt, updatedAt = :updatedAt WHERE noteId = :noteId")
     suspend fun addNoteToFavorites(noteId: String, updatedAt: Long)
 
-    @Query("UPDATE notes_metadata SET isFavorite = 0, folderId = NULL, updatedAt = :updatedAt WHERE noteId = :noteId")
+    @Query("UPDATE notes_metadata SET isFavorite = 0, favoriteUpdatedAt = :updatedAt, folderId = NULL, folderUpdatedAt = :updatedAt, updatedAt = :updatedAt WHERE noteId = :noteId")
     suspend fun removeNoteFromFavoritesAndMoveToRoot(noteId: String, updatedAt: Long)
 
     // Templates menu: every reusable template (predefined + user-saved), alphabetical so the

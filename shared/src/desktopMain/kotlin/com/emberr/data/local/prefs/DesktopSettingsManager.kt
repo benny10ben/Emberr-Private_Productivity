@@ -134,6 +134,9 @@ class DesktopSettingsManager(private val secretStore: DesktopSecretStore) : Sett
         return newDesktopId
     }
 
+    @Synchronized
+    override fun forgetLanSyncDesktopId() = prefs.remove(SyncConstants.KEY_LAN_SYNC_DESKTOP_ID)
+
     override fun getLastSyncedDesktopId(): String = prefs.get(SyncConstants.KEY_LAST_SYNCED_DESKTOP_ID, "")
 
     override fun saveLastSyncedDesktopId(desktopId: String) = prefs.put(SyncConstants.KEY_LAST_SYNCED_DESKTOP_ID, desktopId)
@@ -145,6 +148,11 @@ class DesktopSettingsManager(private val secretStore: DesktopSecretStore) : Sett
     override fun saveSelfHostLastSyncTimestamp(timestamp: Long) {
         prefs.putLong(SyncConstants.KEY_SELF_HOST_SYNC_TIMESTAMP, timestamp)
     }
+
+    override fun isSelfHostConnected(): Boolean = prefs.getBoolean(SyncConstants.KEY_SELF_HOST_CONNECTED, false)
+
+    override fun saveSelfHostConnected(connected: Boolean) =
+        prefs.putBoolean(SyncConstants.KEY_SELF_HOST_CONNECTED, connected)
 
     override fun getSelfHostSupportsETags(): Boolean? {
         return when (prefs.getOrNull(SyncConstants.KEY_SELF_HOST_SUPPORTS_ETAGS)) {

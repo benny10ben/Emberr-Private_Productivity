@@ -216,25 +216,18 @@ val sharedModule = module {
         )
     }
 
-    single<com.emberr.domain.backup.manual.BackupRepository> {
-        com.emberr.domain.backup.manual.BackupRepositoryImpl(
-            noteDao = get(),
-            folderDao = get(),
-            blockDao = get(),
+    single {
+        com.emberr.domain.backup.manual.BackupRestorer(
+            appDatabase = get(),
+            noteRepository = get(),
+            spaceRepository = get(),
+            settingsManager = get(),
             calendarTaskDao = get(),
-            categoryDao = get(),
-            propertyTagDao = get(),
-            customPropertyDao = get(),
-            imageBlockDao = get(),
-            documentBlockDao = get(),
-            bookmarkBlockDao = get(),
-            mediaReferenceDao = get(),
-            spaceDao = get(),
-            chatSessionDao = get(),
-            calendarEventExceptionDao = get(),
-            selfHostDeletedNoteDao = get(),
-            canvasDao = get(),
-            settingsManager = get()
+            reminderScheduler = get(),
+            reminderRescheduler = get(),
+            vectorDatabase = get(),
+            reindexAllNotesUseCase = get(),
+            backupRescheduler = get()
         )
     }
 
@@ -375,6 +368,7 @@ val sharedModule = module {
     single<TaskExtractor> { HeuristicTaskExtractor() }
 
     single { com.emberr.domain.sync.SyncPairingState(settingsManager = get()) }
+    single { com.emberr.domain.selfhost.sync.SelfHostConnectionState(settingsManager = get()) }
 
     single {
         WebDavSyncClient(
@@ -432,7 +426,8 @@ val sharedModule = module {
             selfHostSyncEngine = get(),
             selfHostSyncScheduler = get(),
             settingsManager = get(),
-            foregroundSyncPoller = get()
+            foregroundSyncPoller = get(),
+            selfHostConnectionState = get()
         )
     }
 }

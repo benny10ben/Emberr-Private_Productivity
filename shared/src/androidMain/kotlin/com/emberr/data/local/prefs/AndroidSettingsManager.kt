@@ -174,6 +174,11 @@ class AndroidSettingsManager(
         return newDesktopId
     }
 
+    @Synchronized
+    override fun forgetLanSyncDesktopId() {
+        sharedPreferences.edit(commit = true) { remove(SyncConstants.KEY_LAN_SYNC_DESKTOP_ID) }
+    }
+
     override fun getLastSyncedDesktopId(): String {
         return sharedPreferences.getString(SyncConstants.KEY_LAST_SYNCED_DESKTOP_ID, "") ?: ""
     }
@@ -188,6 +193,14 @@ class AndroidSettingsManager(
 
     override fun saveSelfHostLastSyncTimestamp(timestamp: Long) {
         sharedPreferences.edit { putLong(SyncConstants.KEY_SELF_HOST_SYNC_TIMESTAMP, timestamp) }
+    }
+
+    override fun isSelfHostConnected(): Boolean {
+        return sharedPreferences.getBoolean(SyncConstants.KEY_SELF_HOST_CONNECTED, false)
+    }
+
+    override fun saveSelfHostConnected(connected: Boolean) {
+        sharedPreferences.edit { putBoolean(SyncConstants.KEY_SELF_HOST_CONNECTED, connected) }
     }
 
     override fun getSelfHostSupportsETags(): Boolean? {

@@ -138,7 +138,7 @@ val desktopModule = module {
             discoveryManager = get()
         )
     }
-    factory { SyncViewModel(get(), get(), get(), get(), get(), get(), get<com.emberr.domain.sync.SyncServerAvailability>().status) }
+    factory { SyncViewModel(get(), get(), get(), get(), get(), get(), get(), get<com.emberr.domain.sync.SyncServerAvailability>().status) }
 
     // Automatic Backup
     single<BackupRescheduler> { DesktopBackupRescheduler() }
@@ -156,11 +156,8 @@ val desktopModule = module {
     single { DesktopManualBackupExporter(appDatabase = get(), settingsManager = get()) }
     single {
         DesktopManualBackupImporter(
-            settingsManager = get(),
-            backupRepository = get(),
-            noteRepository = get(),
-            spaceRepository = get(),
-            backupRescheduler = get()
+            backupExporter = get(),
+            backupRestorer = get()
         )
     }
 }

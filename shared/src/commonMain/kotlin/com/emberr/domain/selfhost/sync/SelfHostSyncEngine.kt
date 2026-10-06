@@ -45,6 +45,7 @@ import com.emberr.domain.selfhost.webdav.WebDavSyncClient
 import com.emberr.domain.selfhost.webdav.WebDavSyncPaths
 import com.emberr.domain.sync.MediaTransferPhase
 import com.emberr.domain.sync.MediaTransferStatusBus
+import com.emberr.domain.sync.withNewerDetailsFrom
 import com.emberr.domain.util.media.MediaStorageHelper
 import com.emberr.domain.util.sync.withSyncCoordinatorOrSkip
 import com.emberr.database.EmberrDatabase
@@ -55,6 +56,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlin.time.Clock
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
@@ -126,6 +128,11 @@ class SelfHostSyncEngine(
         } finally {
             mutex.unlock()
         }
+    }
+
+    suspend fun forgetServerSyncProgress() = mutex.withLock {
+        noteDao.forgetSelfHostSyncProgressForAllNotes()
+        settingsManager.saveSelfHostLastSyncTimestamp(0L)
     }
 
     suspend fun syncMedia(): SelfHostSyncResult {
@@ -1187,8 +1194,8 @@ class SelfHostSyncEngine(
         return when {
             remote == null -> local
             local == null -> remote
-            remote.updatedAt > local.updatedAt -> remote
-            else -> local
+            remote.updatedAt > local.updatedAt -> remote.withNewerDetailsFrom(local)
+            else -> local.withNewerDetailsFrom(remote)
         }
     }
 

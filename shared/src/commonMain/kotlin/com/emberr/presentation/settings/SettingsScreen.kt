@@ -20,6 +20,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.Painter
@@ -135,6 +136,7 @@ fun SettingsScreen(
     var showImportExportSheet by remember { mutableStateOf(false) }
 
     val isPaired by syncViewModel.isPaired.collectAsState()
+    val isSelfHostConnected by syncViewModel.isSelfHostConnected.collectAsState()
     val syncStatus by syncViewModel.syncStatus.collectAsState()
     val serverStatus = syncViewModel.serverStatus?.collectAsState()?.value
     val serverUnavailableReason = (serverStatus as? SyncServerStatus.Unavailable)?.reason
@@ -142,6 +144,7 @@ fun SettingsScreen(
     var activePairingData by remember { mutableStateOf<SyncPairingData?>(null) }
     var showScannerDialog by remember { mutableStateOf(false) }
     var showUnpairConfirmation by remember { mutableStateOf(false) }
+    var showRestoreConfirmation by remember { mutableStateOf(false) }
     var syncPortInput by remember { mutableStateOf(syncViewModel.getSyncPort().toString()) }
 
     val autoBackupEnabled by viewModel.autoBackupEnabled.collectAsState()
@@ -239,6 +242,7 @@ fun SettingsScreen(
             SettingsCategory(title = "Sync", icon = Res.drawable.folder_sync) {
                 SyncSettingsSection(
                     isPaired = isPaired,
+                    isSelfHostConnected = isSelfHostConnected,
                     syncStatus = syncStatus,
                     serverUnavailableReason = serverUnavailableReason,
                     syncPortInput = syncPortInput,
@@ -402,7 +406,7 @@ fun SettingsScreen(
                             text = "Import",
                             onClick = {
                                 showImportExportSheet = false
-                                onImportClick()
+                                showRestoreConfirmation = true
                             },
                             modifier = Modifier.weight(1f)
                         )
@@ -770,6 +774,37 @@ fun SettingsScreen(
             }
         }
     }
+
+    if (showRestoreConfirmation) {
+        EmberrAlertDialog(
+            onDismissRequest = { showRestoreConfirmation = false },
+            title = "Replace Everything?"
+        ) {
+            Text(
+                text = "Restoring replaces everything on this device with the backup. Anything created after the backup " +
+                        "will be removed from this device. A copy of your current data is saved first. If you sync, " +
+                        "newer changes from your other devices will come back.",
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f)
+            )
+            Spacer(Modifier.height(20.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                EmberrButtonSecondary(
+                    text = "Cancel",
+                    onClick = { showRestoreConfirmation = false },
+                    modifier = Modifier.weight(1f)
+                )
+                EmberrButtonPrimary(
+                    text = "Choose Backup",
+                    onClick = {
+                        showRestoreConfirmation = false
+                        onImportClick()
+                    },
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+    }
 }
 
 @Composable
@@ -980,6 +1015,7 @@ private fun DataSettingsSection(
 @Composable
 private fun SyncSettingsSection(
     isPaired: Boolean,
+    isSelfHostConnected: Boolean,
     syncStatus: String,
     serverUnavailableReason: String?,
     syncPortInput: String,
@@ -994,8 +1030,12 @@ private fun SyncSettingsSection(
         SettingsActionRow(
             icon = painterResource(Res.drawable.refresh_cw),
             title = "Self-Host",
+            isEnabled = !isPaired,
             onClick = onOpenSelfHostSetup
         )
+        if (isPaired) {
+            SettingsFootnote(text = "Unpair LAN Sync to use Self-Host.")
+        }
     }
 
     SettingsGroup(title = "LAN Sync") {
@@ -1055,6 +1095,7 @@ private fun SyncSettingsSection(
                 SettingsActionRow(
                     icon = painterResource(Res.drawable.qr_code),
                     title = "Pair Mobile Device",
+                    isEnabled = !isSelfHostConnected,
                     onClick = onPairMobileDevice
                 )
             }
@@ -1063,9 +1104,14 @@ private fun SyncSettingsSection(
                 SettingsActionRow(
                     icon = painterResource(Res.drawable.scan_line),
                     title = "Pair with Desktop",
+                    isEnabled = !isSelfHostConnected,
                     onClick = onPairWithDesktop
                 )
             }
+        }
+
+        if (!isPaired && isSelfHostConnected) {
+            SettingsFootnote(text = "Disconnect Self-Host to use LAN Sync.")
         }
     }
 }
@@ -1506,6 +1552,7 @@ fun SettingsActionRow(
     title: String,
     trailingLabel: String? = null,
     isDestructive: Boolean = false,
+    isEnabled: Boolean = true,
     onClick: () -> Unit
 ) {
     val titleColor = if (isDestructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
@@ -1513,7 +1560,8 @@ fun SettingsActionRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onClick() }
+            .alpha(if (isEnabled) 1f else 0.38f)
+            .clickable(enabled = isEnabled) { onClick() }
             .padding(horizontal = 14.dp, vertical = 17.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {

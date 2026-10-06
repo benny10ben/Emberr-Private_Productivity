@@ -7,6 +7,7 @@ import com.emberr.domain.selfhost.sync.ForegroundSyncPoller
 import com.emberr.domain.selfhost.crypto.KeyDerivationManager
 import com.emberr.domain.selfhost.crypto.SecureSyncKeyStorage
 import com.emberr.domain.selfhost.webdav.SelfHostServerCredentials
+import com.emberr.domain.selfhost.sync.SelfHostConnectionState
 import com.emberr.domain.selfhost.sync.SelfHostSyncEngine
 import com.emberr.domain.selfhost.sync.SelfHostSyncResult
 import com.emberr.domain.selfhost.sync.SelfHostSyncLog
@@ -92,7 +93,8 @@ class SelfHostSetupViewModel(
     private val selfHostSyncEngine: SelfHostSyncEngine,
     private val selfHostSyncScheduler: SelfHostSyncScheduler,
     private val settingsManager: SettingsManager,
-    private val foregroundSyncPoller: ForegroundSyncPoller
+    private val foregroundSyncPoller: ForegroundSyncPoller,
+    private val selfHostConnectionState: SelfHostConnectionState
 ) : ViewModel() {
 
     private val _screenState = MutableStateFlow<SelfHostScreenState>(SelfHostScreenState.Checking)
@@ -366,6 +368,8 @@ class SelfHostSetupViewModel(
                 return@launch
             }
 
+            selfHostConnectionState.markConnected()
+
             when (val result = selfHostSyncEngine.runBaselineSync()) {
                 is SelfHostSyncResult.Success -> {
                     _screenState.value = SelfHostScreenState.Connected(
@@ -415,6 +419,7 @@ class SelfHostSetupViewModel(
         viewModelScope.launch {
             updateConnected { it.copy(isDisconnecting = true) }
 
+            foregroundSyncPoller.stop()
             try {
                 selfHostSyncScheduler.cancelAll()
             } catch (cause: Exception) {
@@ -422,7 +427,12 @@ class SelfHostSetupViewModel(
             }
 
             secureSyncKeyStorage.clearAll()
-            settingsManager.saveSelfHostLastSyncTimestamp(0L)
+            try {
+                selfHostSyncEngine.forgetServerSyncProgress()
+            } catch (cause: Exception) {
+                SelfHostSyncLog.e("ViewModel: failed to forget self-host sync progress during disconnect", cause)
+            }
+            selfHostConnectionState.markDisconnected()
 
             _screenState.value = SelfHostScreenState.Unconfigured(freshFormState())
         }

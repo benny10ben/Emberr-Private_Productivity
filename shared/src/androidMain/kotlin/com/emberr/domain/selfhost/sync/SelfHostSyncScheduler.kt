@@ -23,7 +23,6 @@ import com.emberr.presentation.shared.editor.ActiveEditorRegistry
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -39,7 +38,8 @@ import kotlin.time.Duration.Companion.seconds
 actual class SelfHostSyncScheduler(
     private val context: Context,
     private val selfHostSyncEngine: SelfHostSyncEngine,
-    private val foregroundSyncPoller: ForegroundSyncPoller
+    private val foregroundSyncPoller: ForegroundSyncPoller,
+    private val selfHostConnectionState: SelfHostConnectionState
 ) {
 
     private val _isSyncActive = MutableStateFlow(false)
@@ -68,6 +68,7 @@ actual class SelfHostSyncScheduler(
 
     private val appLifecycleObserver = object : DefaultLifecycleObserver {
         override fun onStart(owner: LifecycleOwner) {
+            if (!selfHostConnectionState.isConnected.value) return
             SelfHostSyncLog.d("Scheduler: app foregrounded, starting poller and running an immediate baseline sync")
             foregroundSyncPoller.start()
             schedulerScope.launch {
@@ -92,6 +93,7 @@ actual class SelfHostSyncScheduler(
                 SelfHostSyncLog.e("Scheduler: synchronous flush-before-background failed", cause)
             }
 
+            if (!selfHostConnectionState.isConnected.value) return
             SelfHostSyncLog.d("Scheduler: handing the background push off to WorkManager, no in-process race")
             scheduleDeferredSyncAfterAppClose()
         }
@@ -108,6 +110,7 @@ actual class SelfHostSyncScheduler(
         AutoSyncTrigger.syncRequests
             .debounce(5.seconds)
             .onEach {
+                if (!selfHostConnectionState.isConnected.value) return@onEach
                 SelfHostSyncLog.d("Scheduler: 5s idle debounce fired, pushing text then media")
                 selfHostSyncEngine.runSync()
                 selfHostSyncEngine.syncMedia()
@@ -218,14 +221,7 @@ actual class SelfHostSyncScheduler(
             cancelUniqueWork(WORK_NAME_MEDIA)
             cancelUniqueWork(WORK_NAME_MANUAL)
         }
-        mainHandler.post {
-            WorkManager.getInstance(context)
-                .getWorkInfosForUniqueWorkLiveData(WORK_NAME_MANUAL)
-                .removeObserver(manualSyncObserver)
-        }
         foregroundSyncPoller.stop()
-        schedulerScope.cancel()
-        ProcessLifecycleOwner.get().lifecycle.removeObserver(appLifecycleObserver)
     }
 
     private fun anyNetworkConstraints(): Constraints =
