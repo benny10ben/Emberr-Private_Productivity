@@ -309,75 +309,31 @@ class SyncRepositoryImpl(
                                         pendingMediaContent = remoteContent
                                         pendingCoverImagePath = remoteMeta.coverImagePath
                                     }
-                                } else if (envelope.isDeleted && envelope.updatedAt > localMeta.updatedAt) {
-                                    val trashedMeta = remoteMeta.copy(
-                                        trashedAt = System.currentTimeMillis(),
-                                        selfHostSyncedAt = localMeta.selfHostSyncedAt,
-                                        kind = localMeta.kind
-                                    )
-                                    repository.saveNote(
-                                        trashedMeta,
-                                        remoteContent,
-                                        stampUpdatedAt = false
-                                    )
-
-                                    val savedTrashedMeta = trashedMeta.copy(
-                                        spaceId = repository.getNoteById(trashedMeta.noteId)?.spaceId
-                                            ?: localMeta.spaceId
-                                    )
-
-                                    // EXPLICIT AI INDEXING CALL
-                                    repository.indexNote(savedTrashedMeta, remoteContent)
-                                    adoptRemoteEmbeddingsIfNeeded(
-                                        savedTrashedMeta.noteId, savedTrashedMeta.spaceId, localMeta.updatedAt, envelope.updatedAt,
-                                        envelope.embeddedBlocksJson, syncKey
-                                    )
-
-                                    SyncEventBus.emitSyncCompleted(envelope.entityId, savedTrashedMeta.spaceId)
-                                } else if (!envelope.isDeleted) {
+                                } else {
                                     val localContent = repository.getNoteContent(envelope.entityId)
-                                    val mergedContent = NoteMergeHelper.mergeNoteContent(
+                                    val mergedNote = IncomingNoteMerge.merge(
+                                        localMeta = localMeta,
                                         localContent = localContent,
-                                        localUpdatedAt = localMeta.updatedAt,
+                                        remoteMeta = remoteMeta,
                                         remoteContent = remoteContent,
                                         remoteUpdatedAt = envelope.updatedAt
                                     )
-                                    pendingMediaContent = mergedContent
+                                    pendingMediaContent = mergedNote.content
                                     pendingCoverImagePath = remoteMeta.coverImagePath
-                                    val contentChanged = mergedContent != localContent
-                                    // Checks for metadata differences ignoring non-sync fields like filePath.
-                                    val metadataChanged = localMeta.copy(
-                                        updatedAt = remoteMeta.updatedAt,
-                                        filePath = remoteMeta.filePath,
-                                        selfHostSyncedAt = remoteMeta.selfHostSyncedAt,
-                                        kind = remoteMeta.kind
-                                    ) != remoteMeta
-                                    if (contentChanged || metadataChanged) {
-                                        val resolvedUpdatedAt =
-                                            maxOf(localMeta.updatedAt, envelope.updatedAt)
-                                        val winningMeta =
-                                            if (envelope.updatedAt > localMeta.updatedAt) {
-                                                remoteMeta.copy(
-                                                    updatedAt = resolvedUpdatedAt,
-                                                    selfHostSyncedAt = localMeta.selfHostSyncedAt,
-                                                    kind = localMeta.kind
-                                                )
-                                            } else {
-                                                localMeta.copy(updatedAt = resolvedUpdatedAt)
-                                            }
+                                    if (mergedNote.hasChanges) {
                                         repository.saveNote(
-                                            winningMeta,
-                                            mergedContent,
+                                            mergedNote.metadata,
+                                            mergedNote.content,
                                             stampUpdatedAt = false
                                         )
 
-                                        val savedMeta = winningMeta.copy(
-                                            spaceId = repository.getNoteById(winningMeta.noteId)?.spaceId
-                                                ?: winningMeta.spaceId
+                                        val savedMeta = mergedNote.metadata.copy(
+                                            spaceId = repository.getNoteById(mergedNote.metadata.noteId)?.spaceId
+                                                ?: mergedNote.metadata.spaceId
                                         )
 
                                         // EXPLICIT AI INDEXING CALL
-                                        repository.indexNote(savedMeta, mergedContent)
+                                        repository.indexNote(savedMeta, mergedNote.content)
                                         adoptRemoteEmbeddingsIfNeeded(
                                             savedMeta.noteId, savedMeta.spaceId, localMeta.updatedAt, envelope.updatedAt,
                                             envelope.embeddedBlocksJson, syncKey
