@@ -286,6 +286,14 @@ abstract class BaseEditorViewModel(
     protected fun isWithinLocalMutationCooldown(): Boolean =
         System.currentTimeMillis() - lastLocalMutationTime < LOCAL_MUTATION_COOLDOWN_MS
 
+    protected val editorDiskReconciler = EditorDiskReconciler()
+
+    init {
+        viewModelScope.launch {
+            _blocks.collect { blocks -> editorDiskReconciler.rememberBlocksShown(blocks) }
+        }
+    }
+
     protected var isAiIndexDirty = false
 
     open fun scheduleAutosave() {

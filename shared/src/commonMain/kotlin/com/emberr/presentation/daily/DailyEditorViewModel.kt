@@ -458,26 +458,18 @@ class DailyEditorViewModel(
 
     private suspend fun reconcileWithDisk(dateString: String, snapshot: List<NoteBlock>): List<NoteBlock> {
         val diskBlocks = repository.getDailyNote(dateString)?.blocks ?: emptyList()
-        val diskById = diskBlocks.associateBy { it.id }
-        val snapshotIds = snapshot.mapTo(HashSet()) { it.id }
+        val liveDiskBlocks = diskBlocks.filter { !it.isDeleted }
+        if (isNoteActuallyEmpty(liveDiskBlocks)) editorDiskReconciler.rememberBlocksShown(liveDiskBlocks)
 
-        val reconciledSnapshot = snapshot.map { block ->
-            val diskBlock = diskById[block.id]
-            // A pinned block is deliberately tombstoned in this date's own storage (it now lives in
-            // "global_pinned" instead) - that self-inflicted tombstone must never be adopted here, or
-            // every pin gets undone the moment the user navigates away and this date's disk state is
-            // reconciled against, since the tombstone always looks like an external deletion otherwise.
-            // The updatedAt check covers the mirror case: right after unpinning, disk may still hold the
-            // OLDER tombstone from when the block was originally pinned (the autosave that would replace
-            // it with a fresh, live row hasn't landed yet) - that stale tombstone must lose to the fresher
-            // in-memory unpin, or unpinning silently undoes itself the moment the user navigates away too.
-            if (diskBlock != null && diskBlock.isDeleted && !block.isDeleted && !block.isPinned && diskBlock.updatedAt > block.updatedAt) diskBlock else block
-        }
-
-        if (isWithinLocalMutationCooldown()) return reconciledSnapshot
-
-        val externallyAdded = diskBlocks.filter { it.id !in snapshotIds }
-        return if (externallyAdded.isEmpty()) reconciledSnapshot else reconciledSnapshot + externallyAdded
+        // A pinned block is deliberately tombstoned in this date's own storage (it now lives in
+        // "global_pinned" instead) - that self-inflicted tombstone must never be adopted here, or
+        // every pin gets undone the moment the user navigates away and this date's disk state is
+        // reconciled against, since the tombstone always looks like an external deletion otherwise.
+        // The updatedAt check covers the mirror case: right after unpinning, disk may still hold the
+        // OLDER tombstone from when the block was originally pinned (the autosave that would replace
+        // it with a fresh, live row hasn't landed yet) - that stale tombstone must lose to the fresher
+        // in-memory unpin, or unpinning silently undoes itself the moment the user navigates away too.
+        return editorDiskReconciler.reconcile(snapshot, diskBlocks, keepsEditorCopy = { it.isPinned })
     }
 
     private suspend fun theDayAlreadyHoldsThis(dateString: String, blocksToSave: List<NoteBlock>): Boolean {
@@ -554,6 +546,7 @@ class DailyEditorViewModel(
     fun loadDailyNote(dateString: String) {
         if (currentDateString == dateString) return
         currentDateString = dateString
+        editorDiskReconciler.forgetBlocksShown()
         loadedSpaceId = activeSpaceStore.currentActiveSpaceId()
         _loadedDateString.value = null
 

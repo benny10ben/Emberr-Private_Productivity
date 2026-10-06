@@ -121,18 +121,7 @@ class NoteEditorViewModel(
 
     private suspend fun reconcileWithDisk(noteId: String, snapshot: List<NoteBlock>): List<NoteBlock> {
         val diskBlocks = repository.getNoteContent(noteId)?.blocks ?: emptyList()
-        val diskById = diskBlocks.associateBy { it.id }
-        val snapshotIds = snapshot.mapTo(HashSet()) { it.id }
-
-        val reconciledSnapshot = snapshot.map { block ->
-            val diskBlock = diskById[block.id]
-            if (diskBlock != null && diskBlock.isDeleted && !block.isDeleted && diskBlock.updatedAt > block.updatedAt) diskBlock else block
-        }
-
-        if (isWithinLocalMutationCooldown()) return reconciledSnapshot
-
-        val externallyAdded = diskBlocks.filter { it.id !in snapshotIds }
-        return if (externallyAdded.isEmpty()) reconciledSnapshot else reconciledSnapshot + externallyAdded
+        return editorDiskReconciler.reconcile(snapshot, diskBlocks)
     }
 
     private suspend fun theNoteAlreadyHoldsThis(
@@ -258,6 +247,7 @@ class NoteEditorViewModel(
                         }
                     }
                 }
+                editorDiskReconciler.forgetBlocksShown()
 
                 currentMetadata = repository.getNoteById(noteId)
 
