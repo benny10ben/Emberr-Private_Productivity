@@ -1,10 +1,10 @@
 package com.emberr.data.local.room
 
-import androidx.room.AutoMigration
 import androidx.room.ConstructedBy
 import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.RoomDatabaseConstructor
+import com.emberr.data.local.room.dao.BackupRestoreDao
 import com.emberr.data.local.room.dao.BlockDao
 import com.emberr.data.local.room.dao.BookmarkBlockDao
 import com.emberr.data.local.room.dao.CalendarEventExceptionDao
@@ -67,11 +67,8 @@ import com.emberr.data.local.room.entity.UnappliedSyncChangeEntity
         CanvasStrokeEntity::class,
         UnappliedSyncChangeEntity::class
     ],
-    version = 2,
-    exportSchema = true,
-    autoMigrations = [
-        AutoMigration(from = 1, to = 2)
-    ]
+    version = 1,
+    exportSchema = true
 )
 @ConstructedBy(AppDatabaseConstructor::class)
 abstract class AppDatabase : RoomDatabase() {
@@ -93,6 +90,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun mediaReferenceDao(): MediaReferenceDao
     abstract fun canvasDao(): CanvasDao
     abstract fun unappliedSyncChangeDao(): UnappliedSyncChangeDao
+    abstract fun backupRestoreDao(): BackupRestoreDao
 }
 
 @Suppress("NO_ACTUAL_FOR_EXPECT")

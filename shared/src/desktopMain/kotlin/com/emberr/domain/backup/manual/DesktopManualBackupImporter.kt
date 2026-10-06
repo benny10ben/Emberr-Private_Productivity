@@ -1,36 +1,32 @@
 package com.emberr.domain.backup.manual
 
-import com.emberr.data.local.prefs.SettingsManager
 import com.emberr.data.local.room.AppDatabase
 import com.emberr.data.local.room.getDatabaseBuilder
 import com.emberr.data.local.room.getRoomDatabase
 import com.emberr.domain.backup.BackupFormat
-import com.emberr.domain.backup.automatic.BackupRescheduler
-import com.emberr.domain.repository.NoteRepository
-import com.emberr.domain.space.SpaceRepository
-import com.emberr.domain.util.sync.SyncEventBus
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.first
 import java.io.File
 import java.util.zip.ZipInputStream
-import kotlin.time.Duration.Companion.milliseconds
 
 class DesktopManualBackupImporter(
-    private val settingsManager: SettingsManager,
-    private val backupRepository: BackupRepository,
-    private val noteRepository: NoteRepository,
-    private val spaceRepository: SpaceRepository,
-    private val backupRescheduler: BackupRescheduler
+    private val backupExporter: DesktopManualBackupExporter,
+    private val backupRestorer: BackupRestorer
 ) {
 
     suspend fun importFromZip(sourceFile: File) {
+        val emberrDirectory = File(System.getProperty("user.home"), ".emberr")
+        val mediaDir = File(emberrDirectory, "media")
+        val restoredMediaDir = File(emberrDirectory, "restore-media-temp")
         val tempDbFile = File(System.getProperty("java.io.tmpdir"), "emberr_manual_import_temp_${System.nanoTime()}.db")
         if (tempDbFile.exists()) tempDbFile.delete()
-        val mediaDir = File(System.getProperty("user.home"), ".emberr/media")
         var settingsText: String? = null
         var tempDatabase: AppDatabase? = null
 
+        replaceSafetyCopy(File(emberrDirectory, "backups")) { newCopy -> backupExporter.exportToZip(newCopy) }
+
         try {
+            restoredMediaDir.deleteRecursively()
+            restoredMediaDir.mkdirs()
+
             sourceFile.inputStream().use { inputStream ->
                 ZipInputStream(inputStream).use { zipIn ->
                     var entry = zipIn.nextEntry
@@ -43,11 +39,8 @@ class DesktopManualBackupImporter(
                                 settingsText = zipIn.readBytes().decodeToString()
                             }
                             entry.name.startsWith(BackupFormat.MEDIA_ENTRY_PREFIX) -> {
-                                val fileName = entry.name.substringAfter(BackupFormat.MEDIA_ENTRY_PREFIX)
-                                if (fileName.isNotEmpty()) {
-                                    val mediaFile = File(mediaDir, fileName)
-                                    mediaFile.parentFile?.mkdirs()
-                                    mediaFile.outputStream().use { output -> zipIn.copyTo(output) }
+                                safeMediaFileName(entry.name, BackupFormat.MEDIA_ENTRY_PREFIX)?.let { fileName ->
+                                    File(restoredMediaDir, fileName).outputStream().use { output -> zipIn.copyTo(output) }
                                 }
                             }
                         }
@@ -58,11 +51,10 @@ class DesktopManualBackupImporter(
             }
 
             check(tempDbFile.exists() && tempDbFile.length() > 0L) { "Backup file has no ${BackupFormat.DATABASE_ENTRY_NAME}" }
+            checkBackupDatabaseCanBeRestored(tempDbFile)
 
-            val builder = getDatabaseBuilder(tempDbFile.absolutePath)
-            tempDatabase = getRoomDatabase(builder)
-
-            val importedRepository = BackupRepositoryImpl(
+            tempDatabase = getRoomDatabase(getDatabaseBuilder(tempDbFile.absolutePath))
+            val backupData = BackupRepositoryImpl(
                 noteDao = tempDatabase.noteDao(),
                 folderDao = tempDatabase.folderDao(),
                 blockDao = tempDatabase.blockDao(),
@@ -73,35 +65,19 @@ class DesktopManualBackupImporter(
                 imageBlockDao = tempDatabase.imageBlockDao(),
                 documentBlockDao = tempDatabase.documentBlockDao(),
                 bookmarkBlockDao = tempDatabase.bookmarkBlockDao(),
-                mediaReferenceDao = tempDatabase.mediaReferenceDao(),
                 spaceDao = tempDatabase.spaceDao(),
                 chatSessionDao = tempDatabase.chatSessionDao(),
                 calendarEventExceptionDao = tempDatabase.calendarEventExceptionDao(),
                 selfHostDeletedNoteDao = tempDatabase.selfHostDeletedNoteDao(),
-                canvasDao = tempDatabase.canvasDao(),
-                settingsManager = settingsManager
-            )
-            val backupData = importedRepository.createBackupData()
-            backupRepository.restoreBackup(backupData)
+                canvasDao = tempDatabase.canvasDao()
+            ).createBackupData()
 
-            settingsText?.let { text ->
-                BackupFormat.applyPreferencesText(settingsManager, text)
-                if (settingsManager.autoBackupEnabledFlow.first()) {
-                    backupRescheduler.rescheduleNow(
-                        frequency = settingsManager.backupFrequencyFlow.first(),
-                        time = settingsManager.backupTimeFlow.first(),
-                        day = settingsManager.backupDayFlow.first()
-                    )
-                }
-            }
-
-            spaceRepository.moveActiveSpaceIfItNoLongerExists()
-            noteRepository.clearCaches()
-            delay(100.milliseconds)
-            SyncEventBus.emitSyncCompleted("import_complete")
+            moveRestoredMediaInto(mediaDir, restoredMediaDir)
+            backupRestorer.replaceAllDataWith(backupData, settingsText)
         } finally {
             tempDatabase?.close()
             tempDbFile.delete()
+            restoredMediaDir.deleteRecursively()
         }
     }
 }

@@ -115,7 +115,12 @@ fun handleImportBackup(window: Frame) {
         runBlocking { importer.importFromZip(sourceFile) }
 
         SwingUtilities.invokeLater {
-            JOptionPane.showMessageDialog(window, "Backup restored successfully!", "Success", JOptionPane.INFORMATION_MESSAGE)
+            JOptionPane.showMessageDialog(
+                window,
+                "Backup restored successfully!\n\nYour previous data was saved to ~/.emberr/backups/before-restore.emberr",
+                "Success",
+                JOptionPane.INFORMATION_MESSAGE
+            )
         }
     } catch (e: Throwable) {
         e.printStackTrace()
