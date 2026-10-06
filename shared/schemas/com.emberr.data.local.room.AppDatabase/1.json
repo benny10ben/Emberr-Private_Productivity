@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "585ec2de5cce05feb46e0ffc56d3e0a8",
+    "identityHash": "0e0d118c520a31f24506561c42a93f1d",
     "entities": [
       {
         "tableName": "spaces",
@@ -54,7 +54,7 @@
       },
       {
         "tableName": "notes_metadata",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`noteId` TEXT NOT NULL, `title` TEXT NOT NULL, `icon` TEXT, `folderId` TEXT, `isDaily` INTEGER NOT NULL, `dateString` TEXT, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `filePath` TEXT NOT NULL, `snippet` TEXT NOT NULL, `isFavorite` INTEGER NOT NULL, `coverImagePath` TEXT, `trashedAt` INTEGER, `isSubNote` INTEGER NOT NULL, `showWordCount` INTEGER NOT NULL, `sortOrder` INTEGER NOT NULL, `isTemplate` INTEGER NOT NULL, `selfHostSyncedAt` INTEGER NOT NULL, `spaceId` TEXT NOT NULL, `kind` TEXT NOT NULL DEFAULT 'NOTE', `databaseId` TEXT, `isDatabaseTemplate` INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(`noteId`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`noteId` TEXT NOT NULL, `title` TEXT NOT NULL, `icon` TEXT, `folderId` TEXT, `isDaily` INTEGER NOT NULL, `dateString` TEXT, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `filePath` TEXT NOT NULL, `snippet` TEXT NOT NULL, `isFavorite` INTEGER NOT NULL, `coverImagePath` TEXT, `trashedAt` INTEGER, `isSubNote` INTEGER NOT NULL, `showWordCount` INTEGER NOT NULL, `sortOrder` INTEGER NOT NULL, `isTemplate` INTEGER NOT NULL, `selfHostSyncedAt` INTEGER NOT NULL, `spaceId` TEXT NOT NULL, `kind` TEXT NOT NULL DEFAULT 'NOTE', `databaseId` TEXT, `isDatabaseTemplate` INTEGER NOT NULL DEFAULT 0, `titleUpdatedAt` INTEGER NOT NULL, `folderUpdatedAt` INTEGER NOT NULL, `iconUpdatedAt` INTEGER NOT NULL, `favoriteUpdatedAt` INTEGER NOT NULL, `coverImageUpdatedAt` INTEGER NOT NULL, `wordCountUpdatedAt` INTEGER NOT NULL, PRIMARY KEY(`noteId`))",
         "fields": [
           {
             "fieldPath": "noteId",
@@ -183,6 +183,42 @@
             "affinity": "INTEGER",
             "notNull": true,
             "defaultValue": "0"
+          },
+          {
+            "fieldPath": "titleUpdatedAt",
+            "columnName": "titleUpdatedAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "folderUpdatedAt",
+            "columnName": "folderUpdatedAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "iconUpdatedAt",
+            "columnName": "iconUpdatedAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "favoriteUpdatedAt",
+            "columnName": "favoriteUpdatedAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "coverImageUpdatedAt",
+            "columnName": "coverImageUpdatedAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "wordCountUpdatedAt",
+            "columnName": "wordCountUpdatedAt",
+            "affinity": "INTEGER",
+            "notNull": true
           }
         ],
         "primaryKey": {
@@ -965,7 +1001,7 @@
       },
       {
         "tableName": "chat_sessions",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `title` TEXT NOT NULL, `messagesJson` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `isDeleted` INTEGER NOT NULL, `spaceId` TEXT NOT NULL, PRIMARY KEY(`id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `title` TEXT NOT NULL, `messagesJson` TEXT NOT NULL, `removedMessageIdsJson` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `isDeleted` INTEGER NOT NULL, `spaceId` TEXT NOT NULL, PRIMARY KEY(`id`))",
         "fields": [
           {
             "fieldPath": "id",
@@ -982,6 +1018,12 @@
           {
             "fieldPath": "messagesJson",
             "columnName": "messagesJson",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "removedMessageIdsJson",
+            "columnName": "removedMessageIdsJson",
             "affinity": "TEXT",
             "notNull": true
           },
@@ -1506,11 +1548,66 @@
             ]
           }
         ]
+      },
+      {
+        "tableName": "unapplied_sync_changes",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`entityType` TEXT NOT NULL, `entityId` TEXT NOT NULL, `envelopeJson` TEXT NOT NULL, `failedOnAppVersion` TEXT NOT NULL, `failedAt` INTEGER NOT NULL, `waitsForAppUpdate` INTEGER NOT NULL, `failedAttempts` INTEGER NOT NULL, PRIMARY KEY(`entityType`, `entityId`))",
+        "fields": [
+          {
+            "fieldPath": "entityType",
+            "columnName": "entityType",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "entityId",
+            "columnName": "entityId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "envelopeJson",
+            "columnName": "envelopeJson",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "failedOnAppVersion",
+            "columnName": "failedOnAppVersion",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "failedAt",
+            "columnName": "failedAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "waitsForAppUpdate",
+            "columnName": "waitsForAppUpdate",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "failedAttempts",
+            "columnName": "failedAttempts",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "entityType",
+            "entityId"
+          ]
+        }
       }
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '585ec2de5cce05feb46e0ffc56d3e0a8')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '0e0d118c520a31f24506561c42a93f1d')"
     ]
   }
 }

@@ -44,6 +44,8 @@ import com.emberr.data.local.room.entity.SelfHostDeletedNoteEntity
 import com.emberr.data.local.room.entity.SpaceEntity
 import com.emberr.data.local.room.entity.UnappliedSyncChangeEntity
 
+const val APP_DATABASE_VERSION = 1
+
 @Database(
     entities = [
         SpaceEntity::class,
@@ -67,7 +69,7 @@ import com.emberr.data.local.room.entity.UnappliedSyncChangeEntity
         CanvasStrokeEntity::class,
         UnappliedSyncChangeEntity::class
     ],
-    version = 1,
+    version = APP_DATABASE_VERSION,
     exportSchema = true
 )
 @ConstructedBy(AppDatabaseConstructor::class)
