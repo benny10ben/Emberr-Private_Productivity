@@ -83,19 +83,6 @@ class EditorDiskReconcilerTest {
     }
 
     @Test
-    fun aBlockTheCallerKeepsIsNotReplacedEvenByANewerDiskCopy() {
-        val reconciler = EditorDiskReconciler()
-
-        val result = reconciler.reconcile(
-            editorBlocks = listOf(text("pinned", "lives in global_pinned", updatedAt = 100L)),
-            diskBlocks = listOf(text("pinned", "lives in global_pinned", updatedAt = 200L, isDeleted = true)),
-            keepsEditorCopy = { true }
-        )
-
-        assertEquals(false, result.single().isDeleted)
-    }
-
-    @Test
     fun afterForgettingABlockShownInAnotherNoteCountsAsAddedOutsideTheEditor() {
         val reconciler = EditorDiskReconciler()
         reconciler.rememberBlocksShown(listOf(text("moved", "was in the previous note")))

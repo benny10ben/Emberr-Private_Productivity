@@ -18,18 +18,13 @@ class EditorDiskReconciler {
         blockIdsShownInEditor.value = emptySet()
     }
 
-    fun reconcile(
-        editorBlocks: List<NoteBlock>,
-        diskBlocks: List<NoteBlock>,
-        keepsEditorCopy: (NoteBlock) -> Boolean = { false }
-    ): List<NoteBlock> {
+    fun reconcile(editorBlocks: List<NoteBlock>, diskBlocks: List<NoteBlock>): List<NoteBlock> {
         rememberBlocksShown(editorBlocks)
         val diskBlocksById = diskBlocks.associateBy { it.id }
 
         val editorBlocksWithNewerDiskCopies = editorBlocks.map { editorBlock ->
             val diskBlock = diskBlocksById[editorBlock.id]
-            val diskCopyIsNewer = diskBlock != null && diskBlock.updatedAt > editorBlock.updatedAt
-            if (diskCopyIsNewer && !keepsEditorCopy(editorBlock)) diskBlock else editorBlock
+            if (diskBlock != null && diskBlock.updatedAt > editorBlock.updatedAt) diskBlock else editorBlock
         }
 
         val shownIds = blockIdsShownInEditor.value
