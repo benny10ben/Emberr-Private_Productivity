@@ -56,5 +56,6 @@ class NoteBlockDeepCopyTest {
         is DatabaseBlock -> copy(id = other.id)
         is SolidDividerBlock -> copy(id = other.id)
         is ThreeDotDividerBlock -> copy(id = other.id)
+        is UnknownBlock -> copy(id = other.id)
     }
 }

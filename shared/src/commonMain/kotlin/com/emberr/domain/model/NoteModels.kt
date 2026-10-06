@@ -21,7 +21,7 @@ import java.util.UUID
 @Serializable
 data class NoteContent(
     val version: Int = 1,
-    val blocks: List<NoteBlock>
+    val blocks: List<@Serializable(with = NoteBlockSerializer::class) NoteBlock>
 )
 
 /**
@@ -637,6 +637,7 @@ fun NoteBlock.markDeleted(): NoteBlock = when (this) {
     is QuoteBlock -> copy(isDeleted = true, updatedAt = System.currentTimeMillis())
     is SolidDividerBlock -> copy(isDeleted = true, updatedAt = System.currentTimeMillis())
     is ThreeDotDividerBlock -> copy(isDeleted = true, updatedAt = System.currentTimeMillis())
+    is UnknownBlock -> copy(isDeleted = true, updatedAt = System.currentTimeMillis())
 }
 
 fun NoteBlock.textAlignmentOrNull(): TextAlignment? = when (this) {
@@ -727,6 +728,7 @@ fun NoteBlock.withPin(pinned: Boolean, now: Long): NoteBlock = when (this) {
     is QuoteBlock -> copy(isPinned = pinned, updatedAt = now)
     is SolidDividerBlock -> copy(isPinned = pinned, updatedAt = now)
     is ThreeDotDividerBlock -> copy(isPinned = pinned, updatedAt = now)
+    is UnknownBlock -> copy(isPinned = pinned, updatedAt = now)
 }
 
 fun NoteBlock.withUpdatedAt(now: Long): NoteBlock = when (this) {
@@ -749,6 +751,7 @@ fun NoteBlock.withUpdatedAt(now: Long): NoteBlock = when (this) {
     is QuoteBlock -> copy(updatedAt = now)
     is SolidDividerBlock -> copy(updatedAt = now)
     is ThreeDotDividerBlock -> copy(updatedAt = now)
+    is UnknownBlock -> copy(updatedAt = now)
 }
 
 fun NoteBlock.withDeleted(deleted: Boolean, now: Long): NoteBlock = when (this) {
@@ -771,6 +774,7 @@ fun NoteBlock.withDeleted(deleted: Boolean, now: Long): NoteBlock = when (this) 
     is QuoteBlock -> copy(isDeleted = deleted, updatedAt = now)
     is SolidDividerBlock -> copy(isDeleted = deleted, updatedAt = now)
     is ThreeDotDividerBlock -> copy(isDeleted = deleted, updatedAt = now)
+    is UnknownBlock -> copy(isDeleted = deleted, updatedAt = now)
 }
 
 // Rebuilds an entire note's content with fresh ids on every block - used when a note is
@@ -802,5 +806,6 @@ fun NoteBlock.withId(newId: String): NoteBlock {
         is DatabaseBlock -> copy(id = newId)
         is SolidDividerBlock -> copy(id = newId)
         is ThreeDotDividerBlock -> copy(id = newId)
+        is UnknownBlock -> copy(id = newId)
     }
 }

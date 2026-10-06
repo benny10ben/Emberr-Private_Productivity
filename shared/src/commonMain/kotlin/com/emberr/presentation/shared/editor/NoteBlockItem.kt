@@ -95,6 +95,7 @@ import com.emberr.domain.model.TableBlock
 import com.emberr.domain.model.InlineSpan
 import com.emberr.domain.model.TextAlignment
 import com.emberr.domain.model.ThreeDotDividerBlock
+import com.emberr.domain.model.UnknownBlock
 import com.emberr.domain.model.PropertyBlock
 import com.emberr.domain.model.highlightColorNameOrNull
 import com.emberr.domain.model.inlineSpansOrEmpty
@@ -112,6 +113,7 @@ import com.emberr.presentation.shared.editor.blockViews.CanvasBlockView
 import com.emberr.presentation.shared.editor.blockViews.LinkedNoteBlockView
 import com.emberr.presentation.shared.editor.blockViews.property.PropertyBlockView
 import com.emberr.presentation.shared.editor.blockViews.TableBlockView
+import com.emberr.presentation.shared.editor.blockViews.UnknownBlockView
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.input.TransformedText
 import androidx.compose.ui.text.input.OffsetMapping
@@ -233,7 +235,7 @@ fun NoteBlockItem(
         }
     }
 
-    val isTextBased = block !is BookmarkBlock && block !is ImageBlock && block !is DocumentBlock && block !is TableBlock && block !is VoiceBlock && block !is SolidDividerBlock && block !is ThreeDotDividerBlock && block !is LinkedNoteBlock && block !is CanvasBlock && block !is PropertyBlock && block !is DatabaseBlock
+    val isTextBased = block !is BookmarkBlock && block !is ImageBlock && block !is DocumentBlock && block !is TableBlock && block !is VoiceBlock && block !is SolidDividerBlock && block !is ThreeDotDividerBlock && block !is LinkedNoteBlock && block !is CanvasBlock && block !is PropertyBlock && block !is DatabaseBlock && block !is UnknownBlock
     LaunchedEffect(focusRequest?.nonce) {
         if (focusRequest == null || focusRequest.id != block.id) return@LaunchedEffect
 
@@ -921,6 +923,7 @@ fun NoteBlockItem(
                                     Box(Modifier.size(dotSize).clip(CircleShape).background(dotColor))
                                 }
                             }
+                            is UnknownBlock -> UnknownBlockView()
                         }
                     }
                 }

@@ -76,6 +76,7 @@ import com.emberr.domain.model.HeadingBlock
 import com.emberr.domain.model.ImageBlock
 import com.emberr.domain.model.LinkedNoteBlock
 import com.emberr.domain.model.NoteBlock
+import com.emberr.domain.model.NoteBlockSerializer
 import com.emberr.domain.model.NoteContent
 import com.emberr.domain.model.NoteSearchResult
 import com.emberr.domain.model.NumberedListBlock
@@ -344,7 +345,7 @@ class NoteRepositoryImpl(
                         blockId = block.id,
                         noteId = noteId,
                         displayOrder = index,
-                        blockDataJson = jsonFormat.encodeToString(NoteBlock.serializer(), block),
+                        blockDataJson = jsonFormat.encodeToString(NoteBlockSerializer, block),
                         updatedAt = block.updatedAt,
                         isDeleted = block.isDeleted
                     )
@@ -376,7 +377,7 @@ class NoteRepositoryImpl(
 
     private fun decodeBlockOrNull(blockDataJson: String): NoteBlock? =
         try {
-            jsonFormat.decodeFromString<NoteBlock>(blockDataJson)
+            jsonFormat.decodeFromString(NoteBlockSerializer, blockDataJson)
         } catch (_: Exception) {
             null
         }

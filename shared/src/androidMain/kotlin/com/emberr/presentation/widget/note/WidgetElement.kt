@@ -20,6 +20,7 @@ import com.emberr.domain.model.TableBlock
 import com.emberr.domain.model.TextBlock
 import com.emberr.domain.model.ThreeDotDividerBlock
 import com.emberr.domain.model.ToggleBlock
+import com.emberr.domain.model.UnknownBlock
 import com.emberr.domain.model.VoiceBlock
 import com.emberr.domain.model.highlightColorNameOrNull
 import com.emberr.domain.model.inlineSpansOrEmpty
@@ -181,6 +182,8 @@ private fun convertBlockToElements(
 
     is SolidDividerBlock, is ThreeDotDividerBlock ->
         listOf(WidgetElement.DividerLine(key = "${block.id}#0"))
+
+    is UnknownBlock -> textLine(block, "Needs a newer version of Emberr", WidgetTextStyleName.SUBTLE)
 }
 
 private fun textLine(

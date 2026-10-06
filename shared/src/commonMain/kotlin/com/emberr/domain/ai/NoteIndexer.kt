@@ -253,6 +253,7 @@ class NoteIndexer(
         is CanvasBlock -> null
         is PropertyBlock -> block.valueAsText().takeIf { it.isNotBlank() }?.let { "${block.label}: $it" }
         is DatabaseBlock -> block.title.takeIf { it.isNotBlank() }?.let { "Database: $it" }
+        is UnknownBlock -> null
     }
 
     fun deleteNoteFromIndex(noteId: String) {

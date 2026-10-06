@@ -6,6 +6,7 @@ import com.emberr.data.local.room.dao.NoteDao
 import com.emberr.domain.database.withDatabasesAsTables
 import com.emberr.domain.model.LinkedNoteBlock
 import com.emberr.domain.model.NoteBlock
+import com.emberr.domain.model.NoteBlockSerializer
 import com.emberr.domain.repository.NoteRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -57,7 +58,7 @@ class WidgetContentReader(
 
     private fun decodeBlock(blockDataJson: String): NoteBlock? =
         try {
-            blockJson.decodeFromString<NoteBlock>(blockDataJson)
+            blockJson.decodeFromString(NoteBlockSerializer, blockDataJson)
         } catch (cause: Exception) {
             WidgetLog.e("Skipped a block that could not be decoded", cause)
             null

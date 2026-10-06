@@ -30,7 +30,7 @@ import com.emberr.domain.model.BookmarkCategoryOrderBySpace
 import com.emberr.domain.model.FavoriteNoteOrderBySpace
 import com.emberr.domain.repository.BookmarkCategoryOrderStore
 import com.emberr.domain.repository.FavoriteNoteOrderStore
-import com.emberr.domain.model.NoteBlock
+import com.emberr.domain.model.NoteBlockSerializer
 import com.emberr.domain.model.NoteContent
 import com.emberr.domain.media.MediaReferenceIndex
 import com.emberr.domain.repository.NoteRepository
@@ -1024,7 +1024,7 @@ class SelfHostSyncEngine(
             val refreshedContent = NoteContent(
                 blocks = mergedBlocks.sortedBy { it.displayOrder }.mapNotNull { entity ->
                     try {
-                        blockJson.decodeFromString(NoteBlock.serializer(), entity.blockDataJson)
+                        blockJson.decodeFromString(NoteBlockSerializer, entity.blockDataJson)
                     } catch (cause: Exception) {
                         SelfHostSyncLog.e(
                             "SelfHostSyncEngine: could not decode block ${entity.blockId} while refreshing note cache",

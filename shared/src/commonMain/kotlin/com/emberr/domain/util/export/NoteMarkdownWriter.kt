@@ -19,6 +19,7 @@ import com.emberr.domain.model.TableBlock
 import com.emberr.domain.model.TextBlock
 import com.emberr.domain.model.ThreeDotDividerBlock
 import com.emberr.domain.model.ToggleBlock
+import com.emberr.domain.model.UnknownBlock
 import com.emberr.domain.model.VoiceBlock
 import com.emberr.domain.model.highlightColorNameOrNull
 import com.emberr.domain.model.inlineSpansOrEmpty
@@ -126,6 +127,7 @@ object NoteMarkdownWriter {
             is TableBlock -> renderTable(block)
             is SolidDividerBlock -> SOLID_DIVIDER_LINE
             is ThreeDotDividerBlock -> DOT_DIVIDER_LINE
+            is UnknownBlock -> ""
         }
     }
 
