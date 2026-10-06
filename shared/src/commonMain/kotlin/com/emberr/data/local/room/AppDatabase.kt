@@ -1,5 +1,6 @@
 package com.emberr.data.local.room
 
+import androidx.room.AutoMigration
 import androidx.room.ConstructedBy
 import androidx.room.Database
 import androidx.room.RoomDatabase
@@ -21,6 +22,7 @@ import com.emberr.data.local.room.dao.PropertyTagDao
 import com.emberr.data.local.room.dao.SelfHostDeletedApiConfigDao
 import com.emberr.data.local.room.dao.SelfHostDeletedNoteDao
 import com.emberr.data.local.room.dao.SpaceDao
+import com.emberr.data.local.room.dao.UnappliedSyncChangeDao
 import com.emberr.data.local.room.entity.BookmarkBlockEntity
 import com.emberr.data.local.room.entity.CalendarEventExceptionEntity
 import com.emberr.data.local.room.entity.CalendarTaskEntity
@@ -40,6 +42,7 @@ import com.emberr.data.local.room.entity.PropertyTagEntity
 import com.emberr.data.local.room.entity.SelfHostDeletedApiConfigEntity
 import com.emberr.data.local.room.entity.SelfHostDeletedNoteEntity
 import com.emberr.data.local.room.entity.SpaceEntity
+import com.emberr.data.local.room.entity.UnappliedSyncChangeEntity
 
 @Database(
     entities = [
@@ -61,10 +64,14 @@ import com.emberr.data.local.room.entity.SpaceEntity
         MediaReferenceEntity::class,
         CanvasNodeEntity::class,
         CanvasEdgeEntity::class,
-        CanvasStrokeEntity::class
+        CanvasStrokeEntity::class,
+        UnappliedSyncChangeEntity::class
     ],
-    version = 1,
-    exportSchema = true
+    version = 2,
+    exportSchema = true,
+    autoMigrations = [
+        AutoMigration(from = 1, to = 2)
+    ]
 )
 @ConstructedBy(AppDatabaseConstructor::class)
 abstract class AppDatabase : RoomDatabase() {
@@ -85,6 +92,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun selfHostDeletedApiConfigDao(): SelfHostDeletedApiConfigDao
     abstract fun mediaReferenceDao(): MediaReferenceDao
     abstract fun canvasDao(): CanvasDao
+    abstract fun unappliedSyncChangeDao(): UnappliedSyncChangeDao
 }
 
 @Suppress("NO_ACTUAL_FOR_EXPECT")
