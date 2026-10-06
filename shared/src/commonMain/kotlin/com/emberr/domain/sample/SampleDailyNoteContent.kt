@@ -46,7 +46,7 @@ object SampleDailyNoteContent {
         return listOf(
             HeadingBlock(
                 id = "sample_daily_title",
-                text = "Hey, welcome to Emberr",
+                text = "Hey, welcome to Emberr (Beta)",
                 level = 1,
                 updatedAt = createdAt
             ),
