@@ -57,7 +57,14 @@ data class SyncEnvelope(
 data class SyncPayload(
     val changes: List<SyncEnvelope>,
     val serverSnapshotAt: Long? = null,
-    val desktopId: String? = null
+    val desktopId: String? = null,
+    val changesWaitingToRetry: Int = 0
+)
+
+@Serializable
+data class LanMediaRequest(
+    val fileName: String,
+    val startOffset: Long = 0L
 )
 
 @Serializable

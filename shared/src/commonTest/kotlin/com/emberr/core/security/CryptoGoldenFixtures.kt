@@ -19,10 +19,8 @@ object CryptoGoldenFixtures {
 
     const val SIGNING_SECRET = "emberr-pairing-secret"
 
-    const val SIGNED_PATH = "/sync/notes"
-
-    const val SIGNED_TIMESTAMP_MILLIS = 1_700_000_000_000L
+    const val SIGNED_MESSAGE = "emberr golden signed message"
 
     const val EXPECTED_SIGNATURE =
-        "fa540d1eb049a746cf44a3d8c0fc3d03b2418169289c672777a8ac4fa9a374b7"
+        "bacbc7993788c324b133bdcda44541ca1f5f879240cccd14f03fc8f1b6650333"
 }

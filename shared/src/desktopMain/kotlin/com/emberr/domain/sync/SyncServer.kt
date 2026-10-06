@@ -11,12 +11,10 @@ import io.ktor.server.routing.*
 import io.ktor.server.application.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
-import io.ktor.server.plugins.contentnegotiation.*
-import io.ktor.serialization.kotlinx.json.*
 import io.ktor.http.ContentType
+import io.ktor.http.HttpStatusCode
 import io.ktor.utils.io.jvm.javaio.toInputStream
 import kotlinx.serialization.json.Json
-import java.security.MessageDigest
 
 // Tracks active file uploads so GET requests return HTTP 425 (Too Early)
 // when a requested file is currently being uploaded by another device.
@@ -31,54 +29,67 @@ private object InFlightUploadsTracker {
     fun isUploading(fileName: String): Boolean = fileName in uploading
 }
 
-// Parses a standard open-ended "bytes=<start>-" Range header into its start offset. Returns null
-// for a missing/malformed header, which callers treat as "no resume requested, send from byte 0."
-private fun parseRangeStartOffset(rangeHeader: String?): Long? {
-    if (rangeHeader == null) return null
-    val match = Regex("""bytes=(\d+)-""").find(rangeHeader) ?: return null
-    return match.groupValues[1].toLongOrNull()
-}
-
-// Verifies request headers against an HMAC signature to reject expired or tampered requests.
-private fun ApplicationCall.hasValidSyncSignature(settingsManager: SettingsManager, hmacSigner: SyncHmacSigner): Boolean {
+private fun ApplicationCall.hasValidSyncSignature(
+    settingsManager: SettingsManager,
+    seal: LanSyncSeal,
+    lockedBody: ByteArray
+): Boolean {
     val timestampMillis = request.headers[SyncConstants.HEADER_SYNC_TIMESTAMP]?.toLongOrNull() ?: return false
     val signature = request.headers[SyncConstants.HEADER_SYNC_SIGNATURE] ?: return false
 
     val age = System.currentTimeMillis() - timestampMillis
     if (age > SyncConstants.MAX_REQUEST_AGE_MS || age < -SyncConstants.MAX_REQUEST_AGE_MS) return false
 
-    val secretKey = settingsManager.getSyncEncryptionKey()
-    if (secretKey.isBlank()) return false
+    if (settingsManager.getSyncEncryptionKey().isBlank()) return false
 
-    val expectedSignature = hmacSigner.sign(
-        path = request.path(),
+    return seal.isRequestSignatureValid(
+        signature = signature,
+        method = request.httpMethod.value,
+        pathAndQuery = request.uri,
         timestampMillis = timestampMillis,
-        secretKey = secretKey
+        lockedMediaRequest = request.headers[SyncConstants.HEADER_SYNC_MEDIA_REQUEST].orEmpty(),
+        lockedBody = lockedBody
     )
-    // Uses constant-time comparison to prevent timing attacks.
-    return MessageDigest.isEqual(expectedSignature.toByteArray(), signature.toByteArray())
+}
+
+private fun ApplicationCall.readMediaRequest(seal: LanSyncSeal, syncJson: Json): LanMediaRequest? {
+    val lockedMediaRequest = request.headers[SyncConstants.HEADER_SYNC_MEDIA_REQUEST] ?: return null
+    return try {
+        syncJson.decodeFromString<LanMediaRequest>(seal.unlockMessageFromHeader(lockedMediaRequest))
+    } catch (e: Exception) {
+        LanSyncLog.e("readMediaRequest: could not open the locked media request: ${e.message}", e)
+        null
+    }
 }
 
 private suspend fun ApplicationCall.rejectedUnacceptableRequest(
     settingsManager: SettingsManager,
-    hmacSigner: SyncHmacSigner
+    seal: LanSyncSeal,
+    lockedBody: ByteArray = ByteArray(0)
 ): Boolean {
-    if (!hasValidSyncSignature(settingsManager, hmacSigner)) {
-        respond(io.ktor.http.HttpStatusCode.Unauthorized, "Invalid or expired sync signature")
-        return true
-    }
-
     val peerSchemaVersion = request.headers[SyncConstants.HEADER_SYNC_SCHEMA_VERSION]?.toIntOrNull()
     if (peerSchemaVersion == null || !isSupportedLanSyncSchemaVersion(peerSchemaVersion)) {
         respond(
-            io.ktor.http.HttpStatusCode.UpgradeRequired,
+            HttpStatusCode.UpgradeRequired,
             "This device speaks sync format $LAN_SYNC_SCHEMA_VERSION and cannot sync with format " +
                     (peerSchemaVersion?.toString() ?: "unknown")
         )
         return true
     }
 
+    if (!hasValidSyncSignature(settingsManager, seal, lockedBody)) {
+        respond(HttpStatusCode.Unauthorized, "Invalid or expired sync signature")
+        return true
+    }
+
     return false
+}
+
+private suspend fun ApplicationCall.respondSealed(seal: LanSyncSeal, lockedBody: ByteArray = ByteArray(0)) {
+    val requestSignature = request.headers[SyncConstants.HEADER_SYNC_SIGNATURE].orEmpty()
+    val status = HttpStatusCode.OK
+    response.header(SyncConstants.HEADER_SYNC_REPLY_SIGNATURE, seal.signReply(requestSignature, status.value, lockedBody))
+    respondBytes(lockedBody, ContentType.Application.OctetStream, status)
 }
 
 private const val SERVER_STOP_TIMEOUT_MS = 500L
@@ -99,14 +110,13 @@ fun startSyncServer(
 ): RunningSyncServer? {
     val port = settingsManager.getSyncPort().let { if (it <= 0) SyncConstants.DEFAULT_PORT else it }
 
-    val server = embeddedServer(Netty, host = "0.0.0.0", port = port) {
-        install(ContentNegotiation) {
-            json(Json { ignoreUnknownKeys = true; coerceInputValues = true })
-        }
+    val seal = LanSyncSeal(hmacSigner, syncEncryptionManager) { settingsManager.getSyncEncryptionKey() }
+    val syncJson = Json { ignoreUnknownKeys = true; coerceInputValues = true }
 
+    val server = embeddedServer(Netty, host = "0.0.0.0", port = port) {
         routing {
             get(SyncConstants.ROUTE_FETCH) {
-                if (call.rejectedUnacceptableRequest(settingsManager, hmacSigner)) return@get
+                if (call.rejectedUnacceptableRequest(settingsManager, seal)) return@get
 
                 pairingState.markPaired()
 
@@ -114,26 +124,27 @@ fun startSyncServer(
                 val since = call.request.queryParameters["since"]?.toLongOrNull() ?: 0L
                 val snapshotAt = System.currentTimeMillis()
                 val changes = syncRepository.collectLocalChanges(since)
-                call.respond(
-                    SyncPayload(
-                        changes = changes,
-                        serverSnapshotAt = snapshotAt,
-                        desktopId = settingsManager.getOrCreateLanSyncDesktopId()
-                    )
+                val payload = SyncPayload(
+                    changes = changes,
+                    serverSnapshotAt = snapshotAt,
+                    desktopId = settingsManager.getOrCreateLanSyncDesktopId(),
+                    changesWaitingToRetry = syncRepository.countChangesWaitingToRetry()
                 )
+                call.respondSealed(seal, seal.lockMessage(syncJson.encodeToString(payload)))
             }
 
             post(SyncConstants.ROUTE_PUSH) {
-                if (call.rejectedUnacceptableRequest(settingsManager, hmacSigner)) return@post
+                val lockedBody = call.receive<ByteArray>()
+                if (call.rejectedUnacceptableRequest(settingsManager, seal, lockedBody)) return@post
                 pairingState.markPaired()
 
                 try {
-                    val payload = call.receive<SyncPayload>()
+                    val payload = syncJson.decodeFromString<SyncPayload>(seal.unlockMessage(lockedBody))
                     // Applies incoming changes per envelope. If any envelope fails or is skipped due to a lock,
                     // returns a non-2xx status so the client knows to retry the push.
                     val appliedCleanly = syncRepository.applyRemoteChanges(payload.changes)
                     if (appliedCleanly) {
-                        call.respond(io.ktor.http.HttpStatusCode.OK)
+                        call.respondSealed(seal)
                     } else {
                         call.respond(io.ktor.http.HttpStatusCode.Conflict, "Some changes could not be applied, retry")
                     }
@@ -144,20 +155,21 @@ fun startSyncServer(
             }
 
             post(SyncConstants.ROUTE_UNPAIR) {
-                if (call.rejectedUnacceptableRequest(settingsManager, hmacSigner)) return@post
+                if (call.rejectedUnacceptableRequest(settingsManager, seal)) return@post
 
                 pairingState.unpairLocally()
-                call.respond(io.ktor.http.HttpStatusCode.OK)
+                call.respondSealed(seal)
             }
 
-            get("/sync/media/{fileName}") {
-                if (call.rejectedUnacceptableRequest(settingsManager, hmacSigner)) return@get
+            get("/sync/media/download") {
+                if (call.rejectedUnacceptableRequest(settingsManager, seal)) return@get
 
-                val fileName = call.parameters["fileName"]
-                if (fileName == null) {
+                val mediaRequest = call.readMediaRequest(seal, syncJson)
+                if (mediaRequest == null) {
                     call.respond(io.ktor.http.HttpStatusCode.BadRequest)
                     return@get
                 }
+                val fileName = mediaRequest.fileName
 
                 val mediaDir = java.io.File(System.getProperty("user.home"), ".emberr/media")
                 val file = java.io.File(mediaDir, fileName)
@@ -166,7 +178,7 @@ fun startSyncServer(
                     if (InFlightUploadsTracker.isUploading(fileName)) {
                         call.respond(io.ktor.http.HttpStatusCode(425, "Too Early"))
                     } else {
-                        LanSyncLog.e("GET /sync/media: $fileName not found at ${file.absolutePath}, responding 404")
+                        LanSyncLog.e("GET /sync/media/download: $fileName not found at ${file.absolutePath}, responding 404")
                         call.respond(io.ktor.http.HttpStatusCode.NotFound)
                     }
                     return@get
@@ -175,12 +187,11 @@ fun startSyncServer(
                 // A resuming client asks for the file starting partway through, at however many
                 // plaintext bytes it already decrypted and saved from an earlier, interrupted
                 // attempt - so it never has to re-download bytes it already has.
-                val resumeOffset = parseRangeStartOffset(call.request.headers[io.ktor.http.HttpHeaders.Range])
-                if (resumeOffset != null && (resumeOffset < 0 || resumeOffset > file.length())) {
+                val skipBytes = mediaRequest.startOffset
+                if (skipBytes < 0 || skipBytes > file.length()) {
                     call.respond(io.ktor.http.HttpStatusCode.RequestedRangeNotSatisfiable)
                     return@get
                 }
-                val skipBytes = resumeOffset ?: 0L
 
                 val startedAt = System.currentTimeMillis()
                 try {
@@ -191,27 +202,33 @@ fun startSyncServer(
                         this.use { responseOutput ->
                             file.inputStream().use { plainInput ->
                                 if (skipBytes > 0) plainInput.channel.position(skipBytes)
-                                syncEncryptionManager.encryptStream(plainInput, responseOutput, settingsManager.getSyncEncryptionKey())
+                                syncEncryptionManager.encryptStream(
+                                    plainInput,
+                                    responseOutput,
+                                    settingsManager.getSyncEncryptionKey(),
+                                    lanMediaStreamLabel(fileName, skipBytes)
+                                )
                             }
                         }
                     }
                 } catch (e: Exception) {
                     LanSyncLog.e(
-                        "GET /sync/media: streaming $fileName failed after ${System.currentTimeMillis() - startedAt}ms with ${e::class.simpleName}: ${e.message}",
+                        "GET /sync/media/download: streaming $fileName failed after ${System.currentTimeMillis() - startedAt}ms with ${e::class.simpleName}: ${e.message}",
                         e
                     )
                     throw e
                 }
             }
 
-            post("/sync/media/{fileName}") {
-                if (call.rejectedUnacceptableRequest(settingsManager, hmacSigner)) return@post
+            post("/sync/media/upload") {
+                if (call.rejectedUnacceptableRequest(settingsManager, seal)) return@post
 
-                val fileName = call.parameters["fileName"]
-                if (fileName == null) {
+                val mediaRequest = call.readMediaRequest(seal, syncJson)
+                if (mediaRequest == null) {
                     call.respond(io.ktor.http.HttpStatusCode.BadRequest)
                     return@post
                 }
+                val fileName = mediaRequest.fileName
 
                 val mediaDir = java.io.File(System.getProperty("user.home"), ".emberr/media").apply { mkdirs() }
                 val file = java.io.File(mediaDir, fileName)
@@ -225,7 +242,7 @@ fun startSyncServer(
                 // the remainder. If that no longer matches what's actually on disk - e.g. this is
                 // the first attempt, or our temp file was reclaimed by GC in the meantime - reject
                 // so the client re-checks status and restarts cleanly instead of corrupting the file.
-                val resumeOffset = call.request.headers[SyncConstants.HEADER_RESUME_OFFSET]?.toLongOrNull() ?: 0L
+                val resumeOffset = mediaRequest.startOffset
                 if (resumeOffset > 0) {
                     if (!tempFile.exists() || tempFile.length() != resumeOffset) {
                         call.respond(io.ktor.http.HttpStatusCode.Conflict, "Resume offset does not match server state, restart upload")
@@ -240,7 +257,12 @@ fun startSyncServer(
                 try {
                     call.receiveChannel().toInputStream().use { encryptedInput ->
                         java.io.FileOutputStream(tempFile, resumeOffset > 0).use { plainOutput ->
-                            syncEncryptionManager.decryptStream(encryptedInput, plainOutput, settingsManager.getSyncEncryptionKey())
+                            syncEncryptionManager.decryptStream(
+                                encryptedInput,
+                                plainOutput,
+                                settingsManager.getSyncEncryptionKey(),
+                                lanMediaStreamLabel(fileName, resumeOffset)
+                            )
                         }
                     }
                     java.nio.file.Files.move(
@@ -248,10 +270,10 @@ fun startSyncServer(
                         java.nio.file.StandardCopyOption.REPLACE_EXISTING,
                         java.nio.file.StandardCopyOption.ATOMIC_MOVE
                     )
-                    call.respond(io.ktor.http.HttpStatusCode.OK)
+                    call.respondSealed(seal)
                 } catch (e: Exception) {
                     LanSyncLog.e(
-                        "POST /sync/media: $fileName failed after ${System.currentTimeMillis() - startedAt}ms with ${e::class.simpleName}: ${e.message}",
+                        "POST /sync/media/upload: $fileName failed after ${System.currentTimeMillis() - startedAt}ms with ${e::class.simpleName}: ${e.message}",
                         e
                     )
                     // The temp file is intentionally kept (not deleted) - whatever whole chunks it
@@ -264,10 +286,10 @@ fun startSyncServer(
                 }
             }
 
-            get("/sync/media/{fileName}/upload-status") {
-                if (call.rejectedUnacceptableRequest(settingsManager, hmacSigner)) return@get
+            get("/sync/media/upload-status") {
+                if (call.rejectedUnacceptableRequest(settingsManager, seal)) return@get
 
-                val fileName = call.parameters["fileName"]
+                val fileName = call.readMediaRequest(seal, syncJson)?.fileName
                 if (fileName == null) {
                     call.respond(io.ktor.http.HttpStatusCode.BadRequest)
                     return@get
@@ -276,17 +298,17 @@ fun startSyncServer(
                 val mediaDir = java.io.File(System.getProperty("user.home"), ".emberr/media")
                 val tempFile = java.io.File(mediaDir, "$fileName.upload.tmp")
                 val receivedBytes = if (tempFile.exists()) tempFile.length() else 0L
-                call.respond(MediaUploadStatus(receivedBytes))
+                call.respondSealed(seal, seal.lockMessage(syncJson.encodeToString(MediaUploadStatus(receivedBytes))))
             }
 
             get("/sync/media/list") {
-                if (call.rejectedUnacceptableRequest(settingsManager, hmacSigner)) return@get
+                if (call.rejectedUnacceptableRequest(settingsManager, seal)) return@get
 
                 val mediaDir = java.io.File(System.getProperty("user.home"), ".emberr/media")
                 val entries = (mediaDir.listFiles() ?: emptyArray())
                     .filter { it.isFile }
                     .map { RemoteMediaEntry(fileName = it.name, lastModified = it.lastModified()) }
-                call.respond(RemoteMediaList(entries))
+                call.respondSealed(seal, seal.lockMessage(syncJson.encodeToString(RemoteMediaList(entries))))
             }
         }
     }

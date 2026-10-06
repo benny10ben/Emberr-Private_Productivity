@@ -273,19 +273,51 @@ abstract class SyncEncryptionManagerContract {
         assertEquals(CryptoGoldenFixtures.STREAM_PLAIN_TEXT, String(decrypted, Charsets.UTF_8))
     }
 
-    private fun encryptToBytes(manager: SyncEncryptionManager, input: ByteArray): ByteArray {
+    @Test
+    fun aStreamLockedWithALabelOpensWithTheSameLabel() {
+        val manager = createEncryptionManager()
+        val input = ByteArray(1024) { it.toByte() }
+        val label = "media_1.jpg from byte 0".encodeToByteArray()
+
+        val decrypted = decryptToBytes(manager, encryptToBytes(manager, input, label), streamLabel = label)
+
+        assertContentEquals(input, decrypted)
+    }
+
+    @Test
+    fun aStreamLockedForOneLabelCannotBeOpenedWithAnother() {
+        val manager = createEncryptionManager()
+        val encrypted = encryptToBytes(manager, ByteArray(1024) { it.toByte() }, "media_1.jpg".encodeToByteArray())
+
+        assertFails { decryptToBytes(manager, encrypted, streamLabel = "media_2.jpg".encodeToByteArray()) }
+    }
+
+    @Test
+    fun aStreamLockedWithALabelCannotBeOpenedWithoutIt() {
+        val manager = createEncryptionManager()
+        val encrypted = encryptToBytes(manager, ByteArray(1024) { it.toByte() }, "media_1.jpg".encodeToByteArray())
+
+        assertFails { decryptToBytes(manager, encrypted) }
+    }
+
+    private fun encryptToBytes(
+        manager: SyncEncryptionManager,
+        input: ByteArray,
+        streamLabel: ByteArray = ByteArray(0)
+    ): ByteArray {
         val output = ByteArrayOutputStream()
-        manager.encryptStream(ByteArrayInputStream(input), output, key)
+        manager.encryptStream(ByteArrayInputStream(input), output, key, streamLabel)
         return output.toByteArray()
     }
 
     private fun decryptToBytes(
         manager: SyncEncryptionManager,
         encrypted: ByteArray,
-        decryptionKey: String = key
+        decryptionKey: String = key,
+        streamLabel: ByteArray = ByteArray(0)
     ): ByteArray {
         val output = ByteArrayOutputStream()
-        manager.decryptStream(ByteArrayInputStream(encrypted), output, decryptionKey)
+        manager.decryptStream(ByteArrayInputStream(encrypted), output, decryptionKey, streamLabel)
         return output.toByteArray()
     }
 

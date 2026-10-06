@@ -13,8 +13,8 @@ interface SyncEncryptionManager {
     fun decryptBytes(data: ByteArray, base64Key: String): ByteArray
 
     // Encrypts input chunk-by-chunk into output; never buffers the whole stream in memory
-    fun encryptStream(input: InputStream, output: OutputStream, base64Key: String)
+    fun encryptStream(input: InputStream, output: OutputStream, base64Key: String, streamLabel: ByteArray = ByteArray(0))
 
     // Decrypts input chunk-by-chunk into output; never buffers the whole stream in memory
-    fun decryptStream(input: InputStream, output: OutputStream, base64Key: String)
+    fun decryptStream(input: InputStream, output: OutputStream, base64Key: String, streamLabel: ByteArray = ByteArray(0))
 }

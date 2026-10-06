@@ -12,10 +12,9 @@ class HmacSha256Signer : SyncHmacSigner {
         return SecretKeySpec(digest, "HmacSHA256")
     }
 
-    override fun sign(path: String, timestampMillis: Long, secretKey: String): String {
+    override fun sign(message: ByteArray, secretKey: String): String {
         val mac = Mac.getInstance("HmacSHA256")
         mac.init(deriveKey(secretKey))
-        val message = "$path:$timestampMillis".toByteArray(Charsets.UTF_8)
         return mac.doFinal(message).joinToString(separator = "") { "%02x".format(it) }
     }
 }

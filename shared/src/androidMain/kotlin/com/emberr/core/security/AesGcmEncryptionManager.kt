@@ -121,8 +121,8 @@ class AesGcmEncryptionManager : SyncEncryptionManager {
     }
 
     // Binds each chunk's authentication tag to its index and finality status to prevent reordering or truncation.
-    private fun chunkAad(chunkIndex: Int, isLastChunk: Boolean): ByteArray {
-        return byteArrayOf(
+    private fun chunkAad(streamLabel: ByteArray, chunkIndex: Int, isLastChunk: Boolean): ByteArray {
+        return streamLabel + byteArrayOf(
             (chunkIndex ushr 24).toByte(), (chunkIndex ushr 16).toByte(), (chunkIndex ushr 8).toByte(), chunkIndex.toByte(),
             if (isLastChunk) 1 else 0
         )
@@ -142,7 +142,7 @@ class AesGcmEncryptionManager : SyncEncryptionManager {
                 (bytes[3].toInt() and 0xFF)
     }
 
-    override fun encryptStream(input: InputStream, output: OutputStream, base64Key: String) {
+    override fun encryptStream(input: InputStream, output: OutputStream, base64Key: String, streamLabel: ByteArray) {
         val secretKey = getSecretKey(base64Key)
 
         val ivBase = ByteArray(ivLength)
@@ -162,7 +162,7 @@ class AesGcmEncryptionManager : SyncEncryptionManager {
 
             val cipher = Cipher.getInstance("AES/GCM/NoPadding")
             cipher.init(Cipher.ENCRYPT_MODE, secretKey, GCMParameterSpec(gcmTagLength, deriveChunkIv(ivBase, chunkIndex)))
-            cipher.updateAAD(chunkAad(chunkIndex, isLastChunk))
+            cipher.updateAAD(chunkAad(streamLabel, chunkIndex, isLastChunk))
             val encryptedChunk = cipher.doFinal(currentBuffer, 0, currentSize)
 
             writeIntBigEndian(output, encryptedChunk.size)
@@ -192,7 +192,7 @@ class AesGcmEncryptionManager : SyncEncryptionManager {
         return encryptedChunk
     }
 
-    override fun decryptStream(input: InputStream, output: OutputStream, base64Key: String) {
+    override fun decryptStream(input: InputStream, output: OutputStream, base64Key: String, streamLabel: ByteArray) {
         val secretKey = getSecretKey(base64Key)
 
         val ivBase = ByteArray(ivLength)
@@ -209,7 +209,7 @@ class AesGcmEncryptionManager : SyncEncryptionManager {
 
             val cipher = Cipher.getInstance("AES/GCM/NoPadding")
             cipher.init(Cipher.DECRYPT_MODE, secretKey, GCMParameterSpec(gcmTagLength, deriveChunkIv(ivBase, chunkIndex)))
-            cipher.updateAAD(chunkAad(chunkIndex, isLastChunk))
+            cipher.updateAAD(chunkAad(streamLabel, chunkIndex, isLastChunk))
             output.write(cipher.doFinal(current))
 
             if (isLastChunk) break

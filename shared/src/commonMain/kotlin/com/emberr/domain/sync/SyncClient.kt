@@ -12,16 +12,13 @@ import io.ktor.client.plugins.HttpResponseValidator
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.ResponseException
 import io.ktor.client.plugins.api.createClientPlugin
-import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.http.ContentType
-import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
+import io.ktor.http.content.ByteArrayContent
 import io.ktor.http.content.OutgoingContent
 import io.ktor.http.contentType
-import io.ktor.http.encodedPath
-import io.ktor.serialization.kotlinx.json.*
 import io.ktor.utils.io.ByteReadChannel
 import io.ktor.utils.io.jvm.javaio.toByteReadChannel
 import io.ktor.utils.io.jvm.javaio.toInputStream
@@ -50,6 +47,10 @@ class SyncClient(
         const val SOCKET_TIMEOUT_MS = 10 * 60_000L
     }
 
+    private val syncJson = Json { ignoreUnknownKeys = true; coerceInputValues = true }
+
+    private val seal = LanSyncSeal(hmacSigner, syncEncryptionManager) { settingsManager.getSyncEncryptionKey() }
+
     private val client = HttpClient {
         expectSuccess = true
         install(HttpTimeout) {
@@ -57,17 +58,15 @@ class SyncClient(
             requestTimeoutMillis = REQUEST_TIMEOUT_MS
             socketTimeoutMillis = SOCKET_TIMEOUT_MS
         }
-        install(ContentNegotiation) {
-            json(Json { ignoreUnknownKeys = true; coerceInputValues = true })
-        }
-        // Signs outgoing requests using HMAC-SHA256 based on the request path and current timestamp.
-        install(createClientPlugin("HmacAuthPlugin") {
+        install(createClientPlugin("LanSyncSealPlugin") {
             onRequest { request, _ ->
                 val timestampMillis = Clock.System.now().toEpochMilliseconds()
-                val signature = hmacSigner.sign(
-                    path = request.url.encodedPath,
+                val signature = seal.signRequest(
+                    method = request.method.value,
+                    pathAndQuery = request.url.build().encodedPathAndQuery,
                     timestampMillis = timestampMillis,
-                    secretKey = settingsManager.getSyncEncryptionKey()
+                    lockedMediaRequest = request.headers[SyncConstants.HEADER_SYNC_MEDIA_REQUEST].orEmpty(),
+                    lockedBody = (request.body as? ByteArrayContent)?.bytes() ?: ByteArray(0)
                 )
                 request.headers.append(SyncConstants.HEADER_SYNC_TIMESTAMP, timestampMillis.toString())
                 request.headers.append(SyncConstants.HEADER_SYNC_SIGNATURE, signature)
@@ -109,13 +108,11 @@ class SyncClient(
         }
 
     suspend fun pushChanges(changes: List<SyncEnvelope>): Boolean {
-        if (changes.isEmpty()) return true
-
         return try {
-            client.post("$serverUrl${SyncConstants.ROUTE_PUSH}") {
-                contentType(ContentType.Application.Json)
-                setBody(SyncPayload(changes))
+            val response = client.post("$serverUrl${SyncConstants.ROUTE_PUSH}") {
+                setBody(lockedJson(syncJson.encodeToString(SyncPayload(changes))))
             }
+            requireSealedReply(response)
             true
         } catch (e: ClientRequestException) {
             if (e.response.status != HttpStatusCode.Conflict) throw e
@@ -127,13 +124,14 @@ class SyncClient(
         val response = client.get("$serverUrl${SyncConstants.ROUTE_FETCH}") {
             parameter("since", since)
         }
-        return response.body()
+        return syncJson.decodeFromString(openSealedReply(response))
     }
 
     suspend fun requestUnpair(): Boolean {
         return try {
             val response = client.post("$serverUrl${SyncConstants.ROUTE_UNPAIR}")
-            response.status.value in 200..299
+            requireSealedReply(response)
+            true
         } catch (e: Exception) {
             e.printStackTrace()
             false
@@ -145,13 +143,10 @@ class SyncClient(
     suspend fun downloadMedia(fileName: String, destinationFile: File): MediaTransferOutcome {
         val tempFile = File(destinationFile.parentFile, "$fileName.tmp")
         val resumeOffset = if (tempFile.exists()) tempFile.length() else 0L
-        val url = "$serverUrl/sync/media/$fileName"
         val startedAt = Clock.System.now().toEpochMilliseconds()
         return try {
-            val downloaded = client.prepareGet(url) {
-                if (resumeOffset > 0) {
-                    header(HttpHeaders.Range, "bytes=$resumeOffset-")
-                }
+            val downloaded = client.prepareGet("$serverUrl/sync/media/download") {
+                header(SyncConstants.HEADER_SYNC_MEDIA_REQUEST, lockedMediaRequest(fileName, resumeOffset))
             }.execute { response ->
                 if (response.status.value !in 200..299) {
                     LanSyncLog.e("downloadMedia: $fileName request failed with status ${response.status.value}")
@@ -159,7 +154,12 @@ class SyncClient(
                 }
                 response.bodyAsChannel().toInputStream().use { encryptedInput ->
                     FileOutputStream(tempFile, resumeOffset > 0).use { plainOutput ->
-                        syncEncryptionManager.decryptStream(encryptedInput, plainOutput, settingsManager.getSyncEncryptionKey())
+                        syncEncryptionManager.decryptStream(
+                            encryptedInput,
+                            plainOutput,
+                            settingsManager.getSyncEncryptionKey(),
+                            lanMediaStreamLabel(fileName, resumeOffset)
+                        )
                     }
                 }
                 true
@@ -197,7 +197,8 @@ class SyncClient(
 
     suspend fun listRemoteMedia(): List<com.emberr.domain.sync.RemoteMediaEntry> {
         return try {
-            client.get("$serverUrl/sync/media/list").body<com.emberr.domain.sync.RemoteMediaList>().entries
+            val response = client.get("$serverUrl/sync/media/list")
+            syncJson.decodeFromString<RemoteMediaList>(openSealedReply(response)).entries
         } catch (e: Exception) {
             LanSyncLog.e("listRemoteMedia: failed with ${e::class.simpleName}: ${e.message}", e)
             emptyList()
@@ -209,7 +210,10 @@ class SyncClient(
     // both when there's genuinely no partial upload and when the check itself fails
     suspend fun getUploadStatus(fileName: String): Long {
         return try {
-            client.get("$serverUrl/sync/media/$fileName/upload-status").body<MediaUploadStatus>().receivedBytes
+            val response = client.get("$serverUrl/sync/media/upload-status") {
+                header(SyncConstants.HEADER_SYNC_MEDIA_REQUEST, lockedMediaRequest(fileName, startOffset = 0L))
+            }
+            syncJson.decodeFromString<MediaUploadStatus>(openSealedReply(response)).receivedBytes
         } catch (e: Exception) {
             LanSyncLog.e("getUploadStatus: $fileName failed with ${e::class.simpleName}: ${e.message}", e)
             0L
@@ -230,15 +234,18 @@ class SyncClient(
                 file.inputStream().use { plainInput ->
                     if (resumeOffset > 0) plainInput.channel.position(resumeOffset)
                     tempEncryptedFile.outputStream().use { encryptedOutput ->
-                        syncEncryptionManager.encryptStream(plainInput, encryptedOutput, settingsManager.getSyncEncryptionKey())
+                        syncEncryptionManager.encryptStream(
+                            plainInput,
+                            encryptedOutput,
+                            settingsManager.getSyncEncryptionKey(),
+                            lanMediaStreamLabel(fileName, resumeOffset)
+                        )
                     }
                 }
             }
 
-            val response = client.post("$serverUrl/sync/media/$fileName") {
-                if (resumeOffset > 0) {
-                    header(SyncConstants.HEADER_RESUME_OFFSET, resumeOffset.toString())
-                }
+            val response = client.post("$serverUrl/sync/media/upload") {
+                header(SyncConstants.HEADER_SYNC_MEDIA_REQUEST, lockedMediaRequest(fileName, resumeOffset))
                 contentType(ContentType.Application.OctetStream)
                 setBody(object : OutgoingContent.ReadChannelContent() {
                     override val contentType = ContentType.Application.OctetStream
@@ -251,7 +258,12 @@ class SyncClient(
                 val elapsedMs = Clock.System.now().toEpochMilliseconds() - startedAt
                 LanSyncLog.e("uploadMedia: $fileName rejected with status ${response.status.value} after ${elapsedMs}ms")
             }
-            if (succeeded) MediaTransferOutcome.SUCCESS else MediaTransferOutcome.FAILED
+            if (succeeded) {
+                requireSealedReply(response)
+                MediaTransferOutcome.SUCCESS
+            } else {
+                MediaTransferOutcome.FAILED
+            }
         } catch (e: Exception) {
             val elapsedMs = Clock.System.now().toEpochMilliseconds() - startedAt
             LanSyncLog.e("uploadMedia: $fileName failed after ${elapsedMs}ms with ${e::class.simpleName}: ${e.message}", e)
@@ -259,5 +271,27 @@ class SyncClient(
         } finally {
             tempEncryptedFile.delete()
         }
+    }
+
+    private fun lockedMediaRequest(fileName: String, startOffset: Long): String =
+        seal.lockMessageForHeader(syncJson.encodeToString(LanMediaRequest(fileName, startOffset)))
+
+    private fun lockedJson(text: String): ByteArrayContent =
+        ByteArrayContent(seal.lockMessage(text), ContentType.Application.OctetStream)
+
+    private suspend fun openSealedReply(response: HttpResponse): String {
+        val lockedBody = response.body<ByteArray>()
+        requireSealedReply(response, lockedBody)
+        return seal.unlockMessage(lockedBody)
+    }
+
+    private fun requireSealedReply(response: HttpResponse, lockedBody: ByteArray = ByteArray(0)) {
+        val isSealedByPairedDesktop = seal.isReplySignatureValid(
+            replySignature = response.headers[SyncConstants.HEADER_SYNC_REPLY_SIGNATURE].orEmpty(),
+            requestSignature = response.request.headers[SyncConstants.HEADER_SYNC_SIGNATURE].orEmpty(),
+            statusCode = response.status.value,
+            lockedBody = lockedBody
+        )
+        check(isSealedByPairedDesktop) { "The desktop's reply was changed on the way or was not sealed with the pairing key" }
     }
 }
