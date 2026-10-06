@@ -108,21 +108,26 @@ class SyncClient(
             return "http://$ip:$port"
         }
 
-    suspend fun pushChanges(changes: List<SyncEnvelope>) {
-        if (changes.isEmpty()) return
+    suspend fun pushChanges(changes: List<SyncEnvelope>): Boolean {
+        if (changes.isEmpty()) return true
 
-        client.post("$serverUrl${SyncConstants.ROUTE_PUSH}") {
-            contentType(ContentType.Application.Json)
-            setBody(SyncPayload(changes))
+        return try {
+            client.post("$serverUrl${SyncConstants.ROUTE_PUSH}") {
+                contentType(ContentType.Application.Json)
+                setBody(SyncPayload(changes))
+            }
+            true
+        } catch (e: ClientRequestException) {
+            if (e.response.status != HttpStatusCode.Conflict) throw e
+            false
         }
     }
 
-    suspend fun fetchChanges(since: Long): List<SyncEnvelope> {
+    suspend fun fetchChanges(since: Long): SyncPayload {
         val response = client.get("$serverUrl${SyncConstants.ROUTE_FETCH}") {
             parameter("since", since)
         }
-        val payload: SyncPayload = response.body()
-        return payload.changes
+        return response.body()
     }
 
     suspend fun requestUnpair(): Boolean {

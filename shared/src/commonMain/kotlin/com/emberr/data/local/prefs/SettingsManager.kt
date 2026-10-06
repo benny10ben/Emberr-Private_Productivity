@@ -33,8 +33,13 @@ interface SettingsManager {
     fun getCanvasToolSettingsJson(toolName: String): String?
     fun saveCanvasToolSettingsJson(toolName: String, json: String)
 
-    fun getLastSyncTimestamp(): Long
-    fun saveLastSyncTimestamp(timestamp: Long)
+    fun getLastPushedTimestamp(): Long
+    fun saveLastPushedTimestamp(timestamp: Long)
+    fun getLastFetchedTimestamp(): Long
+    fun saveLastFetchedTimestamp(timestamp: Long)
+    fun getOrCreateLanSyncDesktopId(): String
+    fun getLastSyncedDesktopId(): String
+    fun saveLastSyncedDesktopId(desktopId: String)
 
     fun getSelfHostLastSyncTimestamp(): Long
     fun saveSelfHostLastSyncTimestamp(timestamp: Long)

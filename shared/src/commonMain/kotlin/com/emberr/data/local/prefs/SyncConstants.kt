@@ -66,7 +66,10 @@ object SyncConstants {
     const val KEY_MEDIA_REFERENCE_LIST_BUILT = "media_reference_list_built"
     const val DEFAULT_MEDIA_REFERENCE_LIST_BUILT = false
     // Sync Keys
-    const val KEY_SYNC_TIMESTAMP = "last_sync_timestamp"
+    const val KEY_SYNC_PUSHED_TIMESTAMP = "last_sync_timestamp"
+    const val KEY_SYNC_FETCHED_TIMESTAMP = "last_sync_fetched_timestamp"
+    const val KEY_LAN_SYNC_DESKTOP_ID = "lan_sync_desktop_id"
+    const val KEY_LAST_SYNCED_DESKTOP_ID = "last_synced_desktop_id"
     const val KEY_SELF_HOST_SYNC_TIMESTAMP = "self_host_last_sync_timestamp"
     const val KEY_SELF_HOST_SUPPORTS_ETAGS = "self_host_supports_etags"
     const val KEY_SELF_HOST_MANIFEST_ETAG = "self_host_manifest_etag"

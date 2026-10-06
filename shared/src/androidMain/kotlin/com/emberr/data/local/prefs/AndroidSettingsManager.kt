@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.callbackFlow
 import androidx.core.content.edit
+import java.util.UUID
 
 class AndroidSettingsManager(
     private val sharedPreferences: SharedPreferences,
@@ -149,12 +150,36 @@ class AndroidSettingsManager(
         sharedPreferences.edit { putString(SyncConstants.KEY_CANVAS_TOOL_SETTINGS_PREFIX + toolName, json) }
     }
 
-    override fun getLastSyncTimestamp(): Long {
-        return sharedPreferences.getLong(SyncConstants.KEY_SYNC_TIMESTAMP, 0L)
+    override fun getLastPushedTimestamp(): Long {
+        return sharedPreferences.getLong(SyncConstants.KEY_SYNC_PUSHED_TIMESTAMP, 0L)
     }
 
-    override fun saveLastSyncTimestamp(timestamp: Long) {
-        sharedPreferences.edit(commit = true) { putLong(SyncConstants.KEY_SYNC_TIMESTAMP, timestamp) }
+    override fun saveLastPushedTimestamp(timestamp: Long) {
+        sharedPreferences.edit(commit = true) { putLong(SyncConstants.KEY_SYNC_PUSHED_TIMESTAMP, timestamp) }
+    }
+
+    override fun getLastFetchedTimestamp(): Long {
+        return sharedPreferences.getLong(SyncConstants.KEY_SYNC_FETCHED_TIMESTAMP, 0L)
+    }
+
+    override fun saveLastFetchedTimestamp(timestamp: Long) {
+        sharedPreferences.edit(commit = true) { putLong(SyncConstants.KEY_SYNC_FETCHED_TIMESTAMP, timestamp) }
+    }
+
+    @Synchronized
+    override fun getOrCreateLanSyncDesktopId(): String {
+        sharedPreferences.getString(SyncConstants.KEY_LAN_SYNC_DESKTOP_ID, null)?.takeIf { it.isNotBlank() }?.let { return it }
+        val newDesktopId = UUID.randomUUID().toString()
+        sharedPreferences.edit(commit = true) { putString(SyncConstants.KEY_LAN_SYNC_DESKTOP_ID, newDesktopId) }
+        return newDesktopId
+    }
+
+    override fun getLastSyncedDesktopId(): String {
+        return sharedPreferences.getString(SyncConstants.KEY_LAST_SYNCED_DESKTOP_ID, "") ?: ""
+    }
+
+    override fun saveLastSyncedDesktopId(desktopId: String) {
+        sharedPreferences.edit(commit = true) { putString(SyncConstants.KEY_LAST_SYNCED_DESKTOP_ID, desktopId) }
     }
 
     override fun getSelfHostLastSyncTimestamp(): Long {

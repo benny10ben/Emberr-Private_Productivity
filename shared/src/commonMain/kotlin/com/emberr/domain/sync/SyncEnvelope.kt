@@ -55,7 +55,9 @@ data class SyncEnvelope(
 
 @Serializable
 data class SyncPayload(
-    val changes: List<SyncEnvelope>
+    val changes: List<SyncEnvelope>,
+    val serverSnapshotAt: Long? = null,
+    val desktopId: String? = null
 )
 
 @Serializable

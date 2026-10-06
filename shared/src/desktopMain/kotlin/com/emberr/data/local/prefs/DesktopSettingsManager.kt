@@ -4,6 +4,7 @@ import com.emberr.core.security.secrets.DesktopSecretStore
 import com.emberr.core.security.secrets.SecretNamespace
 import com.emberr.data.local.room.entity.DEFAULT_SPACE_ID
 import java.io.File
+import java.util.UUID
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 
@@ -109,13 +110,33 @@ class DesktopSettingsManager(private val secretStore: DesktopSecretStore) : Sett
         prefs.put(SyncConstants.KEY_CANVAS_TOOL_SETTINGS_PREFIX + toolName, json)
     }
 
-    override fun getLastSyncTimestamp(): Long {
-        return prefs.getLong(SyncConstants.KEY_SYNC_TIMESTAMP, 0L)
+    override fun getLastPushedTimestamp(): Long {
+        return prefs.getLong(SyncConstants.KEY_SYNC_PUSHED_TIMESTAMP, 0L)
     }
 
-    override fun saveLastSyncTimestamp(timestamp: Long) {
-        prefs.putLong(SyncConstants.KEY_SYNC_TIMESTAMP, timestamp)
+    override fun saveLastPushedTimestamp(timestamp: Long) {
+        prefs.putLong(SyncConstants.KEY_SYNC_PUSHED_TIMESTAMP, timestamp)
     }
+
+    override fun getLastFetchedTimestamp(): Long {
+        return prefs.getLong(SyncConstants.KEY_SYNC_FETCHED_TIMESTAMP, 0L)
+    }
+
+    override fun saveLastFetchedTimestamp(timestamp: Long) {
+        prefs.putLong(SyncConstants.KEY_SYNC_FETCHED_TIMESTAMP, timestamp)
+    }
+
+    @Synchronized
+    override fun getOrCreateLanSyncDesktopId(): String {
+        prefs.get(SyncConstants.KEY_LAN_SYNC_DESKTOP_ID, "").takeIf { it.isNotBlank() }?.let { return it }
+        val newDesktopId = UUID.randomUUID().toString()
+        prefs.put(SyncConstants.KEY_LAN_SYNC_DESKTOP_ID, newDesktopId)
+        return newDesktopId
+    }
+
+    override fun getLastSyncedDesktopId(): String = prefs.get(SyncConstants.KEY_LAST_SYNCED_DESKTOP_ID, "")
+
+    override fun saveLastSyncedDesktopId(desktopId: String) = prefs.put(SyncConstants.KEY_LAST_SYNCED_DESKTOP_ID, desktopId)
 
     override fun getSelfHostLastSyncTimestamp(): Long {
         return prefs.getLong(SyncConstants.KEY_SELF_HOST_SYNC_TIMESTAMP, 0L)

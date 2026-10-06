@@ -112,8 +112,15 @@ fun startSyncServer(
 
                 // Fetches changes since the client's provided timestamp (idempotent snapshot).
                 val since = call.request.queryParameters["since"]?.toLongOrNull() ?: 0L
+                val snapshotAt = System.currentTimeMillis()
                 val changes = syncRepository.collectLocalChanges(since)
-                call.respond(SyncPayload(changes))
+                call.respond(
+                    SyncPayload(
+                        changes = changes,
+                        serverSnapshotAt = snapshotAt,
+                        desktopId = settingsManager.getOrCreateLanSyncDesktopId()
+                    )
+                )
             }
 
             post(SyncConstants.ROUTE_PUSH) {

@@ -13,6 +13,8 @@ import com.emberr.domain.sync.SyncPairingData
 import com.emberr.domain.sync.SyncPairingState
 import com.emberr.domain.sync.SyncRepository
 import com.emberr.domain.sync.SyncServerStatus
+import com.emberr.domain.sync.mustStartOverWithDesktop
+import com.emberr.domain.sync.sinceWithSafetyOverlap
 import com.emberr.domain.util.system.isDesktopPlatform
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -102,7 +104,23 @@ class SyncViewModel(
         settingsManager.saveSyncPort(pairingData.port)
         settingsManager.saveSyncAuthToken(pairingData.authToken)
         settingsManager.saveSyncEncryptionKey(pairingData.encryptionKey)
+        settingsManager.saveLastPushedTimestamp(0L)
+        settingsManager.saveLastFetchedTimestamp(0L)
         pairingState.markPaired()
+    }
+
+    private fun startOverIfThisIsADifferentDesktop(reportedDesktopId: String?, thisSyncStartedFromScratch: Boolean): Boolean {
+        val lastSyncedDesktopId = settingsManager.getLastSyncedDesktopId()
+        val mustStartOver = mustStartOverWithDesktop(lastSyncedDesktopId, reportedDesktopId, thisSyncStartedFromScratch)
+        if (reportedDesktopId != null && reportedDesktopId != lastSyncedDesktopId) {
+            settingsManager.saveLastSyncedDesktopId(reportedDesktopId)
+        }
+        if (mustStartOver) {
+            LanSyncLog.d("Paired desktop changed from '$lastSyncedDesktopId' to '$reportedDesktopId', starting a full sync")
+            settingsManager.saveLastPushedTimestamp(0L)
+            settingsManager.saveLastFetchedTimestamp(0L)
+        }
+        return mustStartOver
     }
 
     fun unpair() {
@@ -142,23 +160,26 @@ class SyncViewModel(
             // Collecting and pushing changes run without holding SyncCoordinator.mutex.
             // Database writes acquire the mutex per envelope inside applyRemoteChanges.
             val syncStart = System.currentTimeMillis()
-            val lastSyncTimestamp = settingsManager.getLastSyncTimestamp()
+            val lastPushedTimestamp = settingsManager.getLastPushedTimestamp()
+            val lastFetchedTimestamp = settingsManager.getLastFetchedTimestamp()
 
             try {
-                val localChanges = syncRepository.collectLocalChanges(lastSyncTimestamp, uploadMedia = true)
-                if (localChanges.isNotEmpty()) {
-                    syncClient.pushChanges(localChanges)
-                }
+                val localChanges = syncRepository.collectLocalChanges(sinceWithSafetyOverlap(lastPushedTimestamp), uploadMedia = true)
+                val pushedCleanly = syncClient.pushChanges(localChanges)
+                if (pushedCleanly) settingsManager.saveLastPushedTimestamp(syncStart)
 
                 _syncStatus.value = "Fetching from Desktop..."
-                val remoteChanges = syncClient.fetchChanges(lastSyncTimestamp)
-                val appliedCleanly = if (remoteChanges.isNotEmpty()) {
-                    syncRepository.applyRemoteChanges(remoteChanges)
+                val fetched = syncClient.fetchChanges(sinceWithSafetyOverlap(lastFetchedTimestamp))
+                val startedOver = startOverIfThisIsADifferentDesktop(
+                    reportedDesktopId = fetched.desktopId,
+                    thisSyncStartedFromScratch = lastPushedTimestamp == 0L && lastFetchedTimestamp == 0L
+                )
+                val appliedCleanly = if (fetched.changes.isNotEmpty()) {
+                    syncRepository.applyRemoteChanges(fetched.changes)
                 } else true
+                if (appliedCleanly && !startedOver) settingsManager.saveLastFetchedTimestamp(fetched.serverSnapshotAt ?: syncStart)
 
-                if (appliedCleanly) {
-                    // Only advance the sync timestamp if all fetched changes applied cleanly.
-                    settingsManager.saveLastSyncTimestamp(syncStart)
+                if (pushedCleanly && appliedCleanly && !startedOver) {
                     _syncStatus.value = "Success!"
 
                     // Reconcile files after a successful sync.
@@ -209,21 +230,25 @@ class SyncViewModel(
         }
         try {
             val syncStart = System.currentTimeMillis()
-            val lastSyncTimestamp = settingsManager.getLastSyncTimestamp()
+            val lastPushedTimestamp = settingsManager.getLastPushedTimestamp()
+            val lastFetchedTimestamp = settingsManager.getLastFetchedTimestamp()
             _syncStatus.value = "Auto-Syncing..."
 
-            val localChanges = syncRepository.collectLocalChanges(lastSyncTimestamp, uploadMedia = true)
-            if (localChanges.isNotEmpty()) {
-                syncClient.pushChanges(localChanges)
-            }
+            val localChanges = syncRepository.collectLocalChanges(sinceWithSafetyOverlap(lastPushedTimestamp), uploadMedia = true)
+            val pushedCleanly = syncClient.pushChanges(localChanges)
+            if (pushedCleanly) settingsManager.saveLastPushedTimestamp(syncStart)
 
-            val remoteChanges = syncClient.fetchChanges(lastSyncTimestamp)
-            val appliedCleanly = if (remoteChanges.isNotEmpty()) {
-                syncRepository.applyRemoteChanges(remoteChanges)
+            val fetched = syncClient.fetchChanges(sinceWithSafetyOverlap(lastFetchedTimestamp))
+            val startedOver = startOverIfThisIsADifferentDesktop(
+                reportedDesktopId = fetched.desktopId,
+                thisSyncStartedFromScratch = lastPushedTimestamp == 0L && lastFetchedTimestamp == 0L
+            )
+            val appliedCleanly = if (fetched.changes.isNotEmpty()) {
+                syncRepository.applyRemoteChanges(fetched.changes)
             } else true
+            if (appliedCleanly && !startedOver) settingsManager.saveLastFetchedTimestamp(fetched.serverSnapshotAt ?: syncStart)
 
-            if (appliedCleanly) {
-                settingsManager.saveLastSyncTimestamp(syncStart)
+            if (pushedCleanly && appliedCleanly && !startedOver) {
                 _syncStatus.value = "Synced Successfully"
                 true
             } else {
