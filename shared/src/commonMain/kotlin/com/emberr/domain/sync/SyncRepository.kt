@@ -6,8 +6,10 @@ interface SyncRepository {
     suspend fun collectLocalChanges(since: Long, uploadMedia: Boolean = false): List<SyncEnvelope>
 
     // Applies incoming changes to the local database and file storage.
-    // Returns true only if every envelope in the batch applies successfully.
+    // Returns true if every envelope in the batch was applied or safely kept to retry later.
     suspend fun applyRemoteChanges(changes: List<SyncEnvelope>): Boolean
+
+    suspend fun countChangesWaitingToRetry(): Int
 
     // Scans all referenced media against the remote peer's media list and retries transfers for missing files in either direction.
     suspend fun reconcileMedia()

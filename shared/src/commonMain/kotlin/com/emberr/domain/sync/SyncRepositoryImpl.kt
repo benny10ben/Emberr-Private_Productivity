@@ -17,6 +17,7 @@ import com.emberr.data.local.room.entity.PropertyTagEntity
 import com.emberr.data.local.room.entity.CustomPropertyEntity
 import com.emberr.data.local.room.entity.SpaceEntity
 import com.emberr.data.local.room.entity.UnappliedSyncChangeEntity
+import com.emberr.domain.ai.chat.ChatSessionMerge
 import com.emberr.domain.ai.external.AiSettingsRepository
 import com.emberr.domain.canvas.CanvasContent
 import com.emberr.domain.canvas.CanvasRepository
@@ -262,10 +263,14 @@ class SyncRepositoryImpl(
             val currentAppVersion = appVersionName.orEmpty()
             var allSucceeded = true
 
-            val changesToRetryAfterAppUpdate = loadChangesToRetryAfterAppUpdate(currentAppVersion)
-            val changesToApply = changesToRetryAfterAppUpdate.map { it to true } + changes.map { it to false }
+            val changesToRetry = loadChangesReadyToRetry(currentAppVersion)
+            val failedAttemptsByKey = changesToRetry.associate {
+                (it.envelope.entityType to it.envelope.entityId) to it.failedAttemptsOnThisAppVersion
+            }
+            val changesToApply = changesToRetry.map { it.envelope to true } + changes.map { it to false }
+            if (changesToApply.isEmpty()) return@withContext true
 
-            changesToApply.forEach { (envelope, wasWaitingForAppUpdate) ->
+            changesToApply.forEach { (envelope, wasWaitingToRetry) ->
                 // Media downloads are queued after releasing the lock so large file downloads do not block editor saves.
                 var pendingMediaContent: NoteContent? = null
                 var pendingCoverImagePath: String? = null
@@ -328,7 +333,7 @@ class SyncRepositoryImpl(
                                         remoteUpdatedAt = envelope.updatedAt
                                     )
                                     pendingMediaContent = mergedNote.content
-                                    pendingCoverImagePath = remoteMeta.coverImagePath
+                                    pendingCoverImagePath = mergedNote.metadata.coverImagePath
                                     if (mergedNote.hasChanges) {
                                         repository.saveNote(
                                             mergedNote.metadata,
@@ -510,7 +515,13 @@ class SyncRepositoryImpl(
                                     json.decodeFromString<ChatSessionEntity>(decryptedMetaJson)
                                 val localSession = chatSessionDao.getSession(remoteSession.id)
                                 val localUpdatedAt = localSession?.updatedAt ?: 0L
-                                if (envelope.updatedAt > localUpdatedAt) {
+                                if (localSession != null && !localSession.isDeleted && !envelope.isDeleted) {
+                                    val mergedSession = ChatSessionMerge.merge(localSession, remoteSession)
+                                    if (mergedSession != localSession) {
+                                        chatSessionDao.upsertSession(mergedSession)
+                                        ChatSyncEventBus.emitSessionChanged(remoteSession.id)
+                                    }
+                                } else if (envelope.updatedAt > localUpdatedAt) {
                                     if (envelope.isDeleted) {
                                         chatSessionDao.softDeleteSession(remoteSession.id, envelope.updatedAt)
                                     } else {
@@ -570,7 +581,7 @@ class SyncRepositoryImpl(
                         LanSyncLog.e("applyRemoteChanges: could not read change for ${envelope.entityId}, keeping it to retry after an app update: ${e.message}", e)
                         RemoteChangeOutcome.CANNOT_BE_READ
                     } catch (e: Exception) {
-                        LanSyncLog.e("applyRemoteChanges: failed to apply change for ${envelope.entityId}: ${e.message}", e)
+                        LanSyncLog.e("applyRemoteChanges: failed to apply change for ${envelope.entityId}, keeping it to retry on the next sync: ${e.message}", e)
                         RemoteChangeOutcome.TRY_AGAIN
                     }
                 }
@@ -596,20 +607,26 @@ class SyncRepositoryImpl(
                 }
 
                 val outcome = applied ?: RemoteChangeOutcome.TRY_AGAIN
-                if (wasWaitingForAppUpdate) {
-                    if (outcome == RemoteChangeOutcome.APPLIED) {
-                        forgetChangeWaitingForAppUpdate(envelope)
-                    } else if (applied != null) {
-                        keepChangeUntilAppUpdate(envelope, currentAppVersion)
+                val key = envelope.entityType to envelope.entityId
+                val handled = when (outcome) {
+                    RemoteChangeOutcome.APPLIED -> {
+                        if (key in failedAttemptsByKey) forgetChangeWaitingToRetry(envelope)
+                        true
                     }
-                } else {
-                    val handled = when (outcome) {
-                        RemoteChangeOutcome.APPLIED -> true
-                        RemoteChangeOutcome.CANNOT_BE_READ -> keepChangeUntilAppUpdate(envelope, currentAppVersion)
-                        RemoteChangeOutcome.TRY_AGAIN -> false
+                    RemoteChangeOutcome.CANNOT_BE_READ ->
+                        saveChangeToRetryLater(envelope, currentAppVersion, waitsForAppUpdate = true, failedAttempts = 0)
+                    RemoteChangeOutcome.TRY_AGAIN -> {
+                        val previousFailedAttempts = if (wasWaitingToRetry) failedAttemptsByKey[key] ?: 0 else 0
+                        val wasOnlySkippedBecauseSyncWasBusy = applied == null
+                        saveChangeToRetryLater(
+                            envelope,
+                            currentAppVersion,
+                            waitsForAppUpdate = false,
+                            failedAttempts = if (wasOnlySkippedBecauseSyncWasBusy) previousFailedAttempts else previousFailedAttempts + 1
+                        )
                     }
-                    if (!handled) allSucceeded = false
                 }
+                if (!handled && !wasWaitingToRetry) allSucceeded = false
             }
 
             // A synced-in change can tombstone a block (or a whole note) that this device didn't
@@ -621,11 +638,18 @@ class SyncRepositoryImpl(
             allSucceeded
         }
 
-    private suspend fun loadChangesToRetryAfterAppUpdate(currentAppVersion: String): List<SyncEnvelope> =
+    private suspend fun loadChangesReadyToRetry(currentAppVersion: String): List<ChangeWaitingToRetry> =
         try {
-            unappliedSyncChangeDao.getChangesThatFailedOnAnotherAppVersion(currentAppVersion).mapNotNull { waitingChange ->
+            unappliedSyncChangeDao.getChangesReadyToRetry(
+                currentAppVersion,
+                MAX_FAILED_ATTEMPTS_BEFORE_WAITING_FOR_APP_UPDATE
+            ).mapNotNull { waitingChange ->
                 try {
-                    json.decodeFromString<SyncEnvelope>(waitingChange.envelopeJson)
+                    ChangeWaitingToRetry(
+                        envelope = json.decodeFromString<SyncEnvelope>(waitingChange.envelopeJson),
+                        failedAttemptsOnThisAppVersion =
+                            if (waitingChange.failedOnAppVersion == currentAppVersion) waitingChange.failedAttempts else 0
+                    )
                 } catch (e: SerializationException) {
                     LanSyncLog.e("applyRemoteChanges: dropping unreadable waiting change for ${waitingChange.entityId}", e)
                     unappliedSyncChangeDao.deleteChange(waitingChange.entityType, waitingChange.entityId)
@@ -633,19 +657,29 @@ class SyncRepositoryImpl(
                 }
             }
         } catch (e: Exception) {
-            LanSyncLog.e("applyRemoteChanges: could not load changes waiting for an app update: ${e.message}", e)
+            LanSyncLog.e("applyRemoteChanges: could not load changes waiting to retry: ${e.message}", e)
             emptyList()
         }
 
-    private suspend fun keepChangeUntilAppUpdate(envelope: SyncEnvelope, currentAppVersion: String): Boolean =
+    private suspend fun saveChangeToRetryLater(
+        envelope: SyncEnvelope,
+        currentAppVersion: String,
+        waitsForAppUpdate: Boolean,
+        failedAttempts: Int
+    ): Boolean =
         try {
+            if (failedAttempts == MAX_FAILED_ATTEMPTS_BEFORE_WAITING_FOR_APP_UPDATE) {
+                LanSyncLog.e("applyRemoteChanges: change for ${envelope.entityId} failed $failedAttempts times, not retrying it again until the app is updated")
+            }
             unappliedSyncChangeDao.saveChange(
                 UnappliedSyncChangeEntity(
                     entityType = envelope.entityType.name,
                     entityId = envelope.entityId,
                     envelopeJson = json.encodeToString(envelope),
                     failedOnAppVersion = currentAppVersion,
-                    failedAt = System.currentTimeMillis()
+                    failedAt = System.currentTimeMillis(),
+                    waitsForAppUpdate = waitsForAppUpdate,
+                    failedAttempts = failedAttempts
                 )
             )
             true
@@ -654,13 +688,21 @@ class SyncRepositoryImpl(
             false
         }
 
-    private suspend fun forgetChangeWaitingForAppUpdate(envelope: SyncEnvelope) {
+    private suspend fun forgetChangeWaitingToRetry(envelope: SyncEnvelope) {
         try {
             unappliedSyncChangeDao.deleteChange(envelope.entityType.name, envelope.entityId)
         } catch (e: Exception) {
             LanSyncLog.e("applyRemoteChanges: could not remove applied waiting change for ${envelope.entityId}: ${e.message}", e)
         }
     }
+
+    override suspend fun countChangesWaitingToRetry(): Int =
+        try {
+            unappliedSyncChangeDao.countChangesToRetryOnNextSync()
+        } catch (e: Exception) {
+            LanSyncLog.e("countChangesWaitingToRetry: could not count changes waiting to retry: ${e.message}", e)
+            0
+        }
 
     override suspend fun collectLocalChanges(since: Long, uploadMedia: Boolean): List<SyncEnvelope> =
         withContext(Dispatchers.IO) {
@@ -930,3 +972,7 @@ class SyncRepositoryImpl(
 }
 
 private enum class RemoteChangeOutcome { APPLIED, CANNOT_BE_READ, TRY_AGAIN }
+
+private class ChangeWaitingToRetry(val envelope: SyncEnvelope, val failedAttemptsOnThisAppVersion: Int)
+
+private const val MAX_FAILED_ATTEMPTS_BEFORE_WAITING_FOR_APP_UPDATE = 20

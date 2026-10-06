@@ -8,5 +8,7 @@ data class UnappliedSyncChangeEntity(
     val entityId: String,
     val envelopeJson: String,
     val failedOnAppVersion: String,
-    val failedAt: Long
+    val failedAt: Long,
+    val waitsForAppUpdate: Boolean,
+    val failedAttempts: Int
 )

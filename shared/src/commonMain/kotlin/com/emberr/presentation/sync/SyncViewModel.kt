@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.emberr.core.security.SyncEncryptionManager
 import com.emberr.core.security.SyncHmacSigner
 import com.emberr.data.local.prefs.SettingsManager
+import com.emberr.domain.selfhost.sync.SelfHostConnectionState
 import com.emberr.domain.sync.LanSyncLog
 import com.emberr.domain.sync.LanSyncSchemaMismatchException
 import com.emberr.domain.sync.LanSyncServerController
@@ -35,6 +36,7 @@ class SyncViewModel(
     private val syncEncryptionManager: SyncEncryptionManager,
     private val pairingState: SyncPairingState,
     private val lanSyncServerController: LanSyncServerController,
+    selfHostConnectionState: SelfHostConnectionState,
     val serverStatus: StateFlow<SyncServerStatus>? = null
 ) : ViewModel() {
 
@@ -67,6 +69,8 @@ class SyncViewModel(
     }
 
     val isPaired = pairingState.isPaired
+
+    val isSelfHostConnected = selfHostConnectionState.isConnected
 
     fun startServerForPairing() {
         viewModelScope.launch(Dispatchers.IO) {
@@ -174,13 +178,11 @@ class SyncViewModel(
                     reportedDesktopId = fetched.desktopId,
                     thisSyncStartedFromScratch = lastPushedTimestamp == 0L && lastFetchedTimestamp == 0L
                 )
-                val appliedCleanly = if (fetched.changes.isNotEmpty()) {
-                    syncRepository.applyRemoteChanges(fetched.changes)
-                } else true
+                val appliedCleanly = syncRepository.applyRemoteChanges(fetched.changes)
                 if (appliedCleanly && !startedOver) settingsManager.saveLastFetchedTimestamp(fetched.serverSnapshotAt ?: syncStart)
 
                 if (pushedCleanly && appliedCleanly && !startedOver) {
-                    _syncStatus.value = "Success!"
+                    _syncStatus.value = statusAfterCleanSync(fetched.changesWaitingToRetry, successText = "Success!")
 
                     // Reconcile files after a successful sync.
                     syncRepository.reconcileMedia()
@@ -197,6 +199,15 @@ class SyncViewModel(
             } finally {
                 syncMutex.unlock()
             }
+        }
+    }
+
+    private suspend fun statusAfterCleanSync(changesWaitingOnDesktop: Int, successText: String): String {
+        val changesWaiting = syncRepository.countChangesWaitingToRetry() + changesWaitingOnDesktop
+        return when (changesWaiting) {
+            0 -> successText
+            1 -> "Synced, 1 item couldn't be saved"
+            else -> "Synced, $changesWaiting items couldn't be saved"
         }
     }
 
@@ -243,13 +254,11 @@ class SyncViewModel(
                 reportedDesktopId = fetched.desktopId,
                 thisSyncStartedFromScratch = lastPushedTimestamp == 0L && lastFetchedTimestamp == 0L
             )
-            val appliedCleanly = if (fetched.changes.isNotEmpty()) {
-                syncRepository.applyRemoteChanges(fetched.changes)
-            } else true
+            val appliedCleanly = syncRepository.applyRemoteChanges(fetched.changes)
             if (appliedCleanly && !startedOver) settingsManager.saveLastFetchedTimestamp(fetched.serverSnapshotAt ?: syncStart)
 
             if (pushedCleanly && appliedCleanly && !startedOver) {
-                _syncStatus.value = "Synced Successfully"
+                _syncStatus.value = statusAfterCleanSync(fetched.changesWaitingToRetry, successText = "Synced Successfully")
                 true
             } else {
                 _syncStatus.value = "Partial sync, will retry"
