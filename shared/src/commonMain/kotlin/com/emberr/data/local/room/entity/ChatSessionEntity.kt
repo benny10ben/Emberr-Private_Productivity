@@ -17,6 +17,7 @@ data class ChatSessionEntity(
     @PrimaryKey val id: String,
     val title: String,
     val messagesJson: String,
+    val removedMessageIdsJson: String = "[]",
     val createdAt: Long,
     val updatedAt: Long,
     val isDeleted: Boolean = false,

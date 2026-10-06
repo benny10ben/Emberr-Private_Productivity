@@ -126,6 +126,7 @@ class RagViewModel(
     val currentSessionId: StateFlow<String?> = _currentSessionId.asStateFlow()
 
     private var currentSessionCreatedAt: Long? = null
+    private var currentSessionRemovedMessageIds: Set<String> = emptySet()
     private var currentSessionSpaceId: String? = null
     private val _editingMessageId = MutableStateFlow<String?>(null)
 
@@ -506,6 +507,7 @@ class RagViewModel(
             _editingMessageId.value = null
             val index = _messages.value.indexOfFirst { it.id == editingId }
             if (index != -1) {
+                currentSessionRemovedMessageIds += _messages.value.drop(index).map { it.id }
                 _messages.value = _messages.value.take(index)
             }
         }
@@ -526,7 +528,10 @@ class RagViewModel(
                     if (activeGenerationJob !== thisJob) return@collect
                     val list = _messages.value.toMutableList()
                     val last = list.last()
-                    list[list.lastIndex] = last.copy(text = last.text + token)
+                    list[list.lastIndex] = last.copy(
+                        text = last.text + token,
+                        updatedAt = Clock.System.now().toEpochMilliseconds()
+                    )
                     _messages.value = list
                 }
             } catch (e: CancellationException) {
@@ -541,7 +546,10 @@ class RagViewModel(
                     }
                     val list = _messages.value.toMutableList()
                     val last = list.last()
-                    list[list.lastIndex] = last.copy(text = friendlyMessage)
+                    list[list.lastIndex] = last.copy(
+                        text = friendlyMessage,
+                        updatedAt = Clock.System.now().toEpochMilliseconds()
+                    )
                     _messages.value = list
                 }
             } finally {
@@ -561,6 +569,7 @@ class RagViewModel(
         val last = list.lastOrNull()
         val lastIsToolCallSummary = last?.toolCallSummary != null
         if (last != null && !last.isUser && last.text.isEmpty() && !lastIsToolCallSummary) {
+            currentSessionRemovedMessageIds += last.id
             list.removeAt(list.lastIndex)
             _messages.value = list
         }
@@ -578,6 +587,7 @@ class RagViewModel(
             _messages.value = session.messages
             _currentSessionId.value = session.id
             currentSessionCreatedAt = session.createdAt
+            currentSessionRemovedMessageIds = session.removedMessageIds
             currentSessionSpaceId = activeSpaceStore.currentActiveSpaceId()
         }
     }
@@ -596,8 +606,8 @@ class RagViewModel(
             val createdAt = currentSessionCreatedAt ?: now
             currentSessionCreatedAt = createdAt
 
-            val title = currentMessages.firstOrNull { it.isUser }
-                ?.text?.take(TITLE_MAX_CHARS)?.ifBlank { null }
+            val title = chatSessionRepository.getSession(sessionId)?.title
+                ?: currentMessages.firstOrNull { it.isUser }?.text?.take(TITLE_MAX_CHARS)?.ifBlank { null }
                 ?: DEFAULT_SESSION_TITLE
 
             chatSessionRepository.saveSession(
@@ -605,6 +615,7 @@ class RagViewModel(
                     id = sessionId,
                     title = title,
                     messages = currentMessages,
+                    removedMessageIds = currentSessionRemovedMessageIds,
                     createdAt = createdAt,
                     updatedAt = now
                 )
@@ -648,6 +659,7 @@ class RagViewModel(
         _messages.value = emptyList()
         _currentSessionId.value = null
         currentSessionCreatedAt = null
+        currentSessionRemovedMessageIds = emptySet()
         currentSessionSpaceId = null
     }
 

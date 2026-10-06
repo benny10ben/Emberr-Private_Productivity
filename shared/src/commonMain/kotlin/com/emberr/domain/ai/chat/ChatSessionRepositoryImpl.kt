@@ -10,6 +10,8 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.builtins.SetSerializer
+import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
@@ -20,6 +22,7 @@ class ChatSessionRepositoryImpl(
 
     private val json = Json { ignoreUnknownKeys = true }
     private val messageListSerializer = ListSerializer(ChatMessage.serializer())
+    private val messageIdSetSerializer = SetSerializer(String.serializer())
 
     override fun getAllSessions(): Flow<List<ChatSession>> =
         activeSpaceStore.activeSpaceId.flatMapLatest { spaceId ->
@@ -37,6 +40,7 @@ class ChatSessionRepositoryImpl(
                     id = session.id,
                     title = session.title,
                     messagesJson = json.encodeToString(messageListSerializer, session.messages),
+                    removedMessageIdsJson = json.encodeToString(messageIdSetSerializer, session.removedMessageIds),
                     createdAt = session.createdAt,
                     updatedAt = session.updatedAt,
                     spaceId = existingSpaceId ?: activeSpaceStore.currentActiveSpaceId()
@@ -73,6 +77,11 @@ class ChatSessionRepositoryImpl(
             json.decodeFromString(messageListSerializer, messagesJson)
         } catch (cause: SerializationException) {
             emptyList()
+        },
+        removedMessageIds = try {
+            json.decodeFromString(messageIdSetSerializer, removedMessageIdsJson)
+        } catch (cause: SerializationException) {
+            emptySet()
         },
         createdAt = createdAt,
         updatedAt = updatedAt
