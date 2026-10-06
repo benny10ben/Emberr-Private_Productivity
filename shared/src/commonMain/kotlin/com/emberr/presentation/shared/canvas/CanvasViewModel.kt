@@ -132,7 +132,7 @@ class CanvasViewModel(
             SyncCoordinator.mutex.withLock {
                 val metadata = noteRepository.getNoteById(targetNoteId) ?: return@withLock
                 val content = noteRepository.getNoteContent(targetNoteId) ?: NoteContent(blocks = emptyList())
-                noteRepository.saveNote(metadata.copy(title = newTitle), content)
+                noteRepository.saveNote(metadata.copy(title = newTitle, titleUpdatedAt = System.currentTimeMillis()), content)
             }
             noteRepository.indexCanvas(targetNoteId, _canvas.value)
             lastIndexedSignature = indexSignatureOf(_canvas.value)
@@ -145,7 +145,10 @@ class CanvasViewModel(
             SyncCoordinator.mutex.withLock {
                 val metadata = noteRepository.getNoteById(targetNoteId) ?: return@withLock
                 val content = noteRepository.getNoteContent(targetNoteId) ?: NoteContent(blocks = emptyList())
-                noteRepository.saveNote(metadata.copy(isFavorite = !metadata.isFavorite), content)
+                noteRepository.saveNote(
+                    metadata.copy(isFavorite = !metadata.isFavorite, favoriteUpdatedAt = System.currentTimeMillis()),
+                    content
+                )
             }
         }
     }

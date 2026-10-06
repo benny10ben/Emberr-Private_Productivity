@@ -38,9 +38,9 @@ object IncomingNoteMerge {
                 updatedAt = resolvedUpdatedAt,
                 selfHostSyncedAt = localMeta.selfHostSyncedAt,
                 kind = localMeta.kind
-            )
+            ).withNewerDetailsFrom(localMeta)
         } else {
-            localMeta.copy(updatedAt = resolvedUpdatedAt)
+            localMeta.copy(updatedAt = resolvedUpdatedAt).withNewerDetailsFrom(remoteMeta)
         }
 
         return MergedIncomingNote(

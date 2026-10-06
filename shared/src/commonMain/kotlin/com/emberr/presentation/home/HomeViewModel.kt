@@ -520,7 +520,8 @@ class HomeViewModel(
                 SyncCoordinator.mutex.withLock {
                     val meta = repository.getNoteById(noteId) ?: return@withLock
                     val content = repository.getNoteContent(noteId) ?: NoteContent(blocks = emptyList())
-                    repository.saveNote(meta.copy(title = newTitle, updatedAt = System.currentTimeMillis()), content)
+                    val now = System.currentTimeMillis()
+                    repository.saveNote(meta.copy(title = newTitle, titleUpdatedAt = now, updatedAt = now), content)
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -789,7 +790,8 @@ class HomeViewModel(
                 SyncCoordinator.mutex.withLock {
                     val meta = repository.getNoteById(noteId) ?: return@withLock
                     val content = repository.getNoteContent(noteId) ?: NoteContent(blocks = emptyList())
-                    repository.saveNote(meta.copy(folderId = targetFolderId, updatedAt = System.currentTimeMillis()), content)
+                    val now = System.currentTimeMillis()
+                    repository.saveNote(meta.copy(folderId = targetFolderId, folderUpdatedAt = now, updatedAt = now), content)
                 }
             } catch (e: Exception) {
                 e.printStackTrace()

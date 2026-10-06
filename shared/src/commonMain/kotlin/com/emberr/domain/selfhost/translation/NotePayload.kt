@@ -39,7 +39,13 @@ data class NotePayload(
     val canvasEdges: List<CanvasEdgeEntity> = emptyList(),
     val canvasStrokes: List<CanvasStrokeEntity> = emptyList(),
     val databaseId: String? = null,
-    val isDatabaseTemplate: Boolean = false
+    val isDatabaseTemplate: Boolean = false,
+    val titleUpdatedAt: Long = 0L,
+    val folderUpdatedAt: Long = 0L,
+    val iconUpdatedAt: Long = 0L,
+    val favoriteUpdatedAt: Long = 0L,
+    val coverImageUpdatedAt: Long = 0L,
+    val wordCountUpdatedAt: Long = 0L
 )
 
 @Serializable

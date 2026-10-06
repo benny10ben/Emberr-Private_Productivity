@@ -11,16 +11,41 @@ import kotlin.test.assertTrue
 
 class IncomingNoteMergeTest {
 
-    private fun note(updatedAt: Long, trashedAt: Long? = null) = NoteMetadataEntity(
+    private fun note(
+        updatedAt: Long,
+        trashedAt: Long? = null,
+        title: String = "Groceries",
+        titleUpdatedAt: Long = 0L,
+        folderId: String? = "home",
+        folderUpdatedAt: Long = 0L,
+        icon: String? = null,
+        iconUpdatedAt: Long = 0L,
+        isFavorite: Boolean = false,
+        favoriteUpdatedAt: Long = 0L,
+        coverImagePath: String? = null,
+        coverImageUpdatedAt: Long = 0L,
+        showWordCount: Boolean = false,
+        wordCountUpdatedAt: Long = 0L
+    ) = NoteMetadataEntity(
         noteId = "note-1",
-        title = "Groceries",
-        folderId = null,
+        title = title,
+        folderId = folderId,
         isDaily = false,
         dateString = null,
         createdAt = 1L,
         updatedAt = updatedAt,
         filePath = "",
-        trashedAt = trashedAt
+        trashedAt = trashedAt,
+        icon = icon,
+        isFavorite = isFavorite,
+        titleUpdatedAt = titleUpdatedAt,
+        folderUpdatedAt = folderUpdatedAt,
+        iconUpdatedAt = iconUpdatedAt,
+        favoriteUpdatedAt = favoriteUpdatedAt,
+        coverImagePath = coverImagePath,
+        coverImageUpdatedAt = coverImageUpdatedAt,
+        showWordCount = showWordCount,
+        wordCountUpdatedAt = wordCountUpdatedAt
     )
 
     private fun text(id: String, body: String, updatedAt: Long) =
@@ -99,5 +124,103 @@ class IncomingNoteMergeTest {
 
         assertNull(merged.metadata.trashedAt)
         assertEquals(listOf("block-1", "block-2"), merged.content.blocks.map { it.id })
+    }
+
+    @Test
+    fun aRenameHereSurvivesAMoveAndTypingOnTheOtherDevice() {
+        val merged = IncomingNoteMerge.merge(
+            localMeta = note(updatedAt = 100L, title = "Grocery list", titleUpdatedAt = 100L),
+            localContent = contentOf(text("block-1", "milk", 1L)),
+            remoteMeta = note(updatedAt = 107L, folderId = "errands", folderUpdatedAt = 105L),
+            remoteContent = contentOf(text("block-1", "milk", 1L), text("block-2", "eggs", 107L)),
+            remoteUpdatedAt = 107L
+        )
+
+        assertEquals("Grocery list", merged.metadata.title)
+        assertEquals("errands", merged.metadata.folderId)
+        assertEquals("eggs", textOf(merged.content, "block-2"))
+    }
+
+    @Test
+    fun aRenameOnTheOtherDeviceSurvivesTypingHere() {
+        val merged = IncomingNoteMerge.merge(
+            localMeta = note(updatedAt = 200L),
+            localContent = contentOf(text("block-1", "typed here", 200L)),
+            remoteMeta = note(updatedAt = 100L, title = "Grocery list", titleUpdatedAt = 100L),
+            remoteContent = contentOf(text("block-1", "milk", 1L)),
+            remoteUpdatedAt = 100L
+        )
+
+        assertEquals("Grocery list", merged.metadata.title)
+        assertEquals("typed here", textOf(merged.content, "block-1"))
+        assertTrue(merged.hasChanges)
+    }
+
+    @Test
+    fun whenBothDevicesRenameTheNoteTheLaterRenameWins() {
+        val merged = IncomingNoteMerge.merge(
+            localMeta = note(updatedAt = 300L, title = "Renamed here first", titleUpdatedAt = 100L),
+            localContent = contentOf(text("block-1", "milk", 1L)),
+            remoteMeta = note(updatedAt = 200L, title = "Renamed there later", titleUpdatedAt = 150L),
+            remoteContent = contentOf(text("block-1", "milk", 1L)),
+            remoteUpdatedAt = 200L
+        )
+
+        assertEquals("Renamed there later", merged.metadata.title)
+    }
+
+    @Test
+    fun anIconAndFavoriteChangedHereSurviveTypingOnTheOtherDevice() {
+        val merged = IncomingNoteMerge.merge(
+            localMeta = note(updatedAt = 100L, icon = "🛒", iconUpdatedAt = 100L, isFavorite = true, favoriteUpdatedAt = 100L),
+            localContent = contentOf(text("block-1", "milk", 1L)),
+            remoteMeta = note(updatedAt = 200L),
+            remoteContent = contentOf(text("block-1", "milk and eggs", 200L)),
+            remoteUpdatedAt = 200L
+        )
+
+        assertEquals("🛒", merged.metadata.icon)
+        assertTrue(merged.metadata.isFavorite)
+        assertEquals("milk and eggs", textOf(merged.content, "block-1"))
+    }
+
+    @Test
+    fun unfavoritingOnTheOtherDeviceIsKeptWhenItIsTheNewerChange() {
+        val merged = IncomingNoteMerge.merge(
+            localMeta = note(updatedAt = 300L, isFavorite = true, favoriteUpdatedAt = 100L),
+            localContent = contentOf(text("block-1", "typed here", 300L)),
+            remoteMeta = note(updatedAt = 200L, isFavorite = false, favoriteUpdatedAt = 200L),
+            remoteContent = contentOf(text("block-1", "milk", 1L)),
+            remoteUpdatedAt = 200L
+        )
+
+        assertFalse(merged.metadata.isFavorite)
+    }
+
+    @Test
+    fun aCoverImageChangedHereSurvivesTypingOnTheOtherDevice() {
+        val merged = IncomingNoteMerge.merge(
+            localMeta = note(updatedAt = 100L, coverImagePath = "beach.jpg", coverImageUpdatedAt = 100L),
+            localContent = contentOf(text("block-1", "milk", 1L)),
+            remoteMeta = note(updatedAt = 105L, coverImagePath = "old-cover.jpg"),
+            remoteContent = contentOf(text("block-1", "milk and eggs", 105L)),
+            remoteUpdatedAt = 105L
+        )
+
+        assertEquals("beach.jpg", merged.metadata.coverImagePath)
+        assertEquals("milk and eggs", textOf(merged.content, "block-1"))
+    }
+
+    @Test
+    fun turningOnWordCountOnTheOtherDeviceSurvivesTypingHere() {
+        val merged = IncomingNoteMerge.merge(
+            localMeta = note(updatedAt = 200L),
+            localContent = contentOf(text("block-1", "typed here", 200L)),
+            remoteMeta = note(updatedAt = 100L, showWordCount = true, wordCountUpdatedAt = 100L),
+            remoteContent = contentOf(text("block-1", "milk", 1L)),
+            remoteUpdatedAt = 100L
+        )
+
+        assertTrue(merged.metadata.showWordCount)
     }
 }

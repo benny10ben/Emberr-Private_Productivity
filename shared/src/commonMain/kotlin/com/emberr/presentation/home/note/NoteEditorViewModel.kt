@@ -155,14 +155,9 @@ class NoteEditorViewModel(
                     val reconciled = reconcileWithDisk(meta.noteId, _blocks.value)
                     if (reconciled !== _blocks.value) _blocks.value = reconciled
 
-                    val updatedMeta = meta.copy(
-                        title = _noteTitle.value,
-                        icon = _noteIcon.value,
-                        isFavorite = _isFavorite.value,
-                        coverImagePath = _coverImagePath.value,
+                    val updatedMeta = meta.withDetailsFromEditor().copy(
                         snippet = generateSnippet(reconciled),
-                        updatedAt = System.currentTimeMillis(),
-                        showWordCount = _showWordCount.value
+                        updatedAt = System.currentTimeMillis()
                     )
 
                     if (theNoteAlreadyHoldsThis(meta.noteId, updatedMeta, reconciled)) return@withLock true
@@ -218,13 +213,8 @@ class NoteEditorViewModel(
         val previousMeta = currentMetadata
         val snapshot = _blocks.value.toList()
 
-        val flushedMeta = previousMeta?.copy(
-            title = _noteTitle.value,
-            icon = _noteIcon.value,
-            isFavorite = _isFavorite.value,
-            coverImagePath = _coverImagePath.value,
+        val flushedMeta = previousMeta?.withDetailsFromEditor()?.copy(
             snippet = generateSnippet(snapshot),
-            showWordCount = _showWordCount.value,
             updatedAt = System.currentTimeMillis()
         )
 
@@ -289,6 +279,19 @@ class NoteEditorViewModel(
         }
     }
 
+    private fun NoteMetadataEntity.withDetailsFromEditor(): NoteMetadataEntity {
+        val now = System.currentTimeMillis()
+        val withTitle = if (_noteTitle.value == title) this else copy(title = _noteTitle.value, titleUpdatedAt = now)
+        val withIcon = if (_noteIcon.value == icon) withTitle else withTitle.copy(icon = _noteIcon.value, iconUpdatedAt = now)
+        val withFavorite = if (_isFavorite.value == isFavorite) withIcon else withIcon.copy(isFavorite = _isFavorite.value, favoriteUpdatedAt = now)
+        val withCoverImage = if (_coverImagePath.value == coverImagePath) withFavorite else {
+            withFavorite.copy(coverImagePath = _coverImagePath.value, coverImageUpdatedAt = now)
+        }
+        return if (_showWordCount.value == showWordCount) withCoverImage else {
+            withCoverImage.copy(showWordCount = _showWordCount.value, wordCountUpdatedAt = now)
+        }
+    }
+
     fun updateTitle(newTitle: String) {
         _noteTitle.value = newTitle
         scheduleAutosave()
@@ -330,13 +333,8 @@ class NoteEditorViewModel(
         viewModelScope.launch(Dispatchers.IO) {
             SyncCoordinator.mutex.withLock {
                 val reconciled = reconcileWithDisk(meta.noteId, snapshot)
-                val trashedMeta = meta.copy(
-                    title = _noteTitle.value,
-                    icon = _noteIcon.value,
-                    isFavorite = _isFavorite.value,
-                    coverImagePath = _coverImagePath.value,
+                val trashedMeta = meta.withDetailsFromEditor().copy(
                     snippet = generateSnippet(reconciled),
-                    showWordCount = _showWordCount.value,
                     trashedAt = System.currentTimeMillis()
                 )
 

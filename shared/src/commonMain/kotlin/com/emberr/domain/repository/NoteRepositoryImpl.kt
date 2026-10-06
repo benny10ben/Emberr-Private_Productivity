@@ -109,6 +109,7 @@ import kotlinx.datetime.minus
 import kotlinx.datetime.plus
 import kotlinx.datetime.toInstant
 import com.emberr.domain.sync.AutoSyncTrigger
+import com.emberr.domain.sync.withNewerDetailsFrom
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -726,9 +727,9 @@ class NoteRepositoryImpl(
     ) =
         withContext(Dispatchers.IO) {
 
-            val existingSpaceId = noteDao.getNoteById(metadata.noteId)?.spaceId
-            val resolvedSpaceId = existingSpaceId ?: requestedSpaceId ?: activeSpaceId()
-            val spacedMetadata = metadata.copy(spaceId = resolvedSpaceId)
+            val existingMetadata = noteDao.getNoteById(metadata.noteId)
+            val resolvedSpaceId = existingMetadata?.spaceId ?: requestedSpaceId ?: activeSpaceId()
+            val spacedMetadata = metadata.copy(spaceId = resolvedSpaceId).withNewerDetailsFrom(existingMetadata)
 
             val stampedMetadata =
                 if (stampUpdatedAt) spacedMetadata.copy(updatedAt = System.currentTimeMillis()) else spacedMetadata
@@ -1329,7 +1330,7 @@ class NoteRepositoryImpl(
                 val rowNote = noteDao.getNoteById(rowNoteId) ?: return@withLock null
                 if (rowNote.title == title) return@withLock null
 
-                saveRowNoteKeepingItsBlocks(rowNote.copy(title = title))
+                saveRowNoteKeepingItsBlocks(rowNote.copy(title = title, titleUpdatedAt = System.currentTimeMillis()))
                 DatabaseRowChange.Title(rowNoteId, before = rowNote.title, after = title)
             }
         }
@@ -1432,7 +1433,7 @@ class NoteRepositoryImpl(
                             }
                             is DatabaseRowChange.Title -> {
                                 change.titleToWrite(direction, updatedRowNote.title)?.let { titleToWrite ->
-                                    updatedRowNote = updatedRowNote.copy(title = titleToWrite)
+                                    updatedRowNote = updatedRowNote.copy(title = titleToWrite, titleUpdatedAt = now)
                                 }
                             }
                             is DatabaseRowChange.RowPresence -> {
@@ -1474,7 +1475,10 @@ class NoteRepositoryImpl(
                 val changedSettings = change(settings) ?: return@withLock false
                 if (changedSettings == settings) return@withLock false
 
-                saveNote(note.copy(title = changedSettings.title), NoteContent(blocks = blocks.map { if (it.id == settings.id) changedSettings else it }))
+                val renamedNote = if (note.title == changedSettings.title) note else {
+                    note.copy(title = changedSettings.title, titleUpdatedAt = System.currentTimeMillis())
+                }
+                saveNote(renamedNote, NoteContent(blocks = blocks.map { if (it.id == settings.id) changedSettings else it }))
                 true
             }
         }

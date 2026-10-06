@@ -43,5 +43,11 @@ data class NoteMetadataEntity(
     val spaceId: String = DEFAULT_SPACE_ID,
     @ColumnInfo(defaultValue = "NOTE") val kind: NoteKind = NoteKind.NOTE,
     val databaseId: String? = null,
-    @ColumnInfo(defaultValue = "0") val isDatabaseTemplate: Boolean = false
+    @ColumnInfo(defaultValue = "0") val isDatabaseTemplate: Boolean = false,
+    val titleUpdatedAt: Long = 0L,
+    val folderUpdatedAt: Long = 0L,
+    val iconUpdatedAt: Long = 0L,
+    val favoriteUpdatedAt: Long = 0L,
+    val coverImageUpdatedAt: Long = 0L,
+    val wordCountUpdatedAt: Long = 0L
 )
