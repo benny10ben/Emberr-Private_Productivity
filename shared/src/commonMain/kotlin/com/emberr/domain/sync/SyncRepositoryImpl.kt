@@ -51,7 +51,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.builtins.ListSerializer
@@ -86,6 +88,7 @@ class SyncRepositoryImpl(
     private val mediaTransferScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val inFlightMediaTransfersMutex = Mutex()
     private val inFlightMediaTransfers = mutableSetOf<String>()
+    private val mediaTransferSlots = Semaphore(MAX_SIMULTANEOUS_MEDIA_TRANSFERS)
 
     // Executes a single file transfer on the background scope if it isn't already in flight.
     // Updates MediaTransferStatusBus so UI components stay in sync with real-time transfer states.
@@ -98,7 +101,7 @@ class SyncRepositoryImpl(
             MediaTransferStatusBus.markStarted(fileName, phase)
             var outcome = MediaTransferOutcome.FAILED
             try {
-                outcome = block()
+                outcome = mediaTransferSlots.withPermit { block() }
             } catch (e: Exception) {
                 LanSyncLog.e("mediaSync: $phase of $fileName failed unexpectedly: ${e.message}", e)
             } finally {
@@ -983,5 +986,7 @@ private enum class RemoteChangeOutcome { APPLIED, CANNOT_BE_READ, TRY_AGAIN }
 private class ChangeWaitingToRetry(val envelope: SyncEnvelope, val failedAttemptsOnThisAppVersion: Int)
 
 private const val MAX_FAILED_ATTEMPTS_BEFORE_WAITING_FOR_APP_UPDATE = 20
+
+private const val MAX_SIMULTANEOUS_MEDIA_TRANSFERS = 3
 
 private val SYNC_LOCK_MAX_WAIT = 10.seconds
