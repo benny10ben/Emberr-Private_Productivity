@@ -39,8 +39,10 @@ import com.emberr.domain.space.SpaceRepository
 import com.emberr.domain.selfhost.translation.EmbeddedBlockPayload
 import com.emberr.domain.selfhost.translation.NoteJsonCompiler
 import com.emberr.domain.selfhost.translation.NoteJsonParser
+import com.emberr.domain.selfhost.translation.NotePayloadSyncException
 import com.emberr.domain.selfhost.webdav.WebDavConfigurationException
 import com.emberr.domain.selfhost.webdav.WebDavConflictException
+import com.emberr.domain.selfhost.webdav.WebDavDecryptionException
 import com.emberr.domain.selfhost.webdav.WebDavSyncClient
 import com.emberr.domain.selfhost.webdav.WebDavSyncPaths
 import com.emberr.domain.sync.MediaTransferPhase
@@ -62,11 +64,34 @@ import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 
 sealed class SelfHostSyncResult {
-    data class Success(val notesSynced: Int, val conflicts: Int) : SelfHostSyncResult()
+    data class Success(val notesSynced: Int, val conflicts: Int, val brokenNotes: Int = 0) : SelfHostSyncResult() {
+        val brokenNotesMessage: String?
+            get() = when (brokenNotes) {
+                0 -> null
+                1 -> "1 note couldn't be synced"
+                else -> "$brokenNotes notes couldn't be synced"
+            }
+    }
     data class Failure(val cause: Throwable) : SelfHostSyncResult()
     data object AlreadyInProgress : SelfHostSyncResult()
     data object NotConfigured : SelfHostSyncResult()
 }
+
+internal enum class ReconcileOutcome { SYNCED, CONFLICT_SKIPPED, LOCK_BUSY, UNCHANGED, BROKEN_NOTE }
+
+internal suspend fun reconcileOrSkipBrokenNote(
+    noteId: String,
+    reconcile: suspend () -> ReconcileOutcome
+): ReconcileOutcome =
+    try {
+        reconcile()
+    } catch (cause: NotePayloadSyncException) {
+        SelfHostSyncLog.e("TextSync: note=$noteId has broken content, skipping it this cycle", cause)
+        ReconcileOutcome.BROKEN_NOTE
+    } catch (cause: WebDavDecryptionException) {
+        SelfHostSyncLog.e("TextSync: note=$noteId could not be decrypted, skipping it this cycle", cause)
+        ReconcileOutcome.BROKEN_NOTE
+    }
 
 class SelfHostSyncEngine(
     private val webDavSyncClient: WebDavSyncClient,
@@ -92,8 +117,6 @@ class SelfHostSyncEngine(
     private val mediaReferenceIndex: MediaReferenceIndex,
     private val canvasRepository: CanvasRepository
 ) {
-
-    private enum class ReconcileOutcome { SYNCED, CONFLICT_SKIPPED, LOCK_BUSY, UNCHANGED }
 
     private val mutex = Mutex()
     private val manifestJson = Json { ignoreUnknownKeys = true; encodeDefaults = true }
@@ -449,16 +472,20 @@ class SelfHostSyncEngine(
             var conflictCount = 0
             var skippedBusyCount = 0
             val conflictedNoteIds = mutableSetOf<String>()
+            val brokenNoteIds = mutableSetOf<String>()
+            val brokenRemoteEntryIds = mutableSetOf<String>()
 
             for ((noteId, remoteEntry) in candidates) {
                 // Lock each note individually for reconciliation.
                 // If the lock is busy (e.g., user is editing), we skip it so other notes aren't delayed.
                 // Skipped notes will be retried on the next sync pass.
-                val outcome = withSyncCoordinatorOrSkip {
-                    reconcileNote(noteId, remoteEntry = remoteEntry)
-                } ?: run {
-                    SelfHostSyncLog.d("TextSync: note=$noteId skipped this cycle, SyncCoordinator.mutex busy - will retry next trigger")
-                    ReconcileOutcome.LOCK_BUSY
+                val outcome = reconcileOrSkipBrokenNote(noteId) {
+                    withSyncCoordinatorOrSkip {
+                        reconcileNote(noteId, remoteEntry = remoteEntry)
+                    } ?: run {
+                        SelfHostSyncLog.d("TextSync: note=$noteId skipped this cycle, SyncCoordinator.mutex busy - will retry next trigger")
+                        ReconcileOutcome.LOCK_BUSY
+                    }
                 }
                 SelfHostSyncLog.d("TextSync: note=$noteId outcome=$outcome")
                 when (outcome) {
@@ -466,6 +493,10 @@ class SelfHostSyncEngine(
                     ReconcileOutcome.CONFLICT_SKIPPED -> { conflictCount++; conflictedNoteIds += noteId }
                     ReconcileOutcome.LOCK_BUSY -> skippedBusyCount++
                     ReconcileOutcome.UNCHANGED -> Unit
+                    ReconcileOutcome.BROKEN_NOTE -> {
+                        brokenNoteIds += noteId
+                        remoteEntry?.let { brokenRemoteEntryIds += it.entryId }
+                    }
                 }
             }
 
@@ -504,6 +535,8 @@ class SelfHostSyncEngine(
             uploadManifest(
                 previousManifest = manifest,
                 conflictedNoteIds = conflictedNoteIds,
+                brokenNoteIds = brokenNoteIds,
+                brokenRemoteEntryIds = brokenRemoteEntryIds,
                 chatSessionEntries = chatSessionEntries,
                 previousManifestEtag = manifestEtag
             )
@@ -513,9 +546,14 @@ class SelfHostSyncEngine(
             settingsManager.saveSelfHostLastSyncTimestamp(syncStartTimestamp)
 
             SelfHostSyncLog.d(
-                "TextSync: complete, synced=$syncedCount conflicts=$conflictCount skippedBusy=$skippedBusyCount"
+                "TextSync: complete, synced=$syncedCount conflicts=$conflictCount skippedBusy=$skippedBusyCount " +
+                        "broken=${brokenNoteIds.size}"
             )
-            SelfHostSyncResult.Success(notesSynced = syncedCount, conflicts = conflictCount)
+            SelfHostSyncResult.Success(
+                notesSynced = syncedCount,
+                conflicts = conflictCount,
+                brokenNotes = brokenNoteIds.size
+            )
         } catch (cause: WebDavConfigurationException) {
             SelfHostSyncLog.d("TextSync: not configured (${cause.message})")
             SelfHostSyncResult.NotConfigured
@@ -1214,6 +1252,8 @@ class SelfHostSyncEngine(
     private suspend fun uploadManifest(
         previousManifest: SelfHostManifest,
         conflictedNoteIds: Set<String> = emptySet(),
+        brokenNoteIds: Set<String> = emptySet(),
+        brokenRemoteEntryIds: Set<String> = emptySet(),
         chatSessionEntries: List<SelfHostManifestEntry> = emptyList(),
         previousManifestEtag: String? = null,
         attempt: Int = 0
@@ -1285,15 +1325,20 @@ class SelfHostSyncEngine(
                 // If a note conflicted, its push was rejected.
                 // We preserve the downloaded manifest entry for it, rather than rebuilding it from local state,
                 // because the local state hasn't been successfully accepted by the server yet.
-                if (note.noteId in conflictedNoteIds) {
+                if (note.noteId in conflictedNoteIds || note.noteId in brokenNoteIds) {
                     previousEntriesById[rebuiltEntry.entryId] ?: rebuiltEntry
                 } else {
                     rebuiltEntry
                 }
             }
+        val rebuiltEntryIds = noteEntries.map { it.entryId }.toSet()
+        val brokenEntriesMissingLocally = brokenRemoteEntryIds
+            .filter { it !in rebuiltEntryIds && it !in tombstoneIds }
+            .mapNotNull { previousEntriesById[it] }
         val preservedMediaEntries = previousManifest.entries.filter { it.entryType == SelfHostEntryType.MEDIA }
         val newManifest = SelfHostManifest(
-            entries = noteEntries + mergedTombstonesById.values + preservedMediaEntries + chatSessionEntries
+            entries = noteEntries + brokenEntriesMissingLocally + mergedTombstonesById.values +
+                preservedMediaEntries + chatSessionEntries
         )
 
         // The If-Match ETag check prevents concurrent manifest uploads from overwriting each other.
@@ -1313,7 +1358,15 @@ class SelfHostSyncEngine(
                 return
             }
             val (freshManifest, freshEtag) = downloadManifestWithEtag()
-            uploadManifest(freshManifest, conflictedNoteIds, chatSessionEntries, freshEtag, attempt + 1)
+            uploadManifest(
+                freshManifest,
+                conflictedNoteIds,
+                brokenNoteIds,
+                brokenRemoteEntryIds,
+                chatSessionEntries,
+                freshEtag,
+                attempt + 1
+            )
         }
     }
 }

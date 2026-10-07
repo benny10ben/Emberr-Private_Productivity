@@ -324,7 +324,12 @@ class WebDavSyncClient(
     suspend fun downloadAndDecryptJsonWithEtag(remotePath: String): Pair<String, String?>? {
         val (encryptedBytes, etag) = getFileWithEtag(remotePath) ?: return null
         val encryptedBase64 = Base64.encode(encryptedBytes)
-        val decrypted = syncEncryptionManager.decryptPayload(encryptedBase64, requireEncryptionKeyBase64())
+        val encryptionKey = requireEncryptionKeyBase64()
+        val decrypted = try {
+            syncEncryptionManager.decryptPayload(encryptedBase64, encryptionKey)
+        } catch (cause: Exception) {
+            throw WebDavDecryptionException("Could not decrypt $remotePath", cause)
+        }
         return decrypted to etag
     }
 
