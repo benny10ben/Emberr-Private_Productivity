@@ -49,7 +49,7 @@ import com.emberr.domain.sync.MediaTransferPhase
 import com.emberr.domain.sync.MediaTransferStatusBus
 import com.emberr.domain.sync.withNewerDetailsFrom
 import com.emberr.domain.util.media.MediaStorageHelper
-import com.emberr.domain.util.sync.withSyncCoordinatorOrSkip
+import com.emberr.domain.util.sync.withSyncCoordinatorWaitingAtMost
 import com.emberr.database.EmberrDatabase
 import java.io.File
 import java.util.UUID
@@ -60,6 +60,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlin.time.Clock
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.seconds
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 
@@ -126,6 +128,7 @@ class SelfHostSyncEngine(
 
     private companion object {
         const val MAX_MANIFEST_UPLOAD_RETRIES = 3
+        val SYNC_LOCK_MAX_WAIT = 10.seconds
 
         // Unreferenced media files are candidates for deletion.
         // We wait a full day (grace period) to allow other devices to sync and claim them,
@@ -464,23 +467,25 @@ class SelfHostSyncEngine(
                         "candidates=${candidates.size}"
             )
 
-            if (withSyncCoordinatorOrSkip { reconcileSpaces() } == null) {
+            var syncLockWaitForThisRun = SYNC_LOCK_MAX_WAIT
+            suspend fun <T> withSyncLock(block: suspend () -> T): T? =
+                withSyncCoordinatorWaitingAtMost(syncLockWaitForThisRun, block)
+                    .also { result -> if (result == null) syncLockWaitForThisRun = Duration.ZERO }
+
+            if (withSyncLock { reconcileSpaces() } == null) {
                 SelfHostSyncLog.d("TextSync: spaces skipped this cycle, SyncCoordinator.mutex busy - will retry next trigger")
             }
 
             var syncedCount = 0
             var conflictCount = 0
             var skippedBusyCount = 0
-            val conflictedNoteIds = mutableSetOf<String>()
-            val brokenNoteIds = mutableSetOf<String>()
-            val brokenRemoteEntryIds = mutableSetOf<String>()
+            var brokenNoteCount = 0
+            val noteIdsStillWaitingToUpload = mutableSetOf<String>()
 
             for ((noteId, remoteEntry) in candidates) {
                 // Lock each note individually for reconciliation.
-                // If the lock is busy (e.g., user is editing), we skip it so other notes aren't delayed.
-                // Skipped notes will be retried on the next sync pass.
                 val outcome = reconcileOrSkipBrokenNote(noteId) {
-                    withSyncCoordinatorOrSkip {
+                    withSyncLock {
                         reconcileNote(noteId, remoteEntry = remoteEntry)
                     } ?: run {
                         SelfHostSyncLog.d("TextSync: note=$noteId skipped this cycle, SyncCoordinator.mutex busy - will retry next trigger")
@@ -490,41 +495,38 @@ class SelfHostSyncEngine(
                 SelfHostSyncLog.d("TextSync: note=$noteId outcome=$outcome")
                 when (outcome) {
                     ReconcileOutcome.SYNCED -> syncedCount++
-                    ReconcileOutcome.CONFLICT_SKIPPED -> { conflictCount++; conflictedNoteIds += noteId }
-                    ReconcileOutcome.LOCK_BUSY -> skippedBusyCount++
+                    ReconcileOutcome.CONFLICT_SKIPPED -> { conflictCount++; noteIdsStillWaitingToUpload += noteId }
+                    ReconcileOutcome.LOCK_BUSY -> { skippedBusyCount++; noteIdsStillWaitingToUpload += noteId }
                     ReconcileOutcome.UNCHANGED -> Unit
-                    ReconcileOutcome.BROKEN_NOTE -> {
-                        brokenNoteIds += noteId
-                        remoteEntry?.let { brokenRemoteEntryIds += it.entryId }
-                    }
+                    ReconcileOutcome.BROKEN_NOTE -> { brokenNoteCount++; noteIdsStillWaitingToUpload += noteId }
                 }
             }
 
-            if (withSyncCoordinatorOrSkip { reconcileFolders() } == null) {
+            if (withSyncLock { reconcileFolders() } == null) {
                 SelfHostSyncLog.d("TextSync: folders skipped this cycle, SyncCoordinator.mutex busy - will retry next trigger")
             }
-            if (withSyncCoordinatorOrSkip { reconcileCategories() } == null) {
+            if (withSyncLock { reconcileCategories() } == null) {
                 SelfHostSyncLog.d("TextSync: categories skipped this cycle, SyncCoordinator.mutex busy - will retry next trigger")
             }
-            if (withSyncCoordinatorOrSkip { reconcilePropertyTags() } == null) {
+            if (withSyncLock { reconcilePropertyTags() } == null) {
                 SelfHostSyncLog.d("TextSync: property tags skipped this cycle, SyncCoordinator.mutex busy - will retry next trigger")
             }
-            if (withSyncCoordinatorOrSkip { reconcileCustomProperties() } == null) {
+            if (withSyncLock { reconcileCustomProperties() } == null) {
                 SelfHostSyncLog.d("TextSync: custom properties skipped this cycle, SyncCoordinator.mutex busy - will retry next trigger")
             }
-            if (withSyncCoordinatorOrSkip { reconcileEventExceptions() } == null) {
+            if (withSyncLock { reconcileEventExceptions() } == null) {
                 SelfHostSyncLog.d("TextSync: event exceptions skipped this cycle, SyncCoordinator.mutex busy - will retry next trigger")
             }
-            if (withSyncCoordinatorOrSkip { reconcileApiConfigs() } == null) {
+            if (withSyncLock { reconcileApiConfigs() } == null) {
                 SelfHostSyncLog.d("TextSync: api configs skipped this cycle, SyncCoordinator.mutex busy - will retry next trigger")
             }
-            if (withSyncCoordinatorOrSkip { reconcileBookmarkCategoryOrder() } == null) {
+            if (withSyncLock { reconcileBookmarkCategoryOrder() } == null) {
                 SelfHostSyncLog.d("TextSync: bookmark category order skipped this cycle, SyncCoordinator.mutex busy - will retry next trigger")
             }
-            if (withSyncCoordinatorOrSkip { reconcileFavoriteNoteOrder() } == null) {
+            if (withSyncLock { reconcileFavoriteNoteOrder() } == null) {
                 SelfHostSyncLog.d("TextSync: favorite note order skipped this cycle, SyncCoordinator.mutex busy - will retry next trigger")
             }
-            val chatSessionEntries = withSyncCoordinatorOrSkip { reconcileChatSessions(manifest) } ?: run {
+            val chatSessionEntries = withSyncLock { reconcileChatSessions(manifest) } ?: run {
                 SelfHostSyncLog.d("TextSync: chat sessions skipped this cycle, SyncCoordinator.mutex busy - will retry next trigger")
                 manifest.entries.filter { it.entryType == SelfHostEntryType.CHAT_SESSION }
             }
@@ -534,9 +536,7 @@ class SelfHostSyncEngine(
             // This runs without locks to read a fresh, unlocked database snapshot.
             uploadManifest(
                 previousManifest = manifest,
-                conflictedNoteIds = conflictedNoteIds,
-                brokenNoteIds = brokenNoteIds,
-                brokenRemoteEntryIds = brokenRemoteEntryIds,
+                noteIdsStillWaitingToUpload = noteIdsStillWaitingToUpload,
                 chatSessionEntries = chatSessionEntries,
                 previousManifestEtag = manifestEtag
             )
@@ -547,12 +547,12 @@ class SelfHostSyncEngine(
 
             SelfHostSyncLog.d(
                 "TextSync: complete, synced=$syncedCount conflicts=$conflictCount skippedBusy=$skippedBusyCount " +
-                        "broken=${brokenNoteIds.size}"
+                        "broken=$brokenNoteCount"
             )
             SelfHostSyncResult.Success(
                 notesSynced = syncedCount,
                 conflicts = conflictCount,
-                brokenNotes = brokenNoteIds.size
+                brokenNotes = brokenNoteCount
             )
         } catch (cause: WebDavConfigurationException) {
             SelfHostSyncLog.d("TextSync: not configured (${cause.message})")
@@ -1251,9 +1251,7 @@ class SelfHostSyncEngine(
 
     private suspend fun uploadManifest(
         previousManifest: SelfHostManifest,
-        conflictedNoteIds: Set<String> = emptySet(),
-        brokenNoteIds: Set<String> = emptySet(),
-        brokenRemoteEntryIds: Set<String> = emptySet(),
+        noteIdsStillWaitingToUpload: Set<String> = emptySet(),
         chatSessionEntries: List<SelfHostManifestEntry> = emptyList(),
         previousManifestEtag: String? = null,
         attempt: Int = 0
@@ -1309,36 +1307,29 @@ class SelfHostSyncEngine(
             }
         }
         val tombstoneIds = mergedTombstonesById.keys
-        val previousEntriesById = previousManifest.entries.associateBy { it.entryId }
-
-        val noteEntries = noteDao.getAllNotesForBackup()
-            .filter { manifestEntryIdFor(it) !in tombstoneIds }
-            .map { note ->
-                val rebuiltEntry = SelfHostManifestEntry(
-                    entryId = manifestEntryIdFor(note),
-                    entryType = if (note.isDaily) SelfHostEntryType.DAILY else SelfHostEntryType.NOTE,
-                    spaceId = note.spaceId,
-                    updatedAt = note.updatedAt,
-                    dateString = note.dateString.takeIf { note.isDaily }
-                )
-
-                // If a note conflicted, its push was rejected.
-                // We preserve the downloaded manifest entry for it, rather than rebuilding it from local state,
-                // because the local state hasn't been successfully accepted by the server yet.
-                if (note.noteId in conflictedNoteIds || note.noteId in brokenNoteIds) {
-                    previousEntriesById[rebuiltEntry.entryId] ?: rebuiltEntry
-                } else {
-                    rebuiltEntry
-                }
-            }
-        val rebuiltEntryIds = noteEntries.map { it.entryId }.toSet()
-        val brokenEntriesMissingLocally = brokenRemoteEntryIds
-            .filter { it !in rebuiltEntryIds && it !in tombstoneIds }
-            .mapNotNull { previousEntriesById[it] }
+        val localNotes = noteDao.getAllNotesForBackup()
+        val localEntries = localNotes.map { note ->
+            SelfHostManifestEntry(
+                entryId = manifestEntryIdFor(note),
+                entryType = if (note.isDaily) SelfHostEntryType.DAILY else SelfHostEntryType.NOTE,
+                spaceId = note.spaceId,
+                updatedAt = note.updatedAt,
+                dateString = note.dateString.takeIf { note.isDaily }
+            )
+        }
+        val entryIdsStillWaitingToUpload = localNotes
+            .filter { it.noteId in noteIdsStillWaitingToUpload }
+            .map { manifestEntryIdFor(it) }
+            .toSet()
+        val noteEntries = mergeNoteManifestEntries(
+            serverEntries = previousManifest.entries,
+            localEntries = localEntries,
+            entryIdsStillWaitingToUpload = entryIdsStillWaitingToUpload,
+            tombstoneIds = tombstoneIds
+        )
         val preservedMediaEntries = previousManifest.entries.filter { it.entryType == SelfHostEntryType.MEDIA }
         val newManifest = SelfHostManifest(
-            entries = noteEntries + brokenEntriesMissingLocally + mergedTombstonesById.values +
-                preservedMediaEntries + chatSessionEntries
+            entries = noteEntries + mergedTombstonesById.values + preservedMediaEntries + chatSessionEntries
         )
 
         // The If-Match ETag check prevents concurrent manifest uploads from overwriting each other.
@@ -1360,9 +1351,7 @@ class SelfHostSyncEngine(
             val (freshManifest, freshEtag) = downloadManifestWithEtag()
             uploadManifest(
                 freshManifest,
-                conflictedNoteIds,
-                brokenNoteIds,
-                brokenRemoteEntryIds,
+                noteIdsStillWaitingToUpload,
                 chatSessionEntries,
                 freshEtag,
                 attempt + 1
