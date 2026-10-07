@@ -3,6 +3,7 @@ package com.emberr.domain.media
 import com.emberr.data.local.prefs.SettingsManager
 import com.emberr.data.local.room.dao.UnusedMediaFileDao
 import com.emberr.data.local.room.entity.UnusedMediaFileEntity
+import com.emberr.domain.selfhost.sync.SelfHostConnectionState
 import com.emberr.domain.util.media.MediaStorageHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -12,7 +13,8 @@ class LocalMediaGarbageCollector(
     private val mediaReferenceIndex: MediaReferenceIndex,
     private val mediaStorageHelper: MediaStorageHelper,
     private val unusedMediaFileDao: UnusedMediaFileDao,
-    private val settingsManager: SettingsManager
+    private val settingsManager: SettingsManager,
+    private val selfHostConnectionState: SelfHostConnectionState
 ) {
 
     suspend fun collectAndDeleteOrphanedMedia() = withContext(Dispatchers.IO) {
@@ -22,7 +24,7 @@ class LocalMediaGarbageCollector(
                 waitingForLanSync = settingsManager.isMediaCleanupWaitingForLanSync(),
                 isLanPaired = settingsManager.isSyncPairingConfirmed(),
                 waitingForSelfHostSync = settingsManager.isMediaCleanupWaitingForSelfHostSync(),
-                isSelfHostConnected = settingsManager.isSelfHostConnected()
+                isSelfHostConnected = selfHostConnectionState.isConnected.value
             )
             if (isWaitingForSync) {
                 LocalMediaGcLog.d("collectAndDeleteOrphanedMedia: skipped, waiting for sync to bring notes back after a restore")

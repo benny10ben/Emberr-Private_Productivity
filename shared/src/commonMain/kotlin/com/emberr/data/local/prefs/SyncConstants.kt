@@ -78,7 +78,6 @@ object SyncConstants {
     const val KEY_SELF_HOST_SYNC_TIMESTAMP = "self_host_last_sync_timestamp"
     const val KEY_SELF_HOST_SUPPORTS_ETAGS = "self_host_supports_etags"
     const val KEY_SELF_HOST_MANIFEST_ETAG = "self_host_manifest_etag"
-    const val KEY_SELF_HOST_CONNECTED = "self_host_connected"
     const val KEY_SYNC_AUTH_TOKEN = "sync_auth_token"
     const val KEY_SYNC_IP_ADDRESS = "sync_ip_address"
     const val KEY_SYNC_PORT = "sync_port"

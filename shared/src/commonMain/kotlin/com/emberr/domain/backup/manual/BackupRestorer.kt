@@ -12,6 +12,7 @@ import com.emberr.domain.model.NoteBlock
 import com.emberr.domain.model.NoteBlockSerializer
 import com.emberr.domain.reminders.ReminderRescheduler
 import com.emberr.domain.reminders.ReminderScheduler
+import com.emberr.domain.selfhost.sync.SelfHostConnectionState
 import com.emberr.domain.repository.NoteRepository
 import com.emberr.domain.space.SpaceRepository
 import com.emberr.domain.sync.AutoSyncTrigger
@@ -40,7 +41,8 @@ class BackupRestorer(
     private val reminderScheduler: ReminderScheduler,
     private val reminderRescheduler: ReminderRescheduler,
     private val vectorDatabase: EmberrDatabase,
-    private val reindexAllNotesUseCase: ReindexAllNotesUseCase
+    private val reindexAllNotesUseCase: ReindexAllNotesUseCase,
+    private val selfHostConnectionState: SelfHostConnectionState
 ) {
 
     private val backgroundScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -79,7 +81,7 @@ class BackupRestorer(
         settingsManager.saveRestoreUnfinished(true)
         settingsManager.saveLanSyncResetPending(true)
         settingsManager.saveMediaCleanupWaitingForLanSync(settingsManager.isSyncPairingConfirmed())
-        settingsManager.saveMediaCleanupWaitingForSelfHostSync(settingsManager.isSelfHostConnected())
+        settingsManager.saveMediaCleanupWaitingForSelfHostSync(selfHostConnectionState.isConnected.value)
         appDatabase.unusedMediaFileDao().forgetAll()
 
         SyncCoordinator.mutex.withLock {

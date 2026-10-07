@@ -149,11 +149,6 @@ class DesktopSettingsManager(private val secretStore: DesktopSecretStore) : Sett
         prefs.putLong(SyncConstants.KEY_SELF_HOST_SYNC_TIMESTAMP, timestamp)
     }
 
-    override fun isSelfHostConnected(): Boolean = prefs.getBoolean(SyncConstants.KEY_SELF_HOST_CONNECTED, false)
-
-    override fun saveSelfHostConnected(connected: Boolean) =
-        prefs.putBoolean(SyncConstants.KEY_SELF_HOST_CONNECTED, connected)
-
     override fun getSelfHostSupportsETags(): Boolean? {
         return when (prefs.getOrNull(SyncConstants.KEY_SELF_HOST_SUPPORTS_ETAGS)) {
             "true" -> true

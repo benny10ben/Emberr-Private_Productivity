@@ -129,6 +129,7 @@ class SelfHostSetupViewModel(
     }
 
     private fun refreshConnectionState() {
+        selfHostConnectionState.refresh()
         val credentials = secureSyncKeyStorage.getServerCredentials()
         val encryptionKey = secureSyncKeyStorage.getEncryptionKey()
 
@@ -334,6 +335,7 @@ class SelfHostSetupViewModel(
                     passphraseChars.fill(Char(0))
                 }
                 secureSyncKeyStorage.saveEncryptionKey(vaultKey)
+                selfHostSyncEngine.forgetServerSyncProgress()
             } catch (cause: WebDavConflictException) {
                 secureSyncKeyStorage.clearAll()
                 updateForm {
@@ -356,7 +358,7 @@ class SelfHostSetupViewModel(
                 return@launch
             }
 
-            selfHostConnectionState.markConnected()
+            selfHostConnectionState.refresh()
 
             when (val result = selfHostSyncEngine.runBaselineSync()) {
                 is SelfHostSyncResult.Success -> {
@@ -415,12 +417,7 @@ class SelfHostSetupViewModel(
             }
 
             secureSyncKeyStorage.clearAll()
-            try {
-                selfHostSyncEngine.forgetServerSyncProgress()
-            } catch (cause: Exception) {
-                SelfHostSyncLog.e("ViewModel: failed to forget self-host sync progress during disconnect", cause)
-            }
-            selfHostConnectionState.markDisconnected()
+            selfHostConnectionState.refresh()
 
             _screenState.value = SelfHostScreenState.Unconfigured(freshFormState())
         }

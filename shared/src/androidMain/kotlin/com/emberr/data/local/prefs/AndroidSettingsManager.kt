@@ -195,14 +195,6 @@ class AndroidSettingsManager(
         sharedPreferences.edit { putLong(SyncConstants.KEY_SELF_HOST_SYNC_TIMESTAMP, timestamp) }
     }
 
-    override fun isSelfHostConnected(): Boolean {
-        return sharedPreferences.getBoolean(SyncConstants.KEY_SELF_HOST_CONNECTED, false)
-    }
-
-    override fun saveSelfHostConnected(connected: Boolean) {
-        sharedPreferences.edit { putBoolean(SyncConstants.KEY_SELF_HOST_CONNECTED, connected) }
-    }
-
     override fun getSelfHostSupportsETags(): Boolean? {
         if (!sharedPreferences.contains(SyncConstants.KEY_SELF_HOST_SUPPORTS_ETAGS)) return null
         return sharedPreferences.getBoolean(SyncConstants.KEY_SELF_HOST_SUPPORTS_ETAGS, false)

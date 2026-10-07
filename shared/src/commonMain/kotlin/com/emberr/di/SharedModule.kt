@@ -151,7 +151,8 @@ val sharedModule = module {
             mediaReferenceIndex = get(),
             mediaStorageHelper = get(),
             unusedMediaFileDao = get(),
-            settingsManager = get()
+            settingsManager = get(),
+            selfHostConnectionState = get()
         )
     }
 
@@ -222,7 +223,8 @@ val sharedModule = module {
             reminderScheduler = get(),
             reminderRescheduler = get(),
             vectorDatabase = get(),
-            reindexAllNotesUseCase = get()
+            reindexAllNotesUseCase = get(),
+            selfHostConnectionState = get()
         )
     }
 
@@ -371,7 +373,7 @@ val sharedModule = module {
     single<TaskExtractor> { HeuristicTaskExtractor() }
 
     single { com.emberr.domain.sync.SyncPairingState(settingsManager = get()) }
-    single { com.emberr.domain.selfhost.sync.SelfHostConnectionState(settingsManager = get()) }
+    single { com.emberr.domain.selfhost.sync.SelfHostConnectionState(secureSyncKeyStorage = get()) }
 
     single {
         WebDavSyncClient(
