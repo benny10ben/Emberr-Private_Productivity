@@ -509,7 +509,9 @@ class SelfHostSyncEngine(
             // Sync candidacy is determined per note using its `selfHostSyncedAt` value.
             // If a local row doesn't exist (e.g., a new note or wiped data), it defaults to 0
             // and safely syncs as a new entry.
-            val remoteTextEntries = manifest.entries.filter { it.entryType != SelfHostEntryType.MEDIA }
+            val remoteTextEntries = manifest.entries.filter {
+                it.entryType == SelfHostEntryType.NOTE || it.entryType == SelfHostEntryType.DAILY
+            }
             val localRowsByNoteId = noteDao
                 .getNotesByIdsIncludingTemplates(
                     remoteTextEntries.filterNot { it.entryType == SelfHostEntryType.DAILY }.map { it.entryId }
