@@ -21,6 +21,7 @@ import com.emberr.data.local.room.entity.FolderEntity
 import com.emberr.data.local.room.entity.NoteBlockEntity
 import com.emberr.data.local.room.entity.NoteMetadataEntity
 import com.emberr.data.local.room.entity.PLACEHOLDER_SPACE_UPDATED_AT
+import com.emberr.data.local.room.entity.SelfHostDeletedNoteEntity
 import com.emberr.data.local.room.entity.SpaceEntity
 import com.emberr.domain.ai.external.AiSettingsRepository
 import com.emberr.domain.ai.external.ExternalAiProvider
@@ -1215,9 +1216,7 @@ class SelfHostSyncEngine(
         }
 
         if (localMetadata.updatedAt > remoteEntry.updatedAt) {
-            // The local note was edited after the remote tombstone was created.
-            // We preserve the live edit; it will be pushed and clear the tombstone on the next sync.
-            return ReconcileOutcome.UNCHANGED
+            return reconcileNote(localMetadata.noteId, remoteEntry = null)
         }
 
         val noteId = localMetadata.noteId
@@ -1298,6 +1297,22 @@ class SelfHostSyncEngine(
         return if (spaceHoldingThatId == null || spaceHoldingThatId == spaceId) noteId else null
     }
 
+    private fun manifestEntryForTombstone(tombstone: SelfHostDeletedNoteEntity): SelfHostManifestEntry {
+        val isDailyTombstone = tombstone.isDaily && tombstone.dateString != null
+        return SelfHostManifestEntry(
+            entryId = if (isDailyTombstone) {
+                dailyManifestEntryId(tombstone.spaceId, tombstone.dateString.orEmpty())
+            } else {
+                tombstone.noteId
+            },
+            entryType = if (tombstone.isDaily) SelfHostEntryType.DAILY else SelfHostEntryType.NOTE,
+            spaceId = tombstone.spaceId,
+            updatedAt = tombstone.deletedAt,
+            dateString = tombstone.dateString,
+            isDeleted = true
+        )
+    }
+
     private fun dailyManifestEntryId(spaceId: String, dateString: String): String =
         "daily_${spaceId}_$dateString"
 
@@ -1336,16 +1351,47 @@ class SelfHostSyncEngine(
         previousManifestEtag: String? = null,
         attempt: Int = 0
     ) {
-        // Preserve all existing tombstones in the manifest forever.
+        // Preserve existing tombstones in the manifest.
         // This ensures offline or lagging devices eventually see the deletion and don't
         // accidentally resurrect deleted notes.
         val previousTombstones = previousManifest.entries.filter { it.isDeleted }
         val localTombstones = selfHostDeletedNoteDao.getAllTombstones()
+        val localNotes = noteDao.getAllNotesForBackup()
+        val mediaFileNamesByNoteId = mediaReferenceIndex.loadReferencedFileNamesByNoteId()
+        val localEntries = localNotes.map { note ->
+            SelfHostManifestEntry(
+                entryId = manifestEntryIdFor(note),
+                entryType = if (note.isDaily) SelfHostEntryType.DAILY else SelfHostEntryType.NOTE,
+                spaceId = note.spaceId,
+                updatedAt = note.updatedAt,
+                dateString = note.dateString.takeIf { note.isDaily },
+                mediaFileNames = mediaFileNamesByNoteId[note.noteId].orEmpty()
+            )
+        }
+        val entryIdsStillWaitingToUpload = localNotes
+            .filter { it.noteId in noteIdsStillWaitingToUpload }
+            .map { manifestEntryIdFor(it) }
+            .toSet()
+
+        val localTombstoneEntriesByNoteId = localTombstones.associate { it.noteId to manifestEntryForTombstone(it) }
+        val replacedTombstoneIds = tombstoneIdsReplacedByNewerNotes(
+            tombstones = previousTombstones + localTombstoneEntriesByNoteId.values,
+            serverEntries = previousManifest.entries,
+            localEntries = localEntries,
+            entryIdsStillWaitingToUpload = entryIdsStillWaitingToUpload
+        )
+        val (replacedLocalTombstones, activeLocalTombstones) = localTombstones.partition { tombstone ->
+            localTombstoneEntriesByNoteId.getValue(tombstone.noteId).entryId in replacedTombstoneIds
+        }
+        for (tombstone in replacedLocalTombstones) {
+            selfHostDeletedNoteDao.deleteTombstone(tombstone.noteId)
+            SelfHostSyncLog.d("TextSync: note ${tombstone.noteId} was edited after it was deleted, keeping the edit")
+        }
 
         // Perform a one-time remote file cleanup for notes deleted by this device.
         // This prevents orphaned files from wasting server storage.
         // Success is tracked to avoid repeating, and failures are retried next cycle.
-        for (tombstone in localTombstones) {
+        for (tombstone in activeLocalTombstones) {
             if (tombstone.remoteFileDeleted) continue
             try {
                 val remotePath = if (tombstone.isDaily) {
@@ -1363,46 +1409,17 @@ class SelfHostSyncEngine(
             }
         }
 
-        val localTombstoneEntries = localTombstones.map { tombstone ->
-            val isDailyTombstone = tombstone.isDaily && tombstone.dateString != null
-            SelfHostManifestEntry(
-                entryId = if (isDailyTombstone) {
-                    dailyManifestEntryId(tombstone.spaceId, tombstone.dateString.orEmpty())
-                } else {
-                    tombstone.noteId
-                },
-                entryType = if (tombstone.isDaily) SelfHostEntryType.DAILY else SelfHostEntryType.NOTE,
-                spaceId = tombstone.spaceId,
-                updatedAt = tombstone.deletedAt,
-                dateString = tombstone.dateString,
-                isDeleted = true
-            )
-        }
         val mergedTombstonesById = LinkedHashMap<String, SelfHostManifestEntry>()
-        previousTombstones.forEach { mergedTombstonesById[it.entryId] = it }
-        localTombstoneEntries.forEach { entry ->
+        previousTombstones
+            .filter { it.entryId !in replacedTombstoneIds }
+            .forEach { mergedTombstonesById[it.entryId] = it }
+        activeLocalTombstones.map { localTombstoneEntriesByNoteId.getValue(it.noteId) }.forEach { entry ->
             val existing = mergedTombstonesById[entry.entryId]
             if (existing == null || entry.updatedAt > existing.updatedAt) {
                 mergedTombstonesById[entry.entryId] = entry
             }
         }
         val tombstoneIds = mergedTombstonesById.keys
-        val localNotes = noteDao.getAllNotesForBackup()
-        val mediaFileNamesByNoteId = mediaReferenceIndex.loadReferencedFileNamesByNoteId()
-        val localEntries = localNotes.map { note ->
-            SelfHostManifestEntry(
-                entryId = manifestEntryIdFor(note),
-                entryType = if (note.isDaily) SelfHostEntryType.DAILY else SelfHostEntryType.NOTE,
-                spaceId = note.spaceId,
-                updatedAt = note.updatedAt,
-                dateString = note.dateString.takeIf { note.isDaily },
-                mediaFileNames = mediaFileNamesByNoteId[note.noteId].orEmpty()
-            )
-        }
-        val entryIdsStillWaitingToUpload = localNotes
-            .filter { it.noteId in noteIdsStillWaitingToUpload }
-            .map { manifestEntryIdFor(it) }
-            .toSet()
         val noteEntries = mergeNoteManifestEntries(
             serverEntries = previousManifest.entries,
             localEntries = localEntries,

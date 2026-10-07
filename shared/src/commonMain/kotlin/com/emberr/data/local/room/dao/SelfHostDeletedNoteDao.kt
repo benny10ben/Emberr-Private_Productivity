@@ -18,6 +18,9 @@ interface SelfHostDeletedNoteDao {
     @Query("UPDATE self_host_deleted_notes SET remoteFileDeleted = 1 WHERE noteId = :noteId")
     suspend fun markRemoteFileDeleted(noteId: String)
 
+    @Query("DELETE FROM self_host_deleted_notes WHERE noteId = :noteId")
+    suspend fun deleteTombstone(noteId: String)
+
     // Shared by both sync engines - self-host uses getAllTombstones/markRemoteFileDeleted for
     // its own manifest-tombstone bookkeeping; LAN sync uses the queries below to propagate a hard
     // delete over the peer-to-peer protocol and to guard against resurrecting an already-deleted note.
