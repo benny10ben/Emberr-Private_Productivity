@@ -35,10 +35,6 @@ object BackupFormat {
         lines += "ai_max_output_tokens=${settingsManager.maxOutputTokensFlow.first()}"
         lines += "ai_local_context_length=${settingsManager.localContextLengthFlow.first()}"
         lines += "ai_features_disabled=${settingsManager.isAiFeaturesDisabled()}"
-        lines += "auto_backup_enabled=${settingsManager.autoBackupEnabledFlow.first()}"
-        lines += "backup_frequency=${settingsManager.backupFrequencyFlow.first()}"
-        lines += "backup_time=${settingsManager.backupTimeFlow.first()}"
-        lines += "backup_day=${settingsManager.backupDayFlow.first()}"
         lines += "bookmark_category_order=${settingsManager.getBookmarkCategoryOrderJson()}"
         lines += "favorite_note_order=${settingsManager.getFavoriteNoteOrderJson()}"
         lines += "expanded_folder_ids=${settingsManager.getExpandedFolderIdsJson()}"
@@ -87,10 +83,6 @@ object BackupFormat {
         values["ai_max_output_tokens"]?.toIntOrNull()?.let { settingsManager.saveMaxOutputTokens(it) }
         values["ai_local_context_length"]?.toIntOrNull()?.let { settingsManager.saveLocalContextLength(it) }
         values["ai_features_disabled"]?.toBooleanStrictOrNull()?.let { settingsManager.saveAiFeaturesDisabled(it) }
-        values["auto_backup_enabled"]?.toBooleanStrictOrNull()?.let { settingsManager.saveAutoBackupEnabled(it) }
-        values["backup_frequency"]?.let { settingsManager.saveBackupFrequency(it) }
-        values["backup_time"]?.let { settingsManager.saveBackupTime(it) }
-        values["backup_day"]?.let { settingsManager.saveBackupDay(it) }
         values["bookmark_category_order"]?.let { settingsManager.saveBookmarkCategoryOrderJson(it) }
         values["favorite_note_order"]?.let { settingsManager.saveFavoriteNoteOrderJson(it) }
         values["expanded_folder_ids"]?.let { settingsManager.saveExpandedFolderIdsJson(it) }
