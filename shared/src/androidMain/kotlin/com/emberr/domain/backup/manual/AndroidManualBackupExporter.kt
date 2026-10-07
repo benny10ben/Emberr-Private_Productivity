@@ -41,8 +41,7 @@ class AndroidManualBackupExporter(
                 zipOut.write(preferencesText.toByteArray(Charsets.UTF_8))
                 zipOut.closeEntry()
 
-                val filesDir = context.filesDir
-                val mediaDir = File(filesDir, "media")
+                val mediaDir = File(context.filesDir, "media")
                 if (mediaDir.exists() && mediaDir.isDirectory) {
                     mediaDir.listFiles()?.forEach { file ->
                         if (file.isFile) {
@@ -50,15 +49,6 @@ class AndroidManualBackupExporter(
                             file.inputStream().use { input -> input.copyTo(zipOut) }
                             zipOut.closeEntry()
                         }
-                    }
-                }
-
-                filesDir.listFiles()?.forEach { file ->
-                    val name = file.name
-                    if (file.isFile && (name.startsWith("media_") || name.startsWith("voice_"))) {
-                        zipOut.putNextEntry(ZipEntry("${BackupFormat.MEDIA_ENTRY_PREFIX}$name"))
-                        file.inputStream().use { input -> input.copyTo(zipOut) }
-                        zipOut.closeEntry()
                     }
                 }
             }

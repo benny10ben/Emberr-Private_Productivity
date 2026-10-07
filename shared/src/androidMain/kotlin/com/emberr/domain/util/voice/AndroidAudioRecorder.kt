@@ -148,11 +148,7 @@ class AndroidAudioRecorder(private val context: Context) : AudioRecorder {
 
         val cleanName = fileName.substringAfterLast("/")
 
-        var targetFile = File(mediaStorageDir, cleanName)
-
-        if (!targetFile.exists()) {
-            targetFile = File(context.filesDir, cleanName)
-        }
+        val targetFile = File(mediaStorageDir, cleanName)
 
         if (!targetFile.exists()) {
             onCompletion()
