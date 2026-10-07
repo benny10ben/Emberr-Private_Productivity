@@ -24,8 +24,9 @@ class WebDavSyncPathsTest {
             WebDavSyncPaths.API_CONFIGS_FILE,
             WebDavSyncPaths.notePath("note-1"),
             WebDavSyncPaths.dailyPath("space-1", "2026-01-01"),
-            WebDavSyncPaths.mediaPath("media-1"),
-            WebDavSyncPaths.trashedMediaPath("media-1"),
+            WebDavSyncPaths.mediaFolderPath("media-1"),
+            WebDavSyncPaths.trashedMediaFolderPath("media-1"),
+            WebDavSyncPaths.mediaPiecePath("media-1", 0),
             WebDavSyncPaths.chatSessionPath("chat-1")
         )
 
@@ -52,13 +53,54 @@ class WebDavSyncPathsTest {
             "/emberr_sync/daily/daily_space-1_2026-01-01.enc",
             WebDavSyncPaths.dailyPath("space-1", "2026-01-01")
         )
-        assertEquals("/emberr_sync/media/img_media-1.enc", WebDavSyncPaths.mediaPath("media-1"))
+        assertEquals("/emberr_sync/media/img_media-1/", WebDavSyncPaths.mediaFolderPath("media-1"))
         assertEquals("/emberr_sync/chat_sessions/chat_chat-1.enc", WebDavSyncPaths.chatSessionPath("chat-1"))
     }
 
     @Test
-    fun aTrashedFileLivesInItsOwnFolderUnderTheSameName() {
-        assertEquals("/emberr_sync/media_trash/img_media-1.enc", WebDavSyncPaths.trashedMediaPath("media-1"))
+    fun aTrashedFileKeepsItsFolderNameInsideTheTrash() {
+        assertEquals("/emberr_sync/media_trash/img_media-1/", WebDavSyncPaths.trashedMediaFolderPath("media-1"))
+    }
+
+    @Test
+    fun piecesAreNumberedInsideTheirFileFolder() {
+        assertEquals("/emberr_sync/media/img_media-1/piece_00000.enc", WebDavSyncPaths.mediaPiecePath("media-1", 0))
+        assertEquals("/emberr_sync/media/img_media-1/piece_00042.enc", WebDavSyncPaths.mediaPiecePath("media-1", 42))
+    }
+
+    @Test
+    fun aPieceNameReadsBackAsItsNumber() {
+        val pieceFileName = WebDavSyncPaths.lastPathSegment(WebDavSyncPaths.mediaPiecePath("media-1", 42))
+
+        assertEquals(42, WebDavSyncPaths.pieceIndexFromFileName(pieceFileName))
+    }
+
+    @Test
+    fun namesThatAreNotPiecesAreIgnored() {
+        assertEquals(null, WebDavSyncPaths.pieceIndexFromFileName("img_media-1"))
+        assertEquals(null, WebDavSyncPaths.pieceIndexFromFileName("piece_abc.enc"))
+        assertEquals(null, WebDavSyncPaths.pieceIndexFromFileName("piece_00001.enc.tmp"))
+    }
+
+    @Test
+    fun aFileFolderNameReadsBackAsItsMediaFileName() {
+        val folderName = WebDavSyncPaths.lastPathSegment(WebDavSyncPaths.mediaFolderPath("voice_1.wav"))
+
+        assertEquals("voice_1.wav", WebDavSyncPaths.mediaIdFromFolderName(folderName))
+    }
+
+    @Test
+    fun foldersThatAreNotMediaFoldersAreIgnored() {
+        assertEquals(null, WebDavSyncPaths.mediaIdFromFolderName("media"))
+        assertEquals(null, WebDavSyncPaths.mediaIdFromFolderName("img_"))
+    }
+
+    @Test
+    fun theLastPartOfAServerAddressIsReadEvenWithAServerPrefixAndEncodedCharacters() {
+        assertEquals(
+            "img_my photo.jpg",
+            WebDavSyncPaths.lastPathSegment("/remote.php/dav/files/ben/emberr_sync/media/img_my%20photo.jpg/")
+        )
     }
 
     @Test
@@ -77,7 +119,7 @@ class WebDavSyncPathsTest {
         val paths = setOf(
             WebDavSyncPaths.notePath("same-id"),
             WebDavSyncPaths.dailyPath("space-1", "same-id"),
-            WebDavSyncPaths.mediaPath("same-id"),
+            WebDavSyncPaths.mediaFolderPath("same-id"),
             WebDavSyncPaths.chatSessionPath("same-id")
         )
 

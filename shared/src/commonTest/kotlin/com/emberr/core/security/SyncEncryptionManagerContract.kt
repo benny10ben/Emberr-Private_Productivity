@@ -1,5 +1,6 @@
 package com.emberr.core.security
 
+import com.emberr.domain.selfhost.webdav.mediaPieceLabel
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.security.GeneralSecurityException
@@ -298,6 +299,39 @@ abstract class SyncEncryptionManagerContract {
         val encrypted = encryptToBytes(manager, ByteArray(1024) { it.toByte() }, "media_1.jpg".encodeToByteArray())
 
         assertFails { decryptToBytes(manager, encrypted) }
+    }
+
+    @Test
+    fun aMediaPieceOpensOnlyInItsOwnPlace() {
+        val manager = createEncryptionManager()
+        val piece = ByteArray(1024) { it.toByte() }
+        val encrypted = encryptToBytes(manager, piece, mediaPieceLabel("video.mp4", 1, 3))
+
+        assertContentEquals(piece, decryptToBytes(manager, encrypted, streamLabel = mediaPieceLabel("video.mp4", 1, 3)))
+    }
+
+    @Test
+    fun aMediaPieceMovedToAnotherPositionCannotBeOpened() {
+        val manager = createEncryptionManager()
+        val encrypted = encryptToBytes(manager, ByteArray(1024) { it.toByte() }, mediaPieceLabel("video.mp4", 0, 3))
+
+        assertFails { decryptToBytes(manager, encrypted, streamLabel = mediaPieceLabel("video.mp4", 1, 3)) }
+    }
+
+    @Test
+    fun aMediaPieceFromAnotherFileCannotBeOpened() {
+        val manager = createEncryptionManager()
+        val encrypted = encryptToBytes(manager, ByteArray(1024) { it.toByte() }, mediaPieceLabel("video.mp4", 0, 3))
+
+        assertFails { decryptToBytes(manager, encrypted, streamLabel = mediaPieceLabel("photo.jpg", 0, 3)) }
+    }
+
+    @Test
+    fun aMediaPieceCannotBeReusedInAFileWithADifferentNumberOfPieces() {
+        val manager = createEncryptionManager()
+        val encrypted = encryptToBytes(manager, ByteArray(1024) { it.toByte() }, mediaPieceLabel("video.mp4", 0, 3))
+
+        assertFails { decryptToBytes(manager, encrypted, streamLabel = mediaPieceLabel("video.mp4", 0, 2)) }
     }
 
     private fun encryptToBytes(

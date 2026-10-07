@@ -1,7 +1,9 @@
 package com.emberr.domain.selfhost.sync
 
+import com.emberr.domain.selfhost.webdav.WebDavResourceInfo
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -175,7 +177,7 @@ class MediaCleanupTest {
                 movedToTrash = setOf("trashed-now.jpg"),
                 restoredFromTrash = setOf("restored.jpg"),
                 goneFromServer = setOf("emptied.jpg"),
-                newlyUploaded = setOf("uploaded.jpg")
+                newlyUploaded = mapOf("uploaded.jpg" to 1_234L)
             ),
             nowMs = now
         ).associateBy { it.entryId }
@@ -186,5 +188,67 @@ class MediaCleanupTest {
         assertNull(updated.getValue("restored.jpg").orphanedAt)
         assertNull(updated.getValue("uploaded.jpg").trashedAt)
         assertNull(updated.getValue("uploaded.jpg").orphanedAt)
+        assertEquals(1_234L, updated.getValue("uploaded.jpg").mediaSizeBytes)
+    }
+
+    @Test
+    fun aFileKeepsItsSizeWhenNothingHappenedToItThisRun() {
+        val updated = updatedMediaEntries(
+            mediaEntries = listOf(media("photo.jpg").copy(mediaSizeBytes = 5_000L)),
+            claimedFileNames = setOf("photo.jpg"),
+            changes = MediaChangesThisRun(),
+            nowMs = now
+        )
+
+        assertEquals(5_000L, updated.single().mediaSizeBytes)
+    }
+
+    @Test
+    fun aListedFileWhosePiecesAreMissingIsRemovedFromTheListSoItCanBeUploadedAgain() {
+        val updated = updatedMediaEntries(
+            mediaEntries = listOf(media("video.mp4").copy(mediaSizeBytes = 200_000_000L), media("photo.jpg")),
+            claimedFileNames = setOf("video.mp4", "photo.jpg"),
+            changes = MediaChangesThisRun(missingOnServer = setOf("video.mp4")),
+            nowMs = now
+        )
+
+        assertEquals(listOf("photo.jpg"), updated.map { it.entryId })
+    }
+
+    @Test
+    fun aFileMovedToTheTrashMeanwhileKeepsItsTrashRecord() {
+        val updated = updatedMediaEntries(
+            mediaEntries = listOf(media("video.mp4", orphanedAt = 1L, trashedAt = now - oneHour)),
+            claimedFileNames = emptySet(),
+            changes = MediaChangesThisRun(missingOnServer = setOf("video.mp4")),
+            nowMs = now
+        )
+
+        assertEquals(now - oneHour, updated.single().trashedAt)
+    }
+
+    private fun serverItem(lastModifiedMs: Long?) =
+        WebDavResourceInfo(href = "/emberr_sync/media/img_video.mp4/", etag = null, isCollection = false, contentLength = null, lastModifiedMs = lastModifiedMs)
+
+    @Test
+    fun anUploadWithNoNewPieceForMoreThanSevenDaysIsAbandoned() {
+        val lastProgress = lastUploadProgressAt(listOf(serverItem(now - 8 * 24 * oneHour), serverItem(now - 9 * 24 * oneHour)))
+
+        assertTrue(isAbandonedUpload(lastProgress, now))
+    }
+
+    @Test
+    fun anOldUploadThatGotANewPieceRecentlyIsKept() {
+        val lastProgress = lastUploadProgressAt(listOf(serverItem(now - 20 * 24 * oneHour), serverItem(now - 6 * 24 * oneHour)))
+
+        assertFalse(isAbandonedUpload(lastProgress, now))
+    }
+
+    @Test
+    fun anUploadIsNeverDeletedWhenTheServerGivesNoTimes() {
+        val lastProgress = lastUploadProgressAt(listOf(serverItem(null), serverItem(null)))
+
+        assertNull(lastProgress)
+        assertFalse(isAbandonedUpload(lastProgress, now))
     }
 }

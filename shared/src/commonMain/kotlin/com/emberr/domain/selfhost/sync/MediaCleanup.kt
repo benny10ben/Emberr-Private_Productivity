@@ -1,7 +1,10 @@
 package com.emberr.domain.selfhost.sync
 
+import com.emberr.domain.selfhost.webdav.WebDavResourceInfo
+
 internal const val MEDIA_UNCLAIMED_WAIT_MS = 24L * 60 * 60 * 1000
 internal const val MEDIA_TRASH_KEEP_MS = 30L * 24 * 60 * 60 * 1000
+internal const val ABANDONED_UPLOAD_WAIT_MS = 7L * 24 * 60 * 60 * 1000
 
 internal data class MediaCleanupDecisions(
     val filesToMoveToTrash: Set<String>,
@@ -13,7 +16,8 @@ internal data class MediaChangesThisRun(
     val movedToTrash: Set<String> = emptySet(),
     val restoredFromTrash: Set<String> = emptySet(),
     val goneFromServer: Set<String> = emptySet(),
-    val newlyUploaded: Set<String> = emptySet()
+    val newlyUploaded: Map<String, Long> = emptyMap(),
+    val missingOnServer: Set<String> = emptySet()
 )
 
 internal fun mediaClaimedByLiveNotes(entries: List<SelfHostManifestEntry>): Set<String> =
@@ -49,11 +53,12 @@ internal fun updatedMediaEntries(
     nowMs: Long
 ): List<SelfHostManifestEntry> {
     val existingFileNames = mediaEntries.mapTo(mutableSetOf()) { it.entryId }
-    val newEntries = (changes.newlyUploaded - existingFileNames).map { fileName ->
+    val newEntries = (changes.newlyUploaded.keys - existingFileNames).map { fileName ->
         SelfHostManifestEntry(entryId = fileName, entryType = SelfHostEntryType.MEDIA, updatedAt = nowMs)
     }
     return (mediaEntries + newEntries)
         .filter { it.entryId !in changes.goneFromServer }
+        .filterNot { it.entryId in changes.missingOnServer && it.trashedAt == null }
         .map { entry ->
             val fileName = entry.entryId
             entry.copy(
@@ -62,7 +67,14 @@ internal fun updatedMediaEntries(
                     in changes.newlyUploaded, in changes.restoredFromTrash -> null
                     in changes.movedToTrash -> nowMs
                     else -> entry.trashedAt
-                }
+                },
+                mediaSizeBytes = changes.newlyUploaded[fileName] ?: entry.mediaSizeBytes
             )
         }
 }
+
+internal fun lastUploadProgressAt(folderContents: List<WebDavResourceInfo>): Long? =
+    folderContents.mapNotNull { it.lastModifiedMs }.maxOrNull()
+
+internal fun isAbandonedUpload(lastProgressAtMs: Long?, nowMs: Long): Boolean =
+    lastProgressAtMs != null && nowMs - lastProgressAtMs > ABANDONED_UPLOAD_WAIT_MS
