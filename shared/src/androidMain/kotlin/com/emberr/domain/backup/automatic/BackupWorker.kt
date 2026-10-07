@@ -7,6 +7,7 @@ import androidx.documentfile.provider.DocumentFile
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.emberr.data.local.prefs.SettingsManager
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
@@ -24,9 +25,15 @@ class BackupWorker(
 ) : CoroutineWorker(appContext, workerParams) {
 
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
+        val result = runBackup()
+        scheduleNextRun()
+        result
+    }
+
+    private suspend fun runBackup(): Result {
         try {
             val isEnabled = settingsManager.autoBackupEnabledFlow.first()
-            if (!isEnabled) return@withContext Result.success()
+            if (!isEnabled) return Result.success()
 
             val uriString = settingsManager.backupDirectoryUriFlow.first()
             if (uriString.isNullOrBlank()) {
@@ -34,7 +41,7 @@ class BackupWorker(
                     "Backup Failed",
                     "Auto-backup is enabled, but no folder is selected. Please check your settings."
                 )
-                return@withContext Result.failure()
+                return Result.failure()
             }
 
             val treeUri = Uri.parse(uriString)
@@ -46,13 +53,11 @@ class BackupWorker(
                     "Backup Folder Missing",
                     "Emberr lost access to your backup folder. Auto-backups have been paused."
                 )
-                return@withContext Result.failure()
+                return Result.failure()
             }
 
-            enforceRetentionPolicy(pickedDir, keepCount = 3)
-
             val timeStamp = SimpleDateFormat("yyyy-MM-dd_HH-mm", Locale.getDefault()).format(Date())
-            val fileName = "EmberrBackup_$timeStamp.emberr"
+            val fileName = "$AUTO_BACKUP_FILE_NAME_PREFIX$timeStamp.emberr"
 
             val newBackupFile = pickedDir.createFile("application/zip", fileName)
                 ?: throw java.io.IOException("Failed to create file. Storage might be full.")
@@ -63,20 +68,15 @@ class BackupWorker(
                 newBackupFile.delete()
                 throw e
             }
+            deleteOldAutoBackups(pickedDir, keepCount = 3)
             backupNotifier.showBackupSuccessNotification(fileName)
 
             Log.d("BackupWorker", "Background backup completed successfully: $fileName")
 
-            scheduleNextRun()
-            return@withContext Result.success()
+            return Result.success()
 
-        } catch (e: java.io.IOException) {
-            e.printStackTrace()
-            backupNotifier.showBackupFailedNotification(
-                "Storage Full",
-                "Your automated backup failed because the device is out of storage space."
-            )
-            return@withContext Result.failure()
+        } catch (e: CancellationException) {
+            throw e
 
         } catch (e: SecurityException) {
             e.printStackTrace()
@@ -84,7 +84,7 @@ class BackupWorker(
                 "Permission Denied",
                 "Emberr doesn't have permission to write to your backup folder."
             )
-            return@withContext Result.failure()
+            return Result.failure()
 
         } catch (e: Exception) {
             e.printStackTrace()
@@ -92,7 +92,7 @@ class BackupWorker(
                 "Backup Failed",
                 "Something went wrong while creating your backup: ${e.message}"
             )
-            return@withContext Result.failure()
+            return Result.failure()
         }
     }
 
@@ -106,18 +106,19 @@ class BackupWorker(
         }
     }
 
-    private fun enforceRetentionPolicy(dir: DocumentFile, keepCount: Int) {
+    private fun deleteOldAutoBackups(dir: DocumentFile, keepCount: Int) {
         try {
-            val existingBackups = dir.listFiles()
-                .filter { it.name?.contains("EmberrBackup_") == true }
+            dir.listFiles()
+                .filter { it.name?.startsWith(AUTO_BACKUP_FILE_NAME_PREFIX) == true }
                 .sortedByDescending { it.lastModified() }
-
-            if (existingBackups.size >= keepCount) {
-                val backupsToDelete = existingBackups.drop(keepCount - 1)
-                backupsToDelete.forEach { it.delete() }
-            }
+                .drop(keepCount)
+                .forEach { it.delete() }
         } catch (e: Exception) {
             e.printStackTrace()
         }
+    }
+
+    private companion object {
+        const val AUTO_BACKUP_FILE_NAME_PREFIX = "EmberrAutoBackup_"
     }
 }
