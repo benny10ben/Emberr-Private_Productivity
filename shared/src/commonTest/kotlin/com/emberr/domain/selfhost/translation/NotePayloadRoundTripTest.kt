@@ -255,7 +255,7 @@ class NotePayloadRoundTripTest {
             tombstones = listOf(BlockTombstone("block-1", deletedAt = 200L))
         )
 
-        val failure = assertFailsWith<IllegalArgumentException> {
+        val failure = assertFailsWith<NotePayloadSyncException> {
             NoteJsonParser.parseJsonToDatabaseOperations(
                 blockJson.encodeToString(NotePayload.serializer(), payload)
             )

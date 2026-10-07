@@ -1,9 +1,14 @@
 package com.emberr.domain.selfhost.sync
 
+import com.emberr.domain.selfhost.translation.BlockTombstone
+import com.emberr.domain.selfhost.translation.NoteBlockPayload
+import com.emberr.domain.selfhost.translation.NoteJsonParser
+import com.emberr.domain.selfhost.translation.NotePayload
 import com.emberr.domain.selfhost.translation.NotePayloadSyncException
 import com.emberr.domain.selfhost.webdav.WebDavDecryptionException
 import com.emberr.domain.selfhost.webdav.WebDavException
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.Json
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -25,6 +30,36 @@ class ReconcileOrSkipBrokenNoteTest {
     fun aNoteThatCannotBeDecryptedIsSkipped() = runTest {
         val outcome = reconcileOrSkipBrokenNote("recipe") {
             throw WebDavDecryptionException("Could not decrypt notes/recipe.json", IllegalStateException("tag mismatch"))
+        }
+
+        assertEquals(ReconcileOutcome.BROKEN_NOTE, outcome)
+    }
+
+    @Test
+    fun aNoteWithABlockThatIsBothLiveAndDeletedIsSkipped() = runTest {
+        val payloadJson = Json.encodeToString(
+            NotePayload.serializer(),
+            NotePayload(
+                noteId = "recipe",
+                title = "Recipe",
+                createdAt = 1_000L,
+                updatedAt = 2_000L,
+                filePath = "",
+                blocks = listOf(
+                    NoteBlockPayload(
+                        blockId = "block-1",
+                        displayOrder = 0,
+                        updatedAt = 100L,
+                        content = Json.parseToJsonElement("{\"type\":\"text\",\"id\":\"block-1\"}")
+                    )
+                ),
+                tombstones = listOf(BlockTombstone("block-1", deletedAt = 200L))
+            )
+        )
+
+        val outcome = reconcileOrSkipBrokenNote("recipe") {
+            NoteJsonParser.parseJsonToDatabaseOperations(payloadJson)
+            ReconcileOutcome.SYNCED
         }
 
         assertEquals(ReconcileOutcome.BROKEN_NOTE, outcome)

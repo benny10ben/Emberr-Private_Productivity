@@ -27,8 +27,8 @@ object NoteJsonParser {
         val tombstoneIds = dedupedTombstones.map { it.blockId }.toSet()
         val liveBlockIds = payload.blocks.map { it.blockId }.toSet()
         val conflicting = tombstoneIds.intersect(liveBlockIds)
-        require(conflicting.isEmpty()) {
-            "Note ${payload.noteId} has blocks marked both live and deleted: $conflicting"
+        if (conflicting.isNotEmpty()) {
+            throw NotePayloadSyncException("Note ${payload.noteId} has blocks marked both live and deleted: $conflicting")
         }
 
         val metadataUpsert = NoteMetadataEntity(
