@@ -43,7 +43,7 @@ import com.emberr.domain.selfhost.translation.EmbeddedBlockPayload
 import com.emberr.domain.util.sync.ChatSyncEventBus
 import com.emberr.domain.util.media.MediaStorageHelper
 import com.emberr.domain.util.sync.SyncEventBus
-import com.emberr.domain.util.sync.withSyncCoordinatorOrSkip
+import com.emberr.domain.util.sync.withSyncCoordinatorWaitingAtMost
 import com.emberr.domain.util.system.appVersionName
 import com.emberr.database.EmberrDatabase
 import kotlinx.coroutines.CoroutineScope
@@ -57,6 +57,8 @@ import kotlinx.serialization.SerializationException
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 import java.io.File
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.seconds
 
 class SyncRepositoryImpl(
     private val repository: NoteRepository,
@@ -270,13 +272,18 @@ class SyncRepositoryImpl(
             val changesToApply = changesToRetry.map { it.envelope to true } + changes.map { it to false }
             if (changesToApply.isEmpty()) return@withContext true
 
+            var syncLockWaitForThisRun = SYNC_LOCK_MAX_WAIT
+            suspend fun <T> withSyncLock(block: suspend () -> T): T? =
+                withSyncCoordinatorWaitingAtMost(syncLockWaitForThisRun, block)
+                    .also { result -> if (result == null) syncLockWaitForThisRun = Duration.ZERO }
+
             changesToApply.forEach { (envelope, wasWaitingToRetry) ->
                 // Media downloads are queued after releasing the lock so large file downloads do not block editor saves.
                 var pendingMediaContent: NoteContent? = null
                 var pendingCoverImagePath: String? = null
                 var pendingCanvasImageFileNames: Set<String> = emptySet()
 
-                val applied = withSyncCoordinatorOrSkip {
+                val applied = withSyncLock {
                     try {
                         val decryptedMetaJson =
                             encryptionManager.decryptPayload(envelope.metadataJson, syncKey)
@@ -976,3 +983,5 @@ private enum class RemoteChangeOutcome { APPLIED, CANNOT_BE_READ, TRY_AGAIN }
 private class ChangeWaitingToRetry(val envelope: SyncEnvelope, val failedAttemptsOnThisAppVersion: Int)
 
 private const val MAX_FAILED_ATTEMPTS_BEFORE_WAITING_FOR_APP_UPDATE = 20
+
+private val SYNC_LOCK_MAX_WAIT = 10.seconds
