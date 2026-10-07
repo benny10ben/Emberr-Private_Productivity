@@ -27,6 +27,9 @@ import com.emberr.domain.util.eventbus.WidgetCalendarDateBus
 import com.emberr.domain.util.eventbus.WidgetCalendarEventBus
 import com.emberr.domain.util.eventbus.WidgetNavigationBus
 import com.emberr.domain.util.eventbus.ShareEventBus
+import com.emberr.domain.util.system.restartApplication
+import com.emberr.domain.backup.manual.BackupImportStatus
+import com.emberr.presentation.settings.BackupRestoringDialog
 import com.emberr.presentation.shared.FirstContentRenderSignal
 import com.emberr.presentation.shared.editor.ActiveEditorRegistry
 import com.emberr.presentation.widget.calendar.refreshCalendarWidgets
@@ -70,6 +73,7 @@ import com.emberr.presentation.sync.SyncViewModel
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.debounce
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -323,20 +327,21 @@ class MainActivity : ComponentActivity() {
                     val importBackupLauncher = rememberLauncherForActivityResult(
                         ActivityResultContracts.OpenDocument()
                     ) { uri ->
-                        uri?.let { sourceUri ->
-                            lifecycleScope.launch(Dispatchers.IO) {
-                                try {
-                                    manualBackupImporter.importFromZip(sourceUri)
+                        uri?.let { sourceUri -> manualBackupImporter.startImport(sourceUri) }
+                    }
 
-                                    withContext(Dispatchers.Main) {
-                                        Toast.makeText(context, "Backup restored successfully!", Toast.LENGTH_LONG).show()
-                                    }
-                                } catch (e: Exception) {
-                                    withContext(Dispatchers.Main) {
-                                        Toast.makeText(context, "Import failed: ${e.message}", Toast.LENGTH_LONG).show()
-                                    }
-                                }
+                    val backupImportStatus by manualBackupImporter.status.collectAsState()
+                    LaunchedEffect(backupImportStatus) {
+                        when (val status = backupImportStatus) {
+                            BackupImportStatus.Restored -> {
+                                ActiveEditorRegistry.discardAllPendingWrites()
+                                restartApplication()
                             }
+                            is BackupImportStatus.Failed -> {
+                                Toast.makeText(context, "Import failed: ${status.reason}", Toast.LENGTH_LONG).show()
+                                manualBackupImporter.clearFailure()
+                            }
+                            else -> {}
                         }
                     }
 
@@ -420,6 +425,10 @@ class MainActivity : ComponentActivity() {
                             backupFolderPickerLauncher.launch(null)
                         }
                     )
+
+                    if (backupImportStatus == BackupImportStatus.Restoring) {
+                        BackupRestoringDialog()
+                    }
                 }
             }
         }

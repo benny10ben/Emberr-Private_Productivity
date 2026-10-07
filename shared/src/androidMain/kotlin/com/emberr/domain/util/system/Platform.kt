@@ -2,10 +2,12 @@ package com.emberr.domain.util.system
 
 import android.app.ActivityManager
 import android.content.Context
+import android.content.Intent
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.widget.Toast
 import org.koin.mp.KoinPlatform
+import kotlin.system.exitProcess
 
 actual val isDesktopPlatform = false
 actual val appVersionName: String?
@@ -26,7 +28,12 @@ actual fun triggerHapticFeedback() {
     vibrator.vibrate(VibrationEffect.createOneShot(20, VibrationEffect.DEFAULT_AMPLITUDE))
 }
 
-actual fun restartApplication() {}
+actual fun restartApplication() {
+    val context = KoinPlatform.getKoin().get<Context>()
+    val launchComponent = context.packageManager.getLaunchIntentForPackage(context.packageName)?.component ?: return
+    context.startActivity(Intent.makeRestartActivityTask(launchComponent))
+    exitProcess(0)
+}
 
 actual suspend fun eraseAllAppData(): Boolean {
     val context = KoinPlatform.getKoin().get<Context>()

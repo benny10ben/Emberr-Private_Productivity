@@ -1,7 +1,6 @@
 package com.emberr.domain.backup.manual
 
 import com.emberr.data.local.room.APP_DATABASE_VERSION
-import kotlinx.coroutines.test.runTest
 import java.io.File
 import java.nio.ByteBuffer
 import java.nio.file.Files
@@ -60,28 +59,6 @@ class BackupRestoreFilesTest {
     @Test
     fun aMediaEntryWithoutAFileNameIsSkipped() {
         assertNull(safeMediaFileName("media/", "media/"))
-    }
-
-    @Test
-    fun aNewSafetyCopyReplacesTheOldOne() = runTest {
-        val backupsDirectory = File(workingDirectory, "backups")
-        replaceSafetyCopy(backupsDirectory) { it.writeText("old data") }
-
-        replaceSafetyCopy(backupsDirectory) { it.writeText("current data") }
-
-        assertEquals("current data", File(backupsDirectory, SAFETY_COPY_FILE_NAME).readText())
-    }
-
-    @Test
-    fun aFailedSafetyCopyKeepsTheOldOneAndStopsTheRestore() = runTest {
-        val backupsDirectory = File(workingDirectory, "backups")
-        replaceSafetyCopy(backupsDirectory) { it.writeText("old data") }
-
-        assertFailsWith<IllegalStateException> {
-            replaceSafetyCopy(backupsDirectory) { error("disk full") }
-        }
-
-        assertEquals("old data", File(backupsDirectory, SAFETY_COPY_FILE_NAME).readText())
     }
 
     @Test

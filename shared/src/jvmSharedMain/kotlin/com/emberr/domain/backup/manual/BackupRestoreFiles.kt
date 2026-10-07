@@ -6,8 +6,6 @@ import java.io.RandomAccessFile
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 
-const val SAFETY_COPY_FILE_NAME = "before-restore.emberr"
-
 private const val SQLITE_HEADER_SIZE = 100
 private const val SQLITE_USER_VERSION_OFFSET = 60L
 private val SQLITE_FILE_START = "SQLite format 3\u0000".toByteArray(Charsets.US_ASCII)
@@ -21,16 +19,6 @@ fun checkBackupDatabaseCanBeRestored(databaseFile: File) {
 
 fun safeMediaFileName(zipEntryName: String, mediaEntryPrefix: String): String? =
     File(zipEntryName.substringAfter(mediaEntryPrefix)).name.takeIf { it.isNotBlank() }
-
-suspend fun replaceSafetyCopy(backupsDirectory: File, writeNewCopy: suspend (File) -> Unit) {
-    backupsDirectory.mkdirs()
-    val safetyCopy = File(backupsDirectory, SAFETY_COPY_FILE_NAME)
-    val newCopy = File(backupsDirectory, "$SAFETY_COPY_FILE_NAME.tmp")
-    newCopy.delete()
-    writeNewCopy(newCopy)
-    check(newCopy.length() > 0L) { "Could not save a copy of your current data, so nothing was restored." }
-    Files.move(newCopy.toPath(), safetyCopy.toPath(), StandardCopyOption.REPLACE_EXISTING)
-}
 
 fun moveRestoredMediaInto(mediaDirectory: File, restoredMediaDirectory: File) {
     mediaDirectory.mkdirs()

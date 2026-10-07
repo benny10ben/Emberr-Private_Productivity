@@ -226,8 +226,16 @@ val sharedModule = module {
             reminderScheduler = get(),
             reminderRescheduler = get(),
             vectorDatabase = get(),
+            reindexAllNotesUseCase = get()
+        )
+    }
+
+    single {
+        com.emberr.domain.backup.manual.UnfinishedRestoreFinisher(
+            settingsManager = get(),
+            vectorDatabase = get(),
             reindexAllNotesUseCase = get(),
-            backupRescheduler = get()
+            appScope = get(named("AppScope"))
         )
     }
 

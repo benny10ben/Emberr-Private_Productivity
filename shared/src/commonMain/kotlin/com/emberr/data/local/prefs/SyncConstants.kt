@@ -65,6 +65,8 @@ object SyncConstants {
     const val DEFAULT_SAMPLE_NOTES_SEEDED = false
     const val KEY_MEDIA_REFERENCE_LIST_BUILT = "media_reference_list_built"
     const val DEFAULT_MEDIA_REFERENCE_LIST_BUILT = false
+    const val KEY_RESTORE_UNFINISHED = "restore_unfinished"
+    const val DEFAULT_RESTORE_UNFINISHED = false
     // Sync Keys
     const val KEY_SYNC_PUSHED_TIMESTAMP = "last_sync_timestamp"
     const val KEY_SYNC_FETCHED_TIMESTAMP = "last_sync_fetched_timestamp"

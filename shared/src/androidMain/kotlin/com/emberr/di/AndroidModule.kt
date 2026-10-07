@@ -59,6 +59,7 @@ import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
 import org.koin.android.ext.koin.androidContext
 import org.koin.androidx.workmanager.dsl.worker
 import org.koin.core.module.dsl.viewModel
+import org.koin.core.qualifier.named
 import org.koin.dsl.module
 
 val androidModule = module {
@@ -300,8 +301,8 @@ val androidModule = module {
     single {
         AndroidManualBackupImporter(
             context = androidContext(),
-            backupExporter = get(),
-            backupRestorer = get()
+            backupRestorer = get(),
+            appScope = get(named("AppScope"))
         )
     }
 

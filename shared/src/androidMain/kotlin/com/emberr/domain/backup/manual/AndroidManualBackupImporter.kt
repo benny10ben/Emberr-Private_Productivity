@@ -6,25 +6,59 @@ import com.emberr.data.local.room.AppDatabase
 import com.emberr.data.local.room.getDatabaseBuilder
 import com.emberr.data.local.room.getRoomDatabase
 import com.emberr.domain.backup.BackupFormat
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import java.io.File
 import java.util.UUID
 import java.util.zip.ZipInputStream
 
+sealed interface BackupImportStatus {
+    data object NotStarted : BackupImportStatus
+    data object Restoring : BackupImportStatus
+    data object Restored : BackupImportStatus
+    data class Failed(val reason: String) : BackupImportStatus
+}
+
 class AndroidManualBackupImporter(
     private val context: Context,
-    private val backupExporter: AndroidManualBackupExporter,
-    private val backupRestorer: BackupRestorer
+    private val backupRestorer: BackupRestorer,
+    private val appScope: CoroutineScope
 ) {
 
-    suspend fun importFromZip(uri: Uri) {
+    private val _status = MutableStateFlow<BackupImportStatus>(BackupImportStatus.NotStarted)
+    val status: StateFlow<BackupImportStatus> = _status.asStateFlow()
+
+    fun startImport(uri: Uri) {
+        if (_status.value == BackupImportStatus.Restoring) return
+        _status.value = BackupImportStatus.Restoring
+
+        appScope.launch(Dispatchers.IO) {
+            _status.value = try {
+                importFromZip(uri)
+                BackupImportStatus.Restored
+            } catch (cause: Exception) {
+                if (cause is CancellationException) throw cause
+                BackupImportStatus.Failed(cause.message ?: "Unknown error")
+            }
+        }
+    }
+
+    fun clearFailure() {
+        _status.value = BackupImportStatus.NotStarted
+    }
+
+    private suspend fun importFromZip(uri: Uri) {
         val mediaDir = File(context.filesDir, "media")
         val restoredMediaDir = File(context.filesDir, "restore-media-temp")
         val tempDbFile = File(context.cacheDir, "emberr_manual_import_temp_${UUID.randomUUID()}.db")
         if (tempDbFile.exists()) tempDbFile.delete()
         var settingsText: String? = null
         var tempDatabase: AppDatabase? = null
-
-        replaceSafetyCopy(File(context.filesDir, "backups")) { newCopy -> backupExporter.exportToZip(Uri.fromFile(newCopy)) }
 
         try {
             restoredMediaDir.deleteRecursively()

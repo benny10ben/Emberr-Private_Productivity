@@ -75,6 +75,9 @@ interface BackupRestoreDao {
     @Query("DELETE FROM media_references")
     suspend fun deleteAllMediaReferences()
 
+    @Query("DELETE FROM unapplied_sync_changes")
+    suspend fun deleteAllUnappliedSyncChanges()
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSpaces(spaces: List<SpaceEntity>)
 

@@ -3,6 +3,8 @@ package com.emberr.domain.util.export
 import com.emberr.domain.backup.manual.DesktopManualBackupExporter
 import com.emberr.domain.backup.manual.DesktopManualBackupImporter
 import com.emberr.domain.model.NoteBlock
+import com.emberr.domain.util.system.restartApplication
+import com.emberr.presentation.shared.editor.ActiveEditorRegistry
 import kotlinx.coroutines.runBlocking
 import org.koin.core.context.GlobalContext
 import java.awt.FileDialog
@@ -115,12 +117,14 @@ fun handleImportBackup(window: Frame) {
         runBlocking { importer.importFromZip(sourceFile) }
 
         SwingUtilities.invokeLater {
+            ActiveEditorRegistry.discardAllPendingWrites()
             JOptionPane.showMessageDialog(
                 window,
-                "Backup restored successfully!\n\nYour previous data was saved to ~/.emberr/backups/before-restore.emberr",
+                "Backup restored successfully!\n\nEmberr will now restart.",
                 "Success",
                 JOptionPane.INFORMATION_MESSAGE
             )
+            restartApplication()
         }
     } catch (e: Throwable) {
         e.printStackTrace()

@@ -7,6 +7,7 @@ import com.emberr.data.local.room.entity.ImageBlockEntity
 import com.emberr.data.local.room.entity.NoteBlockEntity
 import com.emberr.data.local.room.entity.NoteMetadataEntity
 import com.emberr.data.local.room.entity.TaskSource
+import com.emberr.data.local.room.entity.UnappliedSyncChangeEntity
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import kotlin.test.AfterTest
@@ -90,6 +91,25 @@ class BackupRestoreTest {
         database.replaceAllTablesWith(backupWith(note("in-the-backup"))) {}
 
         assertTrue(imageBlockDao.getAllImagesAcrossSpacesFlow().first().isEmpty())
+    }
+
+    @Test
+    fun syncChangesWaitingToBeRetriedAreForgotten() = runTest {
+        database.unappliedSyncChangeDao().saveChange(
+            UnappliedSyncChangeEntity(
+                entityType = "NOTE",
+                entityId = "changed-before-the-restore",
+                envelopeJson = "{}",
+                failedOnAppVersion = "1.0",
+                failedAt = 1L,
+                waitsForAppUpdate = false,
+                failedAttempts = 1
+            )
+        )
+
+        database.replaceAllTablesWith(backupWith(note("in-the-backup"))) {}
+
+        assertEquals(0, database.unappliedSyncChangeDao().countChangesToRetryOnNextSync())
     }
 
     @Test

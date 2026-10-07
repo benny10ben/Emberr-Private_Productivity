@@ -566,6 +566,18 @@ class DesktopSettingsManager(private val secretStore: DesktopSecretStore) : Sett
         hasBuiltMediaReferenceList = built
     }
 
+    private var isRestoreStillUnfinished = prefs.getBoolean(
+        SyncConstants.KEY_RESTORE_UNFINISHED,
+        SyncConstants.DEFAULT_RESTORE_UNFINISHED
+    )
+
+    override fun isRestoreUnfinished(): Boolean = isRestoreStillUnfinished
+
+    override fun saveRestoreUnfinished(unfinished: Boolean) {
+        prefs.putBoolean(SyncConstants.KEY_RESTORE_UNFINISHED, unfinished)
+        isRestoreStillUnfinished = unfinished
+    }
+
     private var hasSeededSampleNotes = prefs.getBoolean(
         SyncConstants.KEY_SAMPLE_NOTES_SEEDED,
         SyncConstants.DEFAULT_SAMPLE_NOTES_SEEDED

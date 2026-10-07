@@ -156,7 +156,6 @@ val desktopModule = module {
     single { DesktopManualBackupExporter(appDatabase = get(), settingsManager = get()) }
     single {
         DesktopManualBackupImporter(
-            backupExporter = get(),
             backupRestorer = get()
         )
     }

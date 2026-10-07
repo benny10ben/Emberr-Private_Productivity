@@ -7,7 +7,6 @@ import com.emberr.data.local.room.inOneTransaction
 import com.emberr.database.EmberrDatabase
 import com.emberr.domain.ai.ReindexAllNotesUseCase
 import com.emberr.domain.backup.BackupFormat
-import com.emberr.domain.backup.automatic.BackupRescheduler
 import com.emberr.domain.media.LocalMediaGcTrigger
 import com.emberr.domain.model.NoteBlock
 import com.emberr.domain.model.NoteBlockSerializer
@@ -18,12 +17,13 @@ import com.emberr.domain.space.SpaceRepository
 import com.emberr.domain.sync.AutoSyncTrigger
 import com.emberr.domain.util.sync.SyncCoordinator
 import com.emberr.domain.util.sync.SyncEventBus
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collect
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -40,15 +40,43 @@ class BackupRestorer(
     private val reminderScheduler: ReminderScheduler,
     private val reminderRescheduler: ReminderRescheduler,
     private val vectorDatabase: EmberrDatabase,
-    private val reindexAllNotesUseCase: ReindexAllNotesUseCase,
-    private val backupRescheduler: BackupRescheduler
+    private val reindexAllNotesUseCase: ReindexAllNotesUseCase
 ) {
 
     private val backgroundScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val blockJson = Json { ignoreUnknownKeys = true }
 
+    private val currentDataReader = BackupRepositoryImpl(
+        noteDao = appDatabase.noteDao(),
+        folderDao = appDatabase.folderDao(),
+        blockDao = appDatabase.blockDao(),
+        calendarTaskDao = appDatabase.calendarTaskDao(),
+        categoryDao = appDatabase.categoryDao(),
+        propertyTagDao = appDatabase.propertyTagDao(),
+        customPropertyDao = appDatabase.customPropertyDao(),
+        imageBlockDao = appDatabase.imageBlockDao(),
+        documentBlockDao = appDatabase.documentBlockDao(),
+        bookmarkBlockDao = appDatabase.bookmarkBlockDao(),
+        spaceDao = appDatabase.spaceDao(),
+        chatSessionDao = appDatabase.chatSessionDao(),
+        calendarEventExceptionDao = appDatabase.calendarEventExceptionDao(),
+        selfHostDeletedNoteDao = appDatabase.selfHostDeletedNoteDao(),
+        canvasDao = appDatabase.canvasDao()
+    )
+
     suspend fun replaceAllDataWith(backup: EmberrBackupData, settingsText: String?) = withContext(Dispatchers.IO) {
+        val currentData = SyncCoordinator.mutex.withLock { currentDataReader.createBackupData() }
+        val currentSettingsText = BackupFormat.buildPreferencesText(settingsManager)
+
+        restoreOrPutBackCurrentData(
+            restoreBackup = { applyBackup(backup, settingsText) },
+            putBackCurrentData = { applyBackup(currentData, currentSettingsText) }
+        )
+    }
+
+    private suspend fun applyBackup(backup: EmberrBackupData, settingsText: String?) {
         val reminderBlockIdsBeforeRestore = calendarTaskDao.getAllTasksAcrossSpaces().map { it.blockId }
+        settingsManager.saveRestoreUnfinished(true)
 
         SyncCoordinator.mutex.withLock {
             appDatabase.replaceAllTablesWith(backup) { rebuildProjections(backup) }
@@ -58,7 +86,7 @@ class BackupRestorer(
         }
         noteRepository.clearCaches()
 
-        settingsText?.let { applyBackupSettings(it) }
+        settingsText?.let { BackupFormat.applyPreferencesText(settingsManager, it) }
 
         reminderBlockIdsBeforeRestore.forEach { reminderScheduler.cancel(it) }
         reminderRescheduler.rescheduleUpcomingReminders()
@@ -90,16 +118,25 @@ class BackupRestorer(
         } catch (_: SerializationException) {
             null
         }
+}
 
-    private suspend fun applyBackupSettings(settingsText: String) {
-        BackupFormat.applyPreferencesText(settingsManager, settingsText)
-        if (settingsManager.autoBackupEnabledFlow.first()) {
-            backupRescheduler.rescheduleNow(
-                frequency = settingsManager.backupFrequencyFlow.first(),
-                time = settingsManager.backupTimeFlow.first(),
-                day = settingsManager.backupDayFlow.first()
+internal suspend fun restoreOrPutBackCurrentData(
+    restoreBackup: suspend () -> Unit,
+    putBackCurrentData: suspend () -> Unit
+) {
+    try {
+        restoreBackup()
+    } catch (restoreError: Exception) {
+        try {
+            withContext(NonCancellable) { putBackCurrentData() }
+        } catch (putBackError: Exception) {
+            throw IllegalStateException(
+                "Your previous data could not be put back. Reason: ${putBackError.message}",
+                restoreError
             )
         }
+        if (restoreError is CancellationException) throw restoreError
+        throw IllegalStateException("Your data was not changed. Reason: ${restoreError.message}", restoreError)
     }
 }
 
@@ -127,6 +164,7 @@ internal suspend fun AppDatabase.replaceAllTablesWith(
         dao.deleteAllDocumentBlocks()
         dao.deleteAllBookmarkBlocks()
         dao.deleteAllMediaReferences()
+        dao.deleteAllUnappliedSyncChanges()
 
         dao.insertSpaces(backup.spaces)
         dao.insertNotes(backup.notes.map { it.copy(selfHostSyncedAt = 0L) })

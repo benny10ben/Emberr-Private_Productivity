@@ -635,6 +635,18 @@ class AndroidSettingsManager(
         hasBuiltMediaReferenceList = built
     }
 
+    private var isRestoreStillUnfinished = sharedPreferences.getBoolean(
+        SyncConstants.KEY_RESTORE_UNFINISHED,
+        SyncConstants.DEFAULT_RESTORE_UNFINISHED
+    )
+
+    override fun isRestoreUnfinished(): Boolean = isRestoreStillUnfinished
+
+    override fun saveRestoreUnfinished(unfinished: Boolean) {
+        sharedPreferences.edit(commit = true) { putBoolean(SyncConstants.KEY_RESTORE_UNFINISHED, unfinished) }
+        isRestoreStillUnfinished = unfinished
+    }
+
     private var hasSeededSampleNotes = sharedPreferences.getBoolean(
         SyncConstants.KEY_SAMPLE_NOTES_SEEDED,
         SyncConstants.DEFAULT_SAMPLE_NOTES_SEEDED

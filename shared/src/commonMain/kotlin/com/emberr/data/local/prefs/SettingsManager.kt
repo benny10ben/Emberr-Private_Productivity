@@ -185,6 +185,9 @@ interface SettingsManager {
     fun isMediaReferenceListBuilt(): Boolean
     fun saveMediaReferenceListBuilt(built: Boolean)
 
+    fun isRestoreUnfinished(): Boolean
+    fun saveRestoreUnfinished(unfinished: Boolean)
+
     fun isSampleNotesSeeded(): Boolean
     fun saveSampleNotesSeeded(seeded: Boolean)
 }

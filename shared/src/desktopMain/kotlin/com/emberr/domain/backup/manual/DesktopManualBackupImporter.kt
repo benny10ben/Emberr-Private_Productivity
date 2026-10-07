@@ -8,7 +8,6 @@ import java.io.File
 import java.util.zip.ZipInputStream
 
 class DesktopManualBackupImporter(
-    private val backupExporter: DesktopManualBackupExporter,
     private val backupRestorer: BackupRestorer
 ) {
 
@@ -20,8 +19,6 @@ class DesktopManualBackupImporter(
         if (tempDbFile.exists()) tempDbFile.delete()
         var settingsText: String? = null
         var tempDatabase: AppDatabase? = null
-
-        replaceSafetyCopy(File(emberrDirectory, "backups")) { newCopy -> backupExporter.exportToZip(newCopy) }
 
         try {
             restoredMediaDir.deleteRecursively()
