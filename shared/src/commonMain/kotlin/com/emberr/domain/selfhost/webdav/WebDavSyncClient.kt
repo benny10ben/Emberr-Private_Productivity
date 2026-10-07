@@ -53,6 +53,7 @@ class WebDavSyncClient(
             connectTimeoutMillis = CONNECT_TIMEOUT_MS
             socketTimeoutMillis = SOCKET_TIMEOUT_MS
         }
+        askServerNotToCompressResponses()
     }
 
     private companion object {
@@ -437,7 +438,7 @@ class WebDavSyncClient(
             }
 
             when (response.status.value) {
-                in 200..299 -> return response.headers[HttpHeaders.ETag]?.trim('"')
+                in 200..299 -> return response.headers[HttpHeaders.ETag]
                 WEBDAV_LOCKED_STATUS -> {
                     if (attempt >= MAX_LOCK_RETRIES) throw statusException("PUT", remotePath, response)
                     delay((LOCK_RETRY_BASE_DELAY_MS * (attempt + 1)).milliseconds)
@@ -450,6 +451,7 @@ class WebDavSyncClient(
 
     private suspend fun putFile(remotePath: String, bytes: ByteArray, ifMatchEtag: String?): String? {
         val credentials = requireCredentials()
+        if (ifMatchEtag != null && isWeakETag(ifMatchEtag)) throw WebDavWeakETagException()
 
         // 423 means another client's PUT to this same resource (almost always manifest.json, the one
         // file every device writes every sync cycle) holds the server's write lock right now - a
@@ -465,7 +467,7 @@ class WebDavSyncClient(
                     header(HttpHeaders.Authorization, basicAuthHeaderValue(credentials))
                     contentType(ContentType.Application.OctetStream)
                     if (ifMatchEtag != null) {
-                        header(HttpHeaders.IfMatch, "\"$ifMatchEtag\"")
+                        header(HttpHeaders.IfMatch, ifMatchEtag)
                     }
                     setBody(bytes)
                 }
@@ -477,7 +479,7 @@ class WebDavSyncClient(
             }
 
             when (response.status.value) {
-                in 200..299 -> return response.headers[HttpHeaders.ETag]?.trim('"')
+                in 200..299 -> return response.headers[HttpHeaders.ETag]
                 HttpStatusCode.PreconditionFailed.value -> throw WebDavConflictException(
                     "Remote file $remotePath was modified by another client since it was last synced"
                 )
@@ -518,7 +520,7 @@ class WebDavSyncClient(
                     throw statusException("GET", remotePath, response)
                 }
                 val bytes: ByteArray = response.body()
-                val etag = response.headers[HttpHeaders.ETag]?.trim('"')
+                val etag = response.headers[HttpHeaders.ETag]
                 return bytes.takeIf { it.isNotEmpty() }?.let { it to etag }
             } catch (cause: WebDavException) {
                 throw cause
@@ -574,7 +576,7 @@ class WebDavSyncClient(
                     .item(0) as? Element ?: continue
 
                 etag = propElement.getElementsByTagNameNS("DAV:", "getetag")
-                    .item(0)?.textContent?.trim()?.trim('"')
+                    .item(0)?.textContent?.trim()
 
                 isCollection = (propElement.getElementsByTagNameNS("DAV:", "resourcetype")
                     .item(0) as? Element)

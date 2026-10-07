@@ -66,12 +66,12 @@ import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 
 sealed class SelfHostSyncResult {
-    data class Success(val notesSynced: Int, val conflicts: Int, val brokenNotes: Int = 0) : SelfHostSyncResult() {
-        val brokenNotesMessage: String?
-            get() = when (brokenNotes) {
+    data class Success(val notesSynced: Int, val conflicts: Int, val notesNotSynced: Int = 0) : SelfHostSyncResult() {
+        val notesNotSyncedMessage: String?
+            get() = when (notesNotSynced) {
                 0 -> null
                 1 -> "1 note couldn't be synced"
-                else -> "$brokenNotes notes couldn't be synced"
+                else -> "$notesNotSynced notes couldn't be synced"
             }
     }
     data class Failure(val cause: Throwable) : SelfHostSyncResult()
@@ -402,13 +402,7 @@ class SelfHostSyncEngine(
                 previousManifestEtag
             )
         } catch (cause: WebDavConflictException) {
-            if (attempt >= MAX_MANIFEST_UPLOAD_RETRIES) {
-                SelfHostSyncLog.e(
-                    "MediaSync: manifest upload conflict-skipped after $attempt retries, deferring to next cycle",
-                    cause
-                )
-                return
-            }
+            if (attempt >= MAX_MANIFEST_UPLOAD_RETRIES) throw cause
             val (freshManifest, freshEtag) = downloadManifestWithEtag()
             uploadMediaManifestEntries(freshManifest, mediaFileNames, referencedFileNames, freshEtag, attempt + 1)
         }
@@ -552,7 +546,7 @@ class SelfHostSyncEngine(
             SelfHostSyncResult.Success(
                 notesSynced = syncedCount,
                 conflicts = conflictCount,
-                brokenNotes = brokenNoteCount
+                notesNotSynced = brokenNoteCount + conflictCount
             )
         } catch (cause: WebDavConfigurationException) {
             SelfHostSyncLog.d("TextSync: not configured (${cause.message})")
@@ -1341,13 +1335,7 @@ class SelfHostSyncEngine(
                 previousManifestEtag
             )
         } catch (cause: WebDavConflictException) {
-            if (attempt >= MAX_MANIFEST_UPLOAD_RETRIES) {
-                SelfHostSyncLog.e(
-                    "TextSync: manifest upload conflict-skipped after $attempt retries, deferring to next cycle",
-                    cause
-                )
-                return
-            }
+            if (attempt >= MAX_MANIFEST_UPLOAD_RETRIES) throw cause
             val (freshManifest, freshEtag) = downloadManifestWithEtag()
             uploadManifest(
                 freshManifest,

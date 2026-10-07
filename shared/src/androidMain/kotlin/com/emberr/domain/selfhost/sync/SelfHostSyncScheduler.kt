@@ -55,11 +55,11 @@ actual class SelfHostSyncScheduler(
         SelfHostSyncLog.d("Scheduler: manual sync WorkInfo update, states=${infos.map { it.state }}, active=$active")
         _isSyncActive.value = active
 
-        val brokenNotesMessage = infos.firstNotNullOfOrNull {
-            it.outputData.getString(SelfHostSyncWorker.KEY_BROKEN_NOTES_MESSAGE)
+        val notesNotSyncedMessage = infos.firstNotNullOfOrNull {
+            it.outputData.getString(SelfHostSyncWorker.KEY_NOTES_NOT_SYNCED_MESSAGE)
         }
-        if (brokenNotesMessage != null) {
-            _syncError.value = brokenNotesMessage
+        if (notesNotSyncedMessage != null) {
+            _syncError.value = notesNotSyncedMessage
         }
 
         val failedInfo = infos.firstOrNull { it.state == WorkInfo.State.FAILED }

@@ -109,23 +109,23 @@ class ReconcileOrSkipBrokenNoteTest {
     }
 
     @Test
-    fun noBrokenNotesShowsNoMessage() {
-        assertNull(SelfHostSyncResult.Success(notesSynced = 4, conflicts = 0, brokenNotes = 0).brokenNotesMessage)
+    fun noUnsyncedNotesShowsNoMessage() {
+        assertNull(SelfHostSyncResult.Success(notesSynced = 4, conflicts = 0, notesNotSynced = 0).notesNotSyncedMessage)
     }
 
     @Test
-    fun oneBrokenNoteSaysOneNote() {
+    fun oneUnsyncedNoteSaysOneNote() {
         assertEquals(
             "1 note couldn't be synced",
-            SelfHostSyncResult.Success(notesSynced = 3, conflicts = 0, brokenNotes = 1).brokenNotesMessage
+            SelfHostSyncResult.Success(notesSynced = 3, conflicts = 0, notesNotSynced = 1).notesNotSyncedMessage
         )
     }
 
     @Test
-    fun severalBrokenNotesSaysHowMany() {
+    fun severalUnsyncedNotesSaysHowMany() {
         assertEquals(
             "3 notes couldn't be synced",
-            SelfHostSyncResult.Success(notesSynced = 1, conflicts = 0, brokenNotes = 3).brokenNotesMessage
+            SelfHostSyncResult.Success(notesSynced = 1, conflicts = 0, notesNotSynced = 3).notesNotSyncedMessage
         )
     }
 }

@@ -78,7 +78,7 @@ actual class SelfHostSyncScheduler(private val selfHostSyncEngine: SelfHostSyncE
                     _syncError.value = message
                 }
                 if (textResult is SelfHostSyncResult.Success) {
-                    textResult.brokenNotesMessage?.let { message -> _syncError.value = message }
+                    textResult.notesNotSyncedMessage?.let { message -> _syncError.value = message }
                 }
 
                 val mediaResult = selfHostSyncEngine.syncMedia()

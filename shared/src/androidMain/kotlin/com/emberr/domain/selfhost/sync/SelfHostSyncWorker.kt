@@ -29,10 +29,10 @@ class SelfHostSyncWorker(
                     SelfHostSyncLog.d(
                         "Worker: scope=$scope succeeded, " +
                                 "notesSynced=${outcome.notesSynced}, conflicts=${outcome.conflicts}, " +
-                                "brokenNotes=${outcome.brokenNotes}"
+                                "notesNotSynced=${outcome.notesNotSynced}"
                     )
-                    outcome.brokenNotesMessage
-                        ?.let { message -> Result.success(workDataOf(KEY_BROKEN_NOTES_MESSAGE to message)) }
+                    outcome.notesNotSyncedMessage
+                        ?.let { message -> Result.success(workDataOf(KEY_NOTES_NOT_SYNCED_MESSAGE to message)) }
                         ?: Result.success()
                 }
 
@@ -77,7 +77,7 @@ class SelfHostSyncWorker(
         const val SCOPE_TEXT = "text"
         const val SCOPE_MEDIA = "media"
         const val KEY_ERROR_MESSAGE = "self_host_sync_error_message"
-        const val KEY_BROKEN_NOTES_MESSAGE = "self_host_sync_broken_notes_message"
+        const val KEY_NOTES_NOT_SYNCED_MESSAGE = "self_host_sync_notes_not_synced_message"
         const val MAX_RETRY_ATTEMPTS = 5
     }
 }
