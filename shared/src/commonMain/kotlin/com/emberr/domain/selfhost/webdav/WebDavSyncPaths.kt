@@ -7,6 +7,7 @@ object WebDavSyncPaths {
     const val NOTES_DIR = "$ROOT/notes"
     const val DAILY_DIR = "$ROOT/daily"
     const val MEDIA_DIR = "$ROOT/media"
+    const val MEDIA_TRASH_DIR = "$ROOT/media_trash"
     const val CHAT_SESSIONS_DIR = "$ROOT/chat_sessions"
     const val SPACES_FILE = "$ROOT/spaces.json"
     const val FOLDERS_FILE = "$ROOT/folders.json"
@@ -21,5 +22,6 @@ object WebDavSyncPaths {
     fun notePath(noteId: String) = "$NOTES_DIR/note_$noteId.enc"
     fun dailyPath(spaceId: String, dateString: String) = "$DAILY_DIR/daily_${spaceId}_$dateString.enc"
     fun mediaPath(mediaId: String) = "$MEDIA_DIR/img_$mediaId.enc"
+    fun trashedMediaPath(mediaId: String) = "$MEDIA_TRASH_DIR/img_$mediaId.enc"
     fun chatSessionPath(sessionId: String) = "$CHAT_SESSIONS_DIR/chat_$sessionId.enc"
 }

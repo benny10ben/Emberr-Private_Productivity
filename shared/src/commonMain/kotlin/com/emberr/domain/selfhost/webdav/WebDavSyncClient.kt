@@ -102,6 +102,7 @@ class WebDavSyncClient(
         createDirectory(WebDavSyncPaths.NOTES_DIR)
         createDirectory(WebDavSyncPaths.DAILY_DIR)
         createDirectory(WebDavSyncPaths.MEDIA_DIR)
+        createDirectory(WebDavSyncPaths.MEDIA_TRASH_DIR)
         createDirectory(WebDavSyncPaths.CHAT_SESSIONS_DIR)
     }
 
@@ -265,6 +266,33 @@ class WebDavSyncClient(
             }
         }
     }
+
+    suspend fun moveFile(fromRemotePath: String, toRemotePath: String): Boolean {
+        val credentials = requireCredentials()
+        var networkAttempt = 0
+        while (true) {
+            val response = try {
+                httpClient.request(resolveUrl(credentials, fromRemotePath)) {
+                    method = HttpMethod("MOVE")
+                    header(HttpHeaders.Authorization, basicAuthHeaderValue(credentials))
+                    header("Destination", resolveUrl(credentials, toRemotePath))
+                    header("Overwrite", "T")
+                }
+            } catch (cause: Exception) {
+                if (networkAttempt >= MAX_NETWORK_RETRIES) throw cause
+                delay((NETWORK_RETRY_BASE_DELAY_MS * (networkAttempt + 1)).milliseconds)
+                networkAttempt++
+                continue
+            }
+            return when (response.status.value) {
+                in 200..299 -> true
+                HttpStatusCode.NotFound.value -> false
+                else -> throw statusException("MOVE", fromRemotePath, response)
+            }
+        }
+    }
+
+    suspend fun fileExists(remotePath: String): Boolean = getResourceInfo(remotePath) != null
 
     suspend fun downloadPlainBytes(remotePath: String): ByteArray? {
         val credentials = requireCredentials()

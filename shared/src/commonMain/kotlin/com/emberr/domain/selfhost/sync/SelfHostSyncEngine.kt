@@ -129,11 +129,6 @@ class SelfHostSyncEngine(
     private companion object {
         const val MAX_MANIFEST_UPLOAD_RETRIES = 3
         val SYNC_LOCK_MAX_WAIT = 10.seconds
-
-        // Unreferenced media files are candidates for deletion.
-        // We wait a full day (grace period) to allow other devices to sync and claim them,
-        // preventing accidental deletion if another device just hasn't synced yet.
-        const val MEDIA_ORPHAN_GRACE_PERIOD_MS = 24L * 60 * 60 * 1000
     }
 
     // wire this up in the app ui so let users know if any self host sync is pending
@@ -245,6 +240,7 @@ class SelfHostSyncEngine(
             val (manifest, manifestEtag) = downloadManifestWithEtag()
             val manifestMediaEntries = manifest.entries.filter { it.entryType == SelfHostEntryType.MEDIA }
             val remoteMediaFileNames = manifestMediaEntries.map { it.entryId }.toSet()
+            val liveRemoteMediaFileNames = manifestMediaEntries.filter { it.trashedAt == null }.map { it.entryId }.toSet()
 
             val referencedFileNames = collectReferencedMediaFileNames()
             // Check disk presence for all files tracked in the manifest.
@@ -260,7 +256,7 @@ class SelfHostSyncEngine(
             )
 
             val toUpload = existingLocalFileNames - remoteMediaFileNames
-            val toDownload = remoteMediaFileNames - existingLocalFileNames
+            val toDownload = liveRemoteMediaFileNames - existingLocalFileNames
             SelfHostSyncLog.d("MediaSync: ${toUpload.size} to upload, ${toDownload.size} to download")
 
             var uploadedCount = 0
@@ -317,34 +313,19 @@ class SelfHostSyncEngine(
                 }
             }
 
-            val nowMs = Clock.System.now().toEpochMilliseconds()
-            val orphanedFileNames = manifestMediaEntries
-                .filter { it.entryId !in referencedFileNames }
-                .filter { entry -> (nowMs - (entry.orphanedAt ?: nowMs)) > MEDIA_ORPHAN_GRACE_PERIOD_MS }
-                .map { it.entryId }
-                .toSet()
-
-            var deletedCount = 0
-            for (fileName in orphanedFileNames) {
-                try {
-                    webDavSyncClient.deleteFile(WebDavSyncPaths.mediaPath(fileName))
-                    deletedCount++
-                    SelfHostSyncLog.d("MediaSync: deleted orphaned remote $fileName (unreferenced for over ${MEDIA_ORPHAN_GRACE_PERIOD_MS / 3_600_000}h)")
-                } catch (cause: Exception) {
-                    SelfHostSyncLog.e("MediaSync Error: failed to delete orphaned $fileName: ${cause.message}", cause)
-                }
-            }
-
-            uploadMediaManifestEntries(
-                manifest,
-                (remoteMediaFileNames + successfullyUploaded) - orphanedFileNames,
-                referencedFileNames,
-                manifestEtag
+            val decisions = decideMediaCleanup(
+                mediaEntries = manifestMediaEntries,
+                claimedFileNames = mediaClaimedByLiveNotes(manifest.entries) + referencedFileNames,
+                nowMs = Clock.System.now().toEpochMilliseconds()
             )
+            val changes = carryOutMediaCleanup(decisions).copy(newlyUploaded = successfullyUploaded)
+
+            uploadMediaManifestEntries(manifest, changes, referencedFileNames, manifestEtag)
 
             SelfHostSyncLog.d(
                 "MediaSync: complete, uploaded=$uploadedCount downloaded=$downloadedCount " +
-                        "deleted=$deletedCount failed=$failedCount"
+                        "movedToTrash=${changes.movedToTrash.size} restoredFromTrash=${changes.restoredFromTrash.size} " +
+                        "goneFromServer=${changes.goneFromServer.size} failed=$failedCount"
             )
             SelfHostSyncResult.Success(notesSynced = uploadedCount + downloadedCount, conflicts = failedCount)
         } catch (cause: WebDavConfigurationException) {
@@ -371,28 +352,67 @@ class SelfHostSyncEngine(
         return fileNames
     }
 
+    private suspend fun carryOutMediaCleanup(decisions: MediaCleanupDecisions): MediaChangesThisRun {
+        val movedToTrash = mutableSetOf<String>()
+        val restoredFromTrash = mutableSetOf<String>()
+        val goneFromServer = mutableSetOf<String>()
+
+        for (fileName in decisions.filesToMoveToTrash) {
+            try {
+                webDavSyncClient.moveFile(WebDavSyncPaths.mediaPath(fileName), WebDavSyncPaths.trashedMediaPath(fileName))
+                movedToTrash += fileName
+                SelfHostSyncLog.d("MediaSync: moved $fileName to the server trash, no note has used it for a day")
+            } catch (cause: Exception) {
+                SelfHostSyncLog.e("MediaSync Error: failed to move $fileName to the server trash: ${cause.message}", cause)
+            }
+        }
+
+        for (fileName in decisions.filesToRestoreFromTrash) {
+            try {
+                val movedBack = webDavSyncClient.moveFile(WebDavSyncPaths.trashedMediaPath(fileName), WebDavSyncPaths.mediaPath(fileName))
+                if (movedBack || webDavSyncClient.fileExists(WebDavSyncPaths.mediaPath(fileName))) {
+                    restoredFromTrash += fileName
+                    SelfHostSyncLog.d("MediaSync: restored $fileName from the server trash, a note uses it again")
+                } else {
+                    goneFromServer += fileName
+                    SelfHostSyncLog.e("MediaSync: $fileName is used again but is no longer on the server, a device with a copy will upload it")
+                }
+            } catch (cause: Exception) {
+                SelfHostSyncLog.e("MediaSync Error: failed to restore $fileName from the server trash: ${cause.message}", cause)
+            }
+        }
+
+        for (fileName in decisions.filesToEmptyFromTrash) {
+            try {
+                webDavSyncClient.deleteFile(WebDavSyncPaths.trashedMediaPath(fileName))
+                goneFromServer += fileName
+                SelfHostSyncLog.d("MediaSync: emptied $fileName from the server trash after 30 days")
+            } catch (cause: Exception) {
+                SelfHostSyncLog.e("MediaSync Error: failed to empty $fileName from the server trash: ${cause.message}", cause)
+            }
+        }
+
+        return MediaChangesThisRun(
+            movedToTrash = movedToTrash,
+            restoredFromTrash = restoredFromTrash,
+            goneFromServer = goneFromServer
+        )
+    }
+
     private suspend fun uploadMediaManifestEntries(
         previousManifest: SelfHostManifest,
-        mediaFileNames: Set<String>,
+        changes: MediaChangesThisRun,
         referencedFileNames: Set<String>,
         previousManifestEtag: String? = null,
         attempt: Int = 0
     ) {
         val nonMediaEntries = previousManifest.entries.filter { it.entryType != SelfHostEntryType.MEDIA }
-        val previousMediaEntriesById = previousManifest.entries
-            .filter { it.entryType == SelfHostEntryType.MEDIA }
-            .associateBy { it.entryId }
-        val nowMs = Clock.System.now().toEpochMilliseconds()
-        val mediaEntries = mediaFileNames.map { fileName ->
-            val previous = previousMediaEntriesById[fileName]
-            val isReferenced = fileName in referencedFileNames
-            SelfHostManifestEntry(
-                entryId = fileName,
-                entryType = SelfHostEntryType.MEDIA,
-                updatedAt = previous?.updatedAt ?: nowMs,
-                orphanedAt = if (isReferenced) null else (previous?.orphanedAt ?: nowMs)
-            )
-        }
+        val mediaEntries = updatedMediaEntries(
+            mediaEntries = previousManifest.entries.filter { it.entryType == SelfHostEntryType.MEDIA },
+            claimedFileNames = mediaClaimedByLiveNotes(previousManifest.entries) + referencedFileNames,
+            changes = changes,
+            nowMs = Clock.System.now().toEpochMilliseconds()
+        )
         val newManifest = SelfHostManifest(entries = nonMediaEntries + mediaEntries)
 
         try {
@@ -404,7 +424,7 @@ class SelfHostSyncEngine(
         } catch (cause: WebDavConflictException) {
             if (attempt >= MAX_MANIFEST_UPLOAD_RETRIES) throw cause
             val (freshManifest, freshEtag) = downloadManifestWithEtag()
-            uploadMediaManifestEntries(freshManifest, mediaFileNames, referencedFileNames, freshEtag, attempt + 1)
+            uploadMediaManifestEntries(freshManifest, changes, referencedFileNames, freshEtag, attempt + 1)
         }
     }
 
@@ -1302,13 +1322,15 @@ class SelfHostSyncEngine(
         }
         val tombstoneIds = mergedTombstonesById.keys
         val localNotes = noteDao.getAllNotesForBackup()
+        val mediaFileNamesByNoteId = mediaReferenceIndex.loadReferencedFileNamesByNoteId()
         val localEntries = localNotes.map { note ->
             SelfHostManifestEntry(
                 entryId = manifestEntryIdFor(note),
                 entryType = if (note.isDaily) SelfHostEntryType.DAILY else SelfHostEntryType.NOTE,
                 spaceId = note.spaceId,
                 updatedAt = note.updatedAt,
-                dateString = note.dateString.takeIf { note.isDaily }
+                dateString = note.dateString.takeIf { note.isDaily },
+                mediaFileNames = mediaFileNamesByNoteId[note.noteId].orEmpty()
             )
         }
         val entryIdsStillWaitingToUpload = localNotes

@@ -106,6 +106,27 @@ class MergeNoteManifestEntriesTest {
     }
 
     @Test
+    fun aNoteOnlyOnTheServerKeepsItsListOfFiles() {
+        val merged = merge(
+            serverEntries = listOf(note("receipt", 100).copy(mediaFileNames = setOf("receipt.jpg"))),
+            localEntries = emptyList()
+        )
+
+        assertEquals(setOf("receipt.jpg"), merged.getValue("receipt").mediaFileNames)
+    }
+
+    @Test
+    fun aNoteThisDeviceCouldNotUploadKeepsTheServerListOfFiles() {
+        val merged = merge(
+            serverEntries = listOf(note("receipt", 1000).copy(mediaFileNames = setOf("receipt.jpg"))),
+            localEntries = listOf(note("receipt", 1005)),
+            entryIdsStillWaitingToUpload = setOf("receipt")
+        )
+
+        assertEquals(setOf("receipt.jpg"), merged.getValue("receipt").mediaFileNames)
+    }
+
+    @Test
     fun aDailyNoteIsKeptTheSameWayAsANormalNote() {
         val dailyEntry = SelfHostManifestEntry(
             entryId = "daily_space-1_2026-10-07",

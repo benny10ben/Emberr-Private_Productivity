@@ -20,4 +20,7 @@ interface MediaReferenceDao {
 
     @Query("SELECT DISTINCT fileName FROM media_references")
     suspend fun getAllReferencedFileNames(): List<String>
+
+    @Query("SELECT * FROM media_references")
+    suspend fun getAllReferences(): List<MediaReferenceEntity>
 }

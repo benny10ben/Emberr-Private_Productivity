@@ -14,6 +14,7 @@ class WebDavSyncPathsTest {
             WebDavSyncPaths.NOTES_DIR,
             WebDavSyncPaths.DAILY_DIR,
             WebDavSyncPaths.MEDIA_DIR,
+            WebDavSyncPaths.MEDIA_TRASH_DIR,
             WebDavSyncPaths.CHAT_SESSIONS_DIR,
             WebDavSyncPaths.SPACES_FILE,
             WebDavSyncPaths.FOLDERS_FILE,
@@ -24,6 +25,7 @@ class WebDavSyncPathsTest {
             WebDavSyncPaths.notePath("note-1"),
             WebDavSyncPaths.dailyPath("space-1", "2026-01-01"),
             WebDavSyncPaths.mediaPath("media-1"),
+            WebDavSyncPaths.trashedMediaPath("media-1"),
             WebDavSyncPaths.chatSessionPath("chat-1")
         )
 
@@ -52,6 +54,11 @@ class WebDavSyncPathsTest {
         )
         assertEquals("/emberr_sync/media/img_media-1.enc", WebDavSyncPaths.mediaPath("media-1"))
         assertEquals("/emberr_sync/chat_sessions/chat_chat-1.enc", WebDavSyncPaths.chatSessionPath("chat-1"))
+    }
+
+    @Test
+    fun aTrashedFileLivesInItsOwnFolderUnderTheSameName() {
+        assertEquals("/emberr_sync/media_trash/img_media-1.enc", WebDavSyncPaths.trashedMediaPath("media-1"))
     }
 
     @Test

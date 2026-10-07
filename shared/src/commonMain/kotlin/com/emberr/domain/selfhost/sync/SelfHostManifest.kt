@@ -14,7 +14,9 @@ data class SelfHostManifestEntry(
     val updatedAt: Long,
     val dateString: String? = null,
     val isDeleted: Boolean = false,
-    val orphanedAt: Long? = null
+    val orphanedAt: Long? = null,
+    val mediaFileNames: Set<String> = emptySet(),
+    val trashedAt: Long? = null
 )
 
 @Serializable

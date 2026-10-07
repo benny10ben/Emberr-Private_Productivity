@@ -30,6 +30,21 @@ class MediaReferenceIndex(
         }
     }
 
+    suspend fun loadReferencedFileNamesByNoteId(): Map<String, Set<String>> = withContext(Dispatchers.IO) {
+        if (!settingsManager.isMediaReferenceListBuilt()) rebuildFromStoredNotes()
+
+        val fileNamesByNoteId = mutableMapOf<String, MutableSet<String>>()
+        fun addReference(noteId: String, path: String) {
+            val fileName = path.substringAfterLast("/")
+            if (fileName.isNotBlank()) fileNamesByNoteId.getOrPut(noteId) { mutableSetOf() } += fileName
+        }
+
+        mediaReferenceDao.getAllReferences().forEach { addReference(it.noteId, it.fileName) }
+        noteDao.getAllNotesForBackup().forEach { note -> note.coverImagePath?.let { addReference(note.noteId, it) } }
+        canvasDao.getAllLiveImageNodes().forEach { node -> node.imagePath?.let { addReference(node.noteId, it) } }
+        fileNamesByNoteId
+    }
+
     suspend fun rebuildFromStoredNotes(): Set<String> = withContext(Dispatchers.IO) {
         rebuildLock.withLock {
             val referencedFileNames = mutableSetOf<String>()

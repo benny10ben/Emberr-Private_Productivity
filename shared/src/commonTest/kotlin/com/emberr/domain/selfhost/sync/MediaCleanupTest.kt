@@ -1,0 +1,190 @@
+package com.emberr.domain.selfhost.sync
+
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertNull
+import kotlin.test.assertTrue
+
+class MediaCleanupTest {
+
+    private val now = 100L * 24 * 60 * 60 * 1000
+    private val oneHour = 60L * 60 * 1000
+
+    private fun note(entryId: String, vararg mediaFileNames: String, isDeleted: Boolean = false) =
+        SelfHostManifestEntry(
+            entryId = entryId,
+            entryType = SelfHostEntryType.NOTE,
+            updatedAt = 1L,
+            isDeleted = isDeleted,
+            mediaFileNames = mediaFileNames.toSet()
+        )
+
+    private fun daily(entryId: String, vararg mediaFileNames: String) =
+        SelfHostManifestEntry(
+            entryId = entryId,
+            entryType = SelfHostEntryType.DAILY,
+            updatedAt = 1L,
+            mediaFileNames = mediaFileNames.toSet()
+        )
+
+    private fun media(fileName: String, orphanedAt: Long? = null, trashedAt: Long? = null) =
+        SelfHostManifestEntry(
+            entryId = fileName,
+            entryType = SelfHostEntryType.MEDIA,
+            updatedAt = 1L,
+            orphanedAt = orphanedAt,
+            trashedAt = trashedAt
+        )
+
+    @Test
+    fun filesUsedByLiveNotesAndDailyNotesAreClaimed() {
+        val claimed = mediaClaimedByLiveNotes(
+            listOf(note("receipt", "receipt.jpg"), daily("daily_space_2026-10-07", "voice.m4a"), media("receipt.jpg"))
+        )
+
+        assertEquals(setOf("receipt.jpg", "voice.m4a"), claimed)
+    }
+
+    @Test
+    fun filesUsedOnlyByADeletedNoteAreNotClaimed() {
+        val claimed = mediaClaimedByLiveNotes(listOf(note("old", "old.jpg", isDeleted = true)))
+
+        assertTrue(claimed.isEmpty())
+    }
+
+    @Test
+    fun aDeviceThatNeverReceivedTheNoteStillKeepsItsPhoto() {
+        val serverEntries = listOf(
+            note("receipt", "receipt.jpg"),
+            media("receipt.jpg", orphanedAt = now - 10 * MEDIA_UNCLAIMED_WAIT_MS)
+        )
+        val referencedOnThisDevice = emptySet<String>()
+
+        val decisions = decideMediaCleanup(
+            mediaEntries = serverEntries.filter { it.entryType == SelfHostEntryType.MEDIA },
+            claimedFileNames = mediaClaimedByLiveNotes(serverEntries) + referencedOnThisDevice,
+            nowMs = now
+        )
+
+        assertTrue(decisions.filesToMoveToTrash.isEmpty())
+    }
+
+    @Test
+    fun aFileUnclaimedForMoreThanADayGoesToTheTrash() {
+        val decisions = decideMediaCleanup(
+            mediaEntries = listOf(media("unused.jpg", orphanedAt = now - MEDIA_UNCLAIMED_WAIT_MS - oneHour)),
+            claimedFileNames = emptySet(),
+            nowMs = now
+        )
+
+        assertEquals(setOf("unused.jpg"), decisions.filesToMoveToTrash)
+    }
+
+    @Test
+    fun aFileUnclaimedForLessThanADayStays() {
+        val decisions = decideMediaCleanup(
+            mediaEntries = listOf(media("recent.jpg", orphanedAt = now - oneHour)),
+            claimedFileNames = emptySet(),
+            nowMs = now
+        )
+
+        assertTrue(decisions.filesToMoveToTrash.isEmpty())
+    }
+
+    @Test
+    fun aFileJustNoticedAsUnclaimedIsNotTrashedYet() {
+        val decisions = decideMediaCleanup(
+            mediaEntries = listOf(media("just-uploaded.jpg", orphanedAt = null)),
+            claimedFileNames = emptySet(),
+            nowMs = now
+        )
+
+        assertTrue(decisions.filesToMoveToTrash.isEmpty())
+    }
+
+    @Test
+    fun aTrashedFileThatANoteUsesAgainIsRestored() {
+        val decisions = decideMediaCleanup(
+            mediaEntries = listOf(media("restored.jpg", orphanedAt = now - 3 * MEDIA_UNCLAIMED_WAIT_MS, trashedAt = now - oneHour)),
+            claimedFileNames = setOf("restored.jpg"),
+            nowMs = now
+        )
+
+        assertEquals(setOf("restored.jpg"), decisions.filesToRestoreFromTrash)
+        assertTrue(decisions.filesToEmptyFromTrash.isEmpty())
+    }
+
+    @Test
+    fun aFileInTheTrashForMoreThanThirtyDaysIsEmptied() {
+        val decisions = decideMediaCleanup(
+            mediaEntries = listOf(media("old.jpg", orphanedAt = 1L, trashedAt = now - MEDIA_TRASH_KEEP_MS - oneHour)),
+            claimedFileNames = emptySet(),
+            nowMs = now
+        )
+
+        assertEquals(setOf("old.jpg"), decisions.filesToEmptyFromTrash)
+    }
+
+    @Test
+    fun aFileInTheTrashForLessThanThirtyDaysIsKept() {
+        val decisions = decideMediaCleanup(
+            mediaEntries = listOf(media("old.jpg", orphanedAt = 1L, trashedAt = now - oneHour)),
+            claimedFileNames = emptySet(),
+            nowMs = now
+        )
+
+        assertTrue(decisions.filesToEmptyFromTrash.isEmpty())
+        assertTrue(decisions.filesToMoveToTrash.isEmpty())
+    }
+
+    @Test
+    fun aClaimedFileLosesItsUnclaimedMark() {
+        val updated = updatedMediaEntries(
+            mediaEntries = listOf(media("photo.jpg", orphanedAt = now - oneHour)),
+            claimedFileNames = setOf("photo.jpg"),
+            changes = MediaChangesThisRun(),
+            nowMs = now
+        )
+
+        assertNull(updated.single().orphanedAt)
+    }
+
+    @Test
+    fun anUnclaimedFileIsMarkedNowAndKeepsAnEarlierMark() {
+        val updated = updatedMediaEntries(
+            mediaEntries = listOf(media("new.jpg"), media("old.jpg", orphanedAt = now - oneHour)),
+            claimedFileNames = emptySet(),
+            changes = MediaChangesThisRun(),
+            nowMs = now
+        ).associateBy { it.entryId }
+
+        assertEquals(now, updated.getValue("new.jpg").orphanedAt)
+        assertEquals(now - oneHour, updated.getValue("old.jpg").orphanedAt)
+    }
+
+    @Test
+    fun theResultsOfThisRunAreWrittenToTheList() {
+        val updated = updatedMediaEntries(
+            mediaEntries = listOf(
+                media("trashed-now.jpg", orphanedAt = 1L),
+                media("restored.jpg", orphanedAt = 1L, trashedAt = now - oneHour),
+                media("emptied.jpg", orphanedAt = 1L, trashedAt = 1L)
+            ),
+            claimedFileNames = setOf("restored.jpg", "uploaded.jpg"),
+            changes = MediaChangesThisRun(
+                movedToTrash = setOf("trashed-now.jpg"),
+                restoredFromTrash = setOf("restored.jpg"),
+                goneFromServer = setOf("emptied.jpg"),
+                newlyUploaded = setOf("uploaded.jpg")
+            ),
+            nowMs = now
+        ).associateBy { it.entryId }
+
+        assertEquals(setOf("trashed-now.jpg", "restored.jpg", "uploaded.jpg"), updated.keys)
+        assertEquals(now, updated.getValue("trashed-now.jpg").trashedAt)
+        assertNull(updated.getValue("restored.jpg").trashedAt)
+        assertNull(updated.getValue("restored.jpg").orphanedAt)
+        assertNull(updated.getValue("uploaded.jpg").trashedAt)
+        assertNull(updated.getValue("uploaded.jpg").orphanedAt)
+    }
+}

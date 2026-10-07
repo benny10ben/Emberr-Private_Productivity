@@ -44,6 +44,9 @@ interface CanvasDao {
     @Query("SELECT DISTINCT imagePath FROM canvas_nodes WHERE imagePath IS NOT NULL AND isDeleted = 0")
     suspend fun getAllLiveImagePaths(): List<String>
 
+    @Query("SELECT * FROM canvas_nodes WHERE imagePath IS NOT NULL AND isDeleted = 0")
+    suspend fun getAllLiveImageNodes(): List<CanvasNodeEntity>
+
     @Upsert
     suspend fun upsertNodes(nodes: List<CanvasNodeEntity>)
 
