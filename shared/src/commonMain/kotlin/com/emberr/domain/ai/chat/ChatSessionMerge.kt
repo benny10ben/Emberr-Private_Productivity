@@ -32,6 +32,19 @@ object ChatSessionMerge {
         )
     }
 
+    fun mergeWithServerCopy(localSession: ChatSessionEntity, serverSession: ChatSessionEntity): ChatSessionEntity {
+        val mergedSession = merge(localSession, serverSession)
+        if (hasSameContent(mergedSession, serverSession)) return serverSession
+        return mergedSession.copy(updatedAt = maxOf(mergedSession.updatedAt, serverSession.updatedAt + 1))
+    }
+
+    private fun hasSameContent(firstSession: ChatSessionEntity, secondSession: ChatSessionEntity): Boolean =
+        firstSession.title == secondSession.title &&
+            firstSession.spaceId == secondSession.spaceId &&
+            firstSession.createdAt == secondSession.createdAt &&
+            readMessages(firstSession) == readMessages(secondSession) &&
+            readRemovedMessageIds(firstSession) == readRemovedMessageIds(secondSession)
+
     internal fun mergeMessages(
         newerSessionMessages: List<ChatMessage>,
         olderSessionMessages: List<ChatMessage>,

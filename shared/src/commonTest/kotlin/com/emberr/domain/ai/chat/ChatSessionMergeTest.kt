@@ -7,6 +7,8 @@ import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertSame
+import kotlin.test.assertTrue
 
 class ChatSessionMergeTest {
 
@@ -147,5 +149,57 @@ class ChatSessionMergeTest {
         val merged = ChatSessionMerge.merge(localSession = phone, remoteSession = brokenDesktopCopy)
 
         assertEquals(phone.messageIds(), merged.messageIds())
+    }
+
+    @Test
+    fun messagesAddedOnThisDeviceAreAddedToANewerServerCopy() {
+        val phone = session(sharedMessages + message("question-hotels") + message("answer-hotels"), updatedAt = 10L)
+        val server = session(sharedMessages + message("question-weather") + message("answer-weather"), updatedAt = 20L)
+
+        val kept = ChatSessionMerge.mergeWithServerCopy(localSession = phone, serverSession = server)
+
+        assertEquals(
+            listOf(
+                "question-1", "answer-1", "question-2", "answer-2",
+                "question-hotels", "answer-hotels", "question-weather", "answer-weather"
+            ),
+            kept.messageIds()
+        )
+        assertTrue(kept.updatedAt > server.updatedAt)
+    }
+
+    @Test
+    fun messagesOnlyOnTheServerAreKeptWhenThisDeviceIsNewer() {
+        val phone = session(sharedMessages + message("question-hotels"), updatedAt = 30L)
+        val server = session(sharedMessages + message("question-weather"), updatedAt = 20L)
+
+        val kept = ChatSessionMerge.mergeWithServerCopy(localSession = phone, serverSession = server)
+
+        assertEquals(
+            listOf("question-1", "answer-1", "question-2", "answer-2", "question-weather", "question-hotels"),
+            kept.messageIds()
+        )
+        assertEquals(30L, kept.updatedAt)
+    }
+
+    @Test
+    fun theServerCopyIsKeptWhenThisDeviceHasNothingNew() {
+        val phone = session(sharedMessages, updatedAt = 10L)
+        val server = session(sharedMessages + message("question-weather"), updatedAt = 20L)
+
+        val kept = ChatSessionMerge.mergeWithServerCopy(localSession = phone, serverSession = server)
+
+        assertSame(server, kept)
+    }
+
+    @Test
+    fun theSecondDeviceAcceptsTheServerCopyOnceItsMessagesAreAlreadyThere() {
+        val phone = session(sharedMessages + message("question-hotels"), updatedAt = 10L)
+        val laptop = session(sharedMessages + message("question-weather"), updatedAt = 20L)
+
+        val serverAfterPhoneSynced = ChatSessionMerge.mergeWithServerCopy(localSession = phone, serverSession = laptop)
+        val serverAfterLaptopSynced = ChatSessionMerge.mergeWithServerCopy(localSession = laptop, serverSession = serverAfterPhoneSynced)
+
+        assertSame(serverAfterPhoneSynced, serverAfterLaptopSynced)
     }
 }

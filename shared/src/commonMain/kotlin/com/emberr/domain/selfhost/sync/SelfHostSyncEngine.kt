@@ -23,6 +23,7 @@ import com.emberr.data.local.room.entity.NoteMetadataEntity
 import com.emberr.data.local.room.entity.PLACEHOLDER_SPACE_UPDATED_AT
 import com.emberr.data.local.room.entity.SelfHostDeletedNoteEntity
 import com.emberr.data.local.room.entity.SpaceEntity
+import com.emberr.domain.ai.chat.ChatSessionMerge
 import com.emberr.domain.ai.external.AiSettingsRepository
 import com.emberr.domain.ai.external.ExternalAiProvider
 import com.emberr.domain.ai.external.ExternalAiProviderConfig
@@ -1000,11 +1001,6 @@ class SelfHostSyncEngine(
         }
     }
 
-    // Each chat session is its own encrypted file on the server (mirroring notes), tracked as a
-    // CHAT_SESSION entry in the same manifest notes use. Unlike notes there is no block-level merge -
-    // a session's message list is replaced wholesale by whichever side has the newer `updatedAt`,
-    // since two devices editing the exact same conversation at the same instant is not a realistic
-    // case worth the complexity full note merging needs.
     private suspend fun reconcileChatSessions(manifest: SelfHostManifest): List<SelfHostManifestEntry> {
         val remoteEntriesById = manifest.entries
             .filter { it.entryType == SelfHostEntryType.CHAT_SESSION }
@@ -1033,24 +1029,20 @@ class SelfHostSyncEngine(
     ): SelfHostManifestEntry? {
         val localUpdatedAt = localSession?.updatedAt ?: 0L
 
-        if (remoteEntry == null || localUpdatedAt > remoteEntry.updatedAt) {
-            if (localSession == null) return null
-            webDavSyncClient.uploadEncryptedJson(
-                WebDavSyncPaths.chatSessionPath(sessionId),
-                collectionJson.encodeToString(ChatSessionEntity.serializer(), localSession),
-                null
-            )
-            return SelfHostManifestEntry(
-                entryId = sessionId,
-                entryType = SelfHostEntryType.CHAT_SESSION,
-                spaceId = localSession.spaceId,
-                updatedAt = localSession.updatedAt,
-                isDeleted = localSession.isDeleted
-            )
+        if (remoteEntry == null) {
+            return localSession?.let { uploadChatSession(it, ifMatchEtag = null) }
         }
 
         if (localUpdatedAt == remoteEntry.updatedAt) {
             return remoteEntry
+        }
+
+        if (localSession != null && !localSession.isDeleted && !remoteEntry.isDeleted) {
+            return mergeChatSessionWithServerCopy(localSession)
+        }
+
+        if (localSession != null && localUpdatedAt > remoteEntry.updatedAt) {
+            return uploadChatSession(localSession, ifMatchEtag = null)
         }
 
         // Remote is newer than what we have locally.
@@ -1067,6 +1059,43 @@ class SelfHostSyncEngine(
         com.emberr.domain.util.sync.ChatSyncEventBus.emitSessionChanged(sessionId)
         return remoteEntry
     }
+
+    private suspend fun mergeChatSessionWithServerCopy(localSession: ChatSessionEntity): SelfHostManifestEntry {
+        val (remoteJson, remoteEtag) = webDavSyncClient.downloadAndDecryptJsonWithEtag(
+            WebDavSyncPaths.chatSessionPath(localSession.id)
+        ) ?: return uploadChatSession(localSession, ifMatchEtag = null)
+        val remoteSession = collectionJson.decodeFromString(ChatSessionEntity.serializer(), remoteJson)
+        val sessionToKeep = ChatSessionMerge.mergeWithServerCopy(localSession, remoteSession)
+
+        if (sessionToKeep != remoteSession) {
+            uploadChatSession(sessionToKeep, remoteEtag)
+        }
+
+        val localSessionUnchangedDuringSync = chatSessionDao.getSession(localSession.id) == localSession
+        if (sessionToKeep != localSession && localSessionUnchangedDuringSync) {
+            spaceRepository.ensureSpaceExists(sessionToKeep.spaceId)
+            chatSessionDao.upsertSession(sessionToKeep)
+            com.emberr.domain.util.sync.ChatSyncEventBus.emitSessionChanged(sessionToKeep.id)
+        }
+        return chatSessionManifestEntry(sessionToKeep)
+    }
+
+    private suspend fun uploadChatSession(session: ChatSessionEntity, ifMatchEtag: String?): SelfHostManifestEntry {
+        webDavSyncClient.uploadEncryptedJson(
+            WebDavSyncPaths.chatSessionPath(session.id),
+            collectionJson.encodeToString(ChatSessionEntity.serializer(), session),
+            ifMatchEtag
+        )
+        return chatSessionManifestEntry(session)
+    }
+
+    private fun chatSessionManifestEntry(session: ChatSessionEntity) = SelfHostManifestEntry(
+        entryId = session.id,
+        entryType = SelfHostEntryType.CHAT_SESSION,
+        spaceId = session.spaceId,
+        updatedAt = session.updatedAt,
+        isDeleted = session.isDeleted
+    )
 
     private suspend fun reconcileNote(candidateId: String, remoteEntry: SelfHostManifestEntry?): ReconcileOutcome {
         if (remoteEntry?.isDeleted == true) {
