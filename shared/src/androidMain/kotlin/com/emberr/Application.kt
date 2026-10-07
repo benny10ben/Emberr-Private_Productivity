@@ -7,7 +7,7 @@ import com.emberr.di.androidModule
 import com.emberr.di.sharedModule
 import com.emberr.domain.ai.LocalAiEngine
 import com.emberr.domain.backup.automatic.BackupScheduler
-import com.emberr.domain.backup.manual.resetLanSyncProgressIfRestoreUnfinished
+import com.emberr.domain.backup.manual.resetLanSyncProgressIfPending
 import com.emberr.domain.selfhost.sync.SelfHostSyncScheduler
 import com.emberr.domain.reminders.ReminderRescheduler
 import com.emberr.presentation.shared.FirstContentRenderSignal
@@ -35,7 +35,7 @@ class EmberrApplication : Application() {
             workManagerFactory()
             modules(sharedModule, androidModule)
         }
-        resetLanSyncProgressIfRestoreUnfinished(getKoin().get())
+        resetLanSyncProgressIfPending(getKoin().get())
 
         CoroutineScope(Dispatchers.IO).launch {
             getKoin().get<AppDatabase>()

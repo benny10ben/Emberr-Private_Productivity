@@ -188,6 +188,9 @@ interface SettingsManager {
     fun isRestoreUnfinished(): Boolean
     fun saveRestoreUnfinished(unfinished: Boolean)
 
+    fun isLanSyncResetPending(): Boolean
+    fun saveLanSyncResetPending(pending: Boolean)
+
     fun isSampleNotesSeeded(): Boolean
     fun saveSampleNotesSeeded(seeded: Boolean)
 }

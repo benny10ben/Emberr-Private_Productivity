@@ -9,10 +9,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 
-fun resetLanSyncProgressIfRestoreUnfinished(settingsManager: SettingsManager) {
-    if (!settingsManager.isRestoreUnfinished()) return
+fun resetLanSyncProgressIfPending(settingsManager: SettingsManager) {
+    if (!settingsManager.isLanSyncResetPending()) return
     settingsManager.saveLastPushedTimestamp(0L)
     settingsManager.saveLastFetchedTimestamp(0L)
+    settingsManager.saveLanSyncResetPending(false)
 }
 
 class UnfinishedRestoreFinisher(

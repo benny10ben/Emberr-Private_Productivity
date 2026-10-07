@@ -578,6 +578,18 @@ class DesktopSettingsManager(private val secretStore: DesktopSecretStore) : Sett
         isRestoreStillUnfinished = unfinished
     }
 
+    private var isLanSyncResetStillPending = prefs.getBoolean(
+        SyncConstants.KEY_LAN_SYNC_RESET_PENDING,
+        SyncConstants.DEFAULT_LAN_SYNC_RESET_PENDING
+    )
+
+    override fun isLanSyncResetPending(): Boolean = isLanSyncResetStillPending
+
+    override fun saveLanSyncResetPending(pending: Boolean) {
+        prefs.putBoolean(SyncConstants.KEY_LAN_SYNC_RESET_PENDING, pending)
+        isLanSyncResetStillPending = pending
+    }
+
     private var hasSeededSampleNotes = prefs.getBoolean(
         SyncConstants.KEY_SAMPLE_NOTES_SEEDED,
         SyncConstants.DEFAULT_SAMPLE_NOTES_SEEDED

@@ -77,6 +77,7 @@ class BackupRestorer(
     private suspend fun applyBackup(backup: EmberrBackupData, settingsText: String?) {
         val reminderBlockIdsBeforeRestore = calendarTaskDao.getAllTasksAcrossSpaces().map { it.blockId }
         settingsManager.saveRestoreUnfinished(true)
+        settingsManager.saveLanSyncResetPending(true)
 
         SyncCoordinator.mutex.withLock {
             appDatabase.replaceAllTablesWith(backup) { rebuildProjections(backup) }

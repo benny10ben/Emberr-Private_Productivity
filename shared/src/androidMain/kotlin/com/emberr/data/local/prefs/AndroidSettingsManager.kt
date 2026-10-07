@@ -647,6 +647,18 @@ class AndroidSettingsManager(
         isRestoreStillUnfinished = unfinished
     }
 
+    private var isLanSyncResetStillPending = sharedPreferences.getBoolean(
+        SyncConstants.KEY_LAN_SYNC_RESET_PENDING,
+        SyncConstants.DEFAULT_LAN_SYNC_RESET_PENDING
+    )
+
+    override fun isLanSyncResetPending(): Boolean = isLanSyncResetStillPending
+
+    override fun saveLanSyncResetPending(pending: Boolean) {
+        sharedPreferences.edit(commit = true) { putBoolean(SyncConstants.KEY_LAN_SYNC_RESET_PENDING, pending) }
+        isLanSyncResetStillPending = pending
+    }
+
     private var hasSeededSampleNotes = sharedPreferences.getBoolean(
         SyncConstants.KEY_SAMPLE_NOTES_SEEDED,
         SyncConstants.DEFAULT_SAMPLE_NOTES_SEEDED

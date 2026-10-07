@@ -138,7 +138,7 @@ private fun runEmberrDesktopApp() = application {
     LaunchedEffect(Unit) {
         withContext(Dispatchers.IO) {
             GlobalContext.get().get<com.emberr.domain.space.SpaceRepository>().prepareSpacesForLaunch()
-            com.emberr.domain.backup.manual.resetLanSyncProgressIfRestoreUnfinished(GlobalContext.get().get())
+            com.emberr.domain.backup.manual.resetLanSyncProgressIfPending(GlobalContext.get().get())
             GlobalContext.get().get<com.emberr.domain.backup.manual.UnfinishedRestoreFinisher>().finishIfNeeded()
         }
     }

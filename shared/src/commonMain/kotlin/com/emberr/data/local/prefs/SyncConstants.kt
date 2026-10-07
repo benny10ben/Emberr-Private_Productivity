@@ -67,6 +67,8 @@ object SyncConstants {
     const val DEFAULT_MEDIA_REFERENCE_LIST_BUILT = false
     const val KEY_RESTORE_UNFINISHED = "restore_unfinished"
     const val DEFAULT_RESTORE_UNFINISHED = false
+    const val KEY_LAN_SYNC_RESET_PENDING = "lan_sync_reset_pending"
+    const val DEFAULT_LAN_SYNC_RESET_PENDING = false
     // Sync Keys
     const val KEY_SYNC_PUSHED_TIMESTAMP = "last_sync_timestamp"
     const val KEY_SYNC_FETCHED_TIMESTAMP = "last_sync_fetched_timestamp"
