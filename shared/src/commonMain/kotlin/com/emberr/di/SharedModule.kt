@@ -8,6 +8,7 @@ import com.emberr.domain.repository.NoteRepositoryImpl
 import com.emberr.domain.ai.NoteIndexer
 import com.emberr.domain.reminders.ReminderRescheduler
 import com.emberr.domain.reminders.ReminderTargetResolver
+import com.emberr.domain.selfhost.crypto.VaultKeyLock
 import com.emberr.domain.selfhost.sync.ForegroundSyncPoller
 import com.emberr.domain.selfhost.sync.SelfHostSyncEngine
 import com.emberr.domain.selfhost.webdav.WebDavSyncClient
@@ -426,11 +427,14 @@ val sharedModule = module {
         )
     }
 
+    single { VaultKeyLock(keyDerivationManager = get(), syncEncryptionManager = get()) }
+
     viewModel {
         SelfHostSetupViewModel(
             webDavSyncClient = get(),
             secureSyncKeyStorage = get(),
             keyDerivationManager = get(),
+            vaultKeyLock = get(),
             selfHostSyncEngine = get(),
             selfHostSyncScheduler = get(),
             settingsManager = get(),

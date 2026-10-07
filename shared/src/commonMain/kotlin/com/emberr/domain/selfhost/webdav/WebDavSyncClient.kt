@@ -181,14 +181,14 @@ class WebDavSyncClient(
 
     suspend fun checkVaultExists(credentials: SelfHostServerCredentials): Boolean {
         WebDavServerUrlValidator.validate(credentials.serverUrl)
-        val response = httpClient.request(resolveUrl(credentials, WebDavSyncPaths.SALT_FILE)) {
+        val response = httpClient.request(resolveUrl(credentials, WebDavSyncPaths.VAULT_FILE)) {
             method = HttpMethod.Head
             header(HttpHeaders.Authorization, basicAuthHeaderValue(credentials))
         }
         return when (response.status.value) {
             in 200..299 -> true
             HttpStatusCode.NotFound.value -> false
-            else -> throw statusException("HEAD", WebDavSyncPaths.SALT_FILE, response)
+            else -> throw statusException("HEAD", WebDavSyncPaths.VAULT_FILE, response)
         }
     }
 
@@ -213,12 +213,12 @@ class WebDavSyncClient(
         }
     }
 
-    suspend fun uploadSaltFile(salt: ByteArray, failIfExists: Boolean = false) {
-        uploadPlainBytes(WebDavSyncPaths.SALT_FILE, salt, failIfExists = failIfExists)
+    suspend fun uploadVaultFile(vaultFileBytes: ByteArray, failIfExists: Boolean = false) {
+        uploadPlainBytes(WebDavSyncPaths.VAULT_FILE, vaultFileBytes, failIfExists = failIfExists)
     }
 
-    suspend fun downloadSaltFile(): ByteArray? {
-        return downloadPlainBytes(WebDavSyncPaths.SALT_FILE)
+    suspend fun downloadVaultFile(): ByteArray? {
+        return downloadPlainBytes(WebDavSyncPaths.VAULT_FILE)
     }
 
     suspend fun uploadPlainBytes(remotePath: String, bytes: ByteArray, failIfExists: Boolean = false) {

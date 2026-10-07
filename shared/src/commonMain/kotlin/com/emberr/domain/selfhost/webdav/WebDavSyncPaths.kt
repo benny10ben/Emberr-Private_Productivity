@@ -2,7 +2,7 @@ package com.emberr.domain.selfhost.webdav
 
 object WebDavSyncPaths {
     const val ROOT = "/emberr_sync"
-    const val SALT_FILE = "$ROOT/salt.txt"
+    const val VAULT_FILE = "$ROOT/vault.txt"
     const val MANIFEST_FILE = "$ROOT/manifest.json"
     const val NOTES_DIR = "$ROOT/notes"
     const val DAILY_DIR = "$ROOT/daily"

@@ -9,7 +9,7 @@ class WebDavSyncPathsTest {
     @Test
     fun everyRemotePathSitsUnderTheSingleSyncRoot() {
         val allPaths = listOf(
-            WebDavSyncPaths.SALT_FILE,
+            WebDavSyncPaths.VAULT_FILE,
             WebDavSyncPaths.MANIFEST_FILE,
             WebDavSyncPaths.NOTES_DIR,
             WebDavSyncPaths.DAILY_DIR,
@@ -35,7 +35,7 @@ class WebDavSyncPathsTest {
     @Test
     fun theRemoteLayoutIsExactlyWhatEarlierReleasesWrote() {
         assertEquals("/emberr_sync", WebDavSyncPaths.ROOT)
-        assertEquals("/emberr_sync/salt.txt", WebDavSyncPaths.SALT_FILE)
+        assertEquals("/emberr_sync/vault.txt", WebDavSyncPaths.VAULT_FILE)
         assertEquals("/emberr_sync/manifest.json", WebDavSyncPaths.MANIFEST_FILE)
         assertEquals("/emberr_sync/spaces.json", WebDavSyncPaths.SPACES_FILE)
         assertEquals("/emberr_sync/folders.json", WebDavSyncPaths.FOLDERS_FILE)

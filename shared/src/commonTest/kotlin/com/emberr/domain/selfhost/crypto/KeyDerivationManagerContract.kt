@@ -78,6 +78,18 @@ abstract class KeyDerivationManagerContract {
     }
 
     @Test
+    fun aGeneratedVaultKeyIsThirtyTwoRandomBytes() {
+        val manager = createKeyDerivationManager()
+
+        val firstVaultKey = manager.generateVaultKey()
+        val secondVaultKey = manager.generateVaultKey()
+
+        assertEquals(32, firstVaultKey.size)
+        assertEquals(32, secondVaultKey.size)
+        assertFalse(firstVaultKey.contentEquals(secondVaultKey))
+    }
+
+    @Test
     fun aGeneratedPassphraseIsSixteenCharactersLongToMatchWhatDerivationExpects() {
         val manager = createKeyDerivationManager()
 

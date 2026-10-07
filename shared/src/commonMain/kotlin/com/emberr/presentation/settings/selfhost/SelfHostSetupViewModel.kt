@@ -6,6 +6,7 @@ import com.emberr.data.local.prefs.SettingsManager
 import com.emberr.domain.selfhost.sync.ForegroundSyncPoller
 import com.emberr.domain.selfhost.crypto.KeyDerivationManager
 import com.emberr.domain.selfhost.crypto.SecureSyncKeyStorage
+import com.emberr.domain.selfhost.crypto.VaultKeyLock
 import com.emberr.domain.selfhost.webdav.SelfHostServerCredentials
 import com.emberr.domain.selfhost.sync.SelfHostConnectionState
 import com.emberr.domain.selfhost.sync.SelfHostSyncEngine
@@ -16,7 +17,6 @@ import com.emberr.domain.selfhost.webdav.WebDavConfigurationException
 import com.emberr.domain.selfhost.webdav.WebDavConflictException
 import com.emberr.domain.selfhost.webdav.WebDavConnectionTestResult
 import com.emberr.domain.selfhost.webdav.WebDavSyncClient
-import com.emberr.domain.selfhost.webdav.WebDavSyncPaths
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -90,6 +90,7 @@ class SelfHostSetupViewModel(
     private val webDavSyncClient: WebDavSyncClient,
     private val secureSyncKeyStorage: SecureSyncKeyStorage,
     private val keyDerivationManager: KeyDerivationManager,
+    private val vaultKeyLock: VaultKeyLock,
     private val selfHostSyncEngine: SelfHostSyncEngine,
     private val selfHostSyncScheduler: SelfHostSyncScheduler,
     private val settingsManager: SettingsManager,
@@ -313,39 +314,26 @@ class SelfHostSetupViewModel(
                 webDavSyncClient.ensureRemoteLayoutExists()
 
                 val isRestoring = form.vaultMode == VaultMode.RESTORE_VAULT
-                val salt = if (isRestoring) {
-                    webDavSyncClient.downloadSaltFile()
-                        ?: throw WebDavConfigurationException("No salt file was found on the server to restore from")
-                } else {
-                    if (webDavSyncClient.checkVaultExists(credentials)) {
-                        throw WebDavConflictException(
-                            "A vault already exists on this server. Restore it instead of creating a new one."
-                        )
-                    }
-                    keyDerivationManager.generateSalt()
-                }
-
                 val passphraseChars = (if (isRestoring) form.existingPassphraseInput else form.passphrase).toCharArray()
-                val keyBytes = try {
-                    keyDerivationManager.deriveAesKey(passphraseChars, salt)
+                val vaultKey = try {
+                    if (isRestoring) {
+                        val vaultFileBytes = webDavSyncClient.downloadVaultFile()
+                            ?: throw WebDavConfigurationException("No vault file was found on the server to restore from")
+                        vaultKeyLock.unlockVault(vaultFileBytes, passphraseChars)
+                    } else {
+                        if (webDavSyncClient.checkVaultExists(credentials)) {
+                            throw WebDavConflictException(
+                                "A vault already exists on this server. Restore it instead of creating a new one."
+                            )
+                        }
+                        val newVault = vaultKeyLock.createVault(passphraseChars)
+                        webDavSyncClient.uploadVaultFile(newVault.vaultFileBytes, failIfExists = true)
+                        newVault.vaultKey
+                    }
                 } finally {
                     passphraseChars.fill(Char(0))
                 }
-                secureSyncKeyStorage.saveEncryptionKey(keyBytes)
-
-                if (isRestoring) {
-                    val canUnlockExistingVault = try {
-                        webDavSyncClient.downloadAndDecryptJson(WebDavSyncPaths.MANIFEST_FILE)
-                        true
-                    } catch (cause: Exception) {
-                        false
-                    }
-                    if (!canUnlockExistingVault) {
-                        throw WebDavConfigurationException("Incorrect passphrase, could not unlock the existing vault")
-                    }
-                } else {
-                    webDavSyncClient.uploadSaltFile(salt, failIfExists = true)
-                }
+                secureSyncKeyStorage.saveEncryptionKey(vaultKey)
             } catch (cause: WebDavConflictException) {
                 secureSyncKeyStorage.clearAll()
                 updateForm {

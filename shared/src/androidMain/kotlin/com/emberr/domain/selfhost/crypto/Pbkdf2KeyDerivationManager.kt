@@ -10,6 +10,7 @@ class Pbkdf2KeyDerivationManager : KeyDerivationManager {
     private val iterationCount = 600_000
     private val keyLengthBits = 256
     private val saltLengthBytes = 16
+    private val vaultKeyLengthBytes = 32
     private val passphraseLength = 16
     private val passphraseAlphabet = (
         "23456789" +
@@ -35,6 +36,12 @@ class Pbkdf2KeyDerivationManager : KeyDerivationManager {
         val salt = ByteArray(saltLengthBytes)
         SecureRandom().nextBytes(salt)
         return salt
+    }
+
+    override fun generateVaultKey(): ByteArray {
+        val vaultKey = ByteArray(vaultKeyLengthBytes)
+        SecureRandom().nextBytes(vaultKey)
+        return vaultKey
     }
 
     override fun generatePassphrase(): String {
