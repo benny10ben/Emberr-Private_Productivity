@@ -183,6 +183,7 @@ class SyncViewModel(
 
                 if (pushedCleanly && appliedCleanly && !startedOver) {
                     _syncStatus.value = statusAfterCleanSync(fetched.changesWaitingToRetry, successText = "Success!")
+                    stopMediaCleanupWaitIfNothingIsLeft(fetched.changesWaitingToRetry)
 
                     // Reconcile files after a successful sync.
                     syncRepository.reconcileMedia()
@@ -208,6 +209,12 @@ class SyncViewModel(
             0 -> successText
             1 -> "Synced, 1 item couldn't be saved"
             else -> "Synced, $changesWaiting items couldn't be saved"
+        }
+    }
+
+    private suspend fun stopMediaCleanupWaitIfNothingIsLeft(changesWaitingOnDesktop: Int) {
+        if (syncRepository.countChangesWaitingToRetry() + changesWaitingOnDesktop == 0) {
+            settingsManager.saveMediaCleanupWaitingForLanSync(false)
         }
     }
 
@@ -259,6 +266,7 @@ class SyncViewModel(
 
             if (pushedCleanly && appliedCleanly && !startedOver) {
                 _syncStatus.value = statusAfterCleanSync(fetched.changesWaitingToRetry, successText = "Synced Successfully")
+                stopMediaCleanupWaitIfNothingIsLeft(fetched.changesWaitingToRetry)
                 true
             } else {
                 _syncStatus.value = "Partial sync, will retry"

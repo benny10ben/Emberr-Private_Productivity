@@ -659,6 +659,20 @@ class AndroidSettingsManager(
         isLanSyncResetStillPending = pending
     }
 
+    override fun isMediaCleanupWaitingForLanSync(): Boolean =
+        sharedPreferences.getBoolean(SyncConstants.KEY_MEDIA_CLEANUP_WAITING_FOR_LAN_SYNC, false)
+
+    override fun saveMediaCleanupWaitingForLanSync(waiting: Boolean) {
+        sharedPreferences.edit(commit = true) { putBoolean(SyncConstants.KEY_MEDIA_CLEANUP_WAITING_FOR_LAN_SYNC, waiting) }
+    }
+
+    override fun isMediaCleanupWaitingForSelfHostSync(): Boolean =
+        sharedPreferences.getBoolean(SyncConstants.KEY_MEDIA_CLEANUP_WAITING_FOR_SELF_HOST_SYNC, false)
+
+    override fun saveMediaCleanupWaitingForSelfHostSync(waiting: Boolean) {
+        sharedPreferences.edit(commit = true) { putBoolean(SyncConstants.KEY_MEDIA_CLEANUP_WAITING_FOR_SELF_HOST_SYNC, waiting) }
+    }
+
     private var hasSeededSampleNotes = sharedPreferences.getBoolean(
         SyncConstants.KEY_SAMPLE_NOTES_SEEDED,
         SyncConstants.DEFAULT_SAMPLE_NOTES_SEEDED

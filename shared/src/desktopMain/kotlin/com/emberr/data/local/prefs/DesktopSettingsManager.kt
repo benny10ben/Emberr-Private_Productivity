@@ -590,6 +590,20 @@ class DesktopSettingsManager(private val secretStore: DesktopSecretStore) : Sett
         isLanSyncResetStillPending = pending
     }
 
+    override fun isMediaCleanupWaitingForLanSync(): Boolean =
+        prefs.getBoolean(SyncConstants.KEY_MEDIA_CLEANUP_WAITING_FOR_LAN_SYNC, false)
+
+    override fun saveMediaCleanupWaitingForLanSync(waiting: Boolean) {
+        prefs.putBoolean(SyncConstants.KEY_MEDIA_CLEANUP_WAITING_FOR_LAN_SYNC, waiting)
+    }
+
+    override fun isMediaCleanupWaitingForSelfHostSync(): Boolean =
+        prefs.getBoolean(SyncConstants.KEY_MEDIA_CLEANUP_WAITING_FOR_SELF_HOST_SYNC, false)
+
+    override fun saveMediaCleanupWaitingForSelfHostSync(waiting: Boolean) {
+        prefs.putBoolean(SyncConstants.KEY_MEDIA_CLEANUP_WAITING_FOR_SELF_HOST_SYNC, waiting)
+    }
+
     private var hasSeededSampleNotes = prefs.getBoolean(
         SyncConstants.KEY_SAMPLE_NOTES_SEEDED,
         SyncConstants.DEFAULT_SAMPLE_NOTES_SEEDED

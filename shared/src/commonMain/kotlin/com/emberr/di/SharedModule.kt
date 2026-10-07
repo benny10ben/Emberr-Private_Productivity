@@ -156,7 +156,9 @@ val sharedModule = module {
     single {
         com.emberr.domain.media.LocalMediaGarbageCollector(
             mediaReferenceIndex = get(),
-            mediaStorageHelper = get()
+            mediaStorageHelper = get(),
+            unusedMediaFileDao = get(),
+            settingsManager = get()
         )
     }
 

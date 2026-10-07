@@ -78,6 +78,9 @@ class BackupRestorer(
         val reminderBlockIdsBeforeRestore = calendarTaskDao.getAllTasksAcrossSpaces().map { it.blockId }
         settingsManager.saveRestoreUnfinished(true)
         settingsManager.saveLanSyncResetPending(true)
+        settingsManager.saveMediaCleanupWaitingForLanSync(settingsManager.isSyncPairingConfirmed())
+        settingsManager.saveMediaCleanupWaitingForSelfHostSync(settingsManager.isSelfHostConnected())
+        appDatabase.unusedMediaFileDao().forgetAll()
 
         SyncCoordinator.mutex.withLock {
             appDatabase.replaceAllTablesWith(backup) { rebuildProjections(backup) }

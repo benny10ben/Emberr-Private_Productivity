@@ -1,5 +1,8 @@
 package com.emberr.domain.media
 
+import com.emberr.data.local.prefs.SettingsManager
+import com.emberr.data.local.room.dao.UnusedMediaFileDao
+import com.emberr.data.local.room.entity.UnusedMediaFileEntity
 import com.emberr.domain.util.media.MediaStorageHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -7,29 +10,56 @@ import java.io.File
 
 class LocalMediaGarbageCollector(
     private val mediaReferenceIndex: MediaReferenceIndex,
-    private val mediaStorageHelper: MediaStorageHelper
+    private val mediaStorageHelper: MediaStorageHelper,
+    private val unusedMediaFileDao: UnusedMediaFileDao,
+    private val settingsManager: SettingsManager
 ) {
 
     suspend fun collectAndDeleteOrphanedMedia() = withContext(Dispatchers.IO) {
+        deleteExpiredTempFiles()
         try {
-            val referencedFileNames = mediaReferenceIndex.loadReferencedFileNames()
+            val isWaitingForSync = isMediaCleanupWaitingForSync(
+                waitingForLanSync = settingsManager.isMediaCleanupWaitingForLanSync(),
+                isLanPaired = settingsManager.isSyncPairingConfirmed(),
+                waitingForSelfHostSync = settingsManager.isMediaCleanupWaitingForSelfHostSync(),
+                isSelfHostConnected = settingsManager.isSelfHostConnected()
+            )
+            if (isWaitingForSync) {
+                LocalMediaGcLog.d("collectAndDeleteOrphanedMedia: skipped, waiting for sync to bring notes back after a restore")
+                return@withContext
+            }
+
             val nowMs = System.currentTimeMillis()
+            val plan = planLocalMediaCleanup(
+                fileNamesOnDisk = mediaStorageHelper.listAllMediaFileNames()
+                    .filterNot { it.endsWith(TEMP_FILE_SUFFIX) }
+                    .toSet(),
+                usedFileNames = mediaReferenceIndex.loadReferencedFileNames(),
+                unusedSinceByFileName = unusedMediaFileDao.getAll().associate { it.fileName to it.unusedSince },
+                nowMs = nowMs
+            )
+
+            if (plan.fileNamesToForget.isNotEmpty()) unusedMediaFileDao.forget(plan.fileNamesToForget.toList())
+            if (plan.newlyUnusedFileNames.isNotEmpty()) {
+                unusedMediaFileDao.markUnused(plan.newlyUnusedFileNames.map { UnusedMediaFileEntity(it, unusedSince = nowMs) })
+            }
+
             var deletedCount = 0
-
-            mediaStorageHelper.listAllMediaFileNames()
-                .filterNot { it in referencedFileNames }
-                .forEach { fileName ->
-                    try {
-                        val file = File(mediaStorageHelper.getAbsoluteMediaPath(fileName))
-                        if (file.exists() && isOldEnoughToDelete(file, nowMs) && file.delete()) {
-                            deletedCount++
-                        }
-                    } catch (e: Exception) {
-                        LocalMediaGcLog.e("collectAndDeleteOrphanedMedia: failed to delete $fileName: ${e.message}", e)
+            plan.fileNamesToDelete.forEach { fileName ->
+                try {
+                    val file = File(mediaStorageHelper.getAbsoluteMediaPath(fileName))
+                    if (file.exists() && file.delete()) {
+                        deletedCount++
                     }
+                } catch (e: Exception) {
+                    LocalMediaGcLog.e("collectAndDeleteOrphanedMedia: failed to delete $fileName: ${e.message}", e)
                 }
+            }
 
-            LocalMediaGcLog.d("collectAndDeleteOrphanedMedia: deleted $deletedCount orphaned file(s)")
+            LocalMediaGcLog.d(
+                "collectAndDeleteOrphanedMedia: ${plan.newlyUnusedFileNames.size} file(s) newly unused, " +
+                        "deleted $deletedCount file(s) unused for over 7 days"
+            )
         } catch (e: Exception) {
             LocalMediaGcLog.e("collectAndDeleteOrphanedMedia: failed with ${e::class.simpleName}: ${e.message}", e)
         }
@@ -45,7 +75,7 @@ class LocalMediaGarbageCollector(
                 .forEach { fileName ->
                     try {
                         val file = File(mediaStorageHelper.getAbsoluteMediaPath(fileName))
-                        if (file.exists() && isOldEnoughToDelete(file, nowMs) && file.delete()) {
+                        if (file.exists() && nowMs - file.lastModified() > STALE_TEMP_FILE_THRESHOLD_MS && file.delete()) {
                             deletedCount++
                         }
                     } catch (e: Exception) {
@@ -59,18 +89,8 @@ class LocalMediaGarbageCollector(
         }
     }
 
-    private fun isOldEnoughToDelete(file: File, nowMs: Long): Boolean {
-        val fileAgeMs = nowMs - file.lastModified()
-        return if (file.name.endsWith(TEMP_FILE_SUFFIX)) {
-            fileAgeMs > STALE_TEMP_FILE_THRESHOLD_MS
-        } else {
-            fileAgeMs > NEWLY_WRITTEN_FILE_GRACE_PERIOD_MS
-        }
-    }
-
     private companion object {
         const val TEMP_FILE_SUFFIX = ".tmp"
         const val STALE_TEMP_FILE_THRESHOLD_MS = 48L * 60 * 60 * 1000
-        const val NEWLY_WRITTEN_FILE_GRACE_PERIOD_MS = 10L * 60 * 1000
     }
 }

@@ -621,6 +621,9 @@ class SelfHostSyncEngine(
             // Update the global last sync timestamp purely for UI and polling checks.
             // It's safe to advance this even if some notes had conflicts.
             settingsManager.saveSelfHostLastSyncTimestamp(syncStartTimestamp)
+            if (brokenNoteCount + conflictCount + skippedBusyCount == 0) {
+                settingsManager.saveMediaCleanupWaitingForSelfHostSync(false)
+            }
 
             SelfHostSyncLog.d(
                 "TextSync: complete, synced=$syncedCount conflicts=$conflictCount skippedBusy=$skippedBusyCount " +

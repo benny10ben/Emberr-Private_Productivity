@@ -191,6 +191,12 @@ interface SettingsManager {
     fun isLanSyncResetPending(): Boolean
     fun saveLanSyncResetPending(pending: Boolean)
 
+    fun isMediaCleanupWaitingForLanSync(): Boolean
+    fun saveMediaCleanupWaitingForLanSync(waiting: Boolean)
+
+    fun isMediaCleanupWaitingForSelfHostSync(): Boolean
+    fun saveMediaCleanupWaitingForSelfHostSync(waiting: Boolean)
+
     fun isSampleNotesSeeded(): Boolean
     fun saveSampleNotesSeeded(seeded: Boolean)
 }

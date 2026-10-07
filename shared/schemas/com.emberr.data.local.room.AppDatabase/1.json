@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "0e0d118c520a31f24506561c42a93f1d",
+    "identityHash": "3d1bf946466c03c235bb0bb966db8f41",
     "entities": [
       {
         "tableName": "spaces",
@@ -1603,11 +1603,35 @@
             "entityId"
           ]
         }
+      },
+      {
+        "tableName": "unused_media_files",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`fileName` TEXT NOT NULL, `unusedSince` INTEGER NOT NULL, PRIMARY KEY(`fileName`))",
+        "fields": [
+          {
+            "fieldPath": "fileName",
+            "columnName": "fileName",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "unusedSince",
+            "columnName": "unusedSince",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "fileName"
+          ]
+        }
       }
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '0e0d118c520a31f24506561c42a93f1d')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '3d1bf946466c03c235bb0bb966db8f41')"
     ]
   }
 }

@@ -23,6 +23,7 @@ import com.emberr.data.local.room.dao.SelfHostDeletedApiConfigDao
 import com.emberr.data.local.room.dao.SelfHostDeletedNoteDao
 import com.emberr.data.local.room.dao.SpaceDao
 import com.emberr.data.local.room.dao.UnappliedSyncChangeDao
+import com.emberr.data.local.room.dao.UnusedMediaFileDao
 import com.emberr.data.local.room.entity.BookmarkBlockEntity
 import com.emberr.data.local.room.entity.CalendarEventExceptionEntity
 import com.emberr.data.local.room.entity.CalendarTaskEntity
@@ -43,6 +44,7 @@ import com.emberr.data.local.room.entity.SelfHostDeletedApiConfigEntity
 import com.emberr.data.local.room.entity.SelfHostDeletedNoteEntity
 import com.emberr.data.local.room.entity.SpaceEntity
 import com.emberr.data.local.room.entity.UnappliedSyncChangeEntity
+import com.emberr.data.local.room.entity.UnusedMediaFileEntity
 
 const val APP_DATABASE_VERSION = 1
 
@@ -67,7 +69,8 @@ const val APP_DATABASE_VERSION = 1
         CanvasNodeEntity::class,
         CanvasEdgeEntity::class,
         CanvasStrokeEntity::class,
-        UnappliedSyncChangeEntity::class
+        UnappliedSyncChangeEntity::class,
+        UnusedMediaFileEntity::class
     ],
     version = APP_DATABASE_VERSION,
     exportSchema = true
@@ -93,6 +96,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun canvasDao(): CanvasDao
     abstract fun unappliedSyncChangeDao(): UnappliedSyncChangeDao
     abstract fun backupRestoreDao(): BackupRestoreDao
+    abstract fun unusedMediaFileDao(): UnusedMediaFileDao
 }
 
 @Suppress("NO_ACTUAL_FOR_EXPECT")

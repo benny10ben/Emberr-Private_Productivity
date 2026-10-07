@@ -86,6 +86,7 @@ val desktopModule = module {
     single<com.emberr.data.local.room.dao.MediaReferenceDao> { get<AppDatabase>().mediaReferenceDao() }
     single<com.emberr.data.local.room.dao.CanvasDao> { get<AppDatabase>().canvasDao() }
     single<com.emberr.data.local.room.dao.UnappliedSyncChangeDao> { get<AppDatabase>().unappliedSyncChangeDao() }
+    single<com.emberr.data.local.room.dao.UnusedMediaFileDao> { get<AppDatabase>().unusedMediaFileDao() }
     single<VoiceRecognizer> { DesktopVoiceRecognizer() }
 
     // SQLDelight
