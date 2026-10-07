@@ -10,8 +10,10 @@ import io.ktor.client.call.body
 import io.ktor.client.plugins.ClientRequestException
 import io.ktor.client.plugins.HttpResponseValidator
 import io.ktor.client.plugins.HttpTimeout
+import io.ktor.client.plugins.HttpTimeoutConfig
 import io.ktor.client.plugins.ResponseException
 import io.ktor.client.plugins.api.createClientPlugin
+import io.ktor.client.plugins.timeout
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.http.ContentType
@@ -42,9 +44,9 @@ class SyncClient(
 ) {
     private companion object {
         const val CONNECT_TIMEOUT_MS = 15_000L
-        // Extended timeouts to accommodate large file uploads/downloads over slow Wi-Fi.
         const val REQUEST_TIMEOUT_MS = 10 * 60_000L
-        const val SOCKET_TIMEOUT_MS = 10 * 60_000L
+        const val SOCKET_TIMEOUT_MS = 60_000L
+        const val NOTE_CHANGES_SOCKET_TIMEOUT_MS = 10 * 60_000L
     }
 
     private val syncJson = Json { ignoreUnknownKeys = true; coerceInputValues = true }
@@ -110,6 +112,7 @@ class SyncClient(
     suspend fun pushChanges(changes: List<SyncEnvelope>): Boolean {
         return try {
             val response = client.post("$serverUrl${SyncConstants.ROUTE_PUSH}") {
+                timeout { socketTimeoutMillis = NOTE_CHANGES_SOCKET_TIMEOUT_MS }
                 setBody(lockedJson(syncJson.encodeToString(SyncPayload(changes))))
             }
             requireSealedReply(response)
@@ -122,6 +125,7 @@ class SyncClient(
 
     suspend fun fetchChanges(since: Long): SyncPayload {
         val response = client.get("$serverUrl${SyncConstants.ROUTE_FETCH}") {
+            timeout { socketTimeoutMillis = NOTE_CHANGES_SOCKET_TIMEOUT_MS }
             parameter("since", since)
         }
         return syncJson.decodeFromString(openSealedReply(response))
@@ -146,6 +150,7 @@ class SyncClient(
         val startedAt = Clock.System.now().toEpochMilliseconds()
         return try {
             val downloaded = client.prepareGet("$serverUrl/sync/media/download") {
+                timeout { requestTimeoutMillis = HttpTimeoutConfig.INFINITE_TIMEOUT_MS }
                 header(SyncConstants.HEADER_SYNC_MEDIA_REQUEST, lockedMediaRequest(fileName, resumeOffset))
             }.execute { response ->
                 if (response.status.value !in 200..299) {
@@ -245,6 +250,7 @@ class SyncClient(
             }
 
             val response = client.post("$serverUrl/sync/media/upload") {
+                timeout { requestTimeoutMillis = HttpTimeoutConfig.INFINITE_TIMEOUT_MS }
                 header(SyncConstants.HEADER_SYNC_MEDIA_REQUEST, lockedMediaRequest(fileName, resumeOffset))
                 contentType(ContentType.Application.OctetStream)
                 setBody(object : OutgoingContent.ReadChannelContent() {
