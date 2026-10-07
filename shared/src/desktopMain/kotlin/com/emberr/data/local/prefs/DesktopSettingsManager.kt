@@ -542,18 +542,6 @@ class DesktopSettingsManager(private val secretStore: DesktopSecretStore) : Sett
         _hasCompletedOnboarding.value = completed
     }
 
-    private var hasSeededSampleDailyNote = prefs.getBoolean(
-        SyncConstants.KEY_SAMPLE_DAILY_NOTE_SEEDED,
-        SyncConstants.DEFAULT_SAMPLE_DAILY_NOTE_SEEDED
-    )
-
-    override fun isSampleDailyNoteSeeded(): Boolean = hasSeededSampleDailyNote
-
-    override fun saveSampleDailyNoteSeeded(seeded: Boolean) {
-        prefs.putBoolean(SyncConstants.KEY_SAMPLE_DAILY_NOTE_SEEDED, seeded)
-        hasSeededSampleDailyNote = seeded
-    }
-
     private var hasBuiltMediaReferenceList = prefs.getBoolean(
         SyncConstants.KEY_MEDIA_REFERENCE_LIST_BUILT,
         SyncConstants.DEFAULT_MEDIA_REFERENCE_LIST_BUILT
@@ -614,5 +602,15 @@ class DesktopSettingsManager(private val secretStore: DesktopSecretStore) : Sett
     override fun saveSampleNotesSeeded(seeded: Boolean) {
         prefs.putBoolean(SyncConstants.KEY_SAMPLE_NOTES_SEEDED, seeded)
         hasSeededSampleNotes = seeded
+    }
+
+    override fun getSeededTemplateNoteIds(): Set<String> =
+        prefs.get(SyncConstants.KEY_SEEDED_TEMPLATE_NOTE_IDS, "")
+            .split(",")
+            .filter { noteId -> noteId.isNotBlank() }
+            .toSet()
+
+    override fun saveSeededTemplateNoteIds(noteIds: Set<String>) {
+        prefs.put(SyncConstants.KEY_SEEDED_TEMPLATE_NOTE_IDS, noteIds.joinToString(","))
     }
 }

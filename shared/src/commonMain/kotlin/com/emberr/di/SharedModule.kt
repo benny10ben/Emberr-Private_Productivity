@@ -112,15 +112,8 @@ val sharedModule = module {
     single {
         com.emberr.domain.template.DefaultTemplateSeeder(
             repository = get(),
-            activeSpaceStore = get()
-        )
-    }
-
-    single {
-        com.emberr.domain.sample.SampleDailyNoteSeeder(
-            repository = get(),
-            settingsManager = get(),
-            canvasRepository = get()
+            activeSpaceStore = get(),
+            settingsManager = get()
         )
     }
 
@@ -337,7 +330,6 @@ val sharedModule = module {
             reminderScheduler = get(),
             audioRecorder = get(),
             appScope = get(named("AppScope")),
-            sampleDailyNoteSeeder = get(),
             activeSpaceStore = get()
         )
     }

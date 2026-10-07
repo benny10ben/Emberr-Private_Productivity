@@ -92,6 +92,7 @@ import com.emberr.domain.model.withPropertyTagReplaced
 import com.emberr.domain.model.withCustomPropertyRenamed
 import com.emberr.domain.model.withCustomPropertyRemoved
 import com.emberr.domain.model.valueAsText
+import com.emberr.domain.sample.lastEditedAtForDisplay
 import com.emberr.domain.search.LINKED_NOTE_BLOCK_JSON_MARKER
 import com.emberr.domain.search.latestParentByChildId
 import com.emberr.domain.search.subNoteParentTitles
@@ -305,7 +306,7 @@ class NoteRepositoryImpl(
         blockDao.insertOrUpdateBlocks(mergedBlocks)
         syncImageBlocks(winner.noteId, decodedBlocks, TaskSource.DAILY, winner.createdAt)
         syncDocumentBlocks(winner.noteId, decodedBlocks, TaskSource.DAILY, winner.createdAt)
-        syncBookmarkBlocks(winner.noteId, decodedBlocks, TaskSource.DAILY, winner.updatedAt)
+        syncBookmarkBlocks(winner.noteId, decodedBlocks, TaskSource.DAILY, winner.lastEditedAtForDisplay())
         syncMediaReferences(winner.noteId, decodedBlocks)
 
         losers.forEach { loser ->
@@ -474,7 +475,7 @@ class NoteRepositoryImpl(
                     noteId        = noteId,
                     blocks        = content.blocks,
                     sourceType    = TaskSource.DAILY,
-                    noteUpdatedAt = updatedAt ?: System.currentTimeMillis()
+                    noteUpdatedAt = metadata.lastEditedAtForDisplay()
                 )
             }
         }
@@ -699,13 +700,13 @@ class NoteRepositoryImpl(
                     )
                     syncImageBlocks(noteId = metadata.noteId, blocks = blocks, sourceType = TaskSource.DAILY, noteCreatedAt = metadata.createdAt)
                     syncDocumentBlocks(noteId = metadata.noteId, blocks = blocks, sourceType = TaskSource.DAILY, noteCreatedAt = metadata.createdAt)
-                    syncBookmarkBlocks(noteId = metadata.noteId, blocks = blocks, sourceType = TaskSource.DAILY, noteUpdatedAt = metadata.updatedAt)
+                    syncBookmarkBlocks(noteId = metadata.noteId, blocks = blocks, sourceType = TaskSource.DAILY, noteUpdatedAt = metadata.lastEditedAtForDisplay())
                 }
             } else {
                 syncCalendarTasks(spaceId = metadata.spaceId, noteId = metadata.noteId, blocks = blocks, sourceType = TaskSource.NOTE, dailyDateString = null)
                 syncImageBlocks(noteId = metadata.noteId, blocks = blocks, sourceType = TaskSource.NOTE, noteCreatedAt = metadata.createdAt)
                 syncDocumentBlocks(noteId = metadata.noteId, blocks = blocks, sourceType = TaskSource.NOTE, noteCreatedAt = metadata.createdAt)
-                syncBookmarkBlocks(noteId = metadata.noteId, blocks = blocks, sourceType = TaskSource.NOTE, noteUpdatedAt = metadata.updatedAt)
+                syncBookmarkBlocks(noteId = metadata.noteId, blocks = blocks, sourceType = TaskSource.NOTE, noteUpdatedAt = metadata.lastEditedAtForDisplay())
             }
         }
 
@@ -912,17 +913,19 @@ class NoteRepositoryImpl(
     override suspend fun getFoldersModifiedSince(timestamp: Long): List<FolderEntity> =
         folderDao.getFoldersModifiedSince(timestamp)
 
-    override suspend fun insertFolder(folder: FolderEntity) = insertFolderResolvingSpace(folder, null)
+    override suspend fun insertFolder(folder: FolderEntity, stampUpdatedAt: Boolean) =
+        insertFolderResolvingSpace(folder, null, stampUpdatedAt)
 
     override suspend fun insertFolderInSpace(spaceId: String, folder: FolderEntity) =
-        insertFolderResolvingSpace(folder, spaceId)
+        insertFolderResolvingSpace(folder, spaceId, stampUpdatedAt = true)
 
-    private suspend fun insertFolderResolvingSpace(folder: FolderEntity, requestedSpaceId: String?) =
+    private suspend fun insertFolderResolvingSpace(folder: FolderEntity, requestedSpaceId: String?, stampUpdatedAt: Boolean) =
         withContext(Dispatchers.IO) {
             val resolvedSpaceId =
                 folderDao.getFolderById(folder.folderId)?.spaceId ?: requestedSpaceId ?: activeSpaceId()
+            val updatedAt = if (stampUpdatedAt) System.currentTimeMillis() else folder.updatedAt
             folderDao.insertFolder(
-                folder.copy(updatedAt = System.currentTimeMillis(), spaceId = resolvedSpaceId)
+                folder.copy(updatedAt = updatedAt, spaceId = resolvedSpaceId)
             )
             AutoSyncTrigger.requestSync()
         }

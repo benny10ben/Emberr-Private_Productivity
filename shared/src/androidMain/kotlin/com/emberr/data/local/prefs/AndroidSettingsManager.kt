@@ -611,18 +611,6 @@ class AndroidSettingsManager(
         _hasCompletedOnboarding.value = completed
     }
 
-    private var hasSeededSampleDailyNote = sharedPreferences.getBoolean(
-        SyncConstants.KEY_SAMPLE_DAILY_NOTE_SEEDED,
-        SyncConstants.DEFAULT_SAMPLE_DAILY_NOTE_SEEDED
-    )
-
-    override fun isSampleDailyNoteSeeded(): Boolean = hasSeededSampleDailyNote
-
-    override fun saveSampleDailyNoteSeeded(seeded: Boolean) {
-        sharedPreferences.edit(commit = true) { putBoolean(SyncConstants.KEY_SAMPLE_DAILY_NOTE_SEEDED, seeded) }
-        hasSeededSampleDailyNote = seeded
-    }
-
     private var hasBuiltMediaReferenceList = sharedPreferences.getBoolean(
         SyncConstants.KEY_MEDIA_REFERENCE_LIST_BUILT,
         SyncConstants.DEFAULT_MEDIA_REFERENCE_LIST_BUILT
@@ -683,5 +671,12 @@ class AndroidSettingsManager(
     override fun saveSampleNotesSeeded(seeded: Boolean) {
         sharedPreferences.edit(commit = true) { putBoolean(SyncConstants.KEY_SAMPLE_NOTES_SEEDED, seeded) }
         hasSeededSampleNotes = seeded
+    }
+
+    override fun getSeededTemplateNoteIds(): Set<String> =
+        sharedPreferences.getStringSet(SyncConstants.KEY_SEEDED_TEMPLATE_NOTE_IDS, emptySet()).orEmpty().toSet()
+
+    override fun saveSeededTemplateNoteIds(noteIds: Set<String>) {
+        sharedPreferences.edit(commit = true) { putStringSet(SyncConstants.KEY_SEEDED_TEMPLATE_NOTE_IDS, noteIds) }
     }
 }

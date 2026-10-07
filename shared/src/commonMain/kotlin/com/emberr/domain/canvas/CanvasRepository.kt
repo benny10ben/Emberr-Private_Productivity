@@ -27,7 +27,7 @@ class CanvasRepository(
         )
     }
 
-    suspend fun saveChanges(noteId: String, changes: CanvasContent) {
+    suspend fun saveChanges(noteId: String, changes: CanvasContent, stampNoteUpdatedAt: Boolean = true) {
         if (changes.isEmpty()) return
         withContext(Dispatchers.IO) {
             SyncCoordinator.mutex.withLock {
@@ -36,7 +36,7 @@ class CanvasRepository(
                 canvasDao.upsertNodes(ownedChanges.nodes)
                 canvasDao.upsertEdges(ownedChanges.edges)
                 canvasDao.upsertStrokes(ownedChanges.strokes)
-                noteDao.updateNoteUpdatedAt(noteId, System.currentTimeMillis())
+                if (stampNoteUpdatedAt) noteDao.updateNoteUpdatedAt(noteId, System.currentTimeMillis())
             }
             _locallySavedNoteIds.tryEmit(noteId)
             AutoSyncTrigger.requestSync()

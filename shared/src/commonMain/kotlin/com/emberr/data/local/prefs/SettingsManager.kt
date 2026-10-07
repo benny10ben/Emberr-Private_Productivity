@@ -179,9 +179,6 @@ interface SettingsManager {
     fun isOnboardingCompleted(): Boolean
     fun saveOnboardingCompleted(completed: Boolean)
 
-    fun isSampleDailyNoteSeeded(): Boolean
-    fun saveSampleDailyNoteSeeded(seeded: Boolean)
-
     fun isMediaReferenceListBuilt(): Boolean
     fun saveMediaReferenceListBuilt(built: Boolean)
 
@@ -199,4 +196,7 @@ interface SettingsManager {
 
     fun isSampleNotesSeeded(): Boolean
     fun saveSampleNotesSeeded(seeded: Boolean)
+
+    fun getSeededTemplateNoteIds(): Set<String>
+    fun saveSeededTemplateNoteIds(noteIds: Set<String>)
 }

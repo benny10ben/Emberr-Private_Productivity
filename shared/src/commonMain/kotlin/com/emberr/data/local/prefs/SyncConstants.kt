@@ -59,10 +59,9 @@ object SyncConstants {
     const val DEFAULT_AUTOMATIC_UPDATE_CHECK = true
     const val KEY_ONBOARDING_COMPLETED = "onboarding_completed"
     const val DEFAULT_ONBOARDING_COMPLETED = false
-    const val KEY_SAMPLE_DAILY_NOTE_SEEDED = "sample_daily_note_seeded"
-    const val DEFAULT_SAMPLE_DAILY_NOTE_SEEDED = false
     const val KEY_SAMPLE_NOTES_SEEDED = "sample_notes_seeded"
     const val DEFAULT_SAMPLE_NOTES_SEEDED = false
+    const val KEY_SEEDED_TEMPLATE_NOTE_IDS = "seeded_template_note_ids"
     const val KEY_MEDIA_REFERENCE_LIST_BUILT = "media_reference_list_built"
     const val DEFAULT_MEDIA_REFERENCE_LIST_BUILT = false
     const val KEY_RESTORE_UNFINISHED = "restore_unfinished"

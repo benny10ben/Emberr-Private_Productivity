@@ -39,16 +39,6 @@ object SampleCanvasContent {
         updatedAt = createdAt
     )
 
-    fun buildDailyCards(noteId: String, createdAt: Long): CanvasContent {
-        val ideaCard = card(noteId, "sample_daily_canvas_idea", top = 24f, text = "Jot an idea on a card", colorName = "yellow", createdAt = createdAt)
-        val nextStepCard = card(noteId, "sample_daily_canvas_next_step", top = 136f, text = "Connect it to the next one", colorName = "blue", createdAt = createdAt)
-
-        return CanvasContent(
-            nodes = listOf(ideaCard, nextStepCard),
-            edges = listOf(arrow(noteId, "sample_daily_canvas_arrow_idea_to_next_step", ideaCard.nodeId, nextStepCard.nodeId, createdAt))
-        )
-    }
-
     fun build(noteId: String, createdAt: Long): CanvasContent {
         val ideasCard = card(noteId, "sample_canvas_cards", top = 64f, text = "Cards hold your ideas", colorName = "yellow", createdAt = createdAt)
         val arrowsCard = card(noteId, "sample_canvas_arrows", top = 160f, text = "Arrows show how they connect", colorName = "blue", createdAt = createdAt)
