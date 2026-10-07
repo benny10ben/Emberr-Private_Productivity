@@ -105,7 +105,7 @@ private val SettingsPaneMaxWidth = 760.dp
 internal fun desktopSettingsSidePadding(availableWidth: Dp): Dp =
     if (isDesktopPlatform) ((availableWidth - SettingsPaneMaxWidth) / 2).coerceAtLeast(0.dp) else 0.dp
 
-private val BackupFrequencies = listOf("Hourly", "Daily", "Weekly")
+private val BackupFrequencies = listOf("Daily", "Weekly")
 private val FontSizeOptions = listOf(
     FontSizePreference.EXTRA_SMALL.name to "Extra Small",
     FontSizePreference.SMALL.name to "Small",
@@ -781,9 +781,9 @@ fun SettingsScreen(
             title = "Replace Everything?"
         ) {
             Text(
-                text = "Restoring replaces everything on this device with the backup. Anything created after the backup " +
-                        "will be removed from this device. A copy of your current data is saved first. If you sync, " +
-                        "newer changes from your other devices will come back.",
+                text = "Restoring replaces everything on this device with the backup. This can't be undone. " +
+                        "Your other synced devices aren't changed. When you sync, anything newer on them " +
+                        "will come back to this device.",
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f)
             )
@@ -803,6 +803,13 @@ fun SettingsScreen(
                     modifier = Modifier.weight(1f)
                 )
             }
+            Spacer(Modifier.height(10.dp))
+            EmberrButtonPrimary(
+                text = "Restore Everywhere (Coming Soon)",
+                onClick = {},
+                enabled = false,
+                modifier = Modifier.fillMaxWidth()
+            )
         }
     }
 }
@@ -989,15 +996,13 @@ private fun DataSettingsSection(
                         )
                     }
 
-                    if (backupFrequency != "Hourly") {
-                        SettingsDivider()
-                        SettingsActionRow(
-                            icon = painterResource(Res.drawable.timer_reset),
-                            title = "Backup Time",
-                            trailingLabel = backupTime,
-                            onClick = onPickBackupTime
-                        )
-                    }
+                    SettingsDivider()
+                    SettingsActionRow(
+                        icon = painterResource(Res.drawable.timer_reset),
+                        title = "Backup Time",
+                        trailingLabel = backupTime,
+                        onClick = onPickBackupTime
+                    )
 
                     SettingsDivider()
                     SettingsActionRow(
