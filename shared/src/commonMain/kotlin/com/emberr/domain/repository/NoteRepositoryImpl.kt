@@ -749,7 +749,10 @@ class NoteRepositoryImpl(
             refreshProjectionsForNote(stampedMetadata, content.blocks)
         }
 
-    override suspend fun deleteNote(noteId: String, filePath: String) {
+    override suspend fun deleteNote(noteId: String, filePath: String) =
+        permanentlyDeleteNote(noteId, deletedAt = System.currentTimeMillis())
+
+    private suspend fun permanentlyDeleteNote(noteId: String, deletedAt: Long) {
         withContext(Dispatchers.IO) {
             // Captured before the row is gone - without this, another device that hasn't seen the
             // deletion yet has no way to tell "permanently deleted" apart from "never existed here",
@@ -766,7 +769,7 @@ class NoteRepositoryImpl(
                     noteId = noteId,
                     isDaily = metadata?.isDaily ?: previousTombstone?.isDaily ?: false,
                     dateString = metadata?.dateString ?: previousTombstone?.dateString,
-                    deletedAt = System.currentTimeMillis(),
+                    deletedAt = deletedAt,
                     spaceId = metadata?.spaceId ?: previousTombstone?.spaceId ?: activeSpaceId()
                 )
             )
@@ -957,7 +960,7 @@ class NoteRepositoryImpl(
         val oldNotes = noteDao.getOldTrashedNotes(cutoffTime)
         var deletedAny = false
         for (note in oldNotes) {
-            deleteNote(note.noteId, note.filePath)
+            permanentlyDeleteNote(note.noteId, deletedAt = maxOf(note.updatedAt, note.trashedAt ?: 0L))
             deletedAny = true
         }
 
