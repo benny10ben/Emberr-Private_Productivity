@@ -157,8 +157,12 @@ class DesktopSettingsManager(private val secretStore: DesktopSecretStore) : Sett
         }
     }
 
-    override fun saveSelfHostSupportsETags(supports: Boolean) {
-        prefs.put(SyncConstants.KEY_SELF_HOST_SUPPORTS_ETAGS, supports.toString())
+    override fun saveSelfHostSupportsETags(supports: Boolean?) {
+        if (supports == null) {
+            prefs.remove(SyncConstants.KEY_SELF_HOST_SUPPORTS_ETAGS)
+        } else {
+            prefs.put(SyncConstants.KEY_SELF_HOST_SUPPORTS_ETAGS, supports.toString())
+        }
     }
 
     override fun getSelfHostManifestEtag(): String? {

@@ -200,8 +200,11 @@ class AndroidSettingsManager(
         return sharedPreferences.getBoolean(SyncConstants.KEY_SELF_HOST_SUPPORTS_ETAGS, false)
     }
 
-    override fun saveSelfHostSupportsETags(supports: Boolean) {
-        sharedPreferences.edit { putBoolean(SyncConstants.KEY_SELF_HOST_SUPPORTS_ETAGS, supports) }
+    override fun saveSelfHostSupportsETags(supports: Boolean?) {
+        sharedPreferences.edit {
+            if (supports == null) remove(SyncConstants.KEY_SELF_HOST_SUPPORTS_ETAGS)
+            else putBoolean(SyncConstants.KEY_SELF_HOST_SUPPORTS_ETAGS, supports)
+        }
     }
 
     override fun getSelfHostManifestEtag(): String? {

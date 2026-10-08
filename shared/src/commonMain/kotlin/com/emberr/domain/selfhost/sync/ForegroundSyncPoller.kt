@@ -67,7 +67,8 @@ class ForegroundSyncPoller(
     }
 
     private suspend fun checkViaETag(): Boolean {
-        val currentEtag = webDavSyncClient.getResourceInfo(WebDavSyncPaths.MANIFEST_FILE)?.etag ?: return false
+        val currentEtag = webDavSyncClient.getResourceInfo(WebDavSyncPaths.MANIFEST_FILE)?.etag
+            ?: return checkViaTimestamp()
         val previousEtag = settingsManager.getSelfHostManifestEtag()
         settingsManager.saveSelfHostManifestEtag(currentEtag)
         return previousEtag == null || previousEtag != currentEtag

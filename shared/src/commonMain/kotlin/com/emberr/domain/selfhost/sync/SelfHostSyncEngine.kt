@@ -158,6 +158,8 @@ class SelfHostSyncEngine(
     suspend fun forgetServerSyncProgress() = textSyncMutex.withLock {
         noteDao.forgetSelfHostSyncProgressForAllNotes()
         settingsManager.saveSelfHostLastSyncTimestamp(0L)
+        settingsManager.saveSelfHostSupportsETags(null)
+        settingsManager.saveSelfHostManifestEtag(null)
     }
 
     suspend fun syncMedia(): SelfHostSyncResult {
