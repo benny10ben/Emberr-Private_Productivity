@@ -32,6 +32,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.key.*
@@ -55,6 +56,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.emberr.domain.model.BookmarkBlock
@@ -78,6 +80,7 @@ import com.emberr.domain.model.VoiceBlock
 import com.emberr.domain.util.system.isDesktopPlatform
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 import kotlin.time.Clock
 import kotlin.time.Instant
 import kotlinx.datetime.LocalDateTime
@@ -412,23 +415,6 @@ fun NoteBlockItem(
                 onLongClick = if (isDesktopPlatform) null else { { actions.onToggleSelection(block.id) } }
             )
     ) {
-        // Desktop slash menu
-        if (isSlashMenuActiveHere) {
-            EmberrDesktopMenu(
-                expanded = true,
-                onDismissRequest = onDismissSlashMenu,
-                properties = PopupProperties(focusable = false),
-                modifier = Modifier
-                    .width(290.dp)
-                    .heightIn(max = 400.dp)
-            ) {
-                SlashMenuList(
-                    sections = slashMenuSections,
-                    selectedIndex = slashMenuSelectedIndex
-                )
-            }
-        }
-
         if (isChoosingHighlightColor) {
             EmberrDesktopMenu(
                 expanded = true,
@@ -625,6 +611,31 @@ fun NoteBlockItem(
                                 )
                             }
 
+                        }
+
+                        if (isSlashMenuActiveHere) {
+                            val slashRect = remember(text, richTextTransformation, textLayoutResult) {
+                                displayedCharacterRect(text, text.lastIndexOf('/'), richTextTransformation, textLayoutResult) ?: Rect.Zero
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .offset { IntOffset(slashRect.left.roundToInt(), slashRect.top.roundToInt()) }
+                                    .size(width = 1.dp, height = with(density) { slashRect.height.toDp() })
+                            ) {
+                                EmberrDesktopMenu(
+                                    expanded = true,
+                                    onDismissRequest = onDismissSlashMenu,
+                                    properties = PopupProperties(focusable = false),
+                                    modifier = Modifier
+                                        .width(290.dp)
+                                        .heightIn(max = 400.dp)
+                                ) {
+                                    SlashMenuList(
+                                        sections = slashMenuSections,
+                                        selectedIndex = slashMenuSelectedIndex
+                                    )
+                                }
+                            }
                         }
 
                         if (!isFocused && !inSelectionMode) {
@@ -1333,21 +1344,42 @@ fun IsolatedEditorTextField(
         )
 
         if (isDesktopPlatform && mentionQuery != null) {
-            EmberrDesktopMenu(
-                expanded = true,
-                onDismissRequest = { mentionQuery = null; mentionStartIndex = -1 },
-                properties = PopupProperties(focusable = false),
+            val mentionRect = remember(tfv.text, mentionStartIndex, visualTransformation, localTextLayoutResult) {
+                displayedCharacterRect(tfv.text, mentionStartIndex, visualTransformation, localTextLayoutResult) ?: Rect.Zero
+            }
+            Box(
                 modifier = Modifier
-                    .width(290.dp)
-                    .heightIn(max = 400.dp)
+                    .offset { IntOffset(mentionRect.left.roundToInt(), mentionRect.top.roundToInt()) }
+                    .size(width = 1.dp, height = with(density) { mentionRect.height.toDp() })
             ) {
-                SlashMenuList(
-                    sections = listOf(SlashMenuSectionData("Link to Note", mentionMenuEntries)),
-                    selectedIndex = mentionSelectedIndex
-                )
+                EmberrDesktopMenu(
+                    expanded = true,
+                    onDismissRequest = { mentionQuery = null; mentionStartIndex = -1 },
+                    properties = PopupProperties(focusable = false),
+                    modifier = Modifier
+                        .width(290.dp)
+                        .heightIn(max = 400.dp)
+                ) {
+                    SlashMenuList(
+                        sections = listOf(SlashMenuSectionData("Link to Note", mentionMenuEntries)),
+                        selectedIndex = mentionSelectedIndex
+                    )
+                }
             }
         }
     }
+}
+
+private fun displayedCharacterRect(
+    text: String,
+    characterIndex: Int,
+    visualTransformation: VisualTransformation,
+    textLayout: TextLayoutResult?
+): Rect? {
+    if (characterIndex !in text.indices || textLayout == null) return null
+    val displayedCharacterIndex = visualTransformation.filter(AnnotatedString(text)).offsetMapping.originalToTransformed(characterIndex)
+    val displayedTextLength = textLayout.layoutInput.text.length
+    return textLayout.getCursorRect(displayedCharacterIndex.coerceIn(0, displayedTextLength))
 }
 
 // Replaces raw note link syntax (e.g. "[title](emberr://note/id)") with styled display text ("@title")
