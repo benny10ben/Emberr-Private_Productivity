@@ -146,7 +146,7 @@ cat > "$DESKTOP_ENTRY" <<DESKTOP_ENTRY_CONTENT
 [Desktop Entry]
 Type=Application
 Name=$APP_NAME
-Comment=Minimalist offline-first notes and daily reminders
+Comment=Open-source, offline-first notes and daily reminders
 Exec=$WRAPPER
 Icon=$PACKAGE_NAME
 Terminal=false

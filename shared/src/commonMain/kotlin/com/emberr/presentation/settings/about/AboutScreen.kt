@@ -131,6 +131,12 @@ private fun AppLicenseNotice() {
             color = MaterialTheme.colorScheme.onSurface
         )
         Text(
+            text = "Open-source, offline-first notes and productivity app",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.padding(top = 2.dp)
+        )
+        Text(
             text = "Copyright © 2026 Benny",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
