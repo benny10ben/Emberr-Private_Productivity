@@ -19,9 +19,9 @@ class SelfHostSyncWorker(
 
         try {
             val outcome = if (scope == SCOPE_MEDIA) {
-                selfHostSyncEngine.syncMedia()
+                selfHostSyncEngine.syncMediaAfterAnyRunningOne()
             } else {
-                selfHostSyncEngine.runSync()
+                selfHostSyncEngine.runSyncAfterAnyRunningOne()
             }
 
             when (outcome) {

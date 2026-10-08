@@ -141,13 +141,13 @@ class SelfHostSyncEngine(
     suspend fun hasPendingLocalChanges(): Boolean =
         noteDao.getNotesNeedingSelfHostSync().isNotEmpty()
 
-    // textSyncMutex prevents two text syncs from overlapping, but doesn't block local editor saves.
-    // To prevent saves from reading incomplete data mid-sync, we use `SyncCoordinator.mutex`
-    // to lock each note individually inside `runSyncLocked`.
     fun isOnAllowedNetwork(): Boolean =
         SelfHostSyncNetwork.fromStoredName(settingsManager.getSelfHostSyncNetwork())
             .allowsSync(meteredNetworkChecker.isOnMeteredNetwork())
 
+    // textSyncMutex prevents two text syncs from overlapping, but doesn't block local editor saves.
+    // To prevent saves from reading incomplete data mid-sync, we use `SyncCoordinator.mutex`
+    // to lock each note individually inside `runSyncLocked`.
     suspend fun runSync(): SelfHostSyncResult {
         SelfHostSyncLog.d("runSync() called")
         if (!isOnAllowedNetwork()) {
@@ -163,6 +163,15 @@ class SelfHostSyncEngine(
         } finally {
             textSyncMutex.unlock()
         }
+    }
+
+    suspend fun runSyncAfterAnyRunningOne(): SelfHostSyncResult {
+        SelfHostSyncLog.d("runSyncAfterAnyRunningOne() called")
+        if (!isOnAllowedNetwork()) {
+            SelfHostSyncLog.d("runSyncAfterAnyRunningOne() skipped, this network is not one the user picked for sync")
+            return SelfHostSyncResult.WaitingForAllowedNetwork
+        }
+        return textSyncMutex.withLock { runSyncLocked() }
     }
 
     suspend fun forgetServerSyncProgress() = textSyncMutex.withLock {
@@ -191,6 +200,15 @@ class SelfHostSyncEngine(
         } finally {
             mediaSyncMutex.unlock()
         }
+    }
+
+    suspend fun syncMediaAfterAnyRunningOne(): SelfHostSyncResult {
+        SelfHostSyncLog.d("syncMediaAfterAnyRunningOne() called")
+        if (!isOnAllowedNetwork()) {
+            SelfHostSyncLog.d("syncMediaAfterAnyRunningOne() skipped, this network is not one the user picked for sync")
+            return SelfHostSyncResult.WaitingForAllowedNetwork
+        }
+        return mediaSyncMutex.withLock { syncMediaLocked() }
     }
 
     // Lets UI explicitly retry one specific file on demand (e.g. a "tap to retry" affordance on a
