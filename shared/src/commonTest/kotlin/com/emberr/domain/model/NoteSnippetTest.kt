@@ -31,6 +31,6 @@ class NoteSnippetTest {
     fun theStartHereNoteHasASnippetForItsFavoriteCard() {
         val snippet = generateSnippet(SampleNoteContent.buildBlocks(createdAt = 1_000L))
 
-        assertTrue(snippet.startsWith("Start here This note sits in Favorites"))
+        assertTrue(snippet.startsWith("Hi, Welcome to Emberr (Beta) This note sits in Favorites"))
     }
 }
