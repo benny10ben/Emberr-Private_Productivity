@@ -6,6 +6,7 @@ import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.MediaPlayer
 import android.media.MediaRecorder
+import com.emberr.domain.util.media.mediaFileNameOnly
 import kotlinx.coroutines.*
 import java.io.File
 import java.io.FileOutputStream
@@ -146,7 +147,7 @@ class AndroidAudioRecorder(private val context: Context) : AudioRecorder {
     override fun play(fileName: String, onCompletion: () -> Unit) {
         player?.release()
 
-        val cleanName = fileName.substringAfterLast("/")
+        val cleanName = mediaFileNameOnly(fileName)
 
         val targetFile = File(mediaStorageDir, cleanName)
 

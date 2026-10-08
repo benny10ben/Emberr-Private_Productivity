@@ -129,7 +129,7 @@ class AndroidMediaStorageHelper(private val context: Context) : MediaStorageHelp
         }
 
     override fun getAbsoluteMediaPath(fileName: String): String {
-        val cleanName = fileName.substringAfterLast("/")
+        val cleanName = mediaFileNameOnly(fileName)
         return File(mediaDir, cleanName).absolutePath
     }
 

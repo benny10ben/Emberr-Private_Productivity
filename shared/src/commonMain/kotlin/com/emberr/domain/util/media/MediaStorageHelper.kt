@@ -4,6 +4,9 @@ import kotlin.math.log10
 import kotlin.math.pow
 import kotlin.math.roundToInt
 
+fun mediaFileNameOnly(path: String): String =
+    path.substringAfterLast('/').substringAfterLast('\\')
+
 data class MediaInfo(
     val localFileName: String,
     val originalName: String,

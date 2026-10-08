@@ -61,7 +61,7 @@ class DesktopMediaStorageHelper : MediaStorageHelper {
 
     override fun getAbsoluteMediaPath(fileName: String): String {
         // Clean any accidental slashes from the DB string to prevent duplicate "media/" paths
-        val cleanName = fileName.substringAfterLast("/")
+        val cleanName = mediaFileNameOnly(fileName)
         return File(mediaStorageDir, cleanName).absolutePath
     }
 

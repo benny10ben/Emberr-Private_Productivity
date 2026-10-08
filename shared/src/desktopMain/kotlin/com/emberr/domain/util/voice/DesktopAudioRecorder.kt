@@ -1,5 +1,6 @@
 package com.emberr.domain.util.voice
 
+import com.emberr.domain.util.media.mediaFileNameOnly
 import kotlinx.coroutines.*
 import java.io.File
 import java.util.UUID
@@ -82,7 +83,7 @@ class DesktopAudioRecorder : AudioRecorder {
         stopPlaying()
 
         try {
-            val file = File(audioDir, fileName)
+            val file = File(audioDir, mediaFileNameOnly(fileName))
             if (!file.exists()) {
                 println("Error: Audio file not found at ${file.absolutePath}")
                 onCompletion()
