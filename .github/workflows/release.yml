@@ -72,10 +72,13 @@ jobs:
       - name: Check out the repository
         uses: actions/checkout@v7
 
-      - name: Set up JDK 21
+      - name: Set up the JetBrains JDK 21
+        id: jetbrains-jdk
         uses: actions/setup-java@v6
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         with:
-          distribution: temurin
+          distribution: jetbrains
           java-version: '21'
 
       - name: Set up the Android SDK
@@ -106,7 +109,7 @@ jobs:
       - name: Build the AppImage and the tarball
         env:
           APPIMAGE_EXTRACT_AND_RUN: 1
-        run: ./gradlew :shared:packageAppImage :shared:packageTarball -PappImageRuntimeFile="$RUNNER_TEMP/runtime-x86_64" --stacktrace
+        run: ./gradlew -Dorg.gradle.java.installations.paths="${{ steps.jetbrains-jdk.outputs.path }}" :shared:packageAppImage :shared:packageTarball -PappImageRuntimeFile="$RUNNER_TEMP/runtime-x86_64" --stacktrace
 
       - name: Check that the database schema files are committed and unchanged
         run: |
@@ -182,10 +185,13 @@ jobs:
       - name: Check out the repository
         uses: actions/checkout@v7
 
-      - name: Set up JDK 21
+      - name: Set up the JetBrains JDK 21
+        id: jetbrains-jdk
         uses: actions/setup-java@v6
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         with:
-          distribution: temurin
+          distribution: jetbrains
           java-version: '21'
 
       - name: Set up the Android SDK
@@ -207,7 +213,7 @@ jobs:
           EMBERR_RELEASE_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           EMBERR_RELEASE_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           EMBERR_RELEASE_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-        run: ./gradlew :app:assembleRelease --stacktrace
+        run: ./gradlew -Dorg.gradle.java.installations.paths="${{ steps.jetbrains-jdk.outputs.path }}" :app:assembleRelease --stacktrace
 
       - name: Remove the release keystore
         if: always()

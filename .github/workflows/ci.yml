@@ -21,10 +21,13 @@ jobs:
       - name: Check out the repository
         uses: actions/checkout@v7
 
-      - name: Set up JDK 21
+      - name: Set up the JetBrains JDK 21
+        id: jetbrains-jdk
         uses: actions/setup-java@v6
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         with:
-          distribution: temurin
+          distribution: jetbrains
           java-version: '21'
 
       - name: Set up the Android SDK
@@ -36,7 +39,7 @@ jobs:
         uses: gradle/actions/setup-gradle@v6
 
       - name: Run every test on both the desktop and Android targets
-        run: ./gradlew :shared:allTests --stacktrace
+        run: ./gradlew -Dorg.gradle.java.installations.paths="${{ steps.jetbrains-jdk.outputs.path }}" :shared:allTests --stacktrace
 
       - name: Check that the database schema files are committed and unchanged
         run: |
@@ -48,13 +51,13 @@ jobs:
           fi
 
       - name: Compile the desktop target
-        run: ./gradlew :shared:compileKotlinDesktop --stacktrace
+        run: ./gradlew -Dorg.gradle.java.installations.paths="${{ steps.jetbrains-jdk.outputs.path }}" :shared:compileKotlinDesktop --stacktrace
 
       - name: Run Android Lint on the app and shared modules
-        run: ./gradlew lint --stacktrace
+        run: ./gradlew -Dorg.gradle.java.installations.paths="${{ steps.jetbrains-jdk.outputs.path }}" lint --stacktrace
 
       - name: Build the minified release APK to validate the R8 rules
-        run: ./gradlew :app:assembleRelease --stacktrace
+        run: ./gradlew -Dorg.gradle.java.installations.paths="${{ steps.jetbrains-jdk.outputs.path }}" :app:assembleRelease --stacktrace
 
       - name: Upload the test and lint reports
         if: failure()
