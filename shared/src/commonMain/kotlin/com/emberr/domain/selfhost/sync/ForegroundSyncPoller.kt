@@ -44,6 +44,7 @@ class ForegroundSyncPoller(
     }
 
     private suspend fun pollOnce() {
+        if (!selfHostSyncEngine.isOnAllowedNetwork()) return
         pollCount++
         val supportsETags = settingsManager.getSelfHostSupportsETags()
             ?: webDavSyncClient.checkETagSupport().also { settingsManager.saveSelfHostSupportsETags(it) }

@@ -18,6 +18,7 @@ import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import androidx.work.WorkRequest
 import androidx.work.workDataOf
+import com.emberr.data.local.prefs.SettingsManager
 import com.emberr.domain.sync.AutoSyncTrigger
 import com.emberr.presentation.shared.editor.ActiveEditorRegistry
 import kotlinx.coroutines.CoroutineScope
@@ -39,7 +40,8 @@ actual class SelfHostSyncScheduler(
     private val context: Context,
     private val selfHostSyncEngine: SelfHostSyncEngine,
     private val foregroundSyncPoller: ForegroundSyncPoller,
-    private val selfHostConnectionState: SelfHostConnectionState
+    private val selfHostConnectionState: SelfHostConnectionState,
+    private val settingsManager: SettingsManager
 ) {
 
     private val _isSyncActive = MutableStateFlow(false)
@@ -141,7 +143,7 @@ actual class SelfHostSyncScheduler(
 
     actual fun scheduleDailySync() {
         val request = PeriodicWorkRequestBuilder<SelfHostSyncWorker>(24, TimeUnit.HOURS)
-            .setConstraints(anyNetworkConstraints())
+            .setConstraints(allowedNetworkConstraints())
             .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, WorkRequest.MIN_BACKOFF_MILLIS, TimeUnit.MILLISECONDS)
             .setInputData(workDataOf(SelfHostSyncWorker.KEY_SYNC_SCOPE to SelfHostSyncWorker.SCOPE_TEXT))
             .addTag(TAG_TEXT_SYNC)
@@ -154,14 +156,14 @@ actual class SelfHostSyncScheduler(
 
     actual fun scheduleDeferredSyncAfterAppClose() {
         val textRequest = OneTimeWorkRequestBuilder<SelfHostSyncWorker>()
-            .setConstraints(anyNetworkConstraints())
+            .setConstraints(allowedNetworkConstraints())
             .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, WorkRequest.MIN_BACKOFF_MILLIS, TimeUnit.MILLISECONDS)
             .setInputData(workDataOf(SelfHostSyncWorker.KEY_SYNC_SCOPE to SelfHostSyncWorker.SCOPE_TEXT))
             .addTag(TAG_TEXT_SYNC)
             .build()
 
         val mediaRequest = OneTimeWorkRequestBuilder<SelfHostSyncWorker>()
-            .setConstraints(anyNetworkConstraints())
+            .setConstraints(allowedNetworkConstraints())
             .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, WorkRequest.MIN_BACKOFF_MILLIS, TimeUnit.MILLISECONDS)
             .setInputData(workDataOf(SelfHostSyncWorker.KEY_SYNC_SCOPE to SelfHostSyncWorker.SCOPE_MEDIA))
             .addTag(TAG_MEDIA_SYNC)
@@ -176,7 +178,7 @@ actual class SelfHostSyncScheduler(
 
     actual fun scheduleMediaSync() {
         val request = PeriodicWorkRequestBuilder<SelfHostSyncWorker>(6, TimeUnit.HOURS)
-            .setConstraints(anyNetworkConstraints())
+            .setConstraints(allowedNetworkConstraints())
             .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, WorkRequest.MIN_BACKOFF_MILLIS, TimeUnit.MILLISECONDS)
             .setInputData(workDataOf(SelfHostSyncWorker.KEY_SYNC_SCOPE to SelfHostSyncWorker.SCOPE_MEDIA))
             .addTag(TAG_MEDIA_SYNC)
@@ -200,14 +202,14 @@ actual class SelfHostSyncScheduler(
         _syncError.value = null
 
         val textRequest = OneTimeWorkRequestBuilder<SelfHostSyncWorker>()
-            .setConstraints(anyNetworkConstraints())
+            .setConstraints(allowedNetworkConstraints())
             .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, WorkRequest.MIN_BACKOFF_MILLIS, TimeUnit.MILLISECONDS)
             .setInputData(workDataOf(SelfHostSyncWorker.KEY_SYNC_SCOPE to SelfHostSyncWorker.SCOPE_TEXT))
             .addTag(TAG_TEXT_SYNC)
             .build()
 
         val mediaRequest = OneTimeWorkRequestBuilder<SelfHostSyncWorker>()
-            .setConstraints(anyNetworkConstraints())
+            .setConstraints(allowedNetworkConstraints())
             .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, WorkRequest.MIN_BACKOFF_MILLIS, TimeUnit.MILLISECONDS)
             .setInputData(workDataOf(SelfHostSyncWorker.KEY_SYNC_SCOPE to SelfHostSyncWorker.SCOPE_MEDIA))
             .addTag(TAG_MEDIA_SYNC)
@@ -231,8 +233,14 @@ actual class SelfHostSyncScheduler(
         foregroundSyncPoller.stop()
     }
 
-    private fun anyNetworkConstraints(): Constraints =
-        Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
+    private fun allowedNetworkConstraints(): Constraints {
+        val networkType = when (SelfHostSyncNetwork.fromStoredName(settingsManager.getSelfHostSyncNetwork())) {
+            SelfHostSyncNetwork.WIFI_AND_MOBILE_DATA -> NetworkType.CONNECTED
+            SelfHostSyncNetwork.WIFI_ONLY -> NetworkType.UNMETERED
+            SelfHostSyncNetwork.MOBILE_DATA_ONLY -> NetworkType.METERED
+        }
+        return Constraints.Builder().setRequiredNetworkType(networkType).build()
+    }
 
     private companion object {
         const val WORK_NAME_DAILY = "EmberrSelfHostDailyTextSync"

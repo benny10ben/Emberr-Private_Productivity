@@ -1510,7 +1510,7 @@ private fun SettingsWarningNotice(message: String) {
 }
 
 @Composable
-private fun SettingsSegmentedOptions(
+internal fun SettingsSegmentedOptions(
     options: List<String>,
     selectedOption: String,
     onOptionSelected: (String) -> Unit,

@@ -35,6 +35,8 @@ import com.emberr.domain.ai.RagRepository
 import com.emberr.domain.selfhost.crypto.KeyDerivationManager
 import com.emberr.domain.selfhost.crypto.Pbkdf2KeyDerivationManager
 import com.emberr.domain.selfhost.crypto.SecureSyncKeyStorage
+import com.emberr.domain.selfhost.sync.AndroidMeteredNetworkChecker
+import com.emberr.domain.selfhost.sync.MeteredNetworkChecker
 import com.emberr.domain.selfhost.sync.SelfHostSyncScheduler
 import com.emberr.domain.selfhost.sync.SelfHostSyncWorker
 import com.emberr.domain.sync.SyncRepository
@@ -271,7 +273,8 @@ val androidModule = module {
     // Self-hosted WebDAV sync
     single<KeyDerivationManager> { Pbkdf2KeyDerivationManager() }
     single<SecureSyncKeyStorage> { SecureSyncKeyStorage(androidContext(), get()) }
-    single { SelfHostSyncScheduler(androidContext(), get(), get(), get()) }
+    single<MeteredNetworkChecker> { AndroidMeteredNetworkChecker(androidContext()) }
+    single { SelfHostSyncScheduler(androidContext(), get(), get(), get(), get()) }
     worker {
         SelfHostSyncWorker(
             appContext = get(),

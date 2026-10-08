@@ -79,6 +79,7 @@ sealed class SelfHostSyncResult {
     data class Failure(val cause: Throwable) : SelfHostSyncResult()
     data object AlreadyInProgress : SelfHostSyncResult()
     data object NotConfigured : SelfHostSyncResult()
+    data object WaitingForAllowedNetwork : SelfHostSyncResult()
 }
 
 internal enum class ReconcileOutcome { SYNCED, CONFLICT_SKIPPED, LOCK_BUSY, UNCHANGED, BROKEN_NOTE }
@@ -119,7 +120,8 @@ class SelfHostSyncEngine(
     private val bookmarkCategoryOrderStore: BookmarkCategoryOrderStore,
     private val favoriteNoteOrderStore: FavoriteNoteOrderStore,
     private val mediaReferenceIndex: MediaReferenceIndex,
-    private val canvasRepository: CanvasRepository
+    private val canvasRepository: CanvasRepository,
+    private val meteredNetworkChecker: MeteredNetworkChecker
 ) {
 
     private val textSyncMutex = Mutex()
@@ -142,8 +144,16 @@ class SelfHostSyncEngine(
     // textSyncMutex prevents two text syncs from overlapping, but doesn't block local editor saves.
     // To prevent saves from reading incomplete data mid-sync, we use `SyncCoordinator.mutex`
     // to lock each note individually inside `runSyncLocked`.
+    fun isOnAllowedNetwork(): Boolean =
+        SelfHostSyncNetwork.fromStoredName(settingsManager.getSelfHostSyncNetwork())
+            .allowsSync(meteredNetworkChecker.isOnMeteredNetwork())
+
     suspend fun runSync(): SelfHostSyncResult {
         SelfHostSyncLog.d("runSync() called")
+        if (!isOnAllowedNetwork()) {
+            SelfHostSyncLog.d("runSync() skipped, this network is not one the user picked for sync")
+            return SelfHostSyncResult.WaitingForAllowedNetwork
+        }
         if (!textSyncMutex.tryLock()) {
             SelfHostSyncLog.d("runSync() skipped, a sync is already in progress")
             return SelfHostSyncResult.AlreadyInProgress
@@ -164,6 +174,10 @@ class SelfHostSyncEngine(
 
     suspend fun syncMedia(): SelfHostSyncResult {
         SelfHostSyncLog.d("syncMedia() called")
+        if (!isOnAllowedNetwork()) {
+            SelfHostSyncLog.d("syncMedia() skipped, this network is not one the user picked for sync")
+            return SelfHostSyncResult.WaitingForAllowedNetwork
+        }
         if (!mediaSyncMutex.tryLock()) {
             SelfHostSyncLog.d("syncMedia() skipped, a sync is already in progress")
             return SelfHostSyncResult.AlreadyInProgress

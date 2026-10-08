@@ -215,6 +215,14 @@ class AndroidSettingsManager(
         sharedPreferences.edit { putString(SyncConstants.KEY_SELF_HOST_MANIFEST_ETAG, etag) }
     }
 
+    override fun getSelfHostSyncNetwork(): String {
+        return sharedPreferences.getString(SyncConstants.KEY_SELF_HOST_SYNC_NETWORK, null) ?: ""
+    }
+
+    override fun saveSelfHostSyncNetwork(choice: String) {
+        sharedPreferences.edit { putString(SyncConstants.KEY_SELF_HOST_SYNC_NETWORK, choice) }
+    }
+
     override fun getSyncAuthToken(): String {
         return secretStore.readSecret(SyncConstants.KEY_SYNC_AUTH_TOKEN) ?: ""
     }

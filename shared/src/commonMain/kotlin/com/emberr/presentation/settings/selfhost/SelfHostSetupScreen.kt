@@ -64,7 +64,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import com.emberr.domain.selfhost.sync.SelfHostSyncLog
+import com.emberr.domain.selfhost.sync.SelfHostSyncNetwork
+import com.emberr.domain.util.system.isDesktopPlatform
 import com.emberr.presentation.settings.SettingsGroup
+import com.emberr.presentation.settings.SettingsSegmentedOptions
 import com.emberr.presentation.settings.desktopSettingsSidePadding
 import com.emberr.presentation.shared.components.EmberrAlertDialog
 import com.emberr.presentation.shared.components.EmberrButtonPrimary
@@ -335,6 +338,30 @@ private fun ConnectedDashboard(
                             text = error,
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.error.copy(alpha = 0.85f)
+                        )
+                    }
+                }
+            }
+        }
+
+        if (!isDesktopPlatform) {
+            item {
+                SettingsGroup(title = "Sync network") {
+                    Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+                        SettingsSegmentedOptions(
+                            options = SyncNetworkLabels.map { it.second },
+                            selectedOption = SyncNetworkLabels.first { it.first == state.syncNetwork }.second,
+                            onOptionSelected = { selectedLabel ->
+                                viewModel.onSyncNetworkSelected(SyncNetworkLabels.first { it.second == selectedLabel }.first)
+                            }
+                        )
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        Text(
+                            text = "Notes and attachments only sync over the network you pick.",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
                         )
                     }
                 }
@@ -678,3 +705,9 @@ private fun ErrorMessageCard(message: String) {
 
 private val SuccessColor
     @Composable get() = Color(0xFF4CAF50)
+
+private val SyncNetworkLabels = listOf(
+    SelfHostSyncNetwork.WIFI_AND_MOBILE_DATA to "Both",
+    SelfHostSyncNetwork.WIFI_ONLY to "Wi-Fi only",
+    SelfHostSyncNetwork.MOBILE_DATA_ONLY to "Data only"
+)

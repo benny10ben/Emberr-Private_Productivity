@@ -177,6 +177,10 @@ class DesktopSettingsManager(private val secretStore: DesktopSecretStore) : Sett
         }
     }
 
+    override fun getSelfHostSyncNetwork(): String = prefs.get(SyncConstants.KEY_SELF_HOST_SYNC_NETWORK, "")
+
+    override fun saveSelfHostSyncNetwork(choice: String) = prefs.put(SyncConstants.KEY_SELF_HOST_SYNC_NETWORK, choice)
+
     private fun saveSecureString(account: String, secret: String) {
         secretStore.writeSecret(SecretNamespace.AppSettings, account, secret)
     }

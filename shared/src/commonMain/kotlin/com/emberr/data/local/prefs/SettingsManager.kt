@@ -51,6 +51,9 @@ interface SettingsManager {
     fun getSelfHostManifestEtag(): String?
     fun saveSelfHostManifestEtag(etag: String?)
 
+    fun getSelfHostSyncNetwork(): String
+    fun saveSelfHostSyncNetwork(choice: String)
+
     fun getSyncAuthToken(): String
     fun saveSyncAuthToken(token: String)
 

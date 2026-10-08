@@ -405,7 +405,8 @@ val sharedModule = module {
             bookmarkCategoryOrderStore = get(),
             favoriteNoteOrderStore = get(),
             mediaReferenceIndex = get(),
-            canvasRepository = get()
+            canvasRepository = get(),
+            meteredNetworkChecker = get()
         )
     }
     single {

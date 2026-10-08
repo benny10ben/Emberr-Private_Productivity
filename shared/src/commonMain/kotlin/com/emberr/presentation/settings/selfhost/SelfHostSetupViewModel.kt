@@ -13,6 +13,7 @@ import com.emberr.domain.selfhost.sync.SelfHostConnectionState
 import com.emberr.domain.selfhost.sync.SelfHostSyncEngine
 import com.emberr.domain.selfhost.sync.SelfHostSyncResult
 import com.emberr.domain.selfhost.sync.SelfHostSyncLog
+import com.emberr.domain.selfhost.sync.SelfHostSyncNetwork
 import com.emberr.domain.selfhost.sync.SelfHostSyncScheduler
 import com.emberr.domain.selfhost.sync.SelfHostUpdateRequiredSignal
 import com.emberr.domain.selfhost.webdav.WebDavConfigurationException
@@ -70,13 +71,20 @@ data class SelfHostConnectedState(
     val syncStatus: ManualSyncStatus = ManualSyncStatus.IDLE,
     val lastSyncedAtMillis: Long? = null,
     val isDisconnecting: Boolean = false,
-    val syncError: String? = null
+    val syncError: String? = null,
+    val syncNetwork: SelfHostSyncNetwork = SelfHostSyncNetwork.WIFI_AND_MOBILE_DATA
 )
 
 sealed class SelfHostScreenState {
     data object Checking : SelfHostScreenState()
     data class Unconfigured(val form: SelfHostSetupFormState) : SelfHostScreenState()
     data class Connected(val connectedState: SelfHostConnectedState) : SelfHostScreenState()
+}
+
+private fun waitingForNetworkMessage(syncNetwork: SelfHostSyncNetwork): String = when (syncNetwork) {
+    SelfHostSyncNetwork.WIFI_ONLY -> "Sync is set to Wi-Fi only. It will run when you connect to Wi-Fi."
+    SelfHostSyncNetwork.MOBILE_DATA_ONLY -> "Sync is set to mobile data only. It will run when you are off Wi-Fi."
+    SelfHostSyncNetwork.WIFI_AND_MOBILE_DATA -> "Sync will run when you are back online."
 }
 
 fun formatLastSynced(epochMillis: Long?): String {
@@ -149,13 +157,17 @@ class SelfHostSetupViewModel(
             SelfHostScreenState.Connected(
                 SelfHostConnectedState(
                     serverUrl = credentials.serverUrl,
-                    lastSyncedAtMillis = settingsManager.getSelfHostLastSyncTimestamp().takeIf { it > 0L }
+                    lastSyncedAtMillis = settingsManager.getSelfHostLastSyncTimestamp().takeIf { it > 0L },
+                    syncNetwork = savedSyncNetwork()
                 )
             )
         } else {
             SelfHostScreenState.Unconfigured(freshFormState())
         }
     }
+
+    private fun savedSyncNetwork(): SelfHostSyncNetwork =
+        SelfHostSyncNetwork.fromStoredName(settingsManager.getSelfHostSyncNetwork())
 
     private fun freshFormState(): SelfHostSetupFormState =
         SelfHostSetupFormState(passphrase = keyDerivationManager.generatePassphrase())
@@ -378,7 +390,18 @@ class SelfHostSetupViewModel(
                     _screenState.value = SelfHostScreenState.Connected(
                         SelfHostConnectedState(
                             serverUrl = credentials.serverUrl,
-                            lastSyncedAtMillis = settingsManager.getSelfHostLastSyncTimestamp().takeIf { it > 0L }
+                            lastSyncedAtMillis = settingsManager.getSelfHostLastSyncTimestamp().takeIf { it > 0L },
+                            syncNetwork = savedSyncNetwork()
+                        )
+                    )
+                }
+
+                SelfHostSyncResult.WaitingForAllowedNetwork -> {
+                    _screenState.value = SelfHostScreenState.Connected(
+                        SelfHostConnectedState(
+                            serverUrl = credentials.serverUrl,
+                            syncError = waitingForNetworkMessage(savedSyncNetwork()),
+                            syncNetwork = savedSyncNetwork()
                         )
                     )
                 }
@@ -413,7 +436,18 @@ class SelfHostSetupViewModel(
             SelfHostSyncLog.d("ViewModel: syncNow() ignored, a sync is already active")
             return
         }
+        if (!selfHostSyncEngine.isOnAllowedNetwork()) {
+            updateConnected { it.copy(syncError = waitingForNetworkMessage(it.syncNetwork)) }
+            return
+        }
         selfHostSyncScheduler.syncNow()
+    }
+
+    fun onSyncNetworkSelected(syncNetwork: SelfHostSyncNetwork) {
+        settingsManager.saveSelfHostSyncNetwork(syncNetwork.name)
+        updateConnected { it.copy(syncNetwork = syncNetwork, syncError = null) }
+        selfHostSyncScheduler.scheduleDailySync()
+        selfHostSyncScheduler.scheduleMediaSync()
     }
 
     fun disconnectVault() {

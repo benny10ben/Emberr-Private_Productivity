@@ -30,6 +30,8 @@ import com.emberr.domain.ai.RagRepository
 import com.emberr.domain.selfhost.crypto.KeyDerivationManager
 import com.emberr.domain.selfhost.crypto.Pbkdf2KeyDerivationManager
 import com.emberr.domain.selfhost.crypto.SecureSyncKeyStorage
+import com.emberr.domain.selfhost.sync.DesktopMeteredNetworkChecker
+import com.emberr.domain.selfhost.sync.MeteredNetworkChecker
 import com.emberr.domain.selfhost.sync.SelfHostSyncScheduler
 import com.emberr.domain.sync.SyncRepository
 import com.emberr.domain.update.AppUpdateController
@@ -119,6 +121,7 @@ val desktopModule = module {
     // Self-hosted WebDAV sync
     single<KeyDerivationManager> { Pbkdf2KeyDerivationManager() }
     single<SecureSyncKeyStorage> { SecureSyncKeyStorage(get()) }
+    single<MeteredNetworkChecker> { DesktopMeteredNetworkChecker() }
     single { SelfHostSyncScheduler(selfHostSyncEngine = get()) }
 
     // Sync

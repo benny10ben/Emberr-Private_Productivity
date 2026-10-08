@@ -46,6 +46,11 @@ class SelfHostSyncWorker(
                     Result.success()
                 }
 
+                is SelfHostSyncResult.WaitingForAllowedNetwork -> {
+                    SelfHostSyncLog.d("Worker: this network is not one the user picked for sync, skipping this run")
+                    Result.success()
+                }
+
                 is SelfHostSyncResult.Failure -> {
                     val message =
                         outcome.cause.localizedMessage ?: outcome.cause.message ?: "Sync failed"
