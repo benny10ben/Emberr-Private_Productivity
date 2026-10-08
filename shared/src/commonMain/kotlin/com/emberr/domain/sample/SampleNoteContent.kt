@@ -2,6 +2,7 @@ package com.emberr.domain.sample
 
 import com.emberr.domain.model.BookmarkBlock
 import com.emberr.domain.model.BulletedListBlock
+import com.emberr.domain.model.CanvasBlock
 import com.emberr.domain.model.CheckboxBlock
 import com.emberr.domain.model.CodeBlock
 import com.emberr.domain.model.DatabaseBlock
@@ -24,6 +25,7 @@ object SampleNoteContent {
 
     private const val PROJECT_PAGE_URL = "https://github.com/benny10ben/Emberr-Private_Productivity"
     const val DATABASE_ID = "sample_note_database"
+    const val CANVAS_NOTE_ID = "sample_note_canvas"
     const val DATABASE_TITLE = "Weekend plans"
     val databaseStatusOptions = listOf("To do", "Doing", "Done")
     val databaseRows = listOf(
@@ -283,6 +285,7 @@ object SampleNoteContent {
                 ),
                 updatedAt = createdAt
             ),
+            CanvasBlock(id = "sample_note_canvas_view", canvasNoteId = CANVAS_NOTE_ID, updatedAt = createdAt),
             spacers.next(),
 
             TextBlock(

@@ -105,7 +105,7 @@ class SampleNotesSeeder(
 
             repository.saveNote(
                 metadata = NoteMetadataEntity(
-                    noteId = CANVAS_NOTE_ID,
+                    noteId = SampleNoteContent.CANVAS_NOTE_ID,
                     title = "Canvas tour",
                     folderId = null,
                     isFavorite = true,
@@ -113,7 +113,7 @@ class SampleNotesSeeder(
                     dateString = null,
                     createdAt = createdAt,
                     updatedAt = STARTER_CONTENT_UPDATED_AT,
-                    filePath = "note_$CANVAS_NOTE_ID.json",
+                    filePath = "note_${SampleNoteContent.CANVAS_NOTE_ID}.json",
                     sortOrder = 2,
                     kind = NoteKind.CANVAS
                 ),
@@ -121,12 +121,12 @@ class SampleNotesSeeder(
                 stampUpdatedAt = false
             )
             canvasRepository.saveChanges(
-                CANVAS_NOTE_ID,
-                SampleCanvasContent.build(CANVAS_NOTE_ID, STARTER_CONTENT_UPDATED_AT),
+                SampleNoteContent.CANVAS_NOTE_ID,
+                SampleCanvasContent.build(SampleNoteContent.CANVAS_NOTE_ID, STARTER_CONTENT_UPDATED_AT),
                 stampNoteUpdatedAt = false
             )
-            canvasViewPositionStore.save(CANVAS_NOTE_ID, SampleCanvasContent.startingViewPosition)
-            favoriteNoteOrderStore.saveOrder(listOf(WELCOME_NOTE_ID, CANVAS_NOTE_ID), STARTER_CONTENT_UPDATED_AT)
+            canvasViewPositionStore.save(SampleNoteContent.CANVAS_NOTE_ID, SampleCanvasContent.startingViewPosition)
+            favoriteNoteOrderStore.saveOrder(listOf(WELCOME_NOTE_ID, SampleNoteContent.CANVAS_NOTE_ID), STARTER_CONTENT_UPDATED_AT)
 
             settingsManager.saveSampleNotesSeeded(true)
         } catch (e: CancellationException) {
@@ -191,6 +191,5 @@ class SampleNotesSeeder(
 
     private companion object {
         const val WELCOME_NOTE_ID = "sample_note_welcome"
-        const val CANVAS_NOTE_ID = "sample_note_canvas"
     }
 }

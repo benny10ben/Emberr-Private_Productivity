@@ -1,6 +1,7 @@
 package com.emberr.domain.sample
 
 import com.emberr.data.local.room.entity.NoteMetadataEntity
+import com.emberr.domain.model.CanvasBlock
 import com.emberr.domain.model.DatabaseBlock
 import com.emberr.domain.template.PREDEFINED_TEMPLATES
 import com.emberr.domain.template.noteIdInSpace
@@ -55,6 +56,13 @@ class StarterContentTest {
         val blocks = SampleNoteContent.buildBlocks(STARTER_CONTENT_UPDATED_AT)
 
         assertEquals(SampleNoteContent.DATABASE_ID, blocks.filterIsInstance<DatabaseBlock>().single().databaseId)
+    }
+
+    @Test
+    fun startHereShowsTheCanvasTour() {
+        val blocks = SampleNoteContent.buildBlocks(STARTER_CONTENT_UPDATED_AT)
+
+        assertEquals(SampleNoteContent.CANVAS_NOTE_ID, blocks.filterIsInstance<CanvasBlock>().single().canvasNoteId)
     }
 
     @Test
