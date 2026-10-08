@@ -73,6 +73,15 @@ internal fun updatedMediaEntries(
         }
 }
 
+internal fun mediaFilesToDownload(
+    mediaEntries: List<SelfHostManifestEntry>,
+    referencedFileNames: Set<String>,
+    existingLocalFileNames: Set<String>
+): Set<String> =
+    mediaEntries
+        .filter { it.trashedAt == null && it.entryId in referencedFileNames }
+        .mapTo(mutableSetOf()) { it.entryId } - existingLocalFileNames
+
 internal fun lastUploadProgressAt(folderContents: List<WebDavResourceInfo>): Long? =
     folderContents.mapNotNull { it.lastModifiedMs }.maxOrNull()
 

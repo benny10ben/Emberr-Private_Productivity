@@ -227,6 +227,39 @@ class MediaCleanupTest {
         assertEquals(now - oneHour, updated.single().trashedAt)
     }
 
+    @Test
+    fun aLiveFileNoLocalNoteUsesIsNotDownloaded() {
+        val toDownload = mediaFilesToDownload(
+            mediaEntries = listOf(media("deleted_video.mp4", orphanedAt = now - oneHour)),
+            referencedFileNames = emptySet(),
+            existingLocalFileNames = emptySet()
+        )
+
+        assertTrue(toDownload.isEmpty())
+    }
+
+    @Test
+    fun aLiveFileALocalNoteUsesIsDownloadedWhenMissingFromDisk() {
+        val toDownload = mediaFilesToDownload(
+            mediaEntries = listOf(media("photo.jpg"), media("already_here.jpg")),
+            referencedFileNames = setOf("photo.jpg", "already_here.jpg"),
+            existingLocalFileNames = setOf("already_here.jpg")
+        )
+
+        assertEquals(setOf("photo.jpg"), toDownload)
+    }
+
+    @Test
+    fun aTrashedFileIsNotDownloadedEvenWhenALocalNoteUsesIt() {
+        val toDownload = mediaFilesToDownload(
+            mediaEntries = listOf(media("photo.jpg", trashedAt = now - oneHour)),
+            referencedFileNames = setOf("photo.jpg"),
+            existingLocalFileNames = emptySet()
+        )
+
+        assertTrue(toDownload.isEmpty())
+    }
+
     private fun serverItem(lastModifiedMs: Long?) =
         WebDavResourceInfo(href = "/emberr_sync/media/img_video.mp4/", etag = null, isCollection = false, contentLength = null, lastModifiedMs = lastModifiedMs)
 

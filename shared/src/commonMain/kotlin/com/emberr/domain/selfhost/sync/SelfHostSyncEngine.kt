@@ -242,7 +242,6 @@ class SelfHostSyncEngine(
             val manifest = downloadManifest()
             val manifestMediaEntries = manifest.entries.filter { it.entryType == SelfHostEntryType.MEDIA }
             val remoteMediaFileNames = manifestMediaEntries.map { it.entryId }.toSet()
-            val liveRemoteMediaFileNames = manifestMediaEntries.filter { it.trashedAt == null }.map { it.entryId }.toSet()
 
             val referencedFileNames = collectReferencedMediaFileNames()
             // Check disk presence for all files tracked in the manifest.
@@ -258,7 +257,7 @@ class SelfHostSyncEngine(
             )
 
             val toUpload = existingLocalFileNames - remoteMediaFileNames
-            val toDownload = liveRemoteMediaFileNames - existingLocalFileNames
+            val toDownload = mediaFilesToDownload(manifestMediaEntries, referencedFileNames, existingLocalFileNames)
             SelfHostSyncLog.d("MediaSync: ${toUpload.size} to upload, ${toDownload.size} to download")
 
             var uploadedCount = 0
