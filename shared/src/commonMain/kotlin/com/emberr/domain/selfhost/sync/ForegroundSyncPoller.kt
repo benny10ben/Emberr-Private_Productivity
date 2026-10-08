@@ -54,9 +54,13 @@ class ForegroundSyncPoller(
         // changes for as long as the app stays foregrounded. Periodically force the slower but
         // authoritative timestamp check regardless, so a flaky ETag can't permanently hide a pull.
         val useEtag = supportsETags && pollCount % FORCE_TIMESTAMP_CHECK_EVERY != 0
-        val changed = if (useEtag) checkViaETag() else checkViaTimestamp()
-        if (changed) {
-            SelfHostSyncLog.d("ForegroundSyncPoller: remote manifest changed, triggering text sync then media sync")
+        val remoteChanged = if (useEtag) checkViaETag() else checkViaTimestamp()
+        val hasUnsentLocalChanges = selfHostSyncEngine.hasPendingLocalChanges()
+        if (remoteChanged || hasUnsentLocalChanges) {
+            SelfHostSyncLog.d(
+                "ForegroundSyncPoller: remoteChanged=$remoteChanged, hasUnsentLocalChanges=$hasUnsentLocalChanges, " +
+                        "triggering text sync then media sync"
+            )
             selfHostSyncEngine.runSync()
             selfHostSyncEngine.syncMedia()
         }
