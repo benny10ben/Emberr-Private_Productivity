@@ -38,6 +38,8 @@ object SampleNoteContent {
             "This note sits in Favorites, so it stays at the top. Your other notes can live in folders/sub-folders, and a few are already waiting below."
         val dailySentence =
             "The Daily screen gives every day a page of its own. Use it for today's tasks and quick thoughts, and tap the dates at the top to move between days."
+        val notesSentence =
+            "Notes and folders live apart from your daily pages: on the Home tab on your phone, and in the sidebar on desktop. They are not tied to a day, so use them for anything you want to keep and come back to."
         val blockKitSentence =
             "Any line can become any of these. Make a word bold, lean on italic, or cross it out once it stops being true."
         val canvasSentence =
@@ -48,7 +50,7 @@ object SampleNoteContent {
         return listOf(
             HeadingBlock(
                 id = "sample_note_title",
-                text = "Start here",
+                text = "Hi, Welcome to Emberr (Beta)",
                 level = 1,
                 updatedAt = createdAt
             ),
@@ -102,6 +104,25 @@ object SampleNoteContent {
             BulletedListBlock(
                 id = "sample_note_daily_timeline",
                 text = "The timeline button at the top replays every day you have written on, like a chat",
+                updatedAt = createdAt
+            ),
+            spacers.next(),
+            SolidDividerBlock(id = "sample_note_divider_notes", updatedAt = createdAt),
+            spacers.next(),
+
+            HeadingBlock(
+                id = "sample_note_notes_title",
+                text = "Your notes",
+                level = 2,
+                updatedAt = createdAt
+            ),
+            TextBlock(
+                id = "sample_note_notes_intro",
+                text = notesSentence,
+                inlineSpans = listOfNotNull(
+                    emphasisedWord(notesSentence, "Home tab", bold = true),
+                    emphasisedWord(notesSentence, "sidebar", bold = true)
+                ),
                 updatedAt = createdAt
             ),
             spacers.next(),
