@@ -468,6 +468,9 @@ fun EditorScreen(
                 val prevText = previousTextMap[id] ?: ""
                 previousTextMap[id] = text
 
+                val onlySelectionChanged = hasSeenThisBlockBefore && text == prevText
+                if (onlySelectionChanged) return
+
                 val slashAdded = text.count { it == '/' } > prevText.count { it == '/' }
                 if (slashAdded) {
                     isSlashKilled = false
