@@ -1,6 +1,6 @@
 # Contributing to Emberr
 
-Thank you for considering contributing to Emberr. This document covers what you need to know to get started.
+Thank you for considering contributing to Emberr, an open-source, offline-first notes and productivity app. This document covers what you need to know to get started.
 
 ## Getting Started
 
@@ -12,7 +12,7 @@ Thank you for considering contributing to Emberr. This document covers what you 
 
 * **Framework:** Compose Multiplatform, targeting Android and Desktop.
 * **Language:** Kotlin, using Coroutines and Flow for asynchronous work.
-* **Database:** Room KMP (`AppDatabase`) for local persistence.
+* **Databases:** Room KMP (`AppDatabase`) for app data, and SQLDelight (`EmberrDatabase`) for the AI search index.
 * **Data model:** The editor is block-based. Every piece of content (text, checkboxes, images, tables, etc.) is a distinct `NoteBlock`.
 * **Dependency injection:** Koin.
 

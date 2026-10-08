@@ -2,11 +2,11 @@
 
 # Emberr: Private Productivity
 
-Emberr is a local-first, privacy-focused, 100% open source notes and productivity app. It combines a **block-based editor, tasks, reminders, and a calendar** in one place, with your data stored on your device by default.
+Emberr is a 100% open-source, offline-first, privacy-focused notes and productivity app. It combines a **block-based editor, tasks, reminders, and a calendar** in one place, with your data stored on your device by default.
 
 > **Beta:** Emberr is still in beta. Expect some rough edges and occasional bugs.
 
-<img src=".github/assets/screenshots.png" width="100%" />
+<img src=".github/assets/screenshots.png" width="100%" alt="Emberr screenshots" />
 
 <a href="https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/benny10ben/Emberr-Private_Productivity"><img src="https://raw.githubusercontent.com/ImranR98/Obtainium/main/assets/graphics/badge_obtainium.png" alt="Get it on Obtainium" height="60" /></a>
 
@@ -27,10 +27,9 @@ Figured I might as well share it. If you're also tired of ugly UIs, privacy head
 - Attach images, documents, and voice notes to any note
 - Daily notes with automatic task rollover
 - Built-in calendar and reminders
-- Mobile to desktop sync (the data is encrypted so don't worry about using through public wifi)
+- Mobile to desktop sync (your data is encrypted and signed, even on public Wi-Fi)
 - Self-host your data on your own server (the data is encrypted on the server)
-- Local AI that runs entirely on-device for more privacy or add your own API key for cloud AI providers (You can turn off all AI features with a single toggle in settings)
-- End-to-end encryption for your data 
+- AI is off by default. If you want it, you can run a local model on your device or use your own API key
 - No trackers, no ads, no sharing data to third parties
 
 ## Roadmap
@@ -46,7 +45,7 @@ Figured I might as well share it. If you're also tired of ugly UIs, privacy head
 - Improved local AI
 - Code cleanup
 
-### Long term (Hopefully by end of 2026)
+### Long term
 
 - Online account with cloud backup (end to end encrypted, of course)
 - Make each note shareable on the web
@@ -61,7 +60,7 @@ Android, Linux and Windows for now.
 
 - **UI:** Compose Multiplatform (Android & Desktop)
 - **Language:** Kotlin, with Coroutines and Flow for async work
-- **Local storage:** Room (KMP) for metadata, SQLCipher for encrypted on-device data
+- **Local storage:** Room (KMP) for app data, SQLDelight for the AI search index, SQLCipher for database encryption
 - **Dependency injection:** Koin
 - **Networking:** Ktor
 - **On-device AI:** llama.cpp based local inference (via llamatik)
@@ -116,13 +115,13 @@ The installer isn't code-signed yet, so Windows may show "Windows protected your
 
 ### Updates
 
-In-App updates are available for linux and windows.
+In-app updates are available for Linux and Windows. On Android, Emberr checks for new versions and opens the release page, or you can let Obtainium handle updates.
 
 ### Build from source
 
 1. Clone the repository: `git clone https://github.com/benny10ben/Emberr-Private_Productivity.git`
 2. Open the project in Android Studio and let Gradle sync.
-3. Run `./gradlew :app:assembleRelease` to build the APK, or `./gradlew :shared:run` to start the desktop app.
+3. Run `./gradlew :app:assembleDebug` to build the APK, or `./gradlew :shared:run` to start the desktop app.
 
 ## Contributing
 

@@ -54,7 +54,7 @@ body:
     id: platform
     attributes:
       label: Platform
-      placeholder: "e.g. Android 14, Windows 11, macOS"
+      placeholder: "e.g. Android 14, Windows 11, Fedora 41"
     validations:
       required: false
 
