@@ -188,16 +188,22 @@ class WebDavSyncClient(
         }
     }
 
-    suspend fun checkVaultExists(credentials: SelfHostServerCredentials): Boolean {
+    suspend fun checkVaultExists(credentials: SelfHostServerCredentials): Boolean =
+        checkFileExists(credentials, WebDavSyncPaths.VAULT_FILE)
+
+    suspend fun checkManifestExists(credentials: SelfHostServerCredentials): Boolean =
+        checkFileExists(credentials, WebDavSyncPaths.MANIFEST_FILE)
+
+    private suspend fun checkFileExists(credentials: SelfHostServerCredentials, remotePath: String): Boolean {
         WebDavServerUrlValidator.validate(credentials.serverUrl)
-        val response = httpClient.request(resolveUrl(credentials, WebDavSyncPaths.VAULT_FILE)) {
+        val response = httpClient.request(resolveUrl(credentials, remotePath)) {
             method = HttpMethod.Head
             header(HttpHeaders.Authorization, basicAuthHeaderValue(credentials))
         }
         return when (response.status.value) {
             in 200..299 -> true
             HttpStatusCode.NotFound.value -> false
-            else -> throw statusException("HEAD", WebDavSyncPaths.VAULT_FILE, response)
+            else -> throw statusException("HEAD", remotePath, response)
         }
     }
 

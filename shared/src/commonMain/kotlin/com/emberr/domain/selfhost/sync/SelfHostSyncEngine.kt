@@ -1372,7 +1372,14 @@ class SelfHostSyncEngine(
         val result = webDavSyncClient.downloadAndDecryptJsonWithEtag(WebDavSyncPaths.MANIFEST_FILE)
             ?: return SelfHostManifest() to null
         val (raw, etag) = result
-        return manifestJson.decodeFromString(SelfHostManifest.serializer(), raw) to etag
+        val manifest = try {
+            decodeSelfHostManifest(raw)
+        } catch (cause: SelfHostManifestTooNewException) {
+            SelfHostSyncLog.e("Manifest schema version ${cause.serverSchemaVersion} is newer than this app understands, pausing sync")
+            SelfHostUpdateRequiredSignal.markUpdateRequired()
+            throw cause
+        }
+        return manifest to etag
     }
 
     private suspend fun uploadManifest(

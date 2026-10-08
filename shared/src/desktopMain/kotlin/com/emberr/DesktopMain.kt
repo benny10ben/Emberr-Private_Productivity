@@ -52,6 +52,7 @@ import com.emberr.presentation.desktop.DesktopRestartBus
 import com.emberr.presentation.desktop.EmberrSystemTray
 import com.emberr.presentation.desktop.TrayMenuAction
 import com.emberr.presentation.desktop.update.AppUpdatePromptDialog
+import com.emberr.presentation.desktop.update.SelfHostUpdateRequiredPrompt
 import com.emberr.presentation.desktop.window.CustomWindowFrameSupport
 import com.emberr.presentation.desktop.window.DesktopAppRelauncher
 import com.emberr.presentation.desktop.window.EmberrWindowFrame
@@ -402,6 +403,7 @@ private fun runEmberrDesktopApp() = application {
 
                 PlainTextSecretWarningDialog()
                 AppUpdatePromptDialog()
+                SelfHostUpdateRequiredPrompt()
             }
         }
     }

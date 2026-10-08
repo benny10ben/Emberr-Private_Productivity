@@ -8,11 +8,13 @@ import com.emberr.domain.selfhost.crypto.KeyDerivationManager
 import com.emberr.domain.selfhost.crypto.SecureSyncKeyStorage
 import com.emberr.domain.selfhost.crypto.VaultKeyLock
 import com.emberr.domain.selfhost.webdav.SelfHostServerCredentials
+import com.emberr.domain.selfhost.sync.SELF_HOST_UPDATE_REQUIRED_MESSAGE
 import com.emberr.domain.selfhost.sync.SelfHostConnectionState
 import com.emberr.domain.selfhost.sync.SelfHostSyncEngine
 import com.emberr.domain.selfhost.sync.SelfHostSyncResult
 import com.emberr.domain.selfhost.sync.SelfHostSyncLog
 import com.emberr.domain.selfhost.sync.SelfHostSyncScheduler
+import com.emberr.domain.selfhost.sync.SelfHostUpdateRequiredSignal
 import com.emberr.domain.selfhost.webdav.WebDavConfigurationException
 import com.emberr.domain.selfhost.webdav.WebDavConflictException
 import com.emberr.domain.selfhost.webdav.WebDavConnectionTestResult
@@ -124,6 +126,11 @@ class SelfHostSetupViewModel(
             selfHostSyncScheduler.syncError.collect { error ->
                 SelfHostSyncLog.d("ViewModel: syncError changed to $error")
                 updateConnected { it.copy(syncError = error) }
+            }
+        }
+        viewModelScope.launch {
+            SelfHostUpdateRequiredSignal.isUpdateRequired.collect { isUpdateRequired ->
+                if (isUpdateRequired) updateConnected { it.copy(syncError = SELF_HOST_UPDATE_REQUIRED_MESSAGE) }
             }
         }
     }
@@ -325,6 +332,12 @@ class SelfHostSetupViewModel(
                         if (webDavSyncClient.checkVaultExists(credentials)) {
                             throw WebDavConflictException(
                                 "A vault already exists on this server. Restore it instead of creating a new one."
+                            )
+                        }
+                        if (webDavSyncClient.checkManifestExists(credentials)) {
+                            throw WebDavConfigurationException(
+                                "This server folder has sync data from an older or damaged vault. " +
+                                    "Delete the emberr_sync folder on your server, then set up again."
                             )
                         }
                         val newVault = vaultKeyLock.createVault(passphraseChars)

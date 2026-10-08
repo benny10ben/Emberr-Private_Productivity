@@ -41,6 +41,8 @@ class AppUpdateController(
 
     fun checkNow() = checkForUpdate(isRequestedByUser = true)
 
+    fun checkNowAndOfferDownload() = checkForUpdate(isRequestedByUser = true, offerDownloadWhenFound = true)
+
     fun startDownload() {
         val release = (_state.value as? AppUpdateState.Available)?.release ?: return
         val currentInstallation = installation ?: return
@@ -81,7 +83,7 @@ class AppUpdateController(
         _prompt.value = null
     }
 
-    private fun checkForUpdate(isRequestedByUser: Boolean) {
+    private fun checkForUpdate(isRequestedByUser: Boolean, offerDownloadWhenFound: Boolean = !isRequestedByUser) {
         val currentVersion = installedVersion ?: return
         val currentInstallation = installation ?: return
 
@@ -100,7 +102,7 @@ class AppUpdateController(
                     _state.value = AppUpdateState.UpToDate
                 } else {
                     _state.value = AppUpdateState.Available(newerRelease)
-                    if (!isRequestedByUser) {
+                    if (offerDownloadWhenFound) {
                         _prompt.value = AppUpdatePrompt.OfferDownload(newerRelease.version)
                     }
                 }

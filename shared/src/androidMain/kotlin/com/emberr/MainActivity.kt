@@ -30,6 +30,7 @@ import com.emberr.domain.util.eventbus.ShareEventBus
 import com.emberr.domain.util.system.restartApplication
 import com.emberr.domain.backup.manual.BackupImportStatus
 import com.emberr.presentation.settings.BackupRestoringDialog
+import com.emberr.presentation.settings.selfhost.SelfHostUpdateRequiredDialog
 import com.emberr.presentation.shared.FirstContentRenderSignal
 import com.emberr.presentation.shared.editor.ActiveEditorRegistry
 import com.emberr.presentation.widget.calendar.refreshCalendarWidgets
@@ -429,6 +430,8 @@ class MainActivity : ComponentActivity() {
                     if (backupImportStatus == BackupImportStatus.Restoring) {
                         BackupRestoringDialog()
                     }
+
+                    SelfHostUpdateRequiredDialog(onUpdateClick = updateChecker::openReleasePage)
                 }
             }
         }
