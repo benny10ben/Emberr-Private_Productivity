@@ -50,7 +50,11 @@ class SelfHostSyncWorker(
                     val message =
                         outcome.cause.localizedMessage ?: outcome.cause.message ?: "Sync failed"
                     SelfHostSyncLog.e("Worker: scope=$scope failed: $message", outcome.cause)
-                    retryOrGiveUp(message)
+                    if (outcome.cause is SelfHostManifestTooNewException) {
+                        Result.failure(workDataOf(KEY_ERROR_MESSAGE to message))
+                    } else {
+                        retryOrGiveUp(message)
+                    }
                 }
             }
         } catch (cause: Exception) {
