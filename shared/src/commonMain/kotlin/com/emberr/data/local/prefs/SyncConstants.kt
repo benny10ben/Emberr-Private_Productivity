@@ -41,7 +41,7 @@ object SyncConstants {
     const val DEFAULT_INSTALLED_LOCAL_MODELS_JSON = "[]"
     const val KEY_SELECTED_LOCAL_MODEL_FILE_NAME = "ai_selected_local_model_file_name"
     const val KEY_AI_FEATURES_DISABLED = "ai_features_disabled"
-    const val DEFAULT_AI_FEATURES_DISABLED = false
+    const val DEFAULT_AI_FEATURES_DISABLED = true
     const val KEY_SHOW_SCROLLBAR = "show_scrollbar"
     const val DEFAULT_SHOW_SCROLLBAR = false
     const val KEY_DAILY_NOTES_ENABLED = "daily_notes_enabled"
