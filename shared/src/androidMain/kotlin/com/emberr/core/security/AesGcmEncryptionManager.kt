@@ -21,7 +21,7 @@ class AesGcmEncryptionManager : SyncEncryptionManager {
         return SecretKeySpec(keyBytes, "AES")
     }
 
-    override fun encryptPayload(jsonPayload: String, base64Key: String): String {
+    override fun encryptPayload(jsonPayload: String, base64Key: String, label: ByteArray): String {
         val secretKey = getSecretKey(base64Key)
 
         val iv = ByteArray(ivLength)
@@ -30,6 +30,7 @@ class AesGcmEncryptionManager : SyncEncryptionManager {
 
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
         cipher.init(Cipher.ENCRYPT_MODE, secretKey, gcmParameterSpec)
+        cipher.updateAAD(label)
         val cipherText = cipher.doFinal(jsonPayload.toByteArray(Charsets.UTF_8))
 
         val combined = ByteArray(iv.size + cipherText.size)
@@ -39,7 +40,7 @@ class AesGcmEncryptionManager : SyncEncryptionManager {
         return Base64.getEncoder().encodeToString(combined)
     }
 
-    override fun decryptPayload(encryptedBase64: String, base64Key: String): String {
+    override fun decryptPayload(encryptedBase64: String, base64Key: String, label: ByteArray): String {
         val secretKey = getSecretKey(base64Key)
 
         val combined = Base64.getDecoder().decode(encryptedBase64)
@@ -57,12 +58,13 @@ class AesGcmEncryptionManager : SyncEncryptionManager {
 
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
         cipher.init(Cipher.DECRYPT_MODE, secretKey, gcmParameterSpec)
+        cipher.updateAAD(label)
         val plainTextBytes = cipher.doFinal(cipherText)
 
         return String(plainTextBytes, Charsets.UTF_8)
     }
 
-    override fun encryptBytes(data: ByteArray, base64Key: String): ByteArray {
+    override fun encryptBytes(data: ByteArray, base64Key: String, label: ByteArray): ByteArray {
         val secretKey = getSecretKey(base64Key)
 
         val iv = ByteArray(ivLength)
@@ -71,6 +73,7 @@ class AesGcmEncryptionManager : SyncEncryptionManager {
 
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
         cipher.init(Cipher.ENCRYPT_MODE, secretKey, gcmParameterSpec)
+        cipher.updateAAD(label)
         val cipherText = cipher.doFinal(data)
 
         val combined = ByteArray(iv.size + cipherText.size)
@@ -79,7 +82,7 @@ class AesGcmEncryptionManager : SyncEncryptionManager {
         return combined
     }
 
-    override fun decryptBytes(data: ByteArray, base64Key: String): ByteArray {
+    override fun decryptBytes(data: ByteArray, base64Key: String, label: ByteArray): ByteArray {
         val secretKey = getSecretKey(base64Key)
         require(data.size >= ivLength) {
             "Encrypted data has ${data.size} bytes, too short to contain a $ivLength-byte IV"
@@ -95,6 +98,7 @@ class AesGcmEncryptionManager : SyncEncryptionManager {
 
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
         cipher.init(Cipher.DECRYPT_MODE, secretKey, gcmParameterSpec)
+        cipher.updateAAD(label)
         return cipher.doFinal(cipherText)
     }
 

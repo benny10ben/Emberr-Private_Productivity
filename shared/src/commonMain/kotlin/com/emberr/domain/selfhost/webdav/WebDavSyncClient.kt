@@ -425,14 +425,22 @@ class WebDavSyncClient(
         mediaDownloadLocksGuard.withLock { mediaDownloadLocks.getOrPut(mediaId) { Mutex() } }
 
     suspend fun uploadEncryptedJson(remotePath: String, jsonPayload: String, ifMatchEtag: String? = null): String? {
-        val encryptedBase64 = syncEncryptionManager.encryptPayload(jsonPayload, requireEncryptionKeyBase64())
+        val encryptedBase64 = syncEncryptionManager.encryptPayload(
+            jsonPayload,
+            requireEncryptionKeyBase64(),
+            WebDavSyncPaths.encryptionLabel(remotePath)
+        )
         return putFile(remotePath, Base64.decode(encryptedBase64), ifMatchEtag)
     }
 
     suspend fun downloadAndDecryptJson(remotePath: String): String? {
         val encryptedBytes = getFile(remotePath) ?: return null
         val encryptedBase64 = Base64.encode(encryptedBytes)
-        return syncEncryptionManager.decryptPayload(encryptedBase64, requireEncryptionKeyBase64())
+        return syncEncryptionManager.decryptPayload(
+            encryptedBase64,
+            requireEncryptionKeyBase64(),
+            WebDavSyncPaths.encryptionLabel(remotePath)
+        )
     }
 
     suspend fun downloadAndDecryptJsonWithEtag(remotePath: String): Pair<String, String?>? {
@@ -440,7 +448,7 @@ class WebDavSyncClient(
         val encryptedBase64 = Base64.encode(encryptedBytes)
         val encryptionKey = requireEncryptionKeyBase64()
         val decrypted = try {
-            syncEncryptionManager.decryptPayload(encryptedBase64, encryptionKey)
+            syncEncryptionManager.decryptPayload(encryptedBase64, encryptionKey, WebDavSyncPaths.encryptionLabel(remotePath))
         } catch (cause: Exception) {
             throw WebDavDecryptionException("Could not decrypt $remotePath", cause)
         }
@@ -448,13 +456,21 @@ class WebDavSyncClient(
     }
 
     suspend fun uploadEncryptedBytes(remotePath: String, rawBytes: ByteArray, ifMatchEtag: String? = null): String? {
-        val encryptedBytes = syncEncryptionManager.encryptBytes(rawBytes, requireEncryptionKeyBase64())
+        val encryptedBytes = syncEncryptionManager.encryptBytes(
+            rawBytes,
+            requireEncryptionKeyBase64(),
+            WebDavSyncPaths.encryptionLabel(remotePath)
+        )
         return putFile(remotePath, encryptedBytes, ifMatchEtag)
     }
 
     suspend fun downloadAndDecryptBytes(remotePath: String): ByteArray? {
         val encryptedBytes = getFile(remotePath) ?: return null
-        return syncEncryptionManager.decryptBytes(encryptedBytes, requireEncryptionKeyBase64())
+        return syncEncryptionManager.decryptBytes(
+            encryptedBytes,
+            requireEncryptionKeyBase64(),
+            WebDavSyncPaths.encryptionLabel(remotePath)
+        )
     }
 
     private suspend fun putFile(

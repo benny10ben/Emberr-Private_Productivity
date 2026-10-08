@@ -28,6 +28,7 @@ object WebDavSyncPaths {
     fun mediaPiecePath(mediaId: String, pieceIndex: Int) =
         "${mediaFolderPath(mediaId)}$MEDIA_PIECE_PREFIX${pieceIndex.toString().padStart(5, '0')}$MEDIA_PIECE_SUFFIX"
     fun chatSessionPath(sessionId: String) = "$CHAT_SESSIONS_DIR/chat_$sessionId.enc"
+    fun encryptionLabel(remotePath: String) = "emberr-file:$remotePath".encodeToByteArray()
 
     fun lastPathSegment(href: String): String = href.trimEnd('/').substringAfterLast('/').decodeURLPart()
 

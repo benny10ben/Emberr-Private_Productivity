@@ -1,5 +1,6 @@
 package com.emberr.core.security
 
+import com.emberr.domain.selfhost.webdav.WebDavSyncPaths
 import com.emberr.domain.selfhost.webdav.mediaPieceLabel
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
@@ -332,6 +333,71 @@ abstract class SyncEncryptionManagerContract {
         val encrypted = encryptToBytes(manager, ByteArray(1024) { it.toByte() }, mediaPieceLabel("video.mp4", 0, 3))
 
         assertFails { decryptToBytes(manager, encrypted, streamLabel = mediaPieceLabel("video.mp4", 0, 2)) }
+    }
+
+    @Test
+    fun aSyncedFileOpensAtItsOwnPath() {
+        val manager = createEncryptionManager()
+        val notePath = WebDavSyncPaths.notePath("shopping-list")
+        val encrypted = manager.encryptPayload("milk, eggs", key, WebDavSyncPaths.encryptionLabel(notePath))
+
+        assertEquals("milk, eggs", manager.decryptPayload(encrypted, key, WebDavSyncPaths.encryptionLabel(notePath)))
+    }
+
+    @Test
+    fun aNoteFileMovedOverAnotherNoteCannotBeOpened() {
+        val manager = createEncryptionManager()
+        val encrypted = manager.encryptPayload(
+            "bank pins",
+            key,
+            WebDavSyncPaths.encryptionLabel(WebDavSyncPaths.notePath("bank-pins"))
+        )
+
+        assertFailsWith<GeneralSecurityException> {
+            manager.decryptPayload(encrypted, key, WebDavSyncPaths.encryptionLabel(WebDavSyncPaths.notePath("shopping-list")))
+        }
+    }
+
+    @Test
+    fun aDailyNoteMovedToAnotherDateCannotBeOpened() {
+        val manager = createEncryptionManager()
+        val encrypted = manager.encryptPayload(
+            "first of october",
+            key,
+            WebDavSyncPaths.encryptionLabel(WebDavSyncPaths.dailyPath("space-1", "2026-10-01"))
+        )
+
+        assertFailsWith<GeneralSecurityException> {
+            manager.decryptPayload(
+                encrypted,
+                key,
+                WebDavSyncPaths.encryptionLabel(WebDavSyncPaths.dailyPath("space-1", "2026-10-02"))
+            )
+        }
+    }
+
+    @Test
+    fun aLabelledPayloadCannotBeOpenedWithoutItsLabel() {
+        val manager = createEncryptionManager()
+        val encrypted = manager.encryptPayload(
+            "secret note",
+            key,
+            WebDavSyncPaths.encryptionLabel(WebDavSyncPaths.MANIFEST_FILE)
+        )
+
+        assertFailsWith<GeneralSecurityException> { manager.decryptPayload(encrypted, key) }
+    }
+
+    @Test
+    fun labelledBytesOpenOnlyAtTheirOwnPath() {
+        val manager = createEncryptionManager()
+        val input = ByteArray(64) { it.toByte() }
+        val encrypted = manager.encryptBytes(input, key, WebDavSyncPaths.encryptionLabel(WebDavSyncPaths.SPACES_FILE))
+
+        assertContentEquals(input, manager.decryptBytes(encrypted, key, WebDavSyncPaths.encryptionLabel(WebDavSyncPaths.SPACES_FILE)))
+        assertFailsWith<GeneralSecurityException> {
+            manager.decryptBytes(encrypted, key, WebDavSyncPaths.encryptionLabel(WebDavSyncPaths.FOLDERS_FILE))
+        }
     }
 
     private fun encryptToBytes(
