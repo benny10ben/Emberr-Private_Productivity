@@ -2,6 +2,8 @@ package com.emberr.domain.model
 
 import androidx.compose.runtime.Immutable
 import com.emberr.data.local.room.entity.NoteMetadataEntity
+import com.emberr.domain.database.withDatabasePropertyDeleted
+import com.emberr.domain.database.withDatabasePropertyRenamed
 import com.emberr.domain.database.withSettingTimesStamped
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
@@ -539,13 +541,20 @@ private fun DatabaseBlock.withFilterTagReplaced(tagPoolKey: String, oldName: Str
 }
 
 fun NoteBlock.withCustomPropertyRenamed(customPropertyId: String, newLabel: String, now: Long): NoteBlock {
+    if (this is DatabaseBlock) return withDatabaseChangeStamped(withDatabasePropertyRenamed(customPropertyId, newLabel), now)
     if (this !is PropertyBlock || isDeleted || this.customPropertyId != customPropertyId) return this
     return if (customLabel == newLabel) this else copy(customLabel = newLabel, updatedAt = now)
 }
 
 fun NoteBlock.withCustomPropertyRemoved(customPropertyId: String, now: Long): NoteBlock {
+    if (this is DatabaseBlock) return withDatabaseChangeStamped(withDatabasePropertyDeleted(customPropertyId), now)
     if (this !is PropertyBlock || isDeleted || this.customPropertyId != customPropertyId) return this
     return copy(isDeleted = true, updatedAt = now)
+}
+
+private fun DatabaseBlock.withDatabaseChangeStamped(changed: DatabaseBlock, now: Long): DatabaseBlock {
+    if (isDeleted || changed == this) return this
+    return changed.copy(updatedAt = now).withSettingTimesStamped(before = this, now)
 }
 
 @Immutable

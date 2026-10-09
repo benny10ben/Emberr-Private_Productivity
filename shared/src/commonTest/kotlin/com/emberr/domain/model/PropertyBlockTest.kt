@@ -240,4 +240,38 @@ class PropertyBlockTest {
         )
         assertSame(tagsBlock, tagsBlock.withCustomPropertyRemoved("client-id", now = 500L))
     }
+
+    private val clientColumn = DatabaseColumnTarget.CustomProperty("client-id")
+
+    private val databaseWithClient = DatabaseBlock(
+        id = "database-settings-db1",
+        databaseId = "db1",
+        columns = listOf(clientColumn),
+        customProperties = listOf(DatabaseCustomProperty(id = "client-id", name = "Client", valueType = PropertyValueType.SINGLE_CHOICE)),
+        updatedAt = 100L
+    )
+
+    @Test
+    fun renamingASharedPropertyRenamesItInEveryDatabaseThatHasIt() {
+        val renamed = databaseWithClient.withCustomPropertyRenamed("client-id", "Customer", now = 500L) as DatabaseBlock
+
+        assertEquals("Customer", renamed.labelOf(clientColumn))
+        assertEquals(500L, renamed.updatedAt)
+        assertEquals(500L, renamed.settingTimes["property:client-id"]?.updatedAt)
+        assertSame(databaseWithClient, databaseWithClient.withCustomPropertyRenamed("other-id", "Customer", now = 500L))
+        assertSame(databaseWithClient, databaseWithClient.withCustomPropertyRenamed("client-id", "Client", now = 500L))
+    }
+
+    @Test
+    fun deletingASharedPropertyRemovesItAndItsColumnFromEveryDatabaseThatHasIt() {
+        val removed = databaseWithClient.withCustomPropertyRemoved("client-id", now = 500L) as DatabaseBlock
+        val deletedDatabase = databaseWithClient.copy(isDeleted = true)
+
+        assertEquals(emptyList(), removed.customProperties)
+        assertEquals(emptyList(), removed.columns)
+        assertEquals(500L, removed.updatedAt)
+        assertEquals(true, removed.settingTimes["property:client-id"]?.isDeleted)
+        assertSame(databaseWithClient, databaseWithClient.withCustomPropertyRemoved("other-id", now = 500L))
+        assertSame(deletedDatabase, deletedDatabase.withCustomPropertyRemoved("client-id", now = 500L))
+    }
 }
