@@ -62,6 +62,15 @@ class DatabaseColumnsTest {
     }
 
     @Test
+    fun theColumnPickerOffersSharedPropertiesThisDatabaseDoesNotHaveOrShareANameWith() {
+        val mood = DatabaseCustomProperty(id = "mood-id", name = "Mood", valueType = PropertyValueType.SINGLE_CHOICE)
+        val sharedClient = client.copy()
+        val otherBudget = DatabaseCustomProperty(id = "other-budget-id", name = "BUDGET", valueType = PropertyValueType.NUMBER)
+
+        assertEquals(listOf(mood), database.sharedPropertiesNotYetAdded(listOf(mood, sharedClient, otherBudget)))
+    }
+
+    @Test
     fun addingAColumnPutsItAtTheEndOnlyOnce() {
         assertEquals(
             listOf(statusColumn, dueDateColumn, clientColumn, DatabaseColumnTarget.CustomProperty("budget-id")),
