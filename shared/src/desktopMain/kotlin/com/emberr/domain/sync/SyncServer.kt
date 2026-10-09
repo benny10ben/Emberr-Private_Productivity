@@ -1,5 +1,6 @@
 package com.emberr.domain.sync
 
+import com.emberr.core.desktop.DesktopAppStorage
 import com.emberr.core.security.SyncEncryptionManager
 import com.emberr.core.security.SyncHmacSigner
 import com.emberr.data.local.prefs.SettingsManager
@@ -109,7 +110,7 @@ fun startSyncServer(
     pairingState: SyncPairingState,
     serverAvailability: SyncServerAvailability
 ): RunningSyncServer? {
-    val port = settingsManager.getSyncPort().let { if (it <= 0) SyncConstants.DEFAULT_PORT else it }
+    val port = settingsManager.getSyncPort().let { if (it <= 0) defaultSyncPortFor(DesktopAppStorage.isDebugBuild) else it }
 
     val seal = LanSyncSeal(hmacSigner, syncEncryptionManager) { settingsManager.getSyncEncryptionKey() }
     val syncJson = Json { ignoreUnknownKeys = true; coerceInputValues = true }
@@ -177,7 +178,7 @@ fun startSyncServer(
                 }
                 val fileName = mediaRequest.fileName
 
-                val mediaDir = java.io.File(System.getProperty("user.home"), ".emberr/media")
+                val mediaDir = DesktopAppStorage.mediaDirectory
                 val file = java.io.File(mediaDir, fileName)
 
                 if (!file.exists()) {
@@ -236,7 +237,7 @@ fun startSyncServer(
                 }
                 val fileName = mediaRequest.fileName
 
-                val mediaDir = java.io.File(System.getProperty("user.home"), ".emberr/media").apply { mkdirs() }
+                val mediaDir = DesktopAppStorage.mediaDirectory.apply { mkdirs() }
                 val file = java.io.File(mediaDir, fileName)
                 // Stable (not per-attempt-random) temp file path, so an interrupted upload's bytes
                 // are still here for a later attempt to resume - moved atomically to its final name
@@ -301,7 +302,7 @@ fun startSyncServer(
                     return@get
                 }
 
-                val mediaDir = java.io.File(System.getProperty("user.home"), ".emberr/media")
+                val mediaDir = DesktopAppStorage.mediaDirectory
                 val tempFile = java.io.File(mediaDir, "$fileName.upload.tmp")
                 val receivedBytes = if (tempFile.exists()) tempFile.length() else 0L
                 call.respondSealed(seal, seal.lockMessage(syncJson.encodeToString(MediaUploadStatus(receivedBytes))))
@@ -310,7 +311,7 @@ fun startSyncServer(
             get("/sync/media/list") {
                 if (call.rejectedUnacceptableRequest(settingsManager, seal)) return@get
 
-                val mediaDir = java.io.File(System.getProperty("user.home"), ".emberr/media")
+                val mediaDir = DesktopAppStorage.mediaDirectory
                 val entries = (mediaDir.listFiles() ?: emptyArray())
                     .filter { it.isFile }
                     .map { RemoteMediaEntry(fileName = it.name, lastModified = it.lastModified()) }

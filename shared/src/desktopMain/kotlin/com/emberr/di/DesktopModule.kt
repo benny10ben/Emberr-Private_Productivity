@@ -1,5 +1,6 @@
 package com.emberr.di
 
+import com.emberr.core.desktop.DesktopAppStorage
 import com.emberr.core.security.AesGcmEncryptionManager
 import com.emberr.core.security.secrets.DesktopSecretStore
 import com.emberr.core.security.secrets.PlaintextSecretBackend
@@ -56,7 +57,7 @@ import com.emberr.database.EmberrDatabase
 import org.koin.dsl.module
 
 // Everything Emberr keeps on disk lives under this one folder.
-private val emberrDirectory = java.io.File(System.getProperty("user.home"), ".emberr")
+private val emberrDirectory = DesktopAppStorage.emberrDirectory
 
 val desktopModule = module {
 
@@ -107,7 +108,7 @@ val desktopModule = module {
 
     // Secret storage
     single { SecretBackendProbe() }
-    single { PlaintextSecretBackend(java.io.File(System.getProperty("user.home"), ".emberr")) }
+    single { PlaintextSecretBackend(DesktopAppStorage.emberrDirectory) }
     single { SecretBackendSelector(probe = get(), plaintextBackend = get()) }
     single { DesktopSecretStore(backendSelector = get(), plaintextBackend = get()) }
 

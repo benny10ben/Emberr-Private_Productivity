@@ -229,6 +229,10 @@ tasks.withType<Test>().configureEach {
     }
 }
 
+tasks.withType<JavaExec>().matching { it.name == "run" || it.name == "desktopRun" }.configureEach {
+    systemProperty("emberr.debugBuild", "true")
+}
+
 tasks.matching { it.name == "generateAndroidHostTestLintModel" || it.name == "lintAnalyzeAndroidHostTest" }.configureEach {
     dependsOn("kspAndroidHostTest")
 }

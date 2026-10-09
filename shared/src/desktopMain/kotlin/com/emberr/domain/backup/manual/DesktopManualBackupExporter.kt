@@ -2,6 +2,7 @@ package com.emberr.domain.backup.manual
 
 import androidx.room.execSQL
 import androidx.room.useWriterConnection
+import com.emberr.core.desktop.DesktopAppStorage
 import com.emberr.data.local.prefs.SettingsManager
 import com.emberr.data.local.room.AppDatabase
 import com.emberr.domain.backup.BackupFormat
@@ -32,7 +33,7 @@ class DesktopManualBackupExporter(
     }
 
     private fun writeZip(destinationFile: File, plainDbFile: File, preferencesText: String) {
-        val mediaDir = File(System.getProperty("user.home"), ".emberr/media")
+        val mediaDir = DesktopAppStorage.mediaDirectory
 
         ZipOutputStream(FileOutputStream(destinationFile)).use { zipOut ->
             zipOut.putNextEntry(ZipEntry(BackupFormat.DATABASE_ENTRY_NAME))

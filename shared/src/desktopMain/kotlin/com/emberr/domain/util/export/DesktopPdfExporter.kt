@@ -1,5 +1,6 @@
 package com.emberr.domain.util.export
 
+import com.emberr.core.desktop.DesktopAppStorage
 import com.emberr.domain.model.BulletedListBlock
 import com.emberr.domain.model.CheckboxBlock
 import com.emberr.domain.model.CodeBlock
@@ -210,7 +211,7 @@ fun generateDesktopPdf(file: File, title: String, blocks: List<NoteBlock>) {
                     val imgFile = if (cleanPath.contains("/") || cleanPath.contains("\\")) {
                         File(cleanPath)
                     } else {
-                        File(System.getProperty("user.home"), ".emberr/media/$cleanPath")
+                        File(DesktopAppStorage.mediaDirectory, cleanPath)
                     }
 
                     if (imgFile.exists()) {
