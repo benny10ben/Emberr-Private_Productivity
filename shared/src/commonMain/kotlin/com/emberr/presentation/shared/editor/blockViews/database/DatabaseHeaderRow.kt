@@ -48,6 +48,7 @@ import com.emberr.domain.database.canFormatNumbersIn
 import com.emberr.domain.database.customPropertiesNotShown
 import com.emberr.domain.database.isFormulaColumn
 import com.emberr.domain.database.isPropertyNameTaken
+import com.emberr.domain.database.sharedPropertiesNotYetAdded
 import com.emberr.domain.database.visibleColumnsInTableOrder
 import com.emberr.domain.model.DatabaseBlock
 import com.emberr.domain.model.DatabaseColumnTarget
@@ -63,6 +64,7 @@ import com.emberr.presentation.shared.components.MenuAtTap
 import com.emberr.presentation.shared.components.menuTapAnchor
 import com.emberr.presentation.shared.components.rememberMenuTapAnchor
 import com.emberr.presentation.shared.editor.DatabaseBlockEditor
+import com.emberr.presentation.shared.editor.rememberCustomProperties
 import com.emberr.presentation.shared.editor.blockViews.property.iconResource
 import com.emberr.presentation.shared.editor.components.DesktopCursor
 import com.emberr.presentation.shared.editor.components.desktopPointerCursor
@@ -377,13 +379,14 @@ internal fun DatabaseRemoveColumnConfirmation(
 private fun DatabaseDeletePropertyConfirmation(
     name: String,
     rowCount: Int,
+    isShared: Boolean,
     onCancel: () -> Unit,
     onDelete: () -> Unit
 ) {
-    val message = if (rowCount == 0) {
-        "Delete $name?"
-    } else {
-        "Delete $name? Its values in ${rowCountText(rowCount)} will be deleted."
+    val message = when {
+        isShared -> "Delete $name? It will be removed from every note and database that uses it."
+        rowCount == 0 -> "Delete $name?"
+        else -> "Delete $name? Its values in ${rowCountText(rowCount)} will be deleted."
     }
 
     DatabaseMenuMessage(text = message)
@@ -540,6 +543,21 @@ internal fun DatabaseAddColumnChoices(
         }
     }
 
+    val sharedPropertiesToAdd = block.sharedPropertiesNotYetAdded(rememberSharedProperties())
+    if (sharedPropertiesToAdd.isNotEmpty()) {
+        DatabaseMenuSectionDivider()
+        DatabaseMenuSectionLabel(text = "From Properties")
+        sharedPropertiesToAdd.forEach { property ->
+            key(property.id) {
+                DatabaseMenuOption(
+                    label = property.name,
+                    icon = { DatabaseOptionIcon(property.valueType.iconResource()) },
+                    onClick = { closePickerAnd { editor.addSharedProperty(block.id, property, beforeColumn = beforeColumn) } }
+                )
+            }
+        }
+    }
+
     DatabaseMenuLayer(
         title = "New property",
         showsCloseButton = false,
@@ -617,7 +635,10 @@ private fun DatabaseEditPropertyPage(
             )
         )
     }
-    val isNameTaken = block.isPropertyNameTaken(state.name, ignoringPropertyId = property.id)
+    val sharedProperties = rememberSharedProperties()
+    val isShared = sharedProperties.any { it.id == property.id }
+    val isNameTaken = block.isPropertyNameTaken(state.name, ignoringPropertyId = property.id) ||
+        (isShared && sharedProperties.any { it.id != property.id && it.name.equals(state.name.trim(), ignoreCase = true) })
 
     DatabaseMenuLayer(
         title = "Delete property",
@@ -637,7 +658,9 @@ private fun DatabaseEditPropertyPage(
                         if (state.name.isNotBlank() && !isNameTaken) {
                             val newName = state.name
                             closeAnd {
-                                if (newName.trim() != property.name) editor.renameProperty(block.id, property.id, newName)
+                                if (newName.trim() != property.name) {
+                                    if (isShared) editor.renameSharedProperty(property.id, newName) else editor.renameProperty(block.id, property.id, newName)
+                                }
                             }
                         }
                     }
@@ -648,8 +671,23 @@ private fun DatabaseEditPropertyPage(
         DatabaseDeletePropertyConfirmation(
             name = property.name,
             rowCount = rowCount,
+            isShared = isShared,
             onCancel = { closeConfirmationAnd { } },
-            onDelete = { closeConfirmationAnd { closeAnd { editor.deleteProperty(block.id, property.id) } } }
+            onDelete = {
+                closeConfirmationAnd {
+                    closeAnd {
+                        if (isShared) editor.deleteSharedProperty(property.id) else editor.deleteProperty(block.id, property.id)
+                    }
+                }
+            }
         )
+    }
+}
+
+@Composable
+internal fun rememberSharedProperties(): List<DatabaseCustomProperty> {
+    val customProperties = rememberCustomProperties()
+    return remember(customProperties) {
+        customProperties.map { DatabaseCustomProperty(id = it.propertyId, name = it.name, valueType = it.valueType) }
     }
 }
