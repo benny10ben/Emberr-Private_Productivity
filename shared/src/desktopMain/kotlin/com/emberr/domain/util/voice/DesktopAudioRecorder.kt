@@ -1,5 +1,6 @@
 package com.emberr.domain.util.voice
 
+import com.emberr.core.desktop.DesktopAppStorage
 import com.emberr.domain.util.media.mediaFileNameOnly
 import kotlinx.coroutines.*
 import java.io.File
@@ -8,7 +9,7 @@ import javax.sound.sampled.*
 
 class DesktopAudioRecorder : AudioRecorder {
 
-    private val audioDir = File(System.getProperty("user.home"), ".emberr/media").apply {
+    private val audioDir = DesktopAppStorage.mediaDirectory.apply {
         mkdirs()
     }
 

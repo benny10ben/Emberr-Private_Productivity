@@ -1,5 +1,6 @@
 package com.emberr.domain.reminders
 
+import com.emberr.core.desktop.DesktopAppStorage
 import java.io.File
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
@@ -33,7 +34,7 @@ class DesktopReminderScheduler : ReminderScheduler {
 
     private val notificationIconFile: File? by lazy {
         runCatching {
-            val iconFile = File(System.getProperty("user.home"), ".emberr/notification_icon.png")
+            val iconFile = File(DesktopAppStorage.emberrDirectory, "notification_icon.png")
             iconFile.parentFile.mkdirs()
             val iconStream = DesktopReminderScheduler::class.java.classLoader
                 .getResourceAsStream(NOTIFICATION_ICON_RESOURCE) ?: return@runCatching null

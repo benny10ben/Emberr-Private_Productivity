@@ -1,5 +1,6 @@
 package com.emberr.domain.backup.manual
 
+import com.emberr.core.desktop.DesktopAppStorage
 import com.emberr.data.local.room.AppDatabase
 import com.emberr.data.local.room.getDatabaseBuilder
 import com.emberr.data.local.room.getRoomDatabase
@@ -12,7 +13,7 @@ class DesktopManualBackupImporter(
 ) {
 
     suspend fun importFromZip(sourceFile: File) {
-        val emberrDirectory = File(System.getProperty("user.home"), ".emberr")
+        val emberrDirectory = DesktopAppStorage.emberrDirectory
         val mediaDir = File(emberrDirectory, "media")
         val restoredMediaDir = File(emberrDirectory, "restore-media-temp")
         val tempDbFile = File(System.getProperty("java.io.tmpdir"), "emberr_manual_import_temp_${System.nanoTime()}.db")

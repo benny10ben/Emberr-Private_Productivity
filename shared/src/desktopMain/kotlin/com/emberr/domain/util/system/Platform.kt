@@ -1,11 +1,11 @@
 package com.emberr.domain.util.system
 
+import com.emberr.core.desktop.DesktopAppStorage
 import com.emberr.core.desktop.requestAppDataEraseOnNextLaunch
 import com.emberr.data.local.prefs.SettingsManager
 import com.emberr.domain.ai.external.SecureAiKeyStorage
 import com.emberr.domain.selfhost.crypto.SecureSyncKeyStorage
 import com.emberr.presentation.desktop.DesktopRestartBus
-import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.koin.mp.KoinPlatform
@@ -25,7 +25,7 @@ actual fun restartApplication() {
 }
 
 actual suspend fun eraseAllAppData(): Boolean {
-    val emberrDirectory = File(System.getProperty("user.home"), ".emberr")
+    val emberrDirectory = DesktopAppStorage.emberrDirectory
     val wasRequested = withContext(Dispatchers.IO) {
         if (!requestAppDataEraseOnNextLaunch(emberrDirectory)) return@withContext false
         val koin = KoinPlatform.getKoin()

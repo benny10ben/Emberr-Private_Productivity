@@ -26,6 +26,7 @@ import coil3.ImageLoader
 import coil3.compose.setSingletonImageLoaderFactory
 import coil3.memory.MemoryCache
 import coil3.network.ktor3.KtorNetworkFetcherFactory
+import com.emberr.core.desktop.DesktopAppStorage
 import com.emberr.core.desktop.DesktopSingleInstance
 import com.emberr.core.desktop.eraseAppDataIfRequested
 import com.emberr.core.security.secrets.DesktopSecretStore
@@ -102,7 +103,7 @@ fun main() {
     }
     stagedUpdateInstallation?.installStagedUpdateWhenAppQuits(appVersionName)
 
-    eraseAppDataIfRequested(java.io.File(System.getProperty("user.home"), ".emberr"))
+    eraseAppDataIfRequested(DesktopAppStorage.emberrDirectory)
 
     runEmberrDesktopApp()
 }
@@ -343,7 +344,7 @@ private fun runEmberrDesktopApp() = application {
                             val originalFile = if (cleanPath.contains("/") || cleanPath.contains("\\")) {
                                 java.io.File(cleanPath)
                             } else {
-                                java.io.File(System.getProperty("user.home"), ".emberr/media/$cleanPath")
+                                java.io.File(DesktopAppStorage.mediaDirectory, cleanPath)
                             }
 
                             if (!originalFile.exists()) {
@@ -489,7 +490,7 @@ private fun runEmberrDesktopApp() = application {
                                     val originalFile = if (cleanPath.contains("/") || cleanPath.contains("\\")) {
                                         java.io.File(cleanPath)
                                     } else {
-                                        java.io.File(System.getProperty("user.home"), ".emberr/media/$cleanPath")
+                                        java.io.File(DesktopAppStorage.mediaDirectory, cleanPath)
                                     }
 
                                     if (!originalFile.exists()) {

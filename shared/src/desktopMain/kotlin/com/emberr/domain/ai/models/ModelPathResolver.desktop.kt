@@ -1,9 +1,10 @@
 package com.emberr.domain.ai.models
 
+import com.emberr.core.desktop.DesktopAppStorage
 import java.io.File
 
 actual fun resolveModelPath(fileName: String): String {
-    val modelsDir = File(System.getProperty("user.home"), ".emberr/models")
+    val modelsDir = File(DesktopAppStorage.emberrDirectory, "models")
     modelsDir.mkdirs()
     return File(modelsDir, fileName).absolutePath
 }

@@ -1,5 +1,6 @@
 package com.emberr.domain.util.media
 
+import com.emberr.core.desktop.DesktopAppStorage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -8,7 +9,7 @@ import java.util.UUID
 
 class DesktopMediaStorageHelper : MediaStorageHelper {
 
-    private val mediaStorageDir = File(System.getProperty("user.home"), ".emberr/media").apply {
+    private val mediaStorageDir = DesktopAppStorage.mediaDirectory.apply {
         mkdirs()
     }
 

@@ -3,6 +3,7 @@ package com.emberr.data.local.room
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
+import com.emberr.core.desktop.DesktopAppStorage
 import java.io.File
 
 /**
@@ -10,7 +11,7 @@ import java.io.File
  * and binds the bundled KMP SQLite driver.
  */
 fun getDatabaseBuilder(): RoomDatabase.Builder<AppDatabase> {
-    val dbFile = File(System.getProperty("user.home"), ".emberr/emberr_database.db")
+    val dbFile = File(DesktopAppStorage.emberrDirectory, "emberr_database.db")
     dbFile.parentFile?.mkdirs()
 
     return Room.databaseBuilder<AppDatabase>(
