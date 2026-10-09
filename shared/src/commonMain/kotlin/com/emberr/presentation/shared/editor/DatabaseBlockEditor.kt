@@ -36,6 +36,7 @@ import com.emberr.domain.database.localNow
 import com.emberr.domain.database.repeatedRowsDueAt
 import com.emberr.domain.database.withTemplateRepeat
 import com.emberr.domain.database.isPropertyNameTaken
+import com.emberr.domain.database.sharedPropertiesNotYetAdded
 import com.emberr.data.local.room.entity.NoteMetadataEntity
 import com.emberr.data.local.room.entity.PropertyTagEntity
 import com.emberr.domain.model.DatabaseBlock
@@ -54,6 +55,8 @@ import com.emberr.domain.model.DatabaseViewType
 import com.emberr.domain.model.NoteBlock
 import com.emberr.domain.model.PropertyBlock
 import com.emberr.domain.model.PropertyDateRange
+import com.emberr.domain.model.withCustomPropertyRemoved
+import com.emberr.domain.model.withCustomPropertyRenamed
 import com.emberr.domain.model.withDateRange
 import com.emberr.domain.model.PropertyValueType
 import com.emberr.domain.model.columnKey
@@ -589,6 +592,26 @@ class DatabaseBlockEditor(
         val cleanedName = name.trim()
         if (cleanedName.isEmpty() || databaseBlock.isPropertyNameTaken(cleanedName, ignoringPropertyId = null)) return
         val property = DatabaseCustomProperty(id = Uuid.random().toString(), name = cleanedName, valueType = valueType)
+        addPropertyColumn(blockId, property, viewIdToGroupByIt, beforeColumn)
+    }
+
+    fun addSharedProperty(
+        blockId: String,
+        property: DatabaseCustomProperty,
+        viewIdToGroupByIt: String? = null,
+        beforeColumn: DatabaseColumnTarget? = null
+    ) {
+        val databaseBlock = host.findDatabaseBlock(blockId) ?: return
+        if (databaseBlock.sharedPropertiesNotYetAdded(listOf(property)).isEmpty()) return
+        addPropertyColumn(blockId, property, viewIdToGroupByIt, beforeColumn)
+    }
+
+    private fun addPropertyColumn(
+        blockId: String,
+        property: DatabaseCustomProperty,
+        viewIdToGroupByIt: String?,
+        beforeColumn: DatabaseColumnTarget?
+    ) {
         writeTextEditsNow()
         writeInOrder { historyGeneration ->
             val latestBlock = host.findDatabaseBlock(blockId) ?: return@writeInOrder
@@ -627,6 +650,40 @@ class DatabaseBlockEditor(
                 it.withDatabasePropertyDeleted(propertyId)
             }
             repository.deleteSavedTagsOf(propertyId)
+        }
+    }
+
+    fun renameSharedProperty(propertyId: String, newName: String) {
+        val cleanedName = newName.trim()
+        if (cleanedName.isEmpty()) return
+        changeSharedPropertyEverywhere(
+            rewriteOpenBlock = { block, now -> block.withCustomPropertyRenamed(propertyId, cleanedName, now) },
+            saveEverywhere = { repository.renameCustomProperty(propertyId, cleanedName) }
+        )
+    }
+
+    fun deleteSharedProperty(propertyId: String) {
+        changeSharedPropertyEverywhere(
+            rewriteOpenBlock = { block, now -> block.withCustomPropertyRemoved(propertyId, now) },
+            saveEverywhere = { repository.deleteCustomProperty(propertyId) }
+        )
+    }
+
+    private fun changeSharedPropertyEverywhere(
+        rewriteOpenBlock: (NoteBlock, Long) -> NoteBlock,
+        saveEverywhere: suspend () -> Unit
+    ) {
+        appScope.launch(Dispatchers.Main) {
+            try {
+                finishWrites()
+                ActiveEditorRegistry.rewriteBlocksInOpenEditors(rewriteOpenBlock)
+                ActiveEditorRegistry.flushAllPending()
+                saveEverywhere()
+            } catch (cause: CancellationException) {
+                throw cause
+            } catch (cause: Exception) {
+                cause.printStackTrace()
+            }
         }
     }
 

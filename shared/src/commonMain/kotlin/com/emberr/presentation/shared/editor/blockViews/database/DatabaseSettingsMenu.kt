@@ -24,6 +24,7 @@ import com.emberr.domain.database.customPropertiesNotShown
 import com.emberr.domain.database.groupByColumn
 import com.emberr.domain.database.groupableColumns
 import com.emberr.domain.database.groupedBy
+import com.emberr.domain.database.sharedPropertiesNotYetAdded
 import com.emberr.domain.database.valueTypesThatCanGroupABoard
 import com.emberr.domain.model.DatabaseBlock
 import com.emberr.domain.model.DatabaseCardSize
@@ -228,7 +229,8 @@ private fun DatabaseBoardGroupingOptions(block: DatabaseBlock, view: DatabaseVie
 
         val builtInPropertiesToAdd = block.builtInPropertiesNotYetAdded().filter { canGroupBy(it.valueType) }
         val customPropertiesToShow = block.customPropertiesNotShown().filter { canGroupBy(it.valueType) }
-        if (builtInPropertiesToAdd.isNotEmpty() || customPropertiesToShow.isNotEmpty()) {
+        val sharedPropertiesToAdd = block.sharedPropertiesNotYetAdded(rememberSharedProperties()).filter { canGroupBy(it.valueType) }
+        if (builtInPropertiesToAdd.isNotEmpty() || customPropertiesToShow.isNotEmpty() || sharedPropertiesToAdd.isNotEmpty()) {
             if (block.groupableColumns().isNotEmpty()) {
                 DatabaseMenuSectionDivider()
             }
@@ -251,6 +253,15 @@ private fun DatabaseBoardGroupingOptions(block: DatabaseBlock, view: DatabaseVie
                     onClick = {
                         closeLayerAnd { editor.addColumn(block.id, DatabaseColumnTarget.CustomProperty(property.id), viewIdToGroupByIt = view.id) }
                     }
+                )
+            }
+        }
+        sharedPropertiesToAdd.forEach { property ->
+            key(property.id) {
+                DatabaseMenuOption(
+                    label = property.name,
+                    icon = { DatabaseOptionIcon(property.valueType.iconResource()) },
+                    onClick = { closeLayerAnd { editor.addSharedProperty(block.id, property, viewIdToGroupByIt = view.id) } }
                 )
             }
         }
