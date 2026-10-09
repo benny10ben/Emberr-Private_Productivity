@@ -3,6 +3,8 @@ package com.emberr.presentation.trash
 import androidx.compose.foundation.background
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyGridState
@@ -18,14 +20,20 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.isSecondaryPressed
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import com.emberr.data.local.room.entity.NoteMetadataEntity
 import com.emberr.domain.util.system.isDesktopPlatform
 import com.emberr.presentation.shared.components.EmberrBottomSheet
 import com.emberr.presentation.shared.components.EmberrButtonPrimary
+import com.emberr.presentation.shared.components.EmberrDesktopMenu
+import com.emberr.presentation.shared.components.EmberrDesktopMenuOption
 import com.emberr.presentation.shared.components.EmberrTopHeaderBar
 import com.emberr.presentation.shared.components.TopBarIconButton
 import com.emberr.presentation.shared.components.topHeaderBarPadding
@@ -101,13 +109,22 @@ fun TrashScreen(
                     .smoothWheelScroll(gridState)
             ) {
                 items(trashedNotes, key = { it.noteId }) { note ->
-                    NoteCard(
-                        note = note,
-                        isSelected = false,
-                        onClick = { selectedNoteToManage = note },
-                        onLongClick = { selectedNoteToManage = note },
-                        parentTitle = parentTitlesByNoteId[note.noteId]
-                    )
+                    if (isDesktopPlatform) {
+                        DesktopTrashNoteCard(
+                            note = note,
+                            parentTitle = parentTitlesByNoteId[note.noteId],
+                            onRestore = { viewModel.restoreNote(note.noteId) },
+                            onPermanentlyDelete = { viewModel.permanentlyDelete(note.noteId, note.filePath) }
+                        )
+                    } else {
+                        NoteCard(
+                            note = note,
+                            isSelected = false,
+                            onClick = { selectedNoteToManage = note },
+                            onLongClick = { selectedNoteToManage = note },
+                            parentTitle = parentTitlesByNoteId[note.noteId]
+                        )
+                    }
                 }
             }
 
@@ -176,14 +193,73 @@ fun TrashScreen(
 }
 
 @Composable
+private fun DesktopTrashNoteCard(
+    note: NoteMetadataEntity,
+    parentTitle: String?,
+    onRestore: () -> Unit,
+    onPermanentlyDelete: () -> Unit
+) {
+    var isMenuOpen by remember { mutableStateOf(false) }
+    var menuOffset by remember { mutableStateOf(DpOffset.Zero) }
+
+    Box(
+        modifier = Modifier.pointerInput(Unit) {
+            awaitEachGesture {
+                var pressEvent = awaitPointerEvent()
+                while (pressEvent.type != PointerEventType.Press) pressEvent = awaitPointerEvent()
+                val press = pressEvent.changes.first()
+                val isRightClick = pressEvent.buttons.isSecondaryPressed
+                val isClickFinished = isRightClick || waitForUpOrCancellation() != null
+                if (isClickFinished) {
+                    menuOffset = DpOffset(press.position.x.toDp(), press.position.y.toDp())
+                    isMenuOpen = true
+                }
+            }
+        }
+    ) {
+        NoteCard(
+            note = note,
+            isSelected = false,
+            onClick = {},
+            onLongClick = {},
+            handlesGestures = false,
+            parentTitle = parentTitle
+        )
+
+        Box(modifier = Modifier.offset(x = menuOffset.x, y = menuOffset.y)) {
+            EmberrDesktopMenu(
+                expanded = isMenuOpen,
+                onDismissRequest = { isMenuOpen = false }
+            ) {
+                EmberrDesktopMenuOption(
+                    label = "Restore Note",
+                    icon = { Icon(Icons.Default.Restore, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(20.dp)) },
+                    onClick = {
+                        isMenuOpen = false
+                        onRestore()
+                    }
+                )
+                EmberrDesktopMenuOption(
+                    label = "Delete Permanently",
+                    icon = { Icon(Icons.Default.DeleteForever, contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(20.dp)) },
+                    labelColor = MaterialTheme.colorScheme.error,
+                    onClick = {
+                        isMenuOpen = false
+                        onPermanentlyDelete()
+                    }
+                )
+            }
+        }
+    }
+}
+
+@Composable
 fun ManageNoteBottomSheet(
     expanded: Boolean,
     onDismiss: () -> Unit,
     onRestore: () -> Unit,
     onPermanentlyDelete: () -> Unit
 ) {
-    val scope = rememberCoroutineScope()
-
     EmberrBottomSheet(
         expanded = expanded,
         onDismiss = onDismiss,
@@ -193,9 +269,7 @@ fun ManageNoteBottomSheet(
 
         Column(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)) {
             BottomSheetActionItem(Icons.Default.Restore, "Restore Note") {
-                closeAnd {
-                    scope.launch { delay(250.milliseconds); onRestore() }
-                }
+                closeAnd(onRestore)
             }
 
             HorizontalDivider(
@@ -208,9 +282,7 @@ fun ManageNoteBottomSheet(
                 "Delete Permanently",
                 isDestructive = true
             ) {
-                closeAnd {
-                    scope.launch { delay(250.milliseconds); onPermanentlyDelete() }
-                }
+                closeAnd(onPermanentlyDelete)
             }
 
             EmberrButtonPrimary(
