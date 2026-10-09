@@ -15,7 +15,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 
 internal val DatabaseSelectionColumnWidth = 40.dp
-internal val DatabaseTableBorderWidth = 0.6.dp
+internal val DatabaseTableBorderWidth = 0.8.dp
 private const val FrozenCellZIndex = 2f
 
 internal fun Modifier.staysInPlaceWhileScrolling(
