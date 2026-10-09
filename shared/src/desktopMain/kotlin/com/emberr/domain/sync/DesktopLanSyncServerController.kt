@@ -1,9 +1,9 @@
 package com.emberr.domain.sync
 
+import com.emberr.core.desktop.DesktopAppStorage
 import com.emberr.core.security.SyncEncryptionManager
 import com.emberr.core.security.SyncHmacSigner
 import com.emberr.data.local.prefs.SettingsManager
-import com.emberr.data.local.prefs.SyncConstants
 import com.emberr.domain.sync.discovery.SyncDiscoveryManager
 
 class DesktopLanSyncServerController(
@@ -77,7 +77,7 @@ class DesktopLanSyncServerController(
     }
 
     private fun currentSyncPort(): Int =
-        settingsManager.getSyncPort().let { if (it <= 0) SyncConstants.DEFAULT_PORT else it }
+        settingsManager.getSyncPort().let { if (it <= 0) defaultSyncPortFor(DesktopAppStorage.isDebugBuild) else it }
 
     private companion object {
         const val DESKTOP_DEVICE_NAME = "Emberr Desktop"

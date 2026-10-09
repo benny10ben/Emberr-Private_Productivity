@@ -1,8 +1,10 @@
 package com.emberr.domain.sync.discovery
 
 import android.content.Context
+import android.content.pm.ApplicationInfo
 import android.net.nsd.NsdManager
 import android.net.nsd.NsdServiceInfo
+import com.emberr.domain.sync.discoveryServiceTypeFor
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
 
@@ -10,7 +12,9 @@ class AndroidDiscoveryManager(context: Context) : SyncDiscoveryManager {
     private val nsdManager = context.getSystemService(Context.NSD_SERVICE) as NsdManager
     override val discoveredDevices = MutableStateFlow<List<DiscoveredDevice>>(emptyList())
 
-    private val serviceType = "_emberrsync._tcp."
+    private val isDebugBuild = (context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
+
+    private val serviceType = discoveryServiceTypeFor(isDebugBuild)
 
     private var discoveryListener: NsdManager.DiscoveryListener? = null
 

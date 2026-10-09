@@ -1,5 +1,7 @@
 package com.emberr.domain.sync.discovery
 
+import com.emberr.core.desktop.DesktopAppStorage
+import com.emberr.domain.sync.discoveryServiceTypeFor
 import kotlinx.coroutines.flow.MutableStateFlow
 import java.net.InetAddress
 import javax.jmdns.JmDNS
@@ -15,7 +17,7 @@ class DesktopDiscoveryManager : SyncDiscoveryManager {
             jmdns = JmDNS.create(inetAddress)
 
             val serviceInfo = ServiceInfo.create(
-                "_emberrsync._tcp.local.",
+                discoveryServiceTypeFor(DesktopAppStorage.isDebugBuild) + "local.",
                 deviceName,
                 port,
                 "Emberr Desktop Sync Server"

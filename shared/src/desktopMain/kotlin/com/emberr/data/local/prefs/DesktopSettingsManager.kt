@@ -1,9 +1,10 @@
 package com.emberr.data.local.prefs
 
+import com.emberr.core.desktop.DesktopAppStorage
 import com.emberr.core.security.secrets.DesktopSecretStore
 import com.emberr.core.security.secrets.SecretNamespace
 import com.emberr.data.local.room.entity.DEFAULT_SPACE_ID
-import java.io.File
+import com.emberr.domain.sync.defaultSyncPortFor
 import java.util.UUID
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -12,7 +13,7 @@ class DesktopSettingsManager(private val secretStore: DesktopSecretStore) : Sett
     // Standard unencrypted preferences for basic app state, stored alongside the
     // database and media so that removing the app folder resets the app completely.
     private val prefs = DesktopPreferenceStore(
-        storageDirectory = File(System.getProperty("user.home"), ".emberr")
+        storageDirectory = DesktopAppStorage.emberrDirectory
     )
 
     private val _activeSpaceId = MutableStateFlow(prefs.get(SyncConstants.KEY_ACTIVE_SPACE_ID, DEFAULT_SPACE_ID))
@@ -197,7 +198,7 @@ class DesktopSettingsManager(private val secretStore: DesktopSecretStore) : Sett
     override fun getSyncIpAddress(): String = prefs.get(SyncConstants.KEY_SYNC_IP_ADDRESS, "")
     override fun saveSyncIpAddress(ip: String) = prefs.put(SyncConstants.KEY_SYNC_IP_ADDRESS, ip)
 
-    override fun getSyncPort(): Int = prefs.getInt(SyncConstants.KEY_SYNC_PORT, SyncConstants.DEFAULT_PORT)
+    override fun getSyncPort(): Int = prefs.getInt(SyncConstants.KEY_SYNC_PORT, defaultSyncPortFor(DesktopAppStorage.isDebugBuild))
     override fun saveSyncPort(port: Int) = prefs.putInt(SyncConstants.KEY_SYNC_PORT, port)
 
     override fun isSyncPairingConfirmed(): Boolean = prefs.getBoolean(SyncConstants.KEY_SYNC_PAIRING_CONFIRMED, false)
@@ -208,7 +209,7 @@ class DesktopSettingsManager(private val secretStore: DesktopSecretStore) : Sett
         secretStore.removeSecret(SecretNamespace.AppSettings, SyncConstants.KEY_SYNC_AUTH_TOKEN)
         secretStore.removeSecret(SecretNamespace.AppSettings, SyncConstants.KEY_SYNC_ENCRYPTION_KEY)
         prefs.put(SyncConstants.KEY_SYNC_IP_ADDRESS, "")
-        prefs.putInt(SyncConstants.KEY_SYNC_PORT, SyncConstants.DEFAULT_PORT)
+        prefs.putInt(SyncConstants.KEY_SYNC_PORT, defaultSyncPortFor(DesktopAppStorage.isDebugBuild))
         prefs.putBoolean(SyncConstants.KEY_SYNC_PAIRING_CONFIRMED, false)
     }
 
