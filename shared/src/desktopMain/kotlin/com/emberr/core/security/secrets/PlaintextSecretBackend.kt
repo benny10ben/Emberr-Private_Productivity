@@ -47,6 +47,18 @@ class PlaintextSecretBackend(storageDirectory: File) : SecretBackend {
         storedValues.stringPropertyNames().any { key -> key.contains(ENTRY_KEY_SEPARATOR) }
     }
 
+    fun storedSecrets(): List<PlainTextSecret> = synchronized(fileLock) {
+        storedValues.stringPropertyNames()
+            .filter { key -> key.contains(ENTRY_KEY_SEPARATOR) }
+            .map { key ->
+                PlainTextSecret(
+                    service = key.substringBefore(ENTRY_KEY_SEPARATOR),
+                    account = key.substringAfter(ENTRY_KEY_SEPARATOR),
+                    secret = storedValues.getProperty(key)
+                )
+            }
+    }
+
     fun wasPlainTextWarningAlreadyShown(): Boolean =
         synchronized(fileLock) { storedValues.getProperty(PLAIN_TEXT_WARNING_SHOWN_KEY).toBoolean() }
 
@@ -88,3 +100,5 @@ class PlaintextSecretBackend(storageDirectory: File) : SecretBackend {
         const val ENTRY_KEY_SEPARATOR = "/"
     }
 }
+
+class PlainTextSecret(val service: String, val account: String, val secret: String)

@@ -12,7 +12,7 @@ class SecretBackendSelector(
         var atLeastOneManagerAnswered = false
 
         candidatesForCurrentOperatingSystem().forEach { candidate ->
-            val backend = probe.withTimeout(null) { KeyringSecretBackend.openOrNull(candidate.storageType) }
+            val backend = probe.withTimeout(null) { candidate.openBackend() }
             if (backend != null) {
                 atLeastOneManagerAnswered = true
                 if (probe.isBackendUsable(backend)) {
@@ -43,29 +43,30 @@ class SecretBackendSelector(
         val operatingSystemName = System.getProperty("os.name").orEmpty().lowercase()
         return when {
             operatingSystemName.contains("mac") || operatingSystemName.contains("darwin") -> listOf(
-                KeyringCandidate(KeyringStorageType.OSX_KEYCHAIN, "macOS Keychain"),
-                KeyringCandidate(KeyringStorageType.LEGACY_OSX_KEYCHAIN, "macOS Keychain")
+                KeyringCandidate("macOS Keychain") { KeyringSecretBackend.openOrNull(KeyringStorageType.OSX_KEYCHAIN) },
+                KeyringCandidate("macOS Keychain") { KeyringSecretBackend.openOrNull(KeyringStorageType.LEGACY_OSX_KEYCHAIN) }
             )
 
             operatingSystemName.contains("windows") -> listOf(
-                KeyringCandidate(KeyringStorageType.WINDOWS_CREDENTIAL_STORE, "Windows Credential Manager")
+                KeyringCandidate("Windows Credential Manager") {
+                    KeyringSecretBackend.openOrNull(KeyringStorageType.WINDOWS_CREDENTIAL_STORE)
+                }
             )
 
             else -> listOf(
                 KeyringCandidate(
-                    storageType = KeyringStorageType.GNOME_KEYRING,
                     fallbackDisplayName = SecretServiceProviderName.UNRECOGNISED_PROVIDER_NAME,
-                    detectDisplayName = { SecretServiceProviderName.detectOrNull() }
-                ),
-                KeyringCandidate(KeyringStorageType.KWALLET, "KWallet")
+                    detectDisplayName = { SecretServiceProviderName.detectOrNull() },
+                    openBackend = { LibsecretSecretBackend.openOrNull() }
+                )
             )
         }
     }
 
     private class KeyringCandidate(
-        val storageType: KeyringStorageType,
         val fallbackDisplayName: String,
-        val detectDisplayName: () -> String? = { null }
+        val detectDisplayName: () -> String? = { null },
+        val openBackend: () -> SecretBackend?
     )
 
     private companion object {

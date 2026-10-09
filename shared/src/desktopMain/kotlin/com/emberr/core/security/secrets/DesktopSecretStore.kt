@@ -67,6 +67,9 @@ class DesktopSecretStore(
         val serviceName = namespace.keyringServiceName
         try {
             backend.writeSecret(serviceName, account, secret)
+            if (backend !== plaintextBackend && plaintextBackend.readSecret(serviceName, account) != null) {
+                runCatching { plaintextBackend.removeSecret(serviceName, account) }
+            }
         } catch (cause: Exception) {
             plaintextBackend.writeSecret(serviceName, account, secret)
             reportCredentialManagerStoppedAcceptingWrites(cause)
@@ -103,6 +106,9 @@ class DesktopSecretStore(
     }
 
     private fun applySelection(selection: SecretBackendSelection) {
+        if (selection.unavailableReason == null) {
+            PlainTextSecretMover.moveIntoCredentialManager(selection.backend, plaintextBackend)
+        }
         activeBackend = selection.backend
         mutableStorageState.value = if (selection.unavailableReason == null) {
             SecretStorageState.ProtectedByCredentialManager(selection.displayName)
