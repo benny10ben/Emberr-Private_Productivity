@@ -10,7 +10,6 @@ import com.emberr.domain.util.media.mediaFileNameOnly
 import kotlinx.coroutines.*
 import java.io.File
 import java.io.FileOutputStream
-import java.io.RandomAccessFile
 import java.util.UUID
 
 class AndroidAudioRecorder(private val context: Context) : AudioRecorder {
@@ -31,7 +30,7 @@ class AndroidAudioRecorder(private val context: Context) : AudioRecorder {
             val fileName = "voice_${UUID.randomUUID()}.wav"
             currentFile = File(mediaStorageDir, fileName)
 
-            val sampleRate = 44100
+            val sampleRate = VOICE_SAMPLE_RATE
             val channelConfig = AudioFormat.CHANNEL_IN_MONO
             val audioFormat = AudioFormat.ENCODING_PCM_16BIT
             val bufferSize = AudioRecord.getMinBufferSize(sampleRate, channelConfig, audioFormat)
@@ -52,7 +51,7 @@ class AndroidAudioRecorder(private val context: Context) : AudioRecorder {
                 val data = ByteArray(bufferSize)
                 val out = FileOutputStream(currentFile)
 
-                val header = ByteArray(44)
+                val header = ByteArray(WAV_HEADER_SIZE)
                 out.write(header)
 
                 var totalAudioLen = 0L
@@ -70,51 +69,6 @@ class AndroidAudioRecorder(private val context: Context) : AudioRecorder {
         } catch (e: Exception) {
             e.printStackTrace()
             audioRecord = null
-        }
-    }
-
-    private fun writeWavHeader(file: File, totalAudioLen: Long, sampleRate: Int) {
-        val totalDataLen = totalAudioLen + 36
-        val byteRate = (sampleRate * 16 * 1 / 8).toLong()
-
-        val header = ByteArray(44)
-        header[0] = 'R'.code.toByte(); header[1] = 'I'.code.toByte()
-        header[2] = 'F'.code.toByte(); header[3] = 'F'.code.toByte()
-        header[4] = (totalDataLen and 0xff).toByte()
-        header[5] = ((totalDataLen shr 8) and 0xff).toByte()
-        header[6] = ((totalDataLen shr 16) and 0xff).toByte()
-        header[7] = ((totalDataLen shr 24) and 0xff).toByte()
-        header[8] = 'W'.code.toByte(); header[9] = 'A'.code.toByte()
-        header[10] = 'V'.code.toByte(); header[11] = 'E'.code.toByte()
-        header[12] = 'f'.code.toByte(); header[13] = 'm'.code.toByte()
-        header[14] = 't'.code.toByte(); header[15] = ' '.code.toByte()
-        header[16] = 16
-        header[17] = 0; header[18] = 0; header[19] = 0
-        header[20] = 1
-        header[21] = 0; header[22] = 1
-        header[23] = 0
-        header[24] = (sampleRate and 0xff).toByte()
-        header[25] = ((sampleRate shr 8) and 0xff).toByte()
-        header[26] = ((sampleRate shr 16) and 0xff).toByte()
-        header[27] = ((sampleRate shr 24) and 0xff).toByte()
-        header[28] = (byteRate and 0xff).toByte()
-        header[29] = ((byteRate shr 8) and 0xff).toByte()
-        header[30] = ((byteRate shr 16) and 0xff).toByte()
-        header[31] = ((byteRate shr 24) and 0xff).toByte()
-        header[32] = 2
-        header[33] = 0
-        header[34] = 16
-        header[35] = 0
-        header[36] = 'd'.code.toByte(); header[37] = 'a'.code.toByte()
-        header[38] = 't'.code.toByte(); header[39] = 'a'.code.toByte()
-        header[40] = (totalAudioLen and 0xff).toByte()
-        header[41] = ((totalAudioLen shr 8) and 0xff).toByte()
-        header[42] = ((totalAudioLen shr 16) and 0xff).toByte()
-        header[43] = ((totalAudioLen shr 24) and 0xff).toByte()
-
-        RandomAccessFile(file, "rw").use { raf ->
-            raf.seek(0)
-            raf.write(header)
         }
     }
 
