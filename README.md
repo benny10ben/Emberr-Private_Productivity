@@ -8,7 +8,7 @@ Emberr is a 100% open-source, offline-first, privacy-focused notes and productiv
 
 <img src=".github/assets/screenshots.png" width="100%" alt="Emberr screenshots" />
 
-<a href="https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/benny10ben/Emberr-Private_Productivity"><img src="https://raw.githubusercontent.com/ImranR98/Obtainium/main/assets/graphics/badge_obtainium.png" alt="Get it on Obtainium" height="60" /></a>
+<a href="https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/emberr-app/Emberr"><img src="https://raw.githubusercontent.com/ImranR98/Obtainium/main/assets/graphics/badge_obtainium.png" alt="Get it on Obtainium" height="60" /></a>
 
 ### Why I Built This
 
@@ -67,27 +67,27 @@ Android, Linux and Windows for now.
 
 ## Installation
 
-Every release is on the [Releases](https://github.com/benny10ben/Emberr-Private_Productivity/releases) page.
+Every release is on the [Releases](https://github.com/emberr-app/Emberr/releases) page.
 
 ### Android
 
 **Option 1: Download the APK**
 
-Download [Emberr-android.apk](https://github.com/benny10ben/Emberr-Private_Productivity/releases) and open it on your phone to install it. Android may ask you to allow installing apps from your browser.
+Download [Emberr-android.apk](https://github.com/emberr-app/Emberr/releases) and open it on your phone to install it. Android may ask you to allow installing apps from your browser.
 
 **Option 2: Obtainium**
 
 Emberr can be tracked and auto-updated with [Obtainium](https://github.com/ImranR98/Obtainium):
 
 1. Open Obtainium and tap **Add App**.
-2. Paste this repository's URL: `https://github.com/benny10ben/Emberr-Private_Productivity`
+2. Paste this repository's URL: `https://github.com/emberr-app/Emberr`
 3. Tap **Add** and Obtainium will pull the latest release and keep it updated.
 
 ### Linux
 
 **Option 1: Tarball (recommended, adds Emberr to your app menu)**
 
-Download [emberr-x86_64.tar.gz](https://github.com/benny10ben/Emberr-Private_Productivity/releases), then run:
+Download [emberr-x86_64.tar.gz](https://github.com/emberr-app/Emberr/releases), then run:
 
 ```sh
 cd ~/Downloads
@@ -99,7 +99,7 @@ It installs for your user only, with no root needed. To remove it, run `uninstal
 
 **Option 2: AppImage (one file, nothing to install)**
 
-Download [Emberr-x86_64.AppImage](https://github.com/benny10ben/Emberr-Private_Productivity/releases), then run:
+Download [Emberr-x86_64.AppImage](https://github.com/emberr-app/Emberr/releases), then run:
 
 ```sh
 cd ~/Downloads
@@ -109,7 +109,7 @@ chmod +x Emberr-x86_64.AppImage
 
 ### Windows
 
-Download [Emberr-Setup-x86_64.exe](https://github.com/benny10ben/Emberr-Private_Productivity/releases) and run it.
+Download [Emberr-Setup-x86_64.exe](https://github.com/emberr-app/Emberr/releases) and run it.
 
 The installer isn't code-signed yet, so Windows may show "Windows protected your PC". Click **More info**, then **Run anyway**.
 
@@ -119,7 +119,7 @@ In-app updates are available for Linux and Windows. On Android, Emberr checks fo
 
 ### Build from source
 
-1. Clone the repository: `git clone https://github.com/benny10ben/Emberr-Private_Productivity.git`
+1. Clone the repository: `git clone https://github.com/emberr-app/Emberr.git`
 2. Open the project in Android Studio and let Gradle sync.
 3. Run `./gradlew :app:assembleDebug` to build the APK, or `./gradlew :shared:run` to start the desktop app.
 

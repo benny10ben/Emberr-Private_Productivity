@@ -23,7 +23,7 @@ data class SampleDatabaseRow(val title: String, val status: String)
 
 object SampleNoteContent {
 
-    private const val PROJECT_PAGE_URL = "https://github.com/benny10ben/Emberr-Private_Productivity"
+    private const val PROJECT_PAGE_URL = "https://github.com/emberr-app/Emberr"
     const val DATABASE_ID = "sample_note_database"
     const val CANVAS_NOTE_ID = "sample_note_canvas"
     const val DATABASE_TITLE = "Weekend plans"

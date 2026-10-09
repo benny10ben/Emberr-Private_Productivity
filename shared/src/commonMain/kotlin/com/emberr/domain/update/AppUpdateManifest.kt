@@ -3,7 +3,7 @@ package com.emberr.domain.update
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
-const val LATEST_RELEASE_PAGE_URL = "https://github.com/benny10ben/Emberr-Private_Productivity/releases/latest"
+const val LATEST_RELEASE_PAGE_URL = "https://github.com/emberr-app/Emberr/releases/latest"
 const val LATEST_UPDATE_MANIFEST_URL = "$LATEST_RELEASE_PAGE_URL/download/latest.json"
 
 @Serializable

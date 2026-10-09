@@ -41,7 +41,7 @@ import emberr.shared.generated.resources.doc_text
 import emberr.shared.generated.resources.files
 import org.jetbrains.compose.resources.painterResource
 
-private const val SOURCE_CODE_URL = "https://github.com/benny10ben/Emberr-Private_Productivity"
+private const val SOURCE_CODE_URL = "https://github.com/emberr-app/Emberr"
 private const val AGPL_LICENSE_URL = "https://www.gnu.org/licenses/agpl-3.0.html"
 
 @Composable
