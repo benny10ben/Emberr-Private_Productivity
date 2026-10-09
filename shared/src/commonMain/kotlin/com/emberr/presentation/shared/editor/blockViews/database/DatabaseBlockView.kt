@@ -1,6 +1,5 @@
 package com.emberr.presentation.shared.editor.blockViews.database
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.scrollBy
@@ -42,6 +41,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -120,14 +120,23 @@ internal fun defaultColumnWidth(target: DatabaseColumnTarget): Int =
     if (target == DatabaseColumnTarget.NotesTitle) NotesColumnDefaultWidth else PropertyColumnDefaultWidth
 
 internal fun Modifier.databaseCellLines(color: Color): Modifier = drawBehind {
-    val lineWidth = 0.5.dp.toPx()
+    val lineWidth = DatabaseTableBorderWidth.toPx()
     drawLine(color, Offset(size.width, 0f), Offset(size.width, size.height), lineWidth)
     drawLine(color, Offset(0f, size.height), Offset(size.width, size.height), lineWidth)
 }
 
 internal fun Modifier.databaseGutterLines(color: Color): Modifier = drawBehind {
-    val lineWidth = 0.5.dp.toPx()
+    val lineWidth = DatabaseTableBorderWidth.toPx()
     drawLine(color, Offset(0f, size.height), Offset(size.width, size.height), lineWidth)
+}
+
+private fun Modifier.databaseTableOutline(color: Color, drawsBottomLine: Boolean): Modifier = drawWithContent {
+    drawContent()
+    val lineWidth = DatabaseTableBorderWidth.toPx()
+    drawLine(color, Offset(0f, 0f), Offset(size.width, 0f), lineWidth)
+    drawLine(color, Offset(0f, 0f), Offset(0f, size.height), lineWidth)
+    drawLine(color, Offset(size.width, 0f), Offset(size.width, size.height), lineWidth)
+    if (drawsBottomLine) drawLine(color, Offset(0f, size.height), Offset(size.width, size.height), lineWidth)
 }
 
 @Composable
@@ -438,7 +447,10 @@ private fun DatabaseBlockContent(
                             Surface(
                                 shape = RectangleShape,
                                 color = Color.Transparent,
-                                border = BorderStroke(DatabaseTableBorderWidth, tableBorderColor)
+                                modifier = Modifier.databaseTableOutline(
+                                    color = tableBorderColor,
+                                    drawsBottomLine = loadedTableRows.size < orderedRows.size
+                                )
                             ) {
                                 Column(
                                     modifier = Modifier.columnDropLine(

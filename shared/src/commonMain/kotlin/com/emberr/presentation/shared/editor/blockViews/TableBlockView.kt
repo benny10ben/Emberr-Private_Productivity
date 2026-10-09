@@ -51,6 +51,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
@@ -146,6 +147,7 @@ private val GutterSize = 44.dp
 private val SidePadding = 18.dp
 private val MenuMinWidth = 240.dp
 private val MenuMaxWidth = 300.dp
+private val TableLineWidth = 0.8.dp
 
 private val MenuRowInset: Dp
     get() = if (isDesktopPlatform) 8.dp else 0.dp
@@ -160,6 +162,14 @@ private fun String.toColorOrNull(): Color? = try {
     Color(this.removePrefix("#").toLong(16) or 0xFF000000)
 } catch (_: Exception) {
     null
+}
+
+private fun Modifier.tableOutline(color: Color): Modifier = drawWithContent {
+    drawContent()
+    val lineWidth = TableLineWidth.toPx()
+    drawLine(color, Offset(0f, 0f), Offset(size.width, 0f), lineWidth)
+    drawLine(color, Offset(0f, 0f), Offset(0f, size.height), lineWidth)
+    drawLine(color, Offset(size.width, 0f), Offset(size.width, size.height), lineWidth)
 }
 
 private enum class TableStyleScope { CELL, ROW, COLUMN }
@@ -480,7 +490,7 @@ fun TableBlockView(
                 Surface(
                     shape = RoundedCornerShape(0.dp),
                     color = Color.Transparent,
-                    border = BorderStroke(0.6.dp, borderColor)
+                    modifier = Modifier.tableOutline(borderColor)
                 ) {
                     Column {
                         rows.forEachIndexed { rowIndex, row ->
@@ -552,7 +562,7 @@ fun TableBlockView(
                                         .fillMaxHeight()
                                         .defaultMinSize(minHeight = CellMinHeight)
                                         .drawBehind {
-                                            val px = 0.5.dp.toPx()
+                                            val px = TableLineWidth.toPx()
                                             drawLine(borderColor, Offset(0f, size.height), Offset(size.width, size.height), px)
                                         }
                                         .then(
@@ -691,7 +701,7 @@ private fun TableGridCell(
             .defaultMinSize(minHeight = CellMinHeight)
             .background(backgroundColor)
             .drawBehind {
-                val px = 0.5.dp.toPx()
+                val px = TableLineWidth.toPx()
                 drawLine(borderColor, Offset(size.width, 0f), Offset(size.width, size.height), px)
                 drawLine(borderColor, Offset(0f, size.height), Offset(size.width, size.height), px)
             }
