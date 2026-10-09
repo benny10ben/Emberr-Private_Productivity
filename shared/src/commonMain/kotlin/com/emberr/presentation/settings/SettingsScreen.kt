@@ -97,7 +97,7 @@ import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
 import org.koin.compose.viewmodel.koinViewModel
 
-private const val PRIVACY_POLICY_URL = "https://github.com/benny10ben/Emberr-Private_Productivity/blob/main/PRIVACY.md"
+private const val PRIVACY_POLICY_URL = "https://github.com/emberr-app/Emberr/blob/main/PRIVACY.md"
 private val SettingsCardShape = RoundedCornerShape(18.dp)
 private val SettingsSidebarWidth = 244.dp
 private val SettingsPaneMaxWidth = 760.dp

@@ -76,4 +76,4 @@ If this policy changes, the updated version will be published in this file with 
 
 ## Contact
 
-Questions about this policy can be asked by opening an issue on the [GitHub repository](https://github.com/benny10ben/Emberr-Private_Productivity/issues).
+Questions about this policy can be asked by opening an issue on the [GitHub repository](https://github.com/emberr-app/Emberr/issues).
