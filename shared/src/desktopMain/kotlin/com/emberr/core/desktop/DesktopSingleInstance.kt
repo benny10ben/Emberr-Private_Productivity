@@ -25,9 +25,9 @@ object DesktopSingleInstance {
     private val instanceFolder: File by lazy {
         val runtimeFolderPath = System.getenv("XDG_RUNTIME_DIR")
         val folder = if (!runtimeFolderPath.isNullOrBlank() && File(runtimeFolderPath).isDirectory) {
-            File(runtimeFolderPath, "emberr")
+            File(runtimeFolderPath, if (DesktopAppStorage.isDebugBuild) "emberr_debug" else "emberr")
         } else {
-            File(System.getProperty("user.home"), ".emberr")
+            DesktopAppStorage.emberrDirectory
         }
         folder.mkdirs()
         folder
