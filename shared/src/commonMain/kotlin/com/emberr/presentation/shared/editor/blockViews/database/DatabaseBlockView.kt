@@ -80,7 +80,7 @@ import com.emberr.domain.model.DatabaseViewType
 import com.emberr.domain.model.columnKey
 import com.emberr.domain.util.system.isDesktopPlatform
 import com.emberr.presentation.shared.components.EmberrHorizontalScrollbar
-import com.emberr.presentation.shared.components.smoothWheelScroll
+import com.emberr.presentation.shared.components.horizontalScrollFromBackAndForwardButtons
 import com.emberr.presentation.shared.editor.DatabaseBlockEditor
 import com.emberr.presentation.shared.editor.DatabaseSettingsState
 import com.emberr.ui.theme.LocalEmberrFontStyle
@@ -440,8 +440,8 @@ private fun DatabaseBlockContent(
                         modifier = Modifier
                             .fillMaxWidth()
                             .onSizeChanged { tableViewportWidth = it.width }
+                            .horizontalScrollFromBackAndForwardButtons(scrollState)
                             .horizontalScroll(scrollState)
-                            .smoothWheelScroll(scrollState, horizontal = true)
                     ) {
                         Column(modifier = Modifier.padding(horizontal = DatabaseSidePadding)) {
                             Surface(

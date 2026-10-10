@@ -8,11 +8,14 @@ import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.isBackPressed
+import androidx.compose.ui.input.pointer.isForwardPressed
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.emberr.domain.util.system.isDesktopPlatform
+import com.emberr.presentation.shared.canvas.horizontalScrollArrivesAsBackAndForwardButtons
 import kotlinx.coroutines.channels.Channel
 import kotlin.math.abs
 
@@ -36,30 +39,7 @@ fun Modifier.smoothWheelScroll(
     val density = LocalDensity.current
     val trackpadDistancePx = with(density) { pixelsPerTrackpadNotch.toPx() }
     val mouseWheelDistancePx = with(density) { pixelsPerMouseWheelNotch.toPx() }
-    val glide = remember(state) { WheelGlide() }
-
-    LaunchedEffect(state) {
-        while (true) {
-            glide.wakeups.receive()
-            state.scroll {
-                while (true) {
-                    withFrameNanos {}
-                    val remaining = glide.pendingPx
-                    if (abs(remaining) < SETTLE_THRESHOLD_PX) {
-                        glide.pendingPx = 0f
-                        break
-                    }
-                    val requested = remaining * SETTLE_FRACTION
-                    val consumed = scrollBy(if (abs(requested) < MIN_STEP_PX) remaining else requested)
-                    glide.pendingPx -= consumed
-                    if (abs(consumed) < 0.01f) {
-                        glide.pendingPx = 0f
-                        break
-                    }
-                }
-            }
-        }
-    }
+    val glide = rememberWheelGlide(state)
 
     return this.pointerInput(state, trackpadDistancePx, mouseWheelDistancePx, horizontal) {
         awaitPointerEventScope {
@@ -94,6 +74,61 @@ fun Modifier.smoothWheelScroll(
             }
         }
     }
+}
+
+@Composable
+fun Modifier.horizontalScrollFromBackAndForwardButtons(state: ScrollableState): Modifier {
+    if (!horizontalScrollArrivesAsBackAndForwardButtons) return this
+
+    val stepPx = with(LocalDensity.current) { DefaultMouseWheelNotch.toPx() }
+    val glide = rememberWheelGlide(state)
+
+    return this.pointerInput(state, stepPx) {
+        awaitPointerEventScope {
+            while (true) {
+                val event = awaitPointerEvent(PointerEventPass.Initial)
+                if (event.type != PointerEventType.Press) continue
+                val direction = when {
+                    event.buttons.isBackPressed -> -1f
+                    event.buttons.isForwardPressed -> 1f
+                    else -> continue
+                }
+                event.changes.forEach { it.consume() }
+                glide.pendingPx += direction * stepPx
+                glide.wakeups.trySend(Unit)
+            }
+        }
+    }
+}
+
+@Composable
+private fun rememberWheelGlide(state: ScrollableState): WheelGlide {
+    val glide = remember(state) { WheelGlide() }
+
+    LaunchedEffect(state) {
+        while (true) {
+            glide.wakeups.receive()
+            state.scroll {
+                while (true) {
+                    withFrameNanos {}
+                    val remaining = glide.pendingPx
+                    if (abs(remaining) < SETTLE_THRESHOLD_PX) {
+                        glide.pendingPx = 0f
+                        break
+                    }
+                    val requested = remaining * SETTLE_FRACTION
+                    val consumed = scrollBy(if (abs(requested) < MIN_STEP_PX) remaining else requested)
+                    glide.pendingPx -= consumed
+                    if (abs(consumed) < 0.01f) {
+                        glide.pendingPx = 0f
+                        break
+                    }
+                }
+            }
+        }
+    }
+
+    return glide
 }
 
 private class WheelGlide {
