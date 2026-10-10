@@ -101,7 +101,7 @@ import com.emberr.presentation.shared.editor.hoveredLinkAt
 import com.emberr.presentation.shared.editor.components.DesktopCursor
 import com.emberr.presentation.shared.editor.components.desktopPointerCursor
 import com.emberr.presentation.shared.components.EmberrHorizontalScrollbar
-import com.emberr.presentation.shared.components.smoothWheelScroll
+import com.emberr.presentation.shared.components.horizontalScrollFromBackAndForwardButtons
 import com.emberr.presentation.shared.editor.blockViews.database.DatabaseAlignmentOptions
 import com.emberr.presentation.shared.editor.blockViews.database.DatabaseMenuLayer
 import com.emberr.presentation.shared.editor.blockViews.database.DatabaseMenuOption
@@ -483,8 +483,8 @@ fun TableBlockView(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
+                .horizontalScrollFromBackAndForwardButtons(scrollState)
                 .horizontalScroll(scrollState)
-                .smoothWheelScroll(scrollState, horizontal = true)
         ) {
             Column(modifier = Modifier.padding(horizontal = SidePadding)) {
                 Surface(
