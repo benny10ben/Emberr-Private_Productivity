@@ -6,12 +6,7 @@ import com.emberr.domain.util.system.isDesktopPlatform
 import emberr.shared.generated.resources.Res
 import emberr.shared.generated.resources.arrow_up_down
 import emberr.shared.generated.resources.astroid
-import emberr.shared.generated.resources.bell
-import emberr.shared.generated.resources.calendar
-import emberr.shared.generated.resources.code
 import emberr.shared.generated.resources.daily
-import emberr.shared.generated.resources.ghost_smile
-import emberr.shared.generated.resources.house
 import emberr.shared.generated.resources.pen_square
 import emberr.shared.generated.resources.shield_alert
 import emberr.shared.generated.resources.sidebar
@@ -56,10 +51,14 @@ fun rememberOnboardingSteps(): List<OnboardingStep> = remember {
         )
         add(
             OnboardingStep(
-                icon = Res.drawable.house,
-                lead = "No account. No cloud.",
-                headline = "It works offline.",
-                detail = "Everything you write stays encrypted on this device."
+                icon = Res.drawable.shield_alert,
+                lead = "No account. No cloud. No trackers.",
+                headline = "Your notes stay yours.",
+                detail = if (isDesktopPlatform) {
+                    "Everything stays on this device. No analytics, no ads."
+                } else {
+                    "Everything is encrypted on this device. No analytics, no ads."
+                }
             )
         )
         add(
@@ -74,24 +73,8 @@ fun rememberOnboardingSteps(): List<OnboardingStep> = remember {
             OnboardingStep(
                 icon = Res.drawable.daily,
                 lead = "Every day gets a page.",
-                headline = "Keep a daily log.",
-                detail = "Unfinished tasks move themselves into today."
-            )
-        )
-        add(
-            OnboardingStep(
-                icon = Res.drawable.calendar,
-                lead = "Step back a month.",
-                headline = "See it on a calendar.",
-                detail = "Every task and reminder in one view."
-            )
-        )
-        add(
-            OnboardingStep(
-                icon = Res.drawable.bell,
-                lead = "Any checkbox can ring.",
-                headline = "Reminders to the minute.",
-                detail = "Emberr notifies you at the exact time you set."
+                headline = "Plan your days.",
+                detail = "Unfinished tasks roll into today, everything shows on a calendar, and any checkbox can remind you to the minute."
             )
         )
         add(
@@ -99,31 +82,7 @@ fun rememberOnboardingSteps(): List<OnboardingStep> = remember {
                 icon = Res.drawable.transfer_h,
                 lead = "Your devices, your network.",
                 headline = "Sync without a middleman.",
-                detail = "Pair devices over your local network, or point Emberr at a server you own."
-            )
-        )
-        add(
-            OnboardingStep(
-                icon = Res.drawable.shield_alert,
-                lead = "Private by design.",
-                headline = "Nothing leaves this device.",
-                detail = "Notes are stored and searched locally, and never uploaded by default."
-            )
-        )
-        add(
-            OnboardingStep(
-                icon = Res.drawable.ghost_smile,
-                lead = "No trackers. No ads.",
-                headline = "Nobody is watching.",
-                detail = "Emberr collects no analytics and has nothing to sell."
-            )
-        )
-        add(
-            OnboardingStep(
-                icon = Res.drawable.code,
-                lead = "And when it does sync,",
-                headline = "your words stay sealed.",
-                detail = "Content is encrypted before it leaves, so your server only ever holds ciphertext."
+                detail = "Pair over your local network or use a server you own. Content is encrypted before it leaves."
             )
         )
         add(

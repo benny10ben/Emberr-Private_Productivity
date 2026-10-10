@@ -67,8 +67,8 @@ import kotlin.math.roundToInt
 import kotlin.math.sin
 
 internal val OnboardingGlideEasing = CubicBezierEasing(0.4f, 0f, 0.2f, 1f)
-internal const val OnboardingGlideDurationMillis = 2200
-private const val FadeDurationMillis = 1500
+internal const val OnboardingGlideDurationMillis = 1400
+private const val FadeDurationMillis = 1000
 private val IconBadgeSize = 48.dp
 private val IconSize = 21.dp
 private const val VibrateCycleMillis = 2600
