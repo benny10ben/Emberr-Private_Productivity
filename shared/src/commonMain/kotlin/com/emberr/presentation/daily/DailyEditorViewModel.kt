@@ -868,6 +868,7 @@ private fun isBlockEmptyForTimeline(block: NoteBlock): Boolean = when (block) {
     is BulletedListBlock -> block.text.isBlank()
     is NumberedListBlock -> block.text.isBlank()
     is ToggleBlock -> block.text.isBlank()
+    is CalloutBlock -> block.text.isBlank()
     is CodeBlock -> block.code.isBlank()
     is BookmarkBlock -> block.url.isBlank()
     is ImageBlock -> block.localFilePath.isNullOrBlank()

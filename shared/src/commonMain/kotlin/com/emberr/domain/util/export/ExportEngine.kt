@@ -40,6 +40,7 @@ object ExportEngine {
                 is BulletedListBlock -> builder.appendLine("$indent• ${block.text}")
                 is NumberedListBlock -> builder.appendLine("$indent${block.number}. ${block.text}")
                 is ToggleBlock -> builder.appendLine("$indent▶ ${block.text}")
+                is CalloutBlock -> builder.appendLine("$indent[${block.calloutType.label}] ${block.text}".trimEnd())
                 is QuoteBlock -> builder.appendLine("$indent\"${block.text}\"")
                 is CodeBlock -> builder.appendLine("$indent${block.code}")
                 is SolidDividerBlock, is ThreeDotDividerBlock -> builder.appendLine("$indent---")

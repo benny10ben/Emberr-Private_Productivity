@@ -182,7 +182,6 @@ internal fun DatabaseMenuOption(
             icon = icon,
             trailing = trailing,
             outerHorizontalPadding = DatabaseMenuRowInset,
-            innerVerticalPadding = SheetOptionVerticalPadding,
             labelColor = labelColor
         )
     }

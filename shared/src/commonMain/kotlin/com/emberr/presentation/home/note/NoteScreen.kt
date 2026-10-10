@@ -75,6 +75,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.ui.platform.LocalDensity
+import com.emberr.domain.model.CalloutType
 import com.emberr.domain.model.NoteBlock
 import com.emberr.domain.model.PropertyDateRange
 import com.emberr.domain.model.TextAlignment
@@ -382,7 +383,7 @@ fun NoteScreen(
             override fun onClearFocusRequest() = viewModel.clearFocusRequest()
             override fun onUpdateText(id: String, text: String) = viewModel.updateBlockText(id, text)
             override fun onToggleCheckbox(id: String, checked: Boolean) = viewModel.toggleCheckbox(id, checked)
-            override fun onToggleExpand(id: String) = viewModel.toggleToggleBlock(id)
+            override fun onToggleExpand(id: String) = viewModel.toggleFoldedState(id)
             override fun onFocusBlock(id: String) = viewModel.setFocusedBlock(id)
             override fun onRequestCursorPosition(id: String, offset: Int) = viewModel.requestCursorPosition(id, offset)
             override fun onChangeBlockType(type: String) = viewModel.changeFocusedBlockType(type)
@@ -463,6 +464,8 @@ fun NoteScreen(
             override suspend fun getNoteMetadata(noteId: String) = viewModel.getNoteMetadata(noteId)
             override fun onUpdateLinkedNoteOptions(id: String, showIcon: Boolean, showCoverImage: Boolean) =
                 viewModel.updateLinkedNoteOptions(id, showIcon, showCoverImage)
+            override fun onUpdateCalloutStyle(id: String, calloutType: CalloutType, isFoldable: Boolean) =
+                viewModel.updateCalloutStyle(id, calloutType, isFoldable)
             override fun onUpdatePropertyText(id: String, text: String) = viewModel.updatePropertyText(id, text)
             override fun onUpdatePropertyDate(id: String, range: PropertyDateRange) = viewModel.updatePropertyDate(id, range)
             override fun onUpdatePropertyTags(id: String, tags: List<String>) = viewModel.updatePropertyTags(id, tags)

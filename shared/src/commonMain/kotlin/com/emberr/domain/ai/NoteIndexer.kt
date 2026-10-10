@@ -202,6 +202,8 @@ class NoteIndexer(
             }
         }
 
+        is CalloutBlock -> block.text.trim().ifBlank { null }?.let { title -> "${block.calloutType.label}: $title" }
+
         is CodeBlock -> buildString {
             append("Code")
             if (block.language.isNotBlank() && block.language != "plaintext") {

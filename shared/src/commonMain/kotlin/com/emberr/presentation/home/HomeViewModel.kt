@@ -375,6 +375,7 @@ class HomeViewModel(
                             is BulletedListBlock -> block.text.lowercase().contains(q)
                             is NumberedListBlock -> block.text.lowercase().contains(q)
                             is ToggleBlock -> block.text.lowercase().contains(q)
+                            is CalloutBlock -> block.text.lowercase().contains(q)
                             is CodeBlock -> block.code.lowercase().contains(q)
                             is BookmarkBlock -> {
                                 block.url.lowercase().contains(q) ||

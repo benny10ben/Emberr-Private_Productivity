@@ -23,6 +23,7 @@ class LanSyncSchemaTest {
         "bullet" to "id, text, indentationLevel, textAlignment, inlineSpans, isBold, isItalic, isStrikeThrough, isUnderlined, isHighlighted, highlightColorName, isDeleted, isPinned, updatedAt",
         "number" to "id, text, number, indentationLevel, textAlignment, inlineSpans, isBold, isItalic, isStrikeThrough, isUnderlined, isHighlighted, highlightColorName, isDeleted, isPinned, updatedAt",
         "toggle" to "id, text, isExpanded, indentationLevel, textAlignment, inlineSpans, isBold, isItalic, isStrikeThrough, isUnderlined, isHighlighted, highlightColorName, isDeleted, isPinned, updatedAt",
+        "callout" to "id, text, calloutTypeName, isFoldable, isExpanded, indentationLevel, textAlignment, inlineSpans, isBold, isItalic, isStrikeThrough, isUnderlined, isHighlighted, highlightColorName, isDeleted, isPinned, updatedAt",
         "code" to "id, code, language, indentationLevel, textAlignment, isBold, isItalic, isStrikeThrough, isUnderlined, isHighlighted, isDeleted, isPinned, updatedAt",
         "bookmark" to "id, url, title, description, previewImageUrl, indentationLevel, isBold, isItalic, isStrikeThrough, isUnderlined, isHighlighted, isDeleted, isPinned, updatedAt",
         "linked_note" to "id, linkedNoteId, showIcon, showCoverImage, indentationLevel, isBold, isItalic, isStrikeThrough, isUnderlined, isHighlighted, isDeleted, isPinned, updatedAt",

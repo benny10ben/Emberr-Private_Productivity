@@ -1,6 +1,7 @@
 package com.emberr.presentation.shared.editor
 
 import androidx.compose.animation.*
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -60,12 +61,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.PopupProperties
 import com.emberr.domain.model.BookmarkBlock
 import com.emberr.domain.model.BulletedListBlock
+import com.emberr.domain.model.CalloutBlock
+import com.emberr.domain.model.CalloutType
 import com.emberr.domain.model.CanvasBlock
 import com.emberr.domain.model.CheckboxBlock
 import com.emberr.domain.database.LinkableDatabase
 import com.emberr.domain.model.DatabaseBlock
 import com.emberr.domain.model.DocumentBlock
 import com.emberr.domain.model.HeadingBlock
+import com.emberr.domain.model.idsOfBlocksInsideAToggleOrCallout
 import com.emberr.domain.model.ImageBlock
 import com.emberr.domain.model.LinkedNoteBlock
 import com.emberr.domain.model.NoteBlock
@@ -130,6 +134,7 @@ import emberr.shared.generated.resources.mouse_square2
 import emberr.shared.generated.resources.ordered_list
 import emberr.shared.generated.resources.plus
 import emberr.shared.generated.resources.quote_down2
+import emberr.shared.generated.resources.info
 import emberr.shared.generated.resources.redo_circle
 import emberr.shared.generated.resources.scissor2
 import emberr.shared.generated.resources.table
@@ -186,6 +191,9 @@ sealed interface SlashMenuIcon {
     data class Vector(val image: ImageVector, val size: Dp = SlashMenuIconSlot) : SlashMenuIcon
     data class Label(val text: String) : SlashMenuIcon
 }
+
+private const val EditorRowAnimationMillis = 300
+private const val EditorRowFadeOutMillis = 200
 
 data class SlashMenuItemData(
     val label: String,
@@ -304,6 +312,7 @@ interface EditorActions {
     fun onRequestCamera(blockId: String)
     suspend fun getNoteMetadata(noteId: String): NoteMetadataEntity?
     fun onUpdateLinkedNoteOptions(id: String, showIcon: Boolean, showCoverImage: Boolean)
+    fun onUpdateCalloutStyle(id: String, calloutType: CalloutType, isFoldable: Boolean)
     fun onUpdatePropertyText(id: String, text: String)
     fun onUpdatePropertyDate(id: String, range: PropertyDateRange)
     fun onUpdatePropertyTags(id: String, tags: List<String>)
@@ -482,7 +491,8 @@ fun EditorScreen(
                 }
 
                 val lastSlashIndex = text.lastIndexOf('/')
-                val opensASlashCommand = lastSlashIndex != -1 && (
+                val isCalloutTitle = findBlockRecursive(latestBlocks, id) is CalloutBlock
+                val opensASlashCommand = !isCalloutTitle && lastSlashIndex != -1 && (
                     lastSlashIndex == 0 ||
                         text[lastSlashIndex - 1] == ' ' ||
                         text[lastSlashIndex - 1] == '\n'
@@ -774,6 +784,8 @@ fun EditorScreen(
                 }
             )
     ) {
+        val calloutFrames = remember(blocks) { calloutFramesByRow(blocks) }
+        val idsOfChildBlocks = remember(blocks) { blocks.idsOfBlocksInsideAToggleOrCallout() }
         CompositionLocalProvider(LocalBringIntoViewSpec provides bringIntoViewSpec) {
         LazyColumn(
                 state = listState,
@@ -861,8 +873,15 @@ fun EditorScreen(
                         else -> null
                     }
 
+                    val rowAnimation = Modifier.animateItem(
+                        fadeInSpec = tween(EditorRowAnimationMillis),
+                        placementSpec = tween(EditorRowAnimationMillis, easing = FastOutSlowInEasing),
+                        fadeOutSpec = tween(EditorRowFadeOutMillis)
+                    )
+
                     val previousBlock = blocks.getOrNull(index - 1)
-                    val isFirstToggleChild = previousBlock is ToggleBlock && block.indentationLevel == previousBlock.indentationLevel + 1
+                    val isFirstChildOfToggleOrCallout = (previousBlock is ToggleBlock || previousBlock is CalloutBlock) &&
+                        block.indentationLevel == previousBlock.indentationLevel + 1
 
                     if (sectionLabelFor != null) {
                         val label = sectionLabelFor(block)
@@ -872,7 +891,7 @@ fun EditorScreen(
                                 text = label,
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                                modifier = Modifier
+                                modifier = rowAnimation
                                     .fillMaxWidth()
                                     .padding(horizontal = if (isDesktopPlatform) 36.dp else 16.dp)
                                     .padding(top = if (index == 0) 0.dp else 20.dp, bottom = 8.dp)
@@ -880,9 +899,12 @@ fun EditorScreen(
                         }
                     }
 
-                    Box(modifier = Modifier.fillMaxWidth()) {
+                    Box(modifier = rowAnimation.fillMaxWidth().drawCalloutFrames(calloutFrames[index], MaterialTheme.colorScheme.surface)) {
                         NoteBlockItem(
                             block = block,
+                            displayedIndentationLevel = displayedIndentationLevelOf(block, calloutFrames[index]),
+                            showsPinIcon = block.isPinned && block.id !in idsOfChildBlocks,
+                            modifier = Modifier.calloutContentPadding(calloutFrames[index]),
                             allLinkableNotes = allLinkableNotes,
                             customProperties = customProperties,
                             actions = wrappedActions,
@@ -900,7 +922,7 @@ fun EditorScreen(
                             onDismissCanvasLinkMenu = onDismissCanvasLinkMenu,
                             showDatabaseLinkMenu = showDatabaseLinkMenu,
                             onDismissDatabaseLinkMenu = onDismissDatabaseLinkMenu,
-                            isFirstToggleChild = isFirstToggleChild,
+                            isFirstChildOfToggleOrCallout = isFirstChildOfToggleOrCallout,
                             emptyNotePlaceholder = if (blocks.size == 1) emptyNotePlaceholder else "",
                             selectionRequest = selectionRequest,
                             validNoteIds = validNoteIds,
@@ -1159,6 +1181,9 @@ fun EditorToolbar(
                                     }
                                     ToolbarButton(onClick = { onChangeBlockType("quote") }) {
                                         Icon(painterResource(Res.drawable.quote_down2), "Quote", tint = tint, modifier = Modifier.size(customIconSize - 3.dp))
+                                    }
+                                    ToolbarButton(onClick = { onChangeBlockType("callout") }) {
+                                        Icon(painterResource(Res.drawable.info), "Callout", tint = tint, modifier = Modifier.size(customIconSize - 2.dp))
                                     }
                                     ToolbarButton(onClick = { onChangeBlockType("code") }) {
                                         Icon(painterResource(Res.drawable.code), "Code", tint = tint, modifier = Modifier.size(customIconSize))
@@ -1545,6 +1570,7 @@ fun buildSlashMenuSections(
         SlashMenuItemData("Numbered List", Res.drawable.ordered_list, 14.dp) { onChangeBlockType("number") },
         SlashMenuItemData("Toggle List", Res.drawable.arrow_right2) { onChangeBlockType("toggle") },
         SlashMenuItemData("Quote", Res.drawable.quote_down2, 14.dp) { onChangeBlockType("quote") },
+        SlashMenuItemData("Callout", Res.drawable.info) { onChangeBlockType("callout") },
         SlashMenuItemData("Code Block", Res.drawable.code) { onChangeBlockType("code") }
     )),
     SlashMenuSectionData("Media & Links", listOf(
@@ -2233,6 +2259,9 @@ fun BlockStyleBar(
                         }
                         ToolbarButton(onClick = { onChangeBlockType("quote") }) {
                             Icon(painterResource(Res.drawable.quote_down2), "Quote", tint = tint, modifier = Modifier.size(customIconSize - 3.dp))
+                        }
+                        ToolbarButton(onClick = { onChangeBlockType("callout") }) {
+                            Icon(painterResource(Res.drawable.info), "Callout", tint = tint, modifier = Modifier.size(customIconSize - 2.dp))
                         }
                         ToolbarButton(onClick = { onChangeBlockType("code") }) {
                             Icon(painterResource(Res.drawable.code), "Code", tint = tint, modifier = Modifier.size(customIconSize))

@@ -15,6 +15,7 @@ class NoteBlockHelpersTest {
         "BulletedListBlock",
         "NumberedListBlock",
         "ToggleBlock",
+        "CalloutBlock",
         "CodeBlock"
     )
 
@@ -25,7 +26,8 @@ class NoteBlockHelpersTest {
         "CheckboxBlock",
         "BulletedListBlock",
         "NumberedListBlock",
-        "ToggleBlock"
+        "ToggleBlock",
+        "CalloutBlock"
     )
 
     @Test

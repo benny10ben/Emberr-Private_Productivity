@@ -25,6 +25,7 @@ import kotlinx.datetime.minus
 import kotlinx.datetime.plus
 import kotlinx.datetime.todayIn
 import org.koin.compose.viewmodel.koinViewModel
+import com.emberr.domain.model.CalloutType
 import com.emberr.domain.model.NoteBlock
 import com.emberr.domain.model.PropertyDateRange
 import com.emberr.domain.model.TextAlignment
@@ -246,6 +247,7 @@ fun TasksScreen(
                         }
                         override suspend fun getNoteMetadata(noteId: String) = viewModel.getNoteMetadata(noteId)
                         override fun onUpdateLinkedNoteOptions(id: String, showIcon: Boolean, showCoverImage: Boolean) {}
+                        override fun onUpdateCalloutStyle(id: String, calloutType: CalloutType, isFoldable: Boolean) {}
                         override fun onUpdatePropertyText(id: String, text: String) {}
                         override fun onUpdatePropertyDate(id: String, range: PropertyDateRange) {}
                         override fun onUpdatePropertyTags(id: String, tags: List<String>) {}

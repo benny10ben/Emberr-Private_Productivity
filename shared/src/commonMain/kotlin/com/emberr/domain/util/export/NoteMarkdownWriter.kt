@@ -2,6 +2,7 @@ package com.emberr.domain.util.export
 
 import com.emberr.domain.model.BookmarkBlock
 import com.emberr.domain.model.BulletedListBlock
+import com.emberr.domain.model.CalloutBlock
 import com.emberr.domain.model.CanvasBlock
 import com.emberr.domain.model.CheckboxBlock
 import com.emberr.domain.model.CodeBlock
@@ -59,7 +60,7 @@ object NoteMarkdownWriter {
             timeZone = TimeZone.currentSystemDefault()
         )
 
-        val body = joinRenderedBlocks(visibleBlocks) { block -> renderBlock(block, options) }
+        val body = renderBlocks(visibleBlocks, options, indentationToIgnore = 0)
 
         return buildString {
             if (!title.isNullOrBlank()) {
@@ -69,6 +70,46 @@ object NoteMarkdownWriter {
             }
             append(body)
         }.trim()
+    }
+
+    private fun renderBlocks(blocks: List<NoteBlock>, options: RenderOptions, indentationToIgnore: Int): String {
+        val outerBlocks = mutableListOf<NoteBlock>()
+        val calloutBodies = mutableMapOf<String, List<NoteBlock>>()
+        var index = 0
+        while (index < blocks.size) {
+            val block = blocks[index]
+            outerBlocks.add(block)
+            index++
+            if (block is CalloutBlock) {
+                val body = blocks.drop(index).takeWhile { it.indentationLevel > block.indentationLevel }
+                calloutBodies[block.id] = body
+                index += body.size
+            }
+        }
+
+        return joinRenderedBlocks(outerBlocks) { block ->
+            val rendered = renderBlock(block, options, indentationToIgnore)
+            if (block is CalloutBlock) {
+                quoteCallout(block, rendered, calloutBodies.getValue(block.id), options, indentationToIgnore)
+            } else {
+                rendered
+            }
+        }
+    }
+
+    private fun quoteCallout(
+        callout: CalloutBlock,
+        renderedHeader: String,
+        body: List<NoteBlock>,
+        options: RenderOptions,
+        indentationToIgnore: Int
+    ): String {
+        val renderedBody = renderBlocks(body, options, indentationToIgnore = callout.indentationLevel + 1)
+        val calloutText = if (renderedBody.isEmpty()) renderedHeader else "$renderedHeader\n$renderedBody"
+        val indent = listIndentFor(callout, indentationToIgnore)
+        return calloutText
+            .split('\n')
+            .joinToString("\n") { line -> "$indent> $line".trimEnd() }
     }
 
     private fun joinRenderedBlocks(
@@ -99,8 +140,8 @@ object NoteMarkdownWriter {
         else -> false
     }
 
-    private fun renderBlock(block: NoteBlock, options: RenderOptions): String {
-        val indent = listIndentFor(block)
+    private fun renderBlock(block: NoteBlock, options: RenderOptions, indentationToIgnore: Int): String {
+        val indent = listIndentFor(block, indentationToIgnore)
         return when (block) {
             is TextBlock -> formatText(block, block.text)
             is HeadingBlock -> renderHeading(block)
@@ -115,6 +156,7 @@ object NoteMarkdownWriter {
             is BulletedListBlock -> renderListItem(block, block.text, BULLET_MARKER, indent)
             is NumberedListBlock -> renderListItem(block, block.text, "${block.number}. ", indent)
             is ToggleBlock -> renderListItem(block, block.text, TOGGLE_MARKER, indent)
+            is CalloutBlock -> renderCalloutHeader(block)
             is CodeBlock -> renderCode(block)
             is BookmarkBlock -> renderBookmark(block)
             is LinkedNoteBlock -> renderLinkedNote(block, options)
@@ -141,6 +183,16 @@ object NoteMarkdownWriter {
         formatText(block, block.text)
             .split('\n')
             .joinToString("\n") { line -> "> $line".trimEnd() }
+
+    private fun renderCalloutHeader(block: CalloutBlock): String {
+        val foldMarker = when {
+            !block.isFoldable -> ""
+            block.isExpanded -> "+"
+            else -> "-"
+        }
+        val formattedTitle = formatText(block, flattenLineBreaks(block.text))
+        return "[!${block.calloutTypeName.lowercase()}]$foldMarker $formattedTitle".trimEnd()
+    }
 
     private fun renderListItem(
         block: NoteBlock,
@@ -269,9 +321,9 @@ object NoteMarkdownWriter {
             wholeBlockHighlightColorName = block.highlightColorNameOrNull()
         )
 
-    private fun listIndentFor(block: NoteBlock): String =
+    private fun listIndentFor(block: NoteBlock, indentationToIgnore: Int): String =
         " ".repeat(SPACES_PER_INDENT_LEVEL)
-            .repeat(block.indentationLevel.coerceIn(0, MAX_INDENT_LEVELS))
+            .repeat((block.indentationLevel - indentationToIgnore).coerceIn(0, MAX_INDENT_LEVELS))
 
     private fun flattenLineBreaks(text: String): String = buildString(text.length) {
         for (character in text) {

@@ -4,6 +4,8 @@ import com.emberr.domain.database.DatabaseRow
 import com.emberr.domain.database.asExportBlocks
 import com.emberr.domain.model.BookmarkBlock
 import com.emberr.domain.model.BulletedListBlock
+import com.emberr.domain.model.CalloutBlock
+import com.emberr.domain.model.CalloutType
 import com.emberr.domain.model.CheckboxBlock
 import com.emberr.domain.model.CodeBlock
 import com.emberr.domain.model.DatabaseBlock
@@ -114,6 +116,59 @@ class ExportEngineTest {
     fun togglesBecomeAMarkedBulletInMarkdown() {
         assertEquals("- \u25B8 Details", markdownOf(ToggleBlock(id = "toggle-1", text = "Details")))
         assertEquals("▶ Details", plainTextOf(ToggleBlock(id = "toggle-1", text = "Details")))
+    }
+
+    @Test
+    fun aCalloutBecomesAnObsidianCalloutWithItsChildrenQuotedInside() {
+        val blocks = arrayOf(
+            CalloutBlock(id = "callout-1", text = "Remember", calloutTypeName = CalloutType.TIP.name, isFoldable = true, isExpanded = true),
+            TextBlock(id = "text-1", text = "Body line", indentationLevel = 1),
+            BulletedListBlock(id = "bullet-1", text = "Point", indentationLevel = 1),
+            BulletedListBlock(id = "bullet-2", text = "Sub point", indentationLevel = 2),
+            TextBlock(id = "text-2", text = "After")
+        )
+
+        assertEquals(
+            "> [!tip]+ Remember\n> Body line\n>\n> - Point\n>   - Sub point\n\nAfter",
+            markdownOf(*blocks)
+        )
+    }
+
+    @Test
+    fun aCalloutShowsWhetherItIsFoldedAndLeavesOutAMissingTitle() {
+        assertEquals("> [!note]", markdownOf(CalloutBlock(id = "callout-1")))
+        assertEquals(
+            "> [!warning]- Careful",
+            markdownOf(CalloutBlock(id = "callout-1", text = "Careful", calloutTypeName = CalloutType.WARNING.name, isFoldable = true, isExpanded = false))
+        )
+    }
+
+    @Test
+    fun aCalloutTypeFromANewerVersionIsExportedWithItsOwnName() {
+        assertEquals("> [!important] Read this", markdownOf(CalloutBlock(id = "callout-1", text = "Read this", calloutTypeName = "IMPORTANT")))
+    }
+
+    @Test
+    fun aCalloutInsideACalloutIsQuotedTwice() {
+        val blocks = arrayOf(
+            CalloutBlock(id = "callout-1", text = "Outer", calloutTypeName = CalloutType.INFO.name),
+            CalloutBlock(id = "callout-2", text = "Inner", calloutTypeName = CalloutType.BUG.name, indentationLevel = 1),
+            TextBlock(id = "text-1", text = "deep", indentationLevel = 2)
+        )
+
+        assertEquals("> [!info] Outer\n> > [!bug] Inner\n> > deep", markdownOf(*blocks))
+    }
+
+    @Test
+    fun aCalloutInPlainTextNamesItsTypeAndIndentsItsChildren() {
+        assertEquals(
+            "[Tip] Remember\n\tBody",
+            plainTextOf(
+                CalloutBlock(id = "callout-1", text = "Remember", calloutTypeName = CalloutType.TIP.name),
+                TextBlock(id = "text-1", text = "Body", indentationLevel = 1)
+            )
+        )
+        assertEquals("[Note]", plainTextOf(CalloutBlock(id = "callout-1")))
     }
 
     @Test
