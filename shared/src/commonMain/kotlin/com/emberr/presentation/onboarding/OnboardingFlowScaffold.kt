@@ -499,7 +499,7 @@ fun <T> OnboardingPanelTransition(
         targetState = targetState,
         modifier = modifier,
         transitionSpec = {
-            val crossFade = fadeIn(tween(600, delayMillis = 1200)) togetherWith fadeOut(tween(300))
+            val crossFade = fadeIn(tween(500, delayMillis = 800)) togetherWith fadeOut(tween(300))
 
             crossFade using SizeTransform { _, _ ->
                 tween(OnboardingGlideDurationMillis, easing = OnboardingGlideEasing)
