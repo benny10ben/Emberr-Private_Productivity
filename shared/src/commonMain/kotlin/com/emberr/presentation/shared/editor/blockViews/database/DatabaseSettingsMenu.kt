@@ -1,20 +1,9 @@
 package com.emberr.presentation.shared.editor.blockViews.database
 
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.size
-import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.key
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.scale
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.unit.dp
 import com.emberr.domain.database.activeView
 import com.emberr.domain.database.builtInPropertiesNotYetAdded
 import com.emberr.domain.database.canGroupBy
@@ -37,6 +26,7 @@ import com.emberr.domain.model.PropertyValueType
 import com.emberr.domain.model.columnKey
 import com.emberr.domain.model.labelOf
 import com.emberr.domain.model.valueTypeOf
+import com.emberr.presentation.shared.components.EmberrSwitch
 import com.emberr.presentation.shared.editor.DatabaseBlockEditor
 import com.emberr.presentation.shared.editor.blockViews.property.iconResource
 import emberr.shared.generated.resources.Res
@@ -69,20 +59,20 @@ internal fun DatabaseSettingsMenu(
         DatabaseMenuOption(
             label = "Show icon",
             icon = { DatabaseOptionIcon(Res.drawable.ghost_smile) },
-            trailing = { DatabaseSettingSwitch(isOn = activeView.showsIcon) },
+            trailing = { EmberrSwitch(isOn = activeView.showsIcon) },
             onClick = { editor.setViewShowsIcon(block.id, activeView.id, !activeView.showsIcon) }
         )
         if (activeView.type == DatabaseViewType.TABLE) {
             DatabaseMenuOption(
                 label = "Freeze title column",
                 icon = { DatabaseOptionIcon(Res.drawable.pin_tack) },
-                trailing = { DatabaseSettingSwitch(isOn = activeView.freezesTitleColumn) },
+                trailing = { EmberrSwitch(isOn = activeView.freezesTitleColumn) },
                 onClick = { editor.changeView(block.id, activeView.id) { it.copy(freezesTitleColumn = !it.freezesTitleColumn) } }
             )
             DatabaseMenuOption(
                 label = "Wrap cell text",
                 icon = { DatabaseOptionIcon(Res.drawable.textalign_justifycenter2) },
-                trailing = { DatabaseSettingSwitch(isOn = activeView.wrapsCellText) },
+                trailing = { EmberrSwitch(isOn = activeView.wrapsCellText) },
                 onClick = { editor.changeView(block.id, activeView.id) { it.copy(wrapsCellText = !it.wrapsCellText) } }
             )
         }
@@ -90,7 +80,7 @@ internal fun DatabaseSettingsMenu(
             DatabaseMenuOption(
                 label = "Show cover image",
                 icon = { DatabaseOptionIcon(Res.drawable.image) },
-                trailing = { DatabaseSettingSwitch(isOn = activeView.showsCoverImage) },
+                trailing = { EmberrSwitch(isOn = activeView.showsCoverImage) },
                 onClick = { editor.setViewShowsCoverImage(block.id, activeView.id, !activeView.showsCoverImage) }
             )
         }
@@ -175,7 +165,7 @@ internal fun DatabaseSettingsMenu(
                     DatabaseMenuOption(
                         label = block.labelOf(column),
                         icon = { DatabaseOptionIcon(block.iconOf(column)) },
-                        trailing = { DatabaseSettingSwitch(isOn = isShown) },
+                        trailing = { EmberrSwitch(isOn = isShown) },
                         onClick = { editor.setColumnShown(block.id, activeView.id, column, !isShown) }
                     )
                 }
@@ -187,14 +177,14 @@ internal fun DatabaseSettingsMenu(
         DatabaseMenuOption(
             label = "Row count",
             icon = { DatabaseOptionIcon(Res.drawable.hash) },
-            trailing = { DatabaseSettingSwitch(isOn = block.showsRowCount) },
+            trailing = { EmberrSwitch(isOn = block.showsRowCount) },
             onClick = { editor.setShowsRowCount(block.id, !block.showsRowCount) }
         )
         DatabaseColorRulesOption(block = block, editor = editor)
         DatabaseMenuOption(
             label = "Lock database",
             icon = { DatabaseOptionIcon(Res.drawable.lock) },
-            trailing = { DatabaseSettingSwitch(isOn = block.isLocked) },
+            trailing = { EmberrSwitch(isOn = block.isLocked) },
             onClick = { closeAnd { editor.setLocked(block.id, true) } }
         )
     }
@@ -319,7 +309,7 @@ private fun DatabaseBoardGroupingOptions(block: DatabaseBlock, view: DatabaseVie
     DatabaseMenuOption(
         label = "Hide empty groups",
         icon = { DatabaseOptionIcon(Res.drawable.eye3) },
-        trailing = { DatabaseSettingSwitch(isOn = view.hidesEmptyGroups) },
+        trailing = { EmberrSwitch(isOn = view.hidesEmptyGroups) },
         onClick = { editor.changeView(block.id, view.id) { it.copy(hidesEmptyGroups = !it.hidesEmptyGroups) } }
     )
 
@@ -397,25 +387,4 @@ private fun DatabaseSettingValueText(text: String) {
         color = MaterialTheme.colorScheme.outline,
         maxLines = 1
     )
-}
-
-@Composable
-internal fun DatabaseSettingSwitch(isOn: Boolean) {
-    Box(modifier = Modifier.size(width = 40.dp, height = 24.dp), contentAlignment = Alignment.Center) {
-        CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
-            Switch(
-                checked = isOn,
-                onCheckedChange = null,
-                modifier = Modifier.scale(0.75f),
-                colors = SwitchDefaults.colors(
-                    checkedThumbColor = MaterialTheme.colorScheme.surface,
-                    checkedTrackColor = MaterialTheme.colorScheme.primary,
-                    checkedBorderColor = Color.Transparent,
-                    uncheckedThumbColor = MaterialTheme.colorScheme.outline,
-                    uncheckedTrackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.10f),
-                    uncheckedBorderColor = Color.Transparent
-                )
-            )
-        }
-    }
 }

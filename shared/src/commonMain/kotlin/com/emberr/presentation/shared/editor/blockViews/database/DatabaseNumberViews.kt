@@ -47,6 +47,7 @@ import com.emberr.domain.model.PropertyBlock
 import com.emberr.domain.model.TextAlignment
 import com.emberr.domain.model.isNumberBeingTyped
 import com.emberr.domain.model.numberOrNull
+import com.emberr.presentation.shared.components.EmberrSwitch
 import com.emberr.presentation.shared.components.EmberrTextField
 import com.emberr.presentation.shared.editor.DatabaseBlockEditor
 import com.emberr.presentation.shared.editor.blockViews.property.PropertyTextValue
@@ -256,7 +257,7 @@ internal fun DatabaseNumberFormatOption(
             }
             DatabaseMenuOption(
                 label = "Show number",
-                trailing = { DatabaseSettingSwitch(isOn = format.showsNumberWithProgress) },
+                trailing = { EmberrSwitch(isOn = format.showsNumberWithProgress) },
                 onClick = { save(format.copy(showsNumberWithProgress = !format.showsNumberWithProgress)) }
             )
         }

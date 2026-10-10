@@ -4,6 +4,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import com.emberr.domain.model.DEFAULT_PROPERTY_TIME
 import com.emberr.domain.model.PropertyDateRange
+import com.emberr.presentation.shared.components.EmberrSwitch
 import com.emberr.presentation.shared.components.MinimalDatePickerDialog
 import com.emberr.presentation.shared.components.MinimalTimePickerDialog
 import com.emberr.presentation.shared.editor.blockViews.database.DatabaseMenu
@@ -11,7 +12,6 @@ import com.emberr.presentation.shared.editor.blockViews.database.DatabaseMenuOpt
 import com.emberr.presentation.shared.editor.blockViews.database.DatabaseMenuSectionDivider
 import com.emberr.presentation.shared.editor.blockViews.database.DatabaseMenuSectionLabel
 import com.emberr.presentation.shared.editor.blockViews.database.DatabaseOptionIcon
-import com.emberr.presentation.shared.editor.blockViews.database.DatabaseSettingSwitch
 import emberr.shared.generated.resources.Res
 import emberr.shared.generated.resources.calendar_day
 import emberr.shared.generated.resources.clock_circle
@@ -61,12 +61,12 @@ internal fun PropertyDateEditor(
         DatabaseMenuSectionDivider()
         DatabaseMenuOption(
             label = "End date",
-            trailing = { DatabaseSettingSwitch(isOn = range.hasEnd) },
+            trailing = { EmberrSwitch(isOn = range.hasEnd) },
             onClick = { onRangeChange(range.withEndDateShown(!range.hasEnd)) }
         )
         DatabaseMenuOption(
             label = "Include time",
-            trailing = { DatabaseSettingSwitch(isOn = range.includesTime) },
+            trailing = { EmberrSwitch(isOn = range.includesTime) },
             onClick = { onRangeChange(range.withTimeIncluded(!range.includesTime)) }
         )
 
