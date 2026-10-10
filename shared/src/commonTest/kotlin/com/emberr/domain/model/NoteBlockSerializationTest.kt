@@ -33,6 +33,7 @@ class NoteBlockSerializationTest {
         "BulletedListBlock" to "bullet",
         "NumberedListBlock" to "number",
         "ToggleBlock" to "toggle",
+        "CalloutBlock" to "callout",
         "CodeBlock" to "code",
         "BookmarkBlock" to "bookmark",
         "LinkedNoteBlock" to "linked_note",

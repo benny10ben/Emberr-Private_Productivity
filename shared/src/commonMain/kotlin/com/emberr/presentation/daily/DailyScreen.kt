@@ -26,6 +26,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import org.koin.compose.viewmodel.koinViewModel
+import com.emberr.domain.model.CalloutType
 import com.emberr.domain.model.NoteBlock
 import com.emberr.domain.model.PropertyDateRange
 import com.emberr.domain.model.TextAlignment
@@ -236,7 +237,7 @@ fun DailyScreen(
             override fun onClearFocusRequest() = viewModel.clearFocusRequest()
             override fun onUpdateText(id: String, text: String) = viewModel.updateBlockText(id, text)
             override fun onToggleCheckbox(id: String, checked: Boolean) = viewModel.toggleCheckbox(id, checked)
-            override fun onToggleExpand(id: String) = viewModel.toggleToggleBlock(id)
+            override fun onToggleExpand(id: String) = viewModel.toggleFoldedState(id)
             override fun onFocusBlock(id: String) = viewModel.setFocusedBlock(id)
             override fun onRequestCursorPosition(id: String, offset: Int) = viewModel.requestCursorPosition(id, offset)
             override fun onChangeBlockType(type: String) = viewModel.changeFocusedBlockType(type)
@@ -311,6 +312,8 @@ fun DailyScreen(
             override suspend fun getNoteMetadata(noteId: String) = viewModel.getNoteMetadata(noteId)
             override fun onUpdateLinkedNoteOptions(id: String, showIcon: Boolean, showCoverImage: Boolean) =
                 viewModel.updateLinkedNoteOptions(id, showIcon, showCoverImage)
+            override fun onUpdateCalloutStyle(id: String, calloutType: CalloutType, isFoldable: Boolean) =
+                viewModel.updateCalloutStyle(id, calloutType, isFoldable)
             override fun onUpdatePropertyText(id: String, text: String) = viewModel.updatePropertyText(id, text)
             override fun onUpdatePropertyDate(id: String, range: PropertyDateRange) = viewModel.updatePropertyDate(id, range)
             override fun onUpdatePropertyTags(id: String, tags: List<String>) = viewModel.updatePropertyTags(id, tags)

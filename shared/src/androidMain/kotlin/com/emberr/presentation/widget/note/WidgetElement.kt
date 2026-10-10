@@ -3,6 +3,7 @@ package com.emberr.presentation.widget.note
 
 import com.emberr.domain.model.BookmarkBlock
 import com.emberr.domain.model.BulletedListBlock
+import com.emberr.domain.model.CalloutBlock
 import com.emberr.domain.model.CanvasBlock
 import com.emberr.domain.model.CheckboxBlock
 import com.emberr.domain.model.CodeBlock
@@ -127,6 +128,8 @@ private fun convertBlockToElements(
     is NumberedListBlock -> textLine(block, block.text, WidgetTextStyleName.BODY, prefix = "${block.number}.  ")
 
     is ToggleBlock -> textLine(block, block.text, WidgetTextStyleName.BODY, prefix = "▸  ")
+
+    is CalloutBlock -> textLine(block, block.text, WidgetTextStyleName.BODY, prefix = "${block.calloutType.label}:  ")
 
     is CheckboxBlock -> textLine(
         block = block,

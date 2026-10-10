@@ -66,6 +66,7 @@ import androidx.compose.ui.unit.offset
 import androidx.compose.ui.window.Dialog
 import com.emberr.domain.model.BookmarkBlock
 import com.emberr.domain.model.BulletedListBlock
+import com.emberr.domain.model.CalloutBlock
 import com.emberr.domain.model.CheckboxBlock
 import com.emberr.domain.model.CodeBlock
 import com.emberr.domain.model.DocumentBlock
@@ -641,6 +642,13 @@ private fun TimelineBlockContent(
             isSearchMatch = isSearchMatch
         )
 
+        is CalloutBlock -> TimelinePrefixedText(
+            block = block,
+            prefix = block.calloutType.label,
+            text = block.text,
+            isSearchMatch = isSearchMatch
+        )
+
         is CodeBlock -> Row(verticalAlignment = Alignment.Top) {
             Icon(
                 painter = painterResource(Res.drawable.code),
@@ -921,6 +929,7 @@ private fun timelineBlockSearchText(block: NoteBlock): String = when (block) {
     is BulletedListBlock -> block.text
     is NumberedListBlock -> block.text
     is ToggleBlock -> block.text
+    is CalloutBlock -> block.text
     is CodeBlock -> block.code
     is BookmarkBlock -> "${block.title.orEmpty()} ${block.url}"
     is DocumentBlock -> block.fileName

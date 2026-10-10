@@ -19,6 +19,7 @@ fun extractTextFromBlock(block: NoteBlock): String? {
         is BulletedListBlock -> block.text
         is NumberedListBlock -> block.text
         is ToggleBlock -> block.text
+        is CalloutBlock -> block.text
         else -> null
     }
 }

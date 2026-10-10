@@ -35,6 +35,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.takeOrElse
 import androidx.compose.ui.input.key.*
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerEventType
@@ -61,6 +62,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.emberr.domain.model.BookmarkBlock
 import com.emberr.domain.model.BulletedListBlock
+import com.emberr.domain.model.CalloutBlock
 import com.emberr.domain.model.CanvasBlock
 import com.emberr.domain.model.CheckboxBlock
 import com.emberr.domain.util.system.triggerHapticFeedback
@@ -112,6 +114,9 @@ import com.emberr.presentation.shared.editor.blockViews.DocumentBlockView
 import com.emberr.presentation.shared.editor.blockViews.ImageBlockView
 import com.emberr.presentation.shared.editor.blockViews.AudioBlockView
 import com.emberr.presentation.shared.editor.blockViews.BookmarkBlockView
+import com.emberr.presentation.shared.editor.blockViews.CalloutOptionsMenu
+import com.emberr.presentation.shared.editor.blockViews.accentColor
+import com.emberr.presentation.shared.editor.blockViews.icon
 import com.emberr.presentation.shared.editor.blockViews.CanvasBlockView
 import com.emberr.presentation.shared.editor.blockViews.LinkedNoteBlockView
 import com.emberr.presentation.shared.editor.blockViews.property.PropertyBlockView
@@ -154,6 +159,8 @@ private fun TextAlignment.toComposeTextAlign(): TextAlign = when (this) {
 fun NoteBlockItem(
     block: NoteBlock,
     actions: EditorActions,
+    displayedIndentationLevel: Int = block.indentationLevel,
+    showsPinIcon: Boolean = block.isPinned,
     focusRequest: FocusRequest?,
     selectedBlockIds: ImmutableSet<String>,
     inSelectionMode: Boolean,
@@ -171,7 +178,7 @@ fun NoteBlockItem(
     onDismissCanvasLinkMenu: () -> Unit = {},
     showDatabaseLinkMenu: Boolean = false,
     onDismissDatabaseLinkMenu: () -> Unit = {},
-    isFirstToggleChild: Boolean = false,
+    isFirstChildOfToggleOrCallout: Boolean = false,
     emptyNotePlaceholder: String = "",
     selectionRequest: SelectionRequest? = null,
     validNoteIds: Set<String> = emptySet(),
@@ -197,13 +204,15 @@ fun NoteBlockItem(
         is BulletedListBlock -> block.text
         is NumberedListBlock -> block.text
         is ToggleBlock -> block.text
+        is CalloutBlock -> block.text
         is BookmarkBlock, is ImageBlock, is DocumentBlock, is TableBlock, is VoiceBlock -> ""
         else -> ""
     }
 
     val placeholderText = when {
         block is CheckboxBlock && block.reminderTimestamp != null -> "Untitled event"
-        isFirstToggleChild -> "Type something..."
+        block is CalloutBlock -> block.calloutType.label
+        isFirstChildOfToggleOrCallout -> "Type something..."
         else -> emptyNotePlaceholder
     }
 
@@ -213,6 +222,7 @@ fun NoteBlockItem(
     var showDatePicker by remember { mutableStateOf(false) }
     var showTimePicker by remember { mutableStateOf(false) }
     var isReminderPickerOpening by remember { mutableStateOf(false) }
+    var showCalloutOptions by remember { mutableStateOf(false) }
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
     val webLinkActions = rememberWebLinkActions()
@@ -284,6 +294,10 @@ fun NoteBlockItem(
             fontStyle = FontStyle.Italic,
             color = MaterialTheme.colorScheme.onSurface
         )
+        is CalloutBlock -> MaterialTheme.typography.bodyLarge.copy(
+            fontWeight = FontWeight.SemiBold,
+            color = block.calloutType.accentColor()
+        )
         else -> MaterialTheme.typography.bodyLarge.copy(
             color = MaterialTheme.colorScheme.onBackground
         )
@@ -322,12 +336,12 @@ fun NoteBlockItem(
 
     val desktopExtraPadding = if (isDesktopPlatform) 16.dp else 0.dp
     val startPadding = when {
-        block is TableBlock || block is DatabaseBlock -> (block.indentationLevel * 28).dp + desktopExtraPadding
-        block is CheckboxBlock -> (18 + (block.indentationLevel * 28)).dp + desktopExtraPadding
-        block is BulletedListBlock -> (18 + (block.indentationLevel * 28)).dp + desktopExtraPadding
-        block is NumberedListBlock -> (18 + (block.indentationLevel * 28)).dp + desktopExtraPadding
-        block is ToggleBlock -> (18 + (block.indentationLevel * 28)).dp + desktopExtraPadding
-        else -> (16 + (block.indentationLevel * 28)).dp + desktopExtraPadding
+        block is TableBlock || block is DatabaseBlock -> (displayedIndentationLevel * 28).dp + desktopExtraPadding
+        block is CheckboxBlock -> (18 + (displayedIndentationLevel * 28)).dp + desktopExtraPadding
+        block is BulletedListBlock -> (18 + (displayedIndentationLevel * 28)).dp + desktopExtraPadding
+        block is NumberedListBlock -> (18 + (displayedIndentationLevel * 28)).dp + desktopExtraPadding
+        block is ToggleBlock -> (18 + (displayedIndentationLevel * 28)).dp + desktopExtraPadding
+        else -> (16 + (displayedIndentationLevel * 28)).dp + desktopExtraPadding
     }
     val endPadding = (if (block is TableBlock || block is DatabaseBlock) 0.dp else 16.dp) + desktopExtraPadding
 
@@ -488,7 +502,7 @@ fun NoteBlockItem(
                 else -> (-2).dp
             }
 
-            if (block is CheckboxBlock || block is BulletedListBlock || block is NumberedListBlock || block is ToggleBlock) {
+            if (block is CheckboxBlock || block is BulletedListBlock || block is NumberedListBlock || block is ToggleBlock || block is CalloutBlock) {
                 Box(
                     modifier = Modifier
                         .padding(end = 4.dp)
@@ -522,6 +536,25 @@ fun NoteBlockItem(
                                 Icons.Default.ChevronRight, null,
                                 tint = MaterialTheme.colorScheme.onSurface,
                                 modifier = Modifier.size(32.dp).rotate(rotation).clickable { actions.onToggleExpand(block.id) }
+                            )
+                        }
+                        is CalloutBlock -> {
+                            Icon(
+                                block.calloutType.icon(), "Callout options",
+                                tint = block.calloutType.accentColor(),
+                                modifier = Modifier
+                                    .size(24.dp)
+                                    .clickable(
+                                        interactionSource = remember { MutableInteractionSource() },
+                                        indication = null
+                                    ) { afterKeyboardCloses { showCalloutOptions = true } }
+                                    .padding(2.dp)
+                            )
+                            CalloutOptionsMenu(
+                                expanded = showCalloutOptions,
+                                block = block,
+                                onDismiss = { showCalloutOptions = false },
+                                onUpdateStyle = { calloutType, isFoldable -> actions.onUpdateCalloutStyle(block.id, calloutType, isFoldable) }
                             )
                         }
                     }
@@ -582,6 +615,7 @@ fun NoteBlockItem(
                                 IsolatedEditorTextField(
                                     initialText = text,
                                     placeholderText = placeholderText,
+                                    placeholderColor = if (block is CalloutBlock) block.calloutType.accentColor().copy(alpha = 0.7f) else Color.Unspecified,
                                     blockId = block.id,
                                     isCodeBlock = block is CodeBlock,
                                     textStyle = textStyle,
@@ -939,9 +973,29 @@ fun NoteBlockItem(
                     }
                 }
             }
+
+            if (block is CalloutBlock && block.isFoldable) {
+                val foldRotation by animateFloatAsState(
+                    targetValue = if (block.isExpanded) 90f else 0f,
+                    animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing),
+                    label = "calloutFoldRotation"
+                )
+                Icon(
+                    Icons.Default.ChevronRight, if (block.isExpanded) "Fold callout" else "Unfold callout",
+                    tint = block.calloutType.accentColor(),
+                    modifier = Modifier
+                        .padding(end = if (showsPinIcon) 20.dp else 0.dp)
+                        .size(24.dp)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null
+                        ) { actions.onToggleExpand(block.id) }
+                        .rotate(foldRotation)
+                )
+            }
         }
 
-        if (block.isPinned) {
+        if (showsPinIcon) {
             Icon(
                 Icons.Default.PushPin, "Pinned",
                 tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
@@ -1007,6 +1061,7 @@ fun IsolatedEditorTextField(
     modifier: Modifier = Modifier,
     initialText: String,
     placeholderText: String = "",
+    placeholderColor: Color = Color.Unspecified,
     blockId: String,
     isCodeBlock: Boolean,
     textStyle: TextStyle,
@@ -1196,7 +1251,9 @@ fun IsolatedEditorTextField(
         if (tfv.text.isEmpty() && placeholderText.isNotEmpty()) {
             Text(
                 text = placeholderText,
-                style = textStyle.copy(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)),
+                style = textStyle.copy(
+                    color = placeholderColor.takeOrElse { MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f) }
+                ),
                 modifier = Modifier.fillMaxWidth()
             )
         }

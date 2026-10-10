@@ -20,6 +20,7 @@ import emberr.shared.generated.resources.format_bold
 import emberr.shared.generated.resources.highlight
 import emberr.shared.generated.resources.indent_left
 import emberr.shared.generated.resources.indent_right
+import emberr.shared.generated.resources.info
 import emberr.shared.generated.resources.italic
 import emberr.shared.generated.resources.mouse_square2
 import emberr.shared.generated.resources.ordered_list
@@ -138,6 +139,7 @@ fun BlockSelectionMenuContent(
                         SlashMenuItemData("Numbered List", Res.drawable.ordered_list, 14.dp, closeThen { onChangeBlockType("number") }),
                         SlashMenuItemData("Toggle List", Res.drawable.arrow_right2, action = closeThen { onChangeBlockType("toggle") }),
                         SlashMenuItemData("Quote", Res.drawable.quote_down2, 14.dp, closeThen { onChangeBlockType("quote") }),
+                        SlashMenuItemData("Callout", Res.drawable.info, action = closeThen { onChangeBlockType("callout") }),
                         SlashMenuItemData("Code Block", Res.drawable.code, action = closeThen { onChangeBlockType("code") })
                     )
                 )

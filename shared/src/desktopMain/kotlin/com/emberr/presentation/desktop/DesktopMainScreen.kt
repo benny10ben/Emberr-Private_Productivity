@@ -45,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import com.emberr.data.local.prefs.SettingsManager
 import com.emberr.data.local.room.entity.NoteKind
+import com.emberr.domain.model.CalloutType
 import com.emberr.domain.model.NoteBlock
 import com.emberr.domain.model.NoteContent
 import com.emberr.domain.model.TextAlignment
@@ -1821,7 +1822,7 @@ fun DesktopMainScreen(
                             override fun onClearFocusRequest() = dailyViewModel.clearFocusRequest()
                             override fun onUpdateText(id: String, text: String) = dailyViewModel.updateBlockText(id, text)
                             override fun onToggleCheckbox(id: String, checked: Boolean) = dailyViewModel.toggleCheckbox(id, checked)
-                            override fun onToggleExpand(id: String) = dailyViewModel.toggleToggleBlock(id)
+                            override fun onToggleExpand(id: String) = dailyViewModel.toggleFoldedState(id)
                             override fun onFocusBlock(id: String) = dailyViewModel.setFocusedBlock(id)
                             override fun onRequestCursorPosition(id: String, offset: Int) = dailyViewModel.requestCursorPosition(id, offset)
                             override fun onChangeBlockType(type: String) = dailyViewModel.changeFocusedBlockType(type)
@@ -1877,6 +1878,8 @@ fun DesktopMainScreen(
                             override suspend fun getNoteMetadata(noteId: String) = dailyViewModel.getNoteMetadata(noteId)
                             override fun onUpdateLinkedNoteOptions(id: String, showIcon: Boolean, showCoverImage: Boolean) =
                                 dailyViewModel.updateLinkedNoteOptions(id, showIcon, showCoverImage)
+                            override fun onUpdateCalloutStyle(id: String, calloutType: CalloutType, isFoldable: Boolean) =
+                                dailyViewModel.updateCalloutStyle(id, calloutType, isFoldable)
                             override fun onUpdatePropertyText(id: String, text: String) = dailyViewModel.updatePropertyText(id, text)
                             override fun onUpdatePropertyDate(id: String, range: PropertyDateRange) = dailyViewModel.updatePropertyDate(id, range)
                             override fun onUpdatePropertyTags(id: String, tags: List<String>) = dailyViewModel.updatePropertyTags(id, tags)

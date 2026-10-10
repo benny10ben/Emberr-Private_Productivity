@@ -66,6 +66,7 @@ import com.emberr.domain.database.withDatabaseColumnShown
 import com.emberr.domain.database.withRowIdsReplaced
 import com.emberr.domain.model.BookmarkBlock
 import com.emberr.domain.model.BulletedListBlock
+import com.emberr.domain.model.CalloutBlock
 import com.emberr.domain.model.CanvasBlock
 import com.emberr.domain.model.CheckboxBlock
 import com.emberr.domain.model.CodeBlock
@@ -418,6 +419,7 @@ class NoteRepositoryImpl(
                     is BulletedListBlock -> block.text
                     is NumberedListBlock -> block.text
                     is ToggleBlock -> block.text
+                    is CalloutBlock -> block.text
                     is CodeBlock -> block.code
                     else -> ""
                 }
@@ -640,6 +642,7 @@ class NoteRepositoryImpl(
         is BulletedListBlock -> block.text
         is NumberedListBlock -> block.text
         is ToggleBlock -> block.text
+        is CalloutBlock -> block.text
         is CodeBlock -> block.code
         is BookmarkBlock -> block.title?.takeIf { it.isNotBlank() } ?: block.url
         is DocumentBlock -> block.fileName

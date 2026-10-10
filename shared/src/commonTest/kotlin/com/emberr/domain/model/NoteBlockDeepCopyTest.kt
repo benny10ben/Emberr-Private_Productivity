@@ -44,6 +44,7 @@ class NoteBlockDeepCopyTest {
         is BulletedListBlock -> copy(id = other.id)
         is NumberedListBlock -> copy(id = other.id)
         is ToggleBlock -> copy(id = other.id)
+        is CalloutBlock -> copy(id = other.id)
         is CodeBlock -> copy(id = other.id)
         is BookmarkBlock -> copy(id = other.id)
         is LinkedNoteBlock -> copy(id = other.id)

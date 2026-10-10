@@ -234,6 +234,48 @@ data class ToggleBlock(
     override val updatedAt: Long = 0L
 ) : NoteBlock()
 
+enum class CalloutType(val label: String) {
+    NOTE("Note"),
+    ABSTRACT("Abstract"),
+    INFO("Info"),
+    TODO("Todo"),
+    TIP("Tip"),
+    SUCCESS("Success"),
+    QUESTION("Question"),
+    WARNING("Warning"),
+    FAILURE("Failure"),
+    DANGER("Danger"),
+    BUG("Bug"),
+    EXAMPLE("Example"),
+    QUOTE("Quote")
+}
+
+@Immutable
+@Serializable
+@SerialName("callout")
+data class CalloutBlock(
+    override val id: String,
+    val text: String = "",
+    val calloutTypeName: String = CalloutType.NOTE.name,
+    val isFoldable: Boolean = false,
+    val isExpanded: Boolean = true,
+    override val indentationLevel: Int = 0,
+    val textAlignment: TextAlignment = TextAlignment.LEFT,
+    val inlineSpans: List<InlineSpan> = emptyList(),
+    override val isBold: Boolean = false,
+    override val isItalic: Boolean = false,
+    override val isStrikeThrough: Boolean = false,
+    override val isUnderlined: Boolean = false,
+    override val isHighlighted: Boolean = false,
+    val highlightColorName: String? = null,
+    override val isDeleted: Boolean = false,
+    override val isPinned: Boolean = false,
+    override val updatedAt: Long = 0L
+) : NoteBlock() {
+    val calloutType: CalloutType get() = CalloutType.entries.firstOrNull { it.name == calloutTypeName } ?: CalloutType.NOTE
+    val showsBody: Boolean get() = !isFoldable || isExpanded
+}
+
 @Immutable
 @Serializable
 @SerialName("code")
@@ -633,6 +675,7 @@ fun NoteBlock.markDeleted(): NoteBlock = when (this) {
     is BulletedListBlock -> copy(isDeleted = true, updatedAt = System.currentTimeMillis())
     is NumberedListBlock -> copy(isDeleted = true, updatedAt = System.currentTimeMillis())
     is ToggleBlock -> copy(isDeleted = true, updatedAt = System.currentTimeMillis())
+    is CalloutBlock -> copy(isDeleted = true, updatedAt = System.currentTimeMillis())
     is CodeBlock -> copy(isDeleted = true, updatedAt = System.currentTimeMillis())
     is BookmarkBlock -> copy(isDeleted = true, updatedAt = System.currentTimeMillis())
     is LinkedNoteBlock -> copy(isDeleted = true, updatedAt = System.currentTimeMillis())
@@ -657,6 +700,7 @@ fun NoteBlock.textAlignmentOrNull(): TextAlignment? = when (this) {
     is BulletedListBlock -> textAlignment
     is NumberedListBlock -> textAlignment
     is ToggleBlock -> textAlignment
+    is CalloutBlock -> textAlignment
     is CodeBlock -> textAlignment
     else -> null
 }
@@ -669,6 +713,7 @@ fun NoteBlock.withTextAlignment(alignment: TextAlignment, now: Long): NoteBlock 
     is BulletedListBlock -> copy(textAlignment = alignment, updatedAt = now)
     is NumberedListBlock -> copy(textAlignment = alignment, updatedAt = now)
     is ToggleBlock -> copy(textAlignment = alignment, updatedAt = now)
+    is CalloutBlock -> copy(textAlignment = alignment, updatedAt = now)
     is CodeBlock -> copy(textAlignment = alignment, updatedAt = now)
     else -> this
 }
@@ -681,6 +726,7 @@ fun NoteBlock.inlineSpansOrEmpty(): List<InlineSpan> = when (this) {
     is BulletedListBlock -> inlineSpans
     is NumberedListBlock -> inlineSpans
     is ToggleBlock -> inlineSpans
+    is CalloutBlock -> inlineSpans
     else -> emptyList()
 }
 
@@ -692,6 +738,7 @@ fun NoteBlock.highlightColorNameOrNull(): String? = when (this) {
     is BulletedListBlock -> highlightColorName
     is NumberedListBlock -> highlightColorName
     is ToggleBlock -> highlightColorName
+    is CalloutBlock -> highlightColorName
     else -> null
 }
 
@@ -703,6 +750,7 @@ fun NoteBlock.withHighlight(isHighlighted: Boolean, colorName: String?, now: Lon
     is BulletedListBlock -> copy(isHighlighted = isHighlighted, highlightColorName = colorName, updatedAt = now)
     is NumberedListBlock -> copy(isHighlighted = isHighlighted, highlightColorName = colorName, updatedAt = now)
     is ToggleBlock -> copy(isHighlighted = isHighlighted, highlightColorName = colorName, updatedAt = now)
+    is CalloutBlock -> copy(isHighlighted = isHighlighted, highlightColorName = colorName, updatedAt = now)
     else -> this
 }
 
@@ -714,6 +762,7 @@ fun NoteBlock.withInlineSpans(spans: List<InlineSpan>, now: Long): NoteBlock = w
     is BulletedListBlock -> copy(inlineSpans = spans, updatedAt = now)
     is NumberedListBlock -> copy(inlineSpans = spans, updatedAt = now)
     is ToggleBlock -> copy(inlineSpans = spans, updatedAt = now)
+    is CalloutBlock -> copy(inlineSpans = spans, updatedAt = now)
     else -> this
 }
 
@@ -724,6 +773,7 @@ fun NoteBlock.withPin(pinned: Boolean, now: Long): NoteBlock = when (this) {
     is BulletedListBlock -> copy(isPinned = pinned, updatedAt = now)
     is NumberedListBlock -> copy(isPinned = pinned, updatedAt = now)
     is ToggleBlock -> copy(isPinned = pinned, updatedAt = now)
+    is CalloutBlock -> copy(isPinned = pinned, updatedAt = now)
     is CodeBlock -> copy(isPinned = pinned, updatedAt = now)
     is BookmarkBlock -> copy(isPinned = pinned, updatedAt = now)
     is LinkedNoteBlock -> copy(isPinned = pinned, updatedAt = now)
@@ -747,6 +797,7 @@ fun NoteBlock.withUpdatedAt(now: Long): NoteBlock = when (this) {
     is BulletedListBlock -> copy(updatedAt = now)
     is NumberedListBlock -> copy(updatedAt = now)
     is ToggleBlock -> copy(updatedAt = now)
+    is CalloutBlock -> copy(updatedAt = now)
     is CodeBlock -> copy(updatedAt = now)
     is BookmarkBlock -> copy(updatedAt = now)
     is LinkedNoteBlock -> copy(updatedAt = now)
@@ -770,6 +821,7 @@ fun NoteBlock.withDeleted(deleted: Boolean, now: Long): NoteBlock = when (this) 
     is BulletedListBlock -> copy(isDeleted = deleted, updatedAt = now)
     is NumberedListBlock -> copy(isDeleted = deleted, updatedAt = now)
     is ToggleBlock -> copy(isDeleted = deleted, updatedAt = now)
+    is CalloutBlock -> copy(isDeleted = deleted, updatedAt = now)
     is CodeBlock -> copy(isDeleted = deleted, updatedAt = now)
     is BookmarkBlock -> copy(isDeleted = deleted, updatedAt = now)
     is LinkedNoteBlock -> copy(isDeleted = deleted, updatedAt = now)
@@ -803,6 +855,7 @@ fun NoteBlock.withId(newId: String): NoteBlock {
         is BulletedListBlock -> copy(id = newId)
         is NumberedListBlock -> copy(id = newId)
         is ToggleBlock -> copy(id = newId)
+        is CalloutBlock -> copy(id = newId)
         is CodeBlock -> copy(id = newId)
         is BookmarkBlock -> copy(id = newId)
         is LinkedNoteBlock -> copy(id = newId)

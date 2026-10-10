@@ -97,6 +97,21 @@ object TestNoteBlocks {
             inlineSpans = listOf(everyInlineStyle),
             updatedAt = 107L
         ),
+        CalloutBlock(
+            id = "callout-1",
+            text = "Remember this",
+            calloutTypeName = CalloutType.WARNING.name,
+            isFoldable = true,
+            isExpanded = false,
+            indentationLevel = 1,
+            textAlignment = TextAlignment.CENTER,
+            inlineSpans = listOf(everyInlineStyle),
+            isBold = true,
+            isHighlighted = true,
+            highlightColorName = "blue",
+            isPinned = true,
+            updatedAt = 120L
+        ),
         CodeBlock(
             id = "code-1",
             code = "val answer = 42",

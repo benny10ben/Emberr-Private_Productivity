@@ -137,6 +137,7 @@ abstract class BaseEditorViewModel(
                     is BulletedListBlock -> "${block.id}:${block.text}"
                     is NumberedListBlock -> "${block.id}:${block.text}"
                     is ToggleBlock -> "${block.id}:${block.text}"
+                    is CalloutBlock -> "${block.id}:${block.text}"
                     is CodeBlock -> "${block.id}:${block.code}"
                     is QuoteBlock -> "${block.id}:${block.text}"
                     is PropertyBlock -> "${block.id}:${block.label}:${block.valueAsText()}"
@@ -166,6 +167,7 @@ abstract class BaseEditorViewModel(
             }
             visible.add(block)
             if (block is ToggleBlock && !block.isExpanded) skipUntilLevel = block.indentationLevel
+            if (block is CalloutBlock && !block.showsBody) skipUntilLevel = block.indentationLevel
         }
         return visible
     }
@@ -386,7 +388,7 @@ abstract class BaseEditorViewModel(
     protected fun modifyBlocks(action: (List<NoteBlock>) -> List<NoteBlock>) {
         lateinit var newList: List<NoteBlock>
         val currentList = _blocks.getAndUpdate { list ->
-            val rawList = action(list)
+            val rawList = action(list).withChildrenPinnedLikeTheirToggleOrCallout(now = System.currentTimeMillis())
 
             val segregatedList = if (rawList.any { it.isPinned }) {
                 val pinned = rawList.filter { it.isPinned }
@@ -458,6 +460,7 @@ abstract class BaseEditorViewModel(
         is BulletedListBlock -> block.text
         is NumberedListBlock -> block.text
         is ToggleBlock -> block.text
+        is CalloutBlock -> block.text
         is QuoteBlock -> block.text
         is CodeBlock -> block.code
         is PropertyBlock -> block.text
@@ -881,11 +884,15 @@ abstract class BaseEditorViewModel(
         scheduleAutosave()
     }
 
-    fun toggleToggleBlock(blockId: String) {
+    fun toggleFoldedState(blockId: String) {
         val now = System.currentTimeMillis()
         modifyBlocks { list ->
             mapBlockById(list, blockId) {
-                if (it is ToggleBlock) it.copy(isExpanded = !it.isExpanded, updatedAt = now) else it
+                when (it) {
+                    is ToggleBlock -> it.copy(isExpanded = !it.isExpanded, updatedAt = now)
+                    is CalloutBlock -> it.copy(isExpanded = !it.isExpanded, updatedAt = now)
+                    else -> it
+                }
             }
         }
         scheduleAutosave()
@@ -972,6 +979,7 @@ abstract class BaseEditorViewModel(
         is BulletedListBlock -> b.copy(isBold = bld, isItalic = itl, isStrikeThrough = stk, isUnderlined = und, isHighlighted = hlt, updatedAt = now)
         is NumberedListBlock -> b.copy(isBold = bld, isItalic = itl, isStrikeThrough = stk, isUnderlined = und, isHighlighted = hlt, updatedAt = now)
         is ToggleBlock -> b.copy(isBold = bld, isItalic = itl, isStrikeThrough = stk, isUnderlined = und, isHighlighted = hlt, updatedAt = now)
+        is CalloutBlock -> b.copy(isBold = bld, isItalic = itl, isStrikeThrough = stk, isUnderlined = und, isHighlighted = hlt, updatedAt = now)
         is CodeBlock -> b
         is QuoteBlock -> b.copy(isBold = bld, isItalic = itl, isStrikeThrough = stk, isUnderlined = und, isHighlighted = hlt, updatedAt = now)
         else -> b
@@ -1392,6 +1400,7 @@ abstract class BaseEditorViewModel(
         is BulletedListBlock -> b.copy(indentationLevel = newLevel, updatedAt = now)
         is NumberedListBlock -> b.copy(indentationLevel = newLevel, updatedAt = now)
         is ToggleBlock -> b.copy(indentationLevel = newLevel, updatedAt = now)
+        is CalloutBlock -> b.copy(indentationLevel = newLevel, updatedAt = now)
         is QuoteBlock -> b.copy(indentationLevel = newLevel, updatedAt = now)
         else -> b
     }
@@ -1446,6 +1455,7 @@ abstract class BaseEditorViewModel(
                         is BulletedListBlock -> b.copy(text = cleanedText, updatedAt = now)
                         is NumberedListBlock -> b.copy(text = cleanedText, updatedAt = now)
                         is ToggleBlock -> b.copy(text = cleanedText, updatedAt = now)
+                        is CalloutBlock -> b.copy(text = cleanedText, updatedAt = now)
                         is CodeBlock -> b.copy(code = cleanedText, updatedAt = now)
                         is QuoteBlock -> b.copy(text = cleanedText, updatedAt = now)
                         else -> b
@@ -1472,6 +1482,7 @@ abstract class BaseEditorViewModel(
                         "bullet" -> BulletedListBlock(id, cleanedText, b.indentationLevel, inheritedAlignment, inheritedSpans, updatedAt = now)
                         "number" -> NumberedListBlock(id, cleanedText, 1, b.indentationLevel, inheritedAlignment, inheritedSpans, updatedAt = now)
                         "toggle" -> ToggleBlock(id, cleanedText, true, b.indentationLevel, inheritedAlignment, inheritedSpans, updatedAt = now)
+                        "callout" -> CalloutBlock(id, cleanedText, indentationLevel = b.indentationLevel, textAlignment = inheritedAlignment, inlineSpans = inheritedSpans, updatedAt = now)
                         "code" -> CodeBlock(id, cleanedText, textAlignment = inheritedAlignment, updatedAt = now)
                         "voice" -> VoiceBlock(id, indentationLevel = b.indentationLevel, updatedAt = now)
                         "divider_solid" -> SolidDividerBlock(id = id, indentationLevel = b.indentationLevel, updatedAt = now)
@@ -1481,7 +1492,7 @@ abstract class BaseEditorViewModel(
 
                     mutable[idx] = newBlock.withPin(b.isPinned, now)
 
-                    if (type == "toggle") {
+                    if (type == "toggle" || type == "callout") {
                         val nextBlock = mutable.getOrNull(idx + 1)
                         if (nextBlock == null || nextBlock.indentationLevel <= b.indentationLevel) {
                             mutable.add(idx + 1, TextBlock(UUID.randomUUID().toString(), "", b.indentationLevel + 1, inheritedAlignment, updatedAt = now))
@@ -1513,6 +1524,7 @@ abstract class BaseEditorViewModel(
                     "bullet" -> BulletedListBlock(b.id, text, b.indentationLevel, alignment, spans, updatedAt = now)
                     "number" -> NumberedListBlock(b.id, text, 1, b.indentationLevel, alignment, spans, updatedAt = now)
                     "toggle" -> ToggleBlock(b.id, text, true, b.indentationLevel, alignment, spans, updatedAt = now)
+                    "callout" -> CalloutBlock(b.id, text, indentationLevel = b.indentationLevel, textAlignment = alignment, inlineSpans = spans, updatedAt = now)
                     "code" -> CodeBlock(b.id, text, textAlignment = alignment, updatedAt = now)
                     else -> b
                 }
@@ -1542,6 +1554,7 @@ abstract class BaseEditorViewModel(
         is BulletedListBlock -> b.text
         is NumberedListBlock -> b.text
         is ToggleBlock -> b.text
+        is CalloutBlock -> b.text
         is CodeBlock -> b.code
         is QuoteBlock -> b.text
         else -> ""
@@ -1612,6 +1625,16 @@ abstract class BaseEditorViewModel(
                             ToggleBlock(newId, textAfter, false, cur.indentationLevel, inheritedAlignment, spansAfter, isPinned = cur.isPinned, updatedAt = now)
                         }
                     }
+                    is CalloutBlock -> {
+                        if (cur.showsBody) {
+                            TextBlock(newId, textAfter, cur.indentationLevel + 1, inheritedAlignment, spansAfter, isPinned = cur.isPinned, updatedAt = now)
+                        } else {
+                            var i = idx + 1
+                            while (i < mutable.size && mutable[i].indentationLevel > cur.indentationLevel) i++
+                            insertIdx = i
+                            TextBlock(newId, textAfter, cur.indentationLevel, inheritedAlignment, spansAfter, isPinned = cur.isPinned, updatedAt = now)
+                        }
+                    }
                     else -> TextBlock(newId, textAfter, cur.indentationLevel, inheritedAlignment, spansAfter, isPinned = cur.isPinned, updatedAt = now)
                 }
 
@@ -1660,7 +1683,7 @@ abstract class BaseEditorViewModel(
 
         val prevBlock = currentBlocks.subList(0, idx).lastOrNull { !it.isDeleted }
 
-        if (prevBlock is ToggleBlock && prevBlock.indentationLevel == cur.indentationLevel - 1) {
+        if ((prevBlock is ToggleBlock || prevBlock is CalloutBlock) && prevBlock.indentationLevel == cur.indentationLevel - 1) {
             val nextBlock = currentBlocks.subList(idx + 1, currentBlocks.size).firstOrNull { !it.isDeleted }
             val isOnlyChild = nextBlock == null || nextBlock.indentationLevel < cur.indentationLevel
             if (isOnlyChild) return
@@ -1837,6 +1860,7 @@ abstract class BaseEditorViewModel(
         is BulletedListBlock -> b.copy(text = newText, inlineSpans = spans, updatedAt = now)
         is NumberedListBlock -> b.copy(text = newText, inlineSpans = spans, updatedAt = now)
         is ToggleBlock -> b.copy(text = newText, inlineSpans = spans, updatedAt = now)
+        is CalloutBlock -> b.copy(text = newText, inlineSpans = spans, updatedAt = now)
         is CodeBlock -> b.copy(code = newText, updatedAt = now)
         is QuoteBlock -> b.copy(text = newText, inlineSpans = spans, updatedAt = now)
         else -> b
@@ -2236,6 +2260,20 @@ abstract class BaseEditorViewModel(
         modifyBlocks { list ->
             mapBlockById(list, blockId) {
                 if (it is LinkedNoteBlock) it.copy(showIcon = showIcon, showCoverImage = showCoverImage, updatedAt = now) else it
+            }
+        }
+        scheduleAutosave()
+    }
+
+    fun updateCalloutStyle(blockId: String, calloutType: CalloutType, isFoldable: Boolean) {
+        val now = System.currentTimeMillis()
+        modifyBlocks { list ->
+            mapBlockById(list, blockId) {
+                if (it is CalloutBlock) {
+                    it.copy(calloutTypeName = calloutType.name, isFoldable = isFoldable, isExpanded = it.isExpanded || !isFoldable, updatedAt = now)
+                } else {
+                    it
+                }
             }
         }
         scheduleAutosave()
